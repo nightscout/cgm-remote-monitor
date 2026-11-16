@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 const trustedWorker = require('../lib/trusted-worker/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false) {
+function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
   const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0 };
@@ -49,7 +49,13 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     './evaluator-pool': { create: () => gate },
     './pool-config': { pool: () => ({ max: 2 }), tenantReadiness: () => 'serve', startupConcurrency: () => 1 },
     '../../trusted-worker/postgres': { create (options) { reader = trustedWorker.create(options); return reader; } },
-    '../../trusted-worker/lifecycle': realLifecycle ? (value, options) => require('../lib/trusted-worker/lifecycle')(value, { ...options, schedule: fn => { calls.timers.push(fn); return { unref () {} }; }, cancel () {} }) : async value => { await value.verify(); return { verify: () => value.verify(), version: () => 1, activateRefresh () {}, async close () {} }; },
+    '../../trusted-worker/lifecycle': realLifecycle ? (value, options) => {
+      const filename=require.resolve('../lib/trusted-worker/lifecycle'),loaded=new Module(filename,module);
+      loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
+      loaded.require=name=>name==='synthetic-interval' ? fn=>{calls.timers.push(fn);return {unref(){}};} : Module.prototype.require.call(loaded,name);
+      loaded._compile("'use strict'; const setInterval=require('synthetic-interval');\n"+lifecycleChange(fs.readFileSync(filename,'utf8')),filename);
+      return loaded.exports(value,options);
+    } : async value => { await value.verify(); return { verify: () => value.verify(), async close () {} }; },
     '../../pgstream/evaluator': { async open (options) { callbacks = options; return { store, async ready () { await state.atReady(); }, async close () {}, assertAvailable () {}, health: () => ({ healthy: true }) }; } },
     './tenant-startup': { create: () => ({ async warm () {}, async close () {}, isReady: () => true }) },
     './evaluator-consumers': { async prepare () { return { start () {}, async recover () { calls.deliveryRecovery++; }, async close () {} }; } },
@@ -155,8 +161,8 @@ describe('evaluator schema work bounds', function () {
       finally { await service.close(); }
     });
   }
-  async function quietCriterion (change = text => text) {
-    const f = fixture(65, false, 0, change, true), service = await f.boot();
+  async function quietCriterion (selected, lifecycleChange = text => text) {
+    const f = fixture(65, selected, 0, text => text, true, lifecycleChange), service = await f.boot();
     try {
       const scans = f.calls.scans.length, verified = f.calls.verify, wakes = f.calls.wakes.length;
       // The injected scheduler exposes every idle actor without wall-clock waits.
@@ -170,9 +176,11 @@ describe('evaluator schema work bounds', function () {
       assert.deepEqual(f.calls.scans.at(-1), f.ids, 'ACTUAL_RECOVERY_RECONCILES_ROSTER');
     } finally { await service.close(); }
   }
-  it('quiet streaming has no metadata SQL/roster timer, while schema and transport recovery still reconcile', () => quietCriterion());
-  it('revalidates unavailable metadata only when addressed work arrives and retains real structural refusal', async () => {
-    const f = fixture(2, false, 0, text => text, true), service = await f.boot();
+  for (const selected of [false,true]) {
+  const name=selected?'selected fixed-v1':'global';
+  it(name+' quiet streaming has no metadata SQL/roster timer, while schema and transport recovery still reconcile', () => quietCriterion(selected));
+  async function readmissionCriterion (change = text => text) {
+    const f = fixture(2, selected, 0, change, true), service = await f.boot();
     try {
       const verified=f.calls.verify; f.reader().invalidate();
       assert.equal(f.calls.verify,verified,'FAILURE_MUST_NOT_START_A_DISCOVERY_POLL');
@@ -183,12 +191,28 @@ describe('evaluator schema work bounds', function () {
       await assert.rejects(f.schedulerOptions().scan([f.ids[0]]),/TRUSTED_WORKER_UNAVAILABLE/);
       assert.equal(f.reader().state().available,false);
     } finally { await service.close(); }
+  }
+  it(name+' revalidates unavailable metadata only when addressed work arrives and retains real structural refusal', () => readmissionCriterion());
+  it(name+' control: omitting work-triggered admission strands withdrawn authority; restored retries it', async () => {
+    await assert.rejects(readmissionCriterion(text=>{
+      const needle='if(!trusted.state().available)await operational.verify();';assert(text.includes(needle));return text.replace(needle,'');
+    }), /TRUSTED_WORKER_UNAVAILABLE/);
+    await readmissionCriterion();
   });
-  it('control: periodic admission reinstatement creates an idle actor; restored source has none', async () => {
-    await assert.rejects(quietCriterion(text => {
-      assert(text.includes('eventDriven: true')); return text.replace('eventDriven: true', 'eventDriven: false');
+  it(name+' control: periodic admission reinstatement creates an idle actor; restored source has none', async () => {
+    await assert.rejects(quietCriterion(selected, text => {
+      const needle='  return Object.freeze({ verify,';assert(text.includes(needle));
+      return text.replace(needle,'  setInterval(() => verify().catch(() => {}), 1000);\n'+needle);
     }), /QUIET_STREAM_MUST_HAVE_NO_METADATA_TIMER/);
-    await quietCriterion();
+    await quietCriterion(selected);
+  });
+  }
+  it('selected fixed-v1 non-intake worker revalidates addressed work without an idle metadata timer', async () => {
+    const f=fixture(65,true,1,text=>text,true),service=await f.boot();
+    try { assert.equal(f.calls.timers.length,0);const before=f.calls.verify;f.reader().invalidate();
+      await f.schedulerOptions().scan([f.ownIds[0]]);assert.equal(f.calls.verify,before+1);
+      assert.deepEqual(f.calls.scans.at(-1),[f.ownIds[0]]);
+    } finally { await service.close(); }
   });
   it('selected ordinal one reconciles its own slice before startup without an eager scan or intake bootstrap', async () => {
     const f = fixture(65, true, 1), service = await f.boot();

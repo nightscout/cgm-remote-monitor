@@ -70,13 +70,13 @@ describe('trusted worker metadata and operational scope', function () {
     assert.equal(f.reader.health().settingsReads, 2, 'TRUSTED_OLD_RESULT_NOT_CACHED');
     await f.reader.close();
   });
-  it('runs periodic operational verification outside the tenant that invokes its timer', async function () {
-    const f = fixture(); let timer, at = 0;
-    const lifecycle = await require('../lib/trusted-worker/lifecycle')(f.reader, { intervalMs: 10, retryMs: 1, now: () => at, schedule: fn => { timer = fn; return 1; }, cancel () {} });
-    const before = f.calls.length; at = 20;
+  it('runs explicit operational verification outside the requesting tenant', async function () {
+    const f = fixture();
+    const lifecycle = await require('../lib/trusted-worker/lifecycle')(f.reader);
+    const before = f.calls.length;
     const previousMode = scope.getTenancyMode();
     scope.setTenancyMode('multi');
-    try { await scope.withTenant(A, async () => { timer(); await lifecycle.verify(); }); }
+    try { await scope.withTenant(A, async () => { await lifecycle.verify(); }); }
     finally { scope.setTenancyMode(previousMode); }
     assert.equal(f.calls.length - before, 2);
     assert.ok(f.calls.every(row => row.tenant === undefined), 'TRUSTED_OPERATIONAL_OUTSIDE_TENANT');
@@ -253,84 +253,67 @@ describe('trusted evaluator dirty checkpoints', function () {
 
 describe('joined worker operational verification', function () {
   it('awaits the configured whole batch outside the invoking tenant scope', async function () {
-    const f=fixture();let timer,at=0,held=null,calls=0;
-    const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{intervalMs:10,retryMs:1,now:()=>at,schedule:fn=>{timer=fn;return 1;},cancel(){},verifyWorker:async()=>{
+    const f=fixture();let held=null,calls=0,pending;
+    const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{verifyWorker:async()=>{
       assert.equal(scope.currentTenant(),undefined);f.reader.invalidate();calls++;if(held)await held.promise;await f.reader.verify();
     }});
-    await f.reader.scan([A]);held=deferred();at=20;
+    await f.reader.scan([A]);held=deferred();
     const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
-    try { await scope.withTenant(A,async()=>{timer();assert.equal(f.reader.health().available,false);}); }
+    try { await scope.withTenant(A,async()=>{pending=lifecycle.verify();assert.equal(f.reader.health().available,false);}); }
     finally { scope.setTenancyMode(previous); }
-    const pending=lifecycle.verify();await assert.rejects(f.reader.read(A),/TRUSTED_WORKER_UNAVAILABLE/);
+    assert.equal(lifecycle.verify(),pending);await assert.rejects(f.reader.read(A),/TRUSTED_WORKER_UNAVAILABLE/);
     held.resolve();await pending;assert.equal(calls,2);assert.equal(f.reader.health().available,true);await lifecycle.close();await f.reader.close();
   });
 });
 
-describe('coordinated evaluator operational refresh', function () {
+describe('explicit worker verification and recovery', function () {
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  it('holds the real model epoch fence until verification and clinical completion finish, with one refresh', async function () {
-    const f = fixture(), source = 'a'.repeat(64);
-    let timer, at = 0, held, service, refreshes = 0;
+  it('coalesces explicit verification and adopts the model epoch only through real recovery', async function () {
+    const f = fixture(), source = 'a'.repeat(64); let held, service;
     const lifecycle = await require('../lib/trusted-worker/lifecycle')(f.reader, {
-      intervalMs: 10, now: () => at, schedule: fn => { timer = fn; return 1; }, cancel () {},
-      verifyWorker: async () => { assert.equal(scope.currentTenant(), undefined); f.reader.invalidate(); if (held) await held.promise; await f.reader.verify(); },
-      refreshWorker: async () => { refreshes++; await service.backstop([A, B], { recovery: true }); }
+      verifyWorker: async () => { assert.equal(scope.currentTenant(), undefined); f.reader.invalidate(); if (held) await held.promise; await f.reader.verify(); }
     });
     await f.reader.scan([A, B]);
     service = await runtime({ tenants: [A, B], externalRecovery: true,
-      readCurrent: async tenant => { const row = await f.reader.read(tenant); return { tenant, identity: 'b'.repeat(64), sourceIdentity: source, settingsVersion: row.version, policyGeneration: row.policyGeneration, settingsReadAt: row.readAt }; },
+      readCurrent: async tenant => { const row = await f.reader.read(tenant); return { tenant, identity: 'b'.repeat(64), sourceIdentity: source, settingsVersion: row.version, policyGeneration: row.policyGeneration }; },
       readMetadata: f.reader.scan, metadataCurrent: f.reader.current, readSource: () => source,
       create: async () => ({ evaluate: async () => ({ checkpoint: 1, signature: { stamp: 1, deleted: 0 } }), close () {} }),
       recoveryIntervalMs: 1000, timeIntervalMs: 1000, schedule: () => 1, cancel () {}, setTimer: () => 1, clearTimer () {} });
     try {
-      assert(service.health().tenants.every(row => row.ready));
-      held = deferred(); at = 20; timer(); timer(); await settle();
-      assert.equal(refreshes, 0, 'CLINICAL_REFRESH_MUST_WAIT_FOR_VERIFICATION');
-      assert(service.health().tenants.every(row => !row.ready));
-      assert.equal(service.last(A), null, 'OLD_EPOCH_OUTPUT_REFUSED');
-      held.resolve(); await lifecycle.verify(); await settle();
-      assert.equal(refreshes, 1, 'ONE_REFRESH_FOR_CONCURRENT_TIMER_TICKS');
-      assert(service.health().tenants.every(row => row.ready), 'VERIFIED_EPOCH_MUST_BE_ADOPTED_WITHOUT_ANOTHER_TIMER');
-      assert(service.health().tenants.every(row => row.progress.failedCompletions === 0));
-      assert.equal(service.last(A)?.eligible, true);
-    } finally { await lifecycle.close(); await service.close(); await f.reader.close(); }
+      held=deferred();const before=f.reader.health().operationalChecks,pending=lifecycle.verify();assert.equal(lifecycle.verify(),pending);
+      await settle();assert.equal(service.last(A),null,'WITHDRAWN_WORKER_OUTPUT_REFUSED');
+      held.resolve();await pending;
+      assert.equal(f.reader.health().operationalChecks,before+1,'ONE_CHECK_FOR_CONCURRENT_REQUESTS');
+      assert.equal(service.last(A),null,'VERIFICATION_ALONE_MUST_NOT_ADOPT_CLINICAL_EPOCH');
+      await service.backstop([A,B],{recovery:true});assert.equal(service.last(A)?.eligible,true);
+    } finally { held?.resolve();await lifecycle.close();await service.close();await f.reader.close(); }
   });
-  it('retains the custom settings cadence and retries failed refresh without repeating successful verification', async function () {
-    let timer, at = 0, verifies = 0, refreshes = 0, refuse = true;
-    const reader = { health: () => ({ available: true }), verify: async () => { verifies++; } };
-    const lifecycle = await require('../lib/trusted-worker/lifecycle')(reader, {
-      intervalMs: 100, refreshMs: 10, now: () => at, schedule: fn => { timer = fn; return 1; }, cancel () {},
-      refreshWorker: async () => { refreshes++; if (refuse) throw new Error('clinical guard refused'); }
-    });
-    try {
-      at = 11; timer(); await settle(); assert.equal(refreshes, 1); assert.equal(verifies, 1);
-      refuse = false; timer(); await settle(); assert.equal(refreshes, 2); assert.equal(verifies, 1);
-      timer(); await settle(); assert.equal(refreshes, 2);
-      // Manual schema/transport verification cannot run clinical work until its
-      // caller has reopened the feed. The next scheduled pass adopts the epoch.
-      await lifecycle.verify(); assert.equal(refreshes, 2); timer(); await settle(); assert.equal(refreshes, 3);
+  it('retries an actual verification refusal on the next explicit request, without a refresh cadence', async () => {
+    let calls=0,refuse=false;
+    const lifecycle=await require('../lib/trusted-worker/lifecycle')({verify:async()=>{calls++;if(refuse)throw Error('SYNTHETIC_SCHEMA_REFUSAL');}});
+    try { refuse=true;await assert.rejects(lifecycle.verify(),/SYNTHETIC_SCHEMA_REFUSAL/);
+      refuse=false;await lifecycle.verify();assert.equal(calls,3);
     } finally { await lifecycle.close(); }
   });
 });
 
 describe('normal operational verification and owned clinical dispatch', function () {
   const settle=()=>new Promise(resolve=>setImmediate(resolve));
-  it('drains an entered cycle and retains queued work across the real 600s operational boundary', async function () {
+  it('drains an entered cycle and retains queued work across explicit operational verification', async function () {
     const f=fixture(),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
     const contexts=require('../lib/server/serve/evaluator-job-context');
     const jobs=contexts.create('clinical'),source='a'.repeat(64);
-    let service,timer,at=0,calls=0,evaluationHold;
+    let service,calls=0,evaluationHold;
     const evaluationStarted=deferred(),verifyEntered=deferred(),verifyHold=deferred();
     await window.window.ready();
     const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{
-      now:()=>at,schedule:fn=>{timer=fn;return 1;},cancel(){},
-      verifyWorker:periodic=>{
+      verifyWorker:()=>{
         const verify=()=>{f.reader.invalidate();return window.window.verifyOperational(async()=>{
           if(++calls>1){verifyEntered.resolve();await verifyHold.promise;}
           await f.reader.verify();
         });};
-        return periodic&&service?service.verifyOperational(verify):verify();
-      },refreshWorker:jobs.bind(()=>service.backstop([A],{recovery:true}))
+        return service?service.verifyOperational(verify):verify();
+      }
     });
     await f.reader.scan([A]);
     service=await runtime({tenants:[A],externalRecovery:true,operationWindow:window.window,jobContext:jobs,
@@ -339,18 +322,18 @@ describe('normal operational verification and owned clinical dispatch', function
       create:async()=>({evaluate:async()=>{if(evaluationHold){evaluationStarted.resolve();await evaluationHold.promise;}return {checkpoint:1,signature:{stamp:1,deleted:0}};},close(){}}),
       recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
     const initial=service.health().tenants[0].progress.generation;
-    let entered,queued,authority;const authorityHold=deferred();
+    let entered,queued,authority,verification;const authorityHold=deferred();
     try{
       evaluationHold=deferred();entered=service.acquire(A);await evaluationStarted.promise;
       // Hold the real authority query, rather than relying on settings expiry.
       const readAuthority=f.connection.readOnly;let holdAuthority=true;
       f.connection.readOnly=async(...args)=>{const result=await readAuthority(...args);if(holdAuthority&&/activity_version/.test(args[0])){holdAuthority=false;await authorityHold.promise;}return result;};
       authority=window.window.run(A,()=>service.isCurrent(A,'b'.repeat(64)));authority.catch(()=>{});await settle();
-      at=600001;timer();await settle();evaluationHold.resolve();await entered;
+      verification=lifecycle.verify();await settle();evaluationHold.resolve();await entered;
       await verifyEntered.promise;
       authorityHold.resolve();await assert.rejects(authority,{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
       await assert.rejects(window.window.run(A,()=>assert.fail('WITHDRAWN_EPOCH_EFFECT')), {code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-      queued=service.acquire(A);verifyHold.resolve();await lifecycle.verify();await queued;
+      queued=service.acquire(A);verifyHold.resolve();await verification;await queued;
       await settle();await service.backstop([A],{recovery:true});
       const row=service.health().tenants[0];
       assert.equal(row.progress.generation,initial,'BENIGN_VERIFY_MUST_NOT_DISCARD_CURRENT_MODEL');
