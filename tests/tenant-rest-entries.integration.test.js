@@ -43,6 +43,25 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
       return actual;
     }
 
+    it('stores a date-only entry in UTC with single-site HTTP parity and no foreign-tenant change', async function () {
+      const previous = process.env.TZ;
+      process.env.TZ = 'UTC';
+      try {
+        const foreign = await lab.rows(lab.B);
+        const date = BASE + 12345;
+        const reply = await same('post', '/api/v1/entries', { _id: '000000000000000000000103', type: 'sgv', sgv: 141, date });
+        assert.equal(reply.body[0].date, date);
+        assert.equal(reply.body[0].utcOffset, 0);
+        const written = (await lab.rows()).find(row => row.date === date);
+        assert(written, 'actual PostgreSQL row must exist');
+        assert.equal(written.utcOffset, 0);
+        assert.equal(written.sgv, 141);
+        assert.deepEqual(await lab.rows(lab.B), foreign);
+      } finally {
+        if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous;
+      }
+    });
+
     it('calibrates the real default date window with independently stored recent and stale rows', async function () {
       const stale = record({ _id: '000000000000000000000102', date: BASE - 5 * 86400000,
         dateString: new Date(BASE - 5 * 86400000).toISOString(),
