@@ -38,5 +38,41 @@ describe('addressed raw journal reader and current-worker fence',()=>{
   let generation=1;const reader=source.create({config:{completedOutput:{namespace:'synthetic',consumer:'evaluator-synthetic'},maxRows:3,maxBytes:10000},operationWindow:{run:async(tenant,fn)=>fn(),currentGeneration:()=>generation},connection:{query:async()=>({rows:[{storage:journal.empty(),work_enabled:true}]})}});
   const tail=await reader.read(A);reader.assert(tail);generation=2;assert.throws(()=>reader.assert(tail),/RESTORE_CHANGED/);
  });
+ it('publishes a retained tail only inside an actual operation-window scope, with restored scope and generation controls',async()=>{
+  const {EventEmitter}=require('node:events');
+  const factory=require('../lib/server/realtime/protocol');
+  const options={generation:'1'},f=require('./fixtures/operation-window-runtime-protocol')(options);
+  let tail=journal.empty();
+  const reader=source.create({config:{completedOutput:{namespace:'synthetic',consumer:'evaluator-synthetic'},maxRows:3,maxBytes:10000},operationWindow:f.window,
+   connection:{query:async()=>({rows:[{storage:tail,work_enabled:true}]})}});
+  class Socket extends EventEmitter{
+   constructor(){super();this.id='synthetic-scope';this.rooms=new Set([this.id]);this.request={headers:{host:'a.test'},socket:{}};this.sent=[];}
+   emit(event,value){this.sent.push({event,value});return true;}join(room){this.rooms.add(room);}leave(room){this.rooms.delete(room);}disconnect(){super.emit('disconnect');}
+  }
+  const criterion=async module=>{
+   tail=journal.empty();
+   const protocol=module.create({operationWindow:f.window,admission:{resolve:async()=>A},api:{authorizeSocket:async()=>({permissions:{read:true,write:false,write_treatment:false,ack:false},collections:['entries']}),executeSocketMutation:async()=>{}},readCurrent:async()=>({identity:'same'}),runtime:()=>({}),domains:['entries'],storageEvents:reader});
+   try{
+    const socket=new Socket();await protocol.prepare(socket);protocol.bind(socket,'/storage');let answer;
+    await Promise.all(socket.listeners('subscribe').map(fn=>fn({},value=>{answer=value;})));assert.equal(answer.success,true);
+    const columns=Object.entries({id_kind:'string',doc:{_id:'scope-row',identifier:'public-scope-row',date:1}}).map(([name,value])=>({name,value}));
+    tail=journal.append(tail,'entries',{xid:7,lsn:'0/20',action:'I',columns,identity:null},{maxRows:3,maxBytes:10000});
+    const retained=await reader.read(A);
+    assert.throws(()=>reader.assert(retained),/LIFECYCLE_WINDOW_SCOPE_INVALID/,'ACTUAL_WINDOW_MUST_REFUSE_OUTSIDE_SCOPE');
+    await protocol.storage({tenant:A,tail:retained});
+    assert.equal(socket.sent[0].event,'create');assert.equal(socket.sent[0].value.doc.identifier,'public-scope-row');
+    options.phase='suspended';options.generation=String(Number(options.generation)+1);
+    await f.window.drainTenant(A);await f.window.invalidateTenant(A);options.phase='active';
+    await assert.rejects(protocol.storage({tenant:A,tail:retained}),/STORAGE_EVENT_RESTORE_CHANGED/,'PUBLICATION_MUST_REJECT_CHANGED_RESTORE_GENERATION');
+    assert.equal(socket.sent.length,1,'STALE_GENERATION_MUST_NOT_SEND');
+   }finally{protocol.close();}
+  };
+  await f.window.ready();
+  try{
+   await criterion(factory);
+   const broken=require('./lib/clinical-working-set/control')('../lib/server/realtime/protocol',"const assertCurrent=()=>storageEvents?.assert?.(tail);", "const assertCurrent=()=>storageEvents?.assert?.(tail);assertCurrent();");
+   await assert.rejects(criterion(broken),/LIFECYCLE_WINDOW_SCOPE_INVALID/);await criterion(factory);
+  }finally{await f.window.close();}
+ });
 
 });
