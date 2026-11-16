@@ -230,6 +230,9 @@ module.exports = function fixture () {
     const evaluatorWorker=start('evaluator','evaluator',{...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
       EVAL_PG:evaluator.url,DISPLAY_PG:display.url,ACTIVITY_PG:activity.url,LIFETIME_PG:operationState.lifetime.url,
       MULTITENANT_REALTIME_PLACEMENT:path.join(directory,'placement.json'),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(directory,'output.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'});
+    // The owned producer is an independent actor; cold role bootstrap alone
+    // cannot deliver later activity changes or committed clinical writes.
+    await producer.start();
     await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
 
     for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: lab.namespaces.registry, resolvers: [lab.roles.realtime] })) await q(sql);

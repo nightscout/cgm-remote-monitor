@@ -198,6 +198,13 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       // The invalidated wire may already be closed. The participant must stop
       // reporting the old marker before clearance can claim its body is gone.
       f.current.get('api-1').child.kill('SIGUSR2'); await first.done;
+      // Ending the wire body does not itself re-admit a failed lifetime session.
+      // Observe real serving recovery on this same process before a fresh restore;
+      // its old durable participation still requires the explicit clearance below.
+      const survivingPid = f.current.get('api-1').child.pid;
+      await f.base.until(async () => await aServes('api-1') === 200, 'same process recovers its failed lifetime session after every body drains');
+      assert.equal(f.current.get('api-1').child.pid, survivingPid);
+      assert((await state()).unfinished.some(row => row.operation_id === owned[0]), 'recovery preserves the uncertain durable marker');
       await f.base.until(async () => !(await reported('api-1')).includes(owned[0]), 'the process ended every body under the lost participation');
       const beforeClear = await state();
       const cleared = await operator(({ resume }) => resume.clearOperations(A));
