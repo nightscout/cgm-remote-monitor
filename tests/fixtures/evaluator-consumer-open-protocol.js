@@ -7,7 +7,7 @@ module.exports=function openProtocol({env,...options}={}) {
   if(!env||typeof env!=='object'||Array.isArray(env)||typeof env.NS_TEST_POSTGRES_ADMIN_URI!=='string') {
     throw new TypeError('Explicit synthetic fixture environment required');
   }
-  const processFacade=Object.freeze({env:Object.freeze({...env}),execPath:process.execPath,kill(pid,signal){calls.push({kind:'kill-owned-group',pid,signal});}});
+  const processFacade=Object.freeze({env:Object.freeze({...env}),execPath:process.execPath,kill(pid,signal){calls.push({kind:'kill-owned-process',pid,signal});}});
   const calls=[],schemas=new Set(),roles=new Set(),clients=[],cache=new Map();
   let creations=0, interrupt=false;
   function beforeEffect(){if(interrupt){interrupt=false;throw refusal('SYNTHETIC_AFTER_CREATION_REFUSED');}}
@@ -50,11 +50,12 @@ module.exports=function openProtocol({env,...options}={}) {
     const actual=Module.createRequire(file);
     m.require=id=>{
       if(id==='pg')return {Client};
+      if(id==='node:child_process'&&options.fork)return {...actual(id),fork:options.fork};
       if(id==='node:fs'&&options.procStat)return {...fs,readFileSync(file,...args){if(file==='/proc/424242/stat')return options.procStat;return fs.readFileSync(file,...args);}};
       if(id==='process'||id==='node:process')return processFacade;
       if(id==='./pgstream-native')return {
         capability:()=>({binary:'/synthetic/pgstream',receiverPort:19421,subscriptionsPort:19422}),
-        configuration:({prefix,capability})=>({binaryEnv:'NS_RT_BOOTSTRAP_PGSTREAM_BINARY',configFileEnv:'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG',receiverPort:capability.receiverPort,slot:prefix+'_stream',streamRole:prefix+'_stream',bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}}),
+        configuration:({prefix,capability})=>({receiver:{url:'http://127.0.0.1:'+capability.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000},slot:prefix+'_stream',streamRole:prefix+'_stream',bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,recoveryMs:30000,pendingMs:30000}}),
         async setup(){throw Error('NATIVE_PRODUCER_MUST_NOT_START_IN_SETUP_ORDER_PROTOCOL');}
       };
       const resolved=actual.resolve(id);
@@ -76,7 +77,9 @@ module.exports=function openProtocol({env,...options}={}) {
     // Keep the original source as the function body so its 'use strict'
     // directive and CommonJS exports/require/module semantics remain intact.
     // A lexical process parameter consumes only this protocol's owned env.
-    const compiled=vm.compileFunction(fs.readFileSync(file,'utf8'),['exports','require','module','__filename','__dirname','process'],{filename:file});
+    const source=fs.readFileSync(file,'utf8');
+    const body=file===path.join(fixtures,'evaluator-consumers-native.js')&&options.changeConsumer?options.changeConsumer(source):source;
+    const compiled=vm.compileFunction(body,['exports','require','module','__filename','__dirname','process'],{filename:file});
     const localRequire=Object.assign(id=>m.require(id),actual);
     compiled.call(m.exports,m.exports,localRequire,m,file,path.dirname(file),processFacade);
     return m.exports;

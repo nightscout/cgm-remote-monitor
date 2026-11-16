@@ -127,6 +127,30 @@ role documents.
 
 `nightscout plan contract` prints the OpenAPI description with the schemas.
 
+## Independent streaming service
+
+The plan starts maintained pgstream as a separate platform workload with one
+consumer for the configured database slot. It supplies the replication wire
+configuration to that workload. The evaluator document names only its private
+`pgstream.receiver` network endpoint, the slot and streaming principal, and
+application delivery bounds. It contains no pgstream executable, replication
+connection file or child restart policy.
+
+The receiver owns the existing durable observation transaction. It returns
+success after COMMIT and retains the current intake ownership and assignment
+fences. Stream downtime withdraws clinical readiness; a resumed heartbeat
+reconciles existing pending, completed and due state before that readiness
+returns. The evaluator does not start, kill or restart pgstream. A poisoned
+tenant changes that tenant's progress state without restarting the shared stream.
+
+`GET /pgstream/ready` reports that the receiver owns and admits durable input;
+it does not certify fresh clinical output. The plan must make this private
+receiver reachable before clinical readiness depends on stream catchup. A
+Service governed by pod-wide clinical Ready would create a startup cycle;
+the binding keeps that intake endpoint reachable during initialization.
+The configured target is the sole admitted intake owner. The selected two-worker
+profile does not grant the other worker receipt-writing authority.
+
 ## How the contract stays in step with the loaders
 
 `tests/multitenant-plan-contract.test.js` (unit tier) generates every document

@@ -16,7 +16,14 @@ unchanged for old migration ledgers and backup recognition. It is not a deployab
 reader recipe. Historical captures remain attributed to their recorded source,
 configuration and transport and do not qualify the maintained replacement.
 
+The platform runs pgstream independently and owns its process restart policy.
+The evaluator accepts durable observations at its private receiver and reports
+delivery freshness; it retains clinical state, due work and ownership fences
+across a stream restart. The [deployment plan contract](multitenant-plan-contract.md#independent-streaming-service)
+defines the endpoint and responsibility boundary.
+
 Current runtime responsibilities are implemented in
 [`lib/pgstream/evaluator.js`](../lib/pgstream/evaluator.js),
+[`lib/pgstream/delivery-health.js`](../lib/pgstream/delivery-health.js),
 [`lib/pgstream/activity-scheduler.js`](../lib/pgstream/activity-scheduler.js) and
 [`lib/pgstream/realtime-output.js`](../lib/pgstream/realtime-output.js).

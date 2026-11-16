@@ -18,8 +18,8 @@ function config() {return {version:1,datastore:{hostname:'127.0.0.1',port:5432,d
   tenantSettings:{connectionEnv:'SETTINGS_PG',namespaces:{settings:'metadata_display_settings',operatorPolicy:'metadata_policy'}},
   activity:{connectionEnv:'ACTIVITY_PG',namespace:'metadata_control'},
   trustedWorker:{activity:'metadata_control',clock:'metadata_clock',settings:'metadata_display_settings',operatorPolicy:'metadata_policy'},
-  pgstream:{binaryEnv:'PGSTREAM_BINARY',configFileEnv:'PGSTREAM_CONFIG',receiverPort:19913,slot:'metadata_pgstream',streamRole:'metadata_stream',
-    bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}},consumers:{realtime:{
+  pgstream:{receiver:{url:'http://127.0.0.1:'+19913+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000},slot:'metadata_pgstream',streamRole:'metadata_stream',
+    bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,recoveryMs:30000,pendingMs:30000}},consumers:{realtime:{
     outbox:{connectionEnv:'OUTBOX_PG',namespace:'metadata_outbox',maxRows:10,maxBytes:100000,maxConnections:2},
     suppression:{connectionEnv:'SUPPRESSION_PG',namespace:'metadata_alarm',maxRows:10,maxBytes:100000,maxConnections:2},
     route:{id:'realtime-metadata',maxMessageBytes:20000,operationTimeoutMs:100},
@@ -68,8 +68,8 @@ describe('selected API evaluator metadata without worker credentials',function()
     value.tenantSettings={connectionEnv:'SETTINGS_PG',namespaces:{settings:'metadata_display_settings',operatorPolicy:'metadata_policy'}};
     value.activity={connectionEnv:'ACTIVITY_PG',namespace:'metadata_control'};
     value.trustedWorker={activity:'metadata_control',clock:'metadata_clock',settings:'metadata_display_settings',operatorPolicy:'metadata_policy'};
-    value.pgstream={binaryEnv:'PGSTREAM_BINARY',configFileEnv:'PGSTREAM_CONFIG',receiverPort:19913,slot:'metadata_pgstream',streamRole:'metadata_stream',
-      bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}};
+    value.pgstream={receiver:{url:'http://127.0.0.1:'+19913+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000},slot:'metadata_pgstream',streamRole:'metadata_stream',
+      bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,recoveryMs:30000,pendingMs:30000}};
     const source={...env,SETTINGS_PG:'postgres://metadata-settings:synthetic@127.0.0.1:5432/synthetic_test',ACTIVITY_PG:'postgres://metadata-activity:synthetic@127.0.0.1:5432/synthetic_test',
       PGSTREAM_BINARY:'/usr/local/bin/pgstream',PGSTREAM_CONFIG:'/tmp/synthetic-pgstream.json'};
     const worker=parse.parse(value,source);

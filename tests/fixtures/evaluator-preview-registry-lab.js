@@ -147,6 +147,10 @@ module.exports = function evaluatorPreviewRegistryLab () {
       const result = await lab.admin.query('UPDATE "' + registry.settings + '".tenant_settings SET version=version+1,values=$2::jsonb WHERE tenant_id=ANY($1::uuid[])', [ids, JSON.stringify(settings)]);
       assert.equal(result.rowCount, ids.length, 'fixture settings updates existing provisioned tenants');
     };
+    // These are fixture-owned actor controls, never evaluator role controls.
+    lab.stream = () => producer;
+    lab.startStream = () => producer.start();
+    lab.stopStream = () => producer?.stop();
     lab.environment = env;
     registryReady = true;
     await lab.reset();
@@ -200,25 +204,35 @@ module.exports = function evaluatorPreviewRegistryLab () {
   function env (config) {
     return { PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH,
       NODE_ENV: 'test', TZ: 'UTC', MULTITENANT_EVALUATOR_CONFIG: config.file, NS_EVALUATOR_FIXTURE_CONNECTION: connectionString,
-      NS_RT_BOOTSTRAP_PGSTREAM_BINARY: process.env.NS_RT_BOOTSTRAP_PGSTREAM_BINARY,
-      NS_RT_BOOTSTRAP_PGSTREAM_CONFIG: path.join(directory, 'PENDING-PRODUCER-SETUP.json'),
       NS_EVALUATOR_FIXTURE_SETTINGS: settingsConnection, NS_EVALUATOR_FIXTURE_ACTIVITY: activityConnection,
       NS_EVALUATOR_FIXTURE_LIFETIME: lifetimeConnection, MULTITENANT_OPERATION_CONFIG: operationFile,
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
-      ...lab.extraEnvironment, ...producer?.environment,
+      ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };
   }
-  lab.worker = async config => {
+  lab.worker = async (config, { detached = false } = {}) => {
+    if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
+    // A new explicit fixture role starts a fresh external test actor; this is
+    // not an automatic response to a role process exit.
+    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true });
+    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true, detached });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
     children.add(child); child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const timeout = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Evaluator worker startup watchdog')); }, 15000);
-    const handle = { child, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
+    let owned = {};
+    if (detached) {
+      const raw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
+      const fields = raw.slice(raw.lastIndexOf(')') + 2).trim().split(/\s+/);
+      assert.equal(Number(fields[2]), child.pid, 'DETACHED_WORKER_OWNS_PROCESS_GROUP');
+      assert.equal(Number(fields[3]), child.pid, 'DETACHED_WORKER_OWNS_SESSION');
+      owned = { birth: fields[19], processGroup: child.pid };
+    }
+    const handle = { child, ...owned, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
       call (action, tenant = lab.A, extra = {}) { return new Promise((done, fail) => {
         const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Evaluator fixture command watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant, ...extra });
@@ -232,6 +246,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       }
     });
     child.once('error', error => { clearTimeout(timeout); reject(error); });
+    Promise.resolve().then(() => lab.startStream()).catch(error => { clearTimeout(timeout); child.kill('SIGTERM'); reject(error); });
     child.on('exit', (code, signal) => {
       console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'worker', pid: child.pid, code, signal, bootRefused: child.fixtureBootRefused }));
       children.delete(child);
@@ -241,6 +256,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
   });
   };
   lab.stopWorker = async worker => {
+    await lab.stopStream();
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('release'); await worker.call('close');
     const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
@@ -254,6 +270,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     child.once('exit', (code, signal) => { children.delete(child);
       console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'cli', pid: child.pid, code, signal })); });
+    await lab.startStream();
     return { child, logs: () => ({ stdout, stderr }) };
   };
   lab.wait = async check => {
@@ -262,6 +279,8 @@ module.exports = function evaluatorPreviewRegistryLab () {
     throw new Error('Evaluator native condition watchdog');
   };
   lab.stopChildren = async () => {
+    const errors=[];
+    try{await lab.stopStream?.();}catch(error){errors.push(error);}
     for (const child of [...children]) {
       if (child.exitCode !== null || child.signalCode !== null) continue;
       let forced = false;
@@ -270,12 +289,14 @@ module.exports = function evaluatorPreviewRegistryLab () {
         child.once('exit', (code, signal) => { clearTimeout(t); resolve({ code, signal }); });
       });
       child.kill('SIGTERM'); const result = await stopped;
-      if (!forced && result.code !== 0 && !child.fixtureBootRefused) throw new Error('Evaluator child shutdown refused');
-      if (forced) throw new Error('Evaluator child shutdown watchdog; forced cleanup is not a passing lifecycle result');
+      if (!forced && result.code !== 0 && !child.fixtureBootRefused) errors.push(new Error('Evaluator child shutdown refused'));
+      if (forced) errors.push(new Error('Evaluator child shutdown watchdog; forced cleanup is not a passing lifecycle result'));
     }
+    if(errors.length)throw new globalThis.AggregateError(errors,'Evaluator actors cleanup refused');
   };
   lab.close = async () => {
     const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+    await attempt(() => lab.stopStream?.());
     await attempt(() => lab.stopChildren());
     if (producer) await attempt(() => producer.close());
     if (provisioned) await attempt(() => provisioned.close());

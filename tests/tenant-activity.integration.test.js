@@ -296,8 +296,29 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.equal(worker.startup.ready, undefined, 'SHARED_ACTIVITY_SCHEMA_NO_READY_ROLE');
       assert.equal(worker.startup.bootError?.message, 'evaluator preview readiness or initialization refused');
       await lab.stopConsumers();
-      assert.deepEqual([await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)], before,
-        'SHARED_ACTIVITY_SCHEMA_NO_COMPLETED_OUTPUT');
+      const after = [await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)];
+      lab.traceConsumer('activity-shared-schema-completion-before-verdict', { before, after });
+      // Cold typed admission may initialize an empty envelope and NULL-filled
+      // version array. Those are metadata initialization, not clinical output.
+      // Keep every output, checkpoint, identity, revision and completed version.
+      const completionEvidence = row => {
+        const work = require('../lib/pgstream/work-state');
+        assert(row.work_completed === null || Array.isArray(row.work_completed) && row.work_completed.length === work.SOURCES.length);
+        let output = null;
+        if (row.projection !== null) {
+          assert(Array.isArray(row.projection) && row.projection.length === 1);
+          assert.deepEqual(Object.keys(row.projection[0]).sort(), ['kind', 'output']);
+          assert.equal(row.projection[0].kind, 'evaluator-work-v2');
+          output = row.projection[0].output;
+        }
+        return { ...row, projection: output, work_completed: work.map(row.work_completed) };
+      };
+      const expected = before.map(completionEvidence);
+      const plantedOutput = { ...after[0], projection: [{ kind: 'evaluator-work-v2', output: { synthetic: 'PLANTED_OUTPUT' } }] };
+      assert.throws(() => assert.deepEqual(completionEvidence(plantedOutput), expected[0]), { code: 'ERR_ASSERTION' }, 'NONNULL_OUTPUT_MUST_FAIL_ORACLE');
+      const plantedCompletion = { ...after[0], work_completed: ['1', null, null, null, null, null] };
+      assert.throws(() => assert.deepEqual(completionEvidence(plantedCompletion), expected[0]), { code: 'ERR_ASSERTION' }, 'COMPLETED_VERSION_MUST_FAIL_ORACLE');
+      assert.deepEqual(after.map(completionEvidence), expected, 'SHARED_ACTIVITY_SCHEMA_NO_COMPLETED_OUTPUT');
       assert.deepEqual(lab.sinkEffects, []); assert.deepEqual(await lab.requests(lab.A), []); assert.deepEqual(await lab.requests(lab.B), []);
       lab.traceConsumer('activity-shared-schema-refusal', { startup: worker.startup, outputsUnchanged: true, effects: lab.sinkEffects.length });
     });
