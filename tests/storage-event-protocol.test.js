@@ -34,7 +34,7 @@ describe('raw storage live-session delivery independent of clinical completion',
   const f=fixture();try{const a=await f.socket();f.held=true;await f.protocol.recheckTenant(A);f.append('food','I','held');await f.protocol.storage({tenant:A,tail:f.tail});assert.deepEqual(a.sent,[]);f.held=false;await f.protocol.recheckTenant(A);assert.equal(a.sent.length,1);f.allowed=false;await f.protocol.recheckTenant(A);f.append('food','I','revoked');await f.protocol.storage({tenant:A,tail:f.tail});assert.equal(a.sent.length,1);}finally{f.close();}
  });
  it('RED/restored control catches silent journal truncation',async()=>{
-  const broken=require('./lib/clinical-working-set/control')('../lib/server/realtime/protocol',"retire(state,'REALTIME_STORAGE_CONTINUITY_LOST');continue;","state.storageCursor=tail.base;");
+  const broken=require('./lib/clinical-working-set/control')('../lib/server/realtime/protocol',"retire(state,CAUSES.STORAGE_CONTINUITY);continue;","state.storageCursor=tail.base;");
   const check=async module=>{const f=fixture(module);try{const a=await f.socket();for(let i=0;i<5;i++)f.append('food','I','n'+i);await f.protocol.storage({tenant:A,tail:f.tail});assert(a.disconnected,'TRUNCATED_SESSION_MUST_DISCONNECT');}finally{f.close();}};
   await assert.rejects(check(broken),/TRUNCATED_SESSION/);await check(factory);
  });
