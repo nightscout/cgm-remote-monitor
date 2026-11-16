@@ -91,7 +91,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       finally{lab.extraEnvironment=originalEnvironment;}
     });
 
-    it('materializes actual default clinical cohorts, corrections and deletion without warm snapshot/statistics rediscovery',async function(){
+    it('materializes actual default clinical cohorts, corrections and deletion without warm clinical snapshot or catalogue rediscovery',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       try{
         const initial=await worker.call('queries');assert(initial.snapshots>0,'CONSISTENT_BOOTSTRAP_REQUIRED');
