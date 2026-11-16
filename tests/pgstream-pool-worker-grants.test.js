@@ -83,6 +83,45 @@ describe('dynamic pool worker grant plan, policy grammar and source admission',(
   assert.deepEqual(worker.policyTree("consumer = ('exact'::text)"),worker.policyTree("consumer='exact'"));
   for(const text of ['true; SELECT 1',"private_function(consumer)=1",'consumer/*hidden*/=1'])assert.throws(()=>worker.policyTree(text),/GRAMMAR/);
  });
+ it('replays retained PG16 bigint-weight deparse through actual policy admission; omission is RED then restored',async()=>{
+  const fixture=require('./fixtures/pgstream-pool-policy-pg16.json');
+  assert.equal(fixture.expectedSource,worker.expression(profile,0));
+  const query=async()=>({rows:fixture.rows});
+  const qualify=module=>module.assertPolicies(query,profile,module.policies(profile,0));
+  await qualify(worker);
+  for(const row of fixture.rows.filter(row=>!row.public))for(const key of ['using','check'])assert.deepEqual(worker.policyTree(row[key]),worker.policyTree(fixture.expectedSource));
+  const broken=sourceMutation("if (['integer', 'bigint'].includes(type[0])","if (false && ['integer', 'bigint'].includes(type[0])");
+  await assert.rejects(qualify(broken),/PGSTREAM_POOL_GRANT_POLICY/);
+  await qualify(worker);
+ });
+ it('retained deparse refuses changed weight, grouping, foreign casts and overflowing or noncanonical integer strings',async()=>{
+  const fixture=require('./fixtures/pgstream-pool-policy-pg16.json');
+  const mutations=[
+   text=>text.replace("'72057594037927936'","'72057594037927935'"),
+   text=>text.replace('AND (d.partitioned OR (d.members = 1))','AND d.partitioned OR (d.members = 1)'),
+   text=>text.replace("'72057594037927936'::bigint","'72057594037927936'::foreign_schema.bigint"),
+   text=>text.replace("'72057594037927936'::bigint","'72057594037927936'::float8"),
+   text=>text.replace("'72057594037927936'::bigint","'72057594037927936'::bigint::text"),
+   text=>text.replace("'72057594037927936'::bigint","'72057594037927936'::integer"),
+   text=>text.replace("'72057594037927936'::bigint","'9223372036854775808'::bigint"),
+   text=>text.replace("'72057594037927936'::bigint","'072057594037927936'::bigint")
+  ];
+  for(const mutate of mutations){const rows=fixture.rows.map(row=>row.public?row:{...row,using:mutate(row.using)});assert.notEqual(rows.find(row=>!row.public).using,fixture.rows.find(row=>!row.public).using);await assert.rejects(worker.assertPolicies(async()=>({rows}),profile,worker.policies(profile,0)),/PGSTREAM_POOL_(GRANT_POLICY|POLICY_GRAMMAR)/);}
+  await worker.assertPolicies(async()=>({rows:fixture.rows}),profile,worker.policies(profile,0));
+ });
+ it('normalizes integer literal casts only within actual signed type ranges without erasing other operands',()=>{
+  for(const [type,maximum]of [['integer','2147483647'],['bigint','9223372036854775807']]){
+   for(const value of ['0','1',maximum])for(const literal of [value,"'"+value+"'"])assert.deepEqual(worker.policyTree('('+literal+'::'+type+')::numeric'),worker.policyTree(value+'::numeric'));
+   const overflow=(BigInt(maximum)+1n).toString();
+   for(const value of [overflow,'01','-1','+1',' 1'])assert.notDeepEqual(worker.policyTree("('"+value+"'::"+type+')::numeric'),worker.policyTree("'"+value+"'::numeric"));
+   assert.notDeepEqual(worker.policyTree('('+overflow+'::'+type+')::numeric'),worker.policyTree(overflow+'::numeric'));
+  }
+  assert.notDeepEqual(worker.policyTree('(d.members::bigint)::numeric'),worker.policyTree('d.members::numeric'));
+  const criterion=module=>assert.notDeepEqual(module.policyTree("('2147483648'::integer)::numeric"),module.policyTree('2147483648::numeric'),'INTEGER_OVERFLOW_CAST_MUST_REMAIN_VISIBLE');
+  const unbounded=sourceMutation(" && BigInt(left[1]) <= (type[0] === 'integer' ? 2147483647n : 9223372036854775807n)",'');
+  assert.throws(()=>criterion(unbounded),{code:'ERR_ASSERTION'});criterion(worker);
+
+ });
  it('admits exact source privileges and membership0005 metadata once, without mutation or role widening',async()=>{
   const lab=model();const result=await worker.assertReady(lab.query,{profile,ordinal,expectedRole:'worker_one'});assert.equal(result.principal,'worker_one');assert(lab.calls.some(row=>row.sql.includes('pool-placement-columns')));assert(lab.calls.some(row=>row.sql.includes('SELECT name, checksum')));assert(lab.calls.every(row=>row.sql.startsWith('SELECT')));
  });
