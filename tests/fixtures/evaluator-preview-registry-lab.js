@@ -211,14 +211,23 @@ module.exports = function evaluatorPreviewRegistryLab () {
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };
   }
-  lab.worker = async config => {
+  lab.worker = async (config, { detached = false } = {}) => {
+    if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true });
+    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true, detached });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
     children.add(child); child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const timeout = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Evaluator worker startup watchdog')); }, 15000);
-    const handle = { child, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
+    let owned = {};
+    if (detached) {
+      const raw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
+      const fields = raw.slice(raw.lastIndexOf(')') + 2).trim().split(/\s+/);
+      assert.equal(Number(fields[2]), child.pid, 'DETACHED_WORKER_OWNS_PROCESS_GROUP');
+      assert.equal(Number(fields[3]), child.pid, 'DETACHED_WORKER_OWNS_SESSION');
+      owned = { birth: fields[19], processGroup: child.pid };
+    }
+    const handle = { child, ...owned, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
       call (action, tenant = lab.A, extra = {}) { return new Promise((done, fail) => {
         const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Evaluator fixture command watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant, ...extra });
