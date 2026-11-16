@@ -350,6 +350,7 @@
         "tests/preview-entries-acquisition.test.js",
         "tests/entries-create-context.test.js",
         "tests/local-credential-authority-contract.test.js",
+        "tests/write-intent.utc-offset.test.js",
         "tests/rest-metadata-environment.test.js",
         "tests/rest-entries-read-transaction.test.js",
         "tests/rest-entries-joined-authority.test.js",
