@@ -43,7 +43,7 @@ checks retain their own responsibilities.
 
 Each addressed output/control check reads current joined metadata and committed
 configuration. Delivery reads the compact typed envelope and, when needed, the
-result-free physical frame in one repeatable snapshot. Retained frames must match
+result-free and row-free physical frame in one repeatable snapshot. Retained frames must match
 current identity, digest, revision, restore generation, envelope and local frame
 fingerprint. A changed or mutated hint causes a physical fetch. Clinical evaluator
 results remain with evaluation. Row and byte bounds apply before decoding.
@@ -58,9 +58,32 @@ Compatible authorized viewers share Socket.IO packet encoding per publication.
 Slow viewers with bounded output queues are disconnected.
 
 Main clients receive full `dataUpdate` frames (`delta:false`), so absent SGVs
-replace browser state. Connected storage viewers receive the existing normalized
-change events. The inherited storage subscribe packet carries no offline cursor
-or reset contract. Alarm handoff preserves the durable notification and attempt;
+replace browser state. Connected storage viewers receive normalized `create`, `update` and `delete`
+events from the bounded raw mutation tail in the evaluator input checkpoint's
+second JSONB envelope. Clinical rows occupy the first envelope; expiry, clinical
+refusal and output replacement cannot fabricate source mutations. Accepted raw
+changes and their existing delivery-revision obligation commit before stream ACK.
+The same receipt drain owns retries and neighbor progress for both channels.
+
+Each storage subscription starts at its current source-tail high-water mark and
+receives later events in source order. Exact retries do not repeat an event within
+a retained session cursor. Distinct equal-LSN COPY rows remain distinct. The
+inherited subscribe packet carries no offline cursor, initial population or reset
+contract; reconnect starts another live subscription. No offline catch-up or
+external exactly-once guarantee is introduced. A live cursor older than the
+bounded tail is disconnected with `REALTIME_STORAGE_CONTINUITY_LOST`. It never
+silently skips to the latest state. Temporary authorization uncertainty retains
+the cursor until recheck; revoked collections receive no further events. Restore,
+ownership and current-worker fences apply before raw publication as for frames.
+
+Migration `0100_<domain>_storage_identity` selects `REPLICA IDENTITY FULL` for each
+clinical source table. The old document supplies the actual public identifier for
+delete/rename, including a public identifier different from typed `_id`. Omitted
+unchanged TOAST documents on metadata-only updates produce no raw client event.
+Readiness refuses the old identity mode. This adds WAL bytes for old documents;
+it does not change source retention, REST, export, whole-history statistics or
+logical table inventory. Raw-tail row and byte limits reuse the evaluator limits;
+completed-frame consumers retain their own bounds. Alarm handoff preserves the durable notification and attempt;
 acceptance means server handoff, not device delivery. Uncertain replies can repeat.
 The existing main/alarm acknowledgment routes and current rights still apply.
 

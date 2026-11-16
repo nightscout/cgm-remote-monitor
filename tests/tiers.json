@@ -409,7 +409,10 @@
         "tests/clinical-stream-state.test.js",
         "tests/clinical-stream-sql.test.js",
         "tests/clinical-stream-recovery.test.js",
-        "tests/clinical-storage-size.test.js"
+        "tests/clinical-working-set.test.js",
+        "tests/clinical-working-set.integration.test.js",
+        "tests/clinical-storage-size.test.js",
+        "tests/evaluator-resident-cache.test.js"
       ],
       "env": true,
       "require": [

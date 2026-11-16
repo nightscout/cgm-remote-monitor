@@ -42,7 +42,7 @@ async function fixture () {
     if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
     return { permissions: { read, write: read, write_treatment: read, ack: read }, collections: read ? ['entries', 'treatments'] : [] };
   } };
-  const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries', 'treatments'] });
+  const protocol = protocolFactory.create({ admission, api, readCurrent, storageEvents:{read:async()=>({kind:'storage-events-v1',head:0,base:0,events:[],keys:[],last:null})}, runtime: () => runtime, domains: ['entries', 'treatments'] });
   const schedule = {};
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
     create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: structuredClone(state.rows),
@@ -325,7 +325,9 @@ describe('explicit realtime preview source contracts', function () {
       assert.deepEqual(reply, oldReply);
       assert.deepEqual(now.sent, [], 'RT_STORAGE_BASELINE matching subscribe does not invent reset/replay');
       f.state.rows = []; await f.schedule.callback();
-      assert.equal(now.sent.filter(row => row.event === 'delete').length, 1, 'RT_STORAGE_CONNECTED_LOSS connected absence still emits delete');
+      assert.equal(now.sent.filter(row => row.event === 'delete').length, 0, 'CACHE_EXPIRY_IS_NOT_SOURCE_DELETE');
+      await f.protocol.storage({tenant:A,tail:{kind:'storage-events-v1',head:1,base:0,keys:[],events:[{sequence:1,event:'delete',domain:'entries',value:{colName:'entries',identifier:'old'}}]}});
+      assert.equal(now.sent.filter(row => row.event === 'delete').length, 1, 'COMMITTED_SOURCE_DELETE_REACHES_CONNECTED_CLIENT');
     } finally { await f.close(); }
   });
   it('classifies normalized typed twin ambiguity against actual single normalization and broadcaster', function () {
@@ -336,13 +338,13 @@ describe('explicit realtime preview source contracts', function () {
     const single = new (require('../lib/api3/storageSocket'))({}, {}, {}); const sent = [];
     single.namespace = { to: collection => ({ emit: (event, value) => sent.push({ collection, event, value }) }) };
     single.emitDelete({ colName: 'entries', identifier: first.identifier });
-    const changes = protocolFactory.storageChanges([{ domain: 'entries', document: { _id: new ObjectId(id) } }], []);
+    const changes = require('../lib/storage/storage-event-journal').changes('entries',{action:'D',identity:[{name:'id_kind',value:'objectid'},{name:'doc',value:{_id:id}}]});
     assert.deepEqual(changes[0].value, sent[0].value, 'RT_TYPED_WIRE_BASELINE actual single broadcaster has the same delete wire');
   });
   it('storage changes use existing normalized wire shapes and include connected typed identity absence', function () {
     const { ObjectId } = require('mongodb'); const id = '0123456789abcdef01234567';
     const rows = [{ domain: 'entries', document: { _id: new ObjectId(id), sgv: 111 } }, { domain: 'entries', document: { _id: id, sgv: 222 } }];
-    const changes = protocolFactory.storageChanges(rows, rows.slice(1));
+    const changes = require('../lib/storage/storage-event-journal').changes('entries',{action:'D',identity:[{name:'id_kind',value:'objectid'},{name:'doc',value:{_id:id,sgv:111}}]});
     assert.deepEqual(changes, [{ event: 'delete', domain: 'entries', value: { colName: 'entries', identifier: id } }]);
     assert.notEqual(protocolFactory.room(A, '/storage', 'entries'), protocolFactory.room(B, '/storage', 'entries'));
   });

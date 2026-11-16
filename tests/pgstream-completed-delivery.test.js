@@ -77,8 +77,8 @@ describe('completed-output delivery reuse', function () {
           return {rows:[{tenant:A,contract_digest:digest,work_version:2,work_observed:[null,null,null,null,'1',null],work_completed:[null,null,null,null,snapshot.completedVersion,null],work_enabled:snapshot.enabled,
             output_identity:snapshot.identity,output_digest:'a'.repeat(64),output_revision:snapshot.revision,output_restore_generation:snapshot.restore,output_summary:summary,frame_at:snapshot.body.frame.lastUpdated}]};
         }
-        physicalReads++;assert.match(text,/SELECT \(projection->0->'output'\)-'result' AS output/,'PHYSICAL_TRANSFER_MUST_EXCLUDE_CLINICAL_RESULT');
-        const output=copy(snapshot.body);delete output.result;return {rows:[{output}]};
+        physicalReads++;assert.match(text,/SELECT \(projection->0->'output'\)-'result'-'rows' AS output/,'PHYSICAL_TRANSFER_MUST_EXCLUDE_CLINICAL_RESULT');
+        const output=copy(snapshot.body);delete output.result;delete output.rows;return {rows:[{output}]};
       }};
     const config={consumer:'realtime-test',namespaces:{checkpoint:'rt_checkpoint'},completedOutput:{namespace:'test_completed',consumer:'evaluator-test'},maxBytes:100000,maxRows:1000};
     digest=checkpoints.create({connection,namespace:'test_completed',consumer:'evaluator-test',maxBytes:200000,timeIntervalMs:1000,typed:true}).digest;
