@@ -51,10 +51,16 @@ describe('trusted worker metadata and operational scope', function () {
     assert.notEqual(changed, initial); assert.equal(changed.version, 2);
     f.policy(); await f.reader.scan([A, B]); assert.equal((await f.reader.read(A)).policyGeneration, 2);
     f.time(600001); const count = f.reader.health().settingsReads; await f.reader.read(A);
-    assert.equal(f.reader.health().settingsReads, count + 1, 'TRUSTED_SLOW_SETTINGS_RECONCILIATION');
+    assert.equal(f.reader.health().settingsReads, count, 'UNCHANGED_VERSION_MUST_NOT_EXPIRE');
     await f.reader.close();
   });
-  it('event-covered settings retain one version past the former TTL, while legacy TTL control rereads',async()=>{for(const eventDriven of [true,false]){const f=fixture({eventDriven});await f.reader.verify();await f.reader.scan([A]);const first=await f.reader.read(A),before=f.reader.health().settingsReads;f.time(600001);const held=await f.reader.read(A);assert.equal(f.reader.health().settingsReads,before+(eventDriven?0:1),'STREAMED_SETTINGS_MUST_NOT_DISCOVER_UNCHANGED_VERSION');if(eventDriven)assert.equal(held,first);f.bump();await f.reader.scan([A]);assert.equal((await f.reader.read(A)).version,2);await f.reader.close();}});
+  it('retains settings by version across elapsed time, and reloads a committed version change', async () => {
+    const f=fixture(); await f.reader.verify(); await f.reader.scan([A]);
+    const first=await f.reader.read(A), before=f.reader.health().settingsReads;
+    f.time(600001); assert.equal(await f.reader.read(A),first);
+    assert.equal(f.reader.health().settingsReads,before,'UNCHANGED_VERSION_MUST_NOT_EXPIRE');
+    f.bump(); await f.reader.scan([A]); assert.equal((await f.reader.read(A)).version,2); await f.reader.close();
+  });
   it('rejects obsolete in-flight settings completion after invalidation and recovery', async function () {
     const f = fixture(); await f.reader.verify(); await f.reader.scan([A]);
     const hold = deferred(); f.hold(hold); const pending = f.reader.read(A);
@@ -145,7 +151,9 @@ describe('trusted evaluator dirty checkpoints', function () {
     await f.service.tick(A);
     assert.equal(f.calls(), before, 'TRUSTED_RUNTIME_UNCHANGED_SETTINGS');
     assert.ok(f.cycles.get(A).includes('TIME'), 'TRUSTED_DUE_WORK_RETAINED');
-    f.time(600001); await f.service.backstop(); assert.ok(f.calls() > before, 'TRUSTED_RUNTIME_SLOW_RECONCILIATION');
+    // Drain the queued post-cycle signature check before advancing time.
+    await new Promise(resolve => setImmediate(resolve)); const settled = f.calls();
+    f.time(600001); await f.service.backstop(); assert.equal(f.calls(), settled, 'UNCHANGED_RUNTIME_CONFIG_MUST_NOT_EXPIRE');
     await f.service.close();
   });
   it('rechecks a write that arrives during an earlier acquisition rather than clearing it', async function () {
@@ -334,7 +342,9 @@ describe('normal operational verification and owned clinical dispatch', function
     let entered,queued,authority;const authorityHold=deferred();
     try{
       evaluationHold=deferred();entered=service.acquire(A);await evaluationStarted.promise;
-      f.time(600001);f.hold(authorityHold);
+      // Hold the real authority query, rather than relying on settings expiry.
+      const readAuthority=f.connection.readOnly;let holdAuthority=true;
+      f.connection.readOnly=async(...args)=>{const result=await readAuthority(...args);if(holdAuthority&&/activity_version/.test(args[0])){holdAuthority=false;await authorityHold.promise;}return result;};
       authority=window.window.run(A,()=>service.isCurrent(A,'b'.repeat(64)));authority.catch(()=>{});await settle();
       at=600001;timer();await settle();evaluationHold.resolve();await entered;
       await verifyEntered.promise;
@@ -377,7 +387,7 @@ describe('normal operational verification and owned clinical dispatch', function
       create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0}}),signature:async()=>({stamp:1,deleted:0}),close(){}}),
       recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
     const initial=service.health().tenants[0].progress.generation,read=f.connection.readOnly;let first=true,authority;
-    f.connection.readOnly=async(...args)=>{const result=await read(...args);if(first&&/SELECT s.version/.test(args[0])){first=false;started.resolve();await hold.promise;}return result;};
+    f.connection.readOnly=async(...args)=>{const result=await read(...args);if(first&&/activity_version/.test(args[0])){first=false;started.resolve();await hold.promise;}return result;};
     try{
       f.time(600001);authority=service.isCurrent(A,'b'.repeat(64));await started.promise;
       await service.backstop([A],{recovery:true});hold.resolve();assert.equal(await authority,false,'PRE_RECOVERY_AUTHORITY_READ_STAYS_REFUSED');

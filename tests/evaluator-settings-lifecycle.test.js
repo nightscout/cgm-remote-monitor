@@ -123,7 +123,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
       if(sql.includes('activity_version'))return {rows:args[0].map(tenant=>({tenant,activity_version:'1',paused:false,suspended:false,settings:rows.get(tenant).version,policy:rows.get(tenant).generation,stamp:'1',deleted:'0'}))};
       assert(sql.includes('SELECT s.version'),'only the selected trusted settings projection may read settings');calls.settingsRead++;return {rows:[structuredClone(rows.get(args[0]))]};
     },async end(){calls.clinicalClose++;closed.push('clinical');}};
-    const trusted=isolated('trusted-worker/postgres.js',{},source=>{if(!staleCache)return source;const check='hit.settings === row.settings && hit.policy === row.policy &&',retire='settingsCache.delete(row.tenant);';assert(source.includes(check)&&source.includes(retire));return source.replace(check,'').replace(retire,'void 0;');});
+    const trusted=isolated('trusted-worker/postgres.js',{},source=>{if(!staleCache)return source;const check='hit.settings === row.settings && hit.policy === row.policy',retire='settingsCache.delete(row.tenant);';assert(source.includes(check)&&source.includes(retire));return source.replace(check,'true').replace(retire,'void 0;');});
     const runtime={acquire:async()=>{},tick:async()=>{},health:()=>({tenants:[]}),last:()=>null,isCurrent:async()=>true,close:async()=>{calls.runtimeClose++;if(outcome==='both-close-fail')throw Error('synthetic runtime close failure');}};
     const boot=isolated('server/serve/evaluator-preview.js',{
       '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
@@ -131,7 +131,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
       './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},
       './registry-tenant-set':{open:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},follow:async handlers=>{prepared=handlers;}})},
-      '../../trusted-worker/postgres':{create:options=>{assert.equal(options.eventDriven,true);const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},
+      '../../trusted-worker/postgres':{create:options=>{const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},
       // Stream recovery owns the first metadata snapshot; emulate its real
       // ready callback instead of relying on the removed duplicate boot scan.
       '../../pgstream/evaluator':{open:async options=>{const store={observeMany:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};return {store,ready:()=>options.onRecovered(store),assertAvailable(){},health:()=>({}),close:async()=>{}};}},
