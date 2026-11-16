@@ -30,6 +30,13 @@ describe('durable clinical stream working set',()=>{
   const other=stream.eventOf('entries',data('I',document('b',130)));
   assert.equal(stream.stage(saved,other,limits).staged.length,2,'DISTINCT_COPY_ROW_MUST_SURVIVE');
  });
+ it('deduplicates sparse unchanged-TOAST receipt after JSON drops absent columns',()=>{
+  const value=data('U',document('a',100));value.columns=value.columns.filter(c=>!['doc','insertion_ordinal','storage_bytes'].includes(c.name));
+  const check=module=>{const event=module.eventOf('entries',value),saved=JSON.parse(JSON.stringify(module.stage(boot(),event,{...limits,maxRows:1})));assert.equal(module.stage(saved,event,{...limits,maxRows:1}),saved,'SPARSE_REPLAY_MUST_KEEP_RECEIPT');};
+  const control=require('./lib/clinical-working-set/control');
+  const broken=control('../lib/storage/clinical-stream-state','ordinal:columns.insertion_ordinal??null,storageBytes:columns.storage_bytes??null','ordinal:columns.insertion_ordinal,storageBytes:columns.storage_bytes');
+  assert.throws(()=>check(broken),/CLINICAL_STREAM_ROW_BOUND/);check(stream);
+ });
  it('applies delete identities and ignores cohorts already included by consistent bootstrap floor',()=>{
   const staged=stream.stage(boot(),stream.eventOf('entries',data('D',document('a',100))),limits);
   assert.equal(stream.output(seal(staged)).rows.length,0);
