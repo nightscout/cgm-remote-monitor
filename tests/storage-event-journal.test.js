@@ -42,6 +42,32 @@ describe('bounded raw storage mutation journal',()=>{
   assert.equal(large.base,large.head);assert.equal(large.events.length,0);assert(Buffer.byteLength(JSON.stringify(large))<=512);
   assert.equal(journal.reset(tail).base,101);
  });
+ it('matches full JSON eviction at every byte boundary with Unicode, escapes, digit growth and equal-LSN keys',()=>{
+  function reference(saved,data,bounds){
+   const key=require('node:crypto').createHash('sha256').update(JSON.stringify(['food',data])).digest('hex');
+   if(saved.last===data.lsn&&saved.keys.includes(key))return saved;
+   const state={...saved,events:saved.events.slice(),keys:saved.last===data.lsn?saved.keys.slice():[],last:data.lsn};
+   state.keys.push(key);if(state.keys.length>bounds.maxRows)state.keys.shift();
+   for(const change of journal.changes('food',data))state.events.push({...change,sequence:++state.head});
+   while(state.events.length&&(state.events.length>bounds.maxRows||Buffer.byteLength(JSON.stringify(state))>bounds.maxBytes))state.base=state.events.shift().sequence;
+   while(state.keys.length&&Buffer.byteLength(JSON.stringify(state))>bounds.maxBytes)state.keys.shift();
+   if(Buffer.byteLength(JSON.stringify(state))>bounds.maxBytes)throw new Error('STORAGE_EVENT_BOUND');
+   return state;
+  }
+  let saved={...journal.empty(),head:98,base:98};
+  for(let i=0;i<6;i++)saved=journal.append(saved,'food',event('I',{...doc,_id:'prior-'+i,extension:'雪😀\\\"\n'.repeat(i+1)}),limits);
+  const original=JSON.stringify(saved),data=event('U',{...doc,identifier:'renamed',extension:'é😀\\\"\n'.repeat(9)},doc);
+  const check=module=>{
+   for(const maxRows of [1,3,8])for(let maxBytes=256;maxBytes<1800;maxBytes++){
+    const bounds={maxRows,maxBytes};
+    assert.deepEqual(module.append(saved,'food',data,bounds),reference(saved,data,bounds),'EXACT_UTF8_TAIL');
+   }
+   assert.equal(JSON.stringify(saved),original,'PRIOR_TAIL_MUTATED');
+  };
+  check(journal);
+  assert.throws(()=>check(control('../lib/storage/storage-event-journal','Buffer.byteLength(JSON.stringify(removed))','JSON.stringify(removed).length')),/EXACT_UTF8_TAIL/);
+  check(journal);
+ });
  it('RED/restored controls detect dropped out-of-window mutations and fabricated public identity',()=>{
   const check=module=>{assert.equal(module.changes('food',event('U',{...doc,carbs:20},doc))[0].value.doc.carbs,20,'RAW_FOOD_MUST_ARRIVE');assert.equal(module.changes('food',event('D',null,doc))[0].value.identifier,'public-id','PUBLIC_DELETE_IDENTITY');};
   assert.throws(()=>check(control('../lib/storage/storage-event-journal',"if(data.action==='U'&&isDeepStrictEqual(before,after))return [];","if(data.action==='U')return [];")),/undefined/);

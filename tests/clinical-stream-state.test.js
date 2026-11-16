@@ -64,6 +64,27 @@ describe('durable clinical stream working set',()=>{
   assert.throws(()=>stream.eventOf('entries',{...data('D',document('a',1)),identity:[]}),/IDENTITY/);
   assert.throws(()=>stream.stage(boot(),stream.eventOf('entries',data('I',document('b',1))),{...limits,maxBytes:10}),/BYTE_BOUND/);
  });
+ it('keeps frozen prior envelopes, rows, extensions and pending cohorts unchanged through every transition',()=>{
+  const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
+  const before=freeze(boot()),original=JSON.stringify(before);
+  const staged=freeze(stream.stage(before,stream.eventOf('entries',data('U',{...document('a',120),extension:{unicode:'雪😀\\\"\n'}})),limits));
+  const stagedJSON=JSON.stringify(staged),sealed=seal(staged);
+  assert.equal(JSON.stringify(before),original);assert.equal(JSON.stringify(staged),stagedJSON);
+  assert.equal(sealed.rows[0].doc.sgv,120);assert.equal(before.rows[0].doc.sgv,100);
+  const snapshot={checkpoint:12,signature:{stamp:12,deleted:0},rows:[]};
+  stream.bootstrap(staged,snapshot,limits);assert.equal(JSON.stringify(staged),stagedJSON);
+  for(const value of [sealed,stream.bootstrap(staged,snapshot,limits)]){
+   const bytes=Buffer.byteLength(JSON.stringify(value));
+   assert.throws(()=>stream.bound(value,{...limits,maxBytes:bytes-1}),/BYTE_BOUND/);
+   stream.bound(value,{...limits,maxBytes:bytes});
+   assert.throws(()=>stream.bound(value,{...limits,maxBytes:bytes-1},value.rowBytes),/BYTE_BOUND/);
+   stream.bound(value,{...limits,maxBytes:bytes},value.rowBytes);
+  }
+  const control=require('./lib/clinical-working-set/control');
+  const broken=control('../lib/storage/clinical-stream-state','function stage(saved,event,limits){\n const state={...(saved||empty())};','function stage(saved,event,limits){\n const state=saved||empty();');
+  assert.throws(()=>broken.stage(before,stream.eventOf('entries',data('I',document('b',130))),limits),TypeError);
+  stream.stage(before,stream.eventOf('entries',data('I',document('b',130))),limits);
+ });
  it('control: early row publication fails the coherent cohort oracle; restored path passes',()=>{
   const check=state=>assert.equal(stream.output(state).rows[0].document.sgv,100,'UNSEALED_COHORT_VISIBLE');
   const staged=stream.stage(boot(),stream.eventOf('entries',data('U',document('a',120))),limits);check(staged);
