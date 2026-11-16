@@ -396,11 +396,6 @@
               "minimum": 1,
               "maximum": 2147483647
             },
-            "backstopIntervalMs": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 2147483647
-            },
             "maxConcurrentTenants": {
               "type": "integer",
               "minimum": 1,

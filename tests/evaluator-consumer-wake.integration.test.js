@@ -3,7 +3,7 @@
 // Consumers on change (decision cost-proportional-to-activity): the actual
 // evaluator role (child), actual realtime consumer, restricted PostgreSQL and a
 // controlled UDS sink. A tenant with no alarm is not polled; a new alarm is
-// delivered by the evaluator's revision wake, long before the slow backstop.
+// delivered by the evaluator's revision wake, without a quiet-tenant discovery timer.
 // covers: lib/server/serve/evaluator-consumers.js
 const assert = require('node:assert/strict');
 const {optInSuite} = require('./support/opt-in');
@@ -22,12 +22,12 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         dateString:new Date(at-1000).toISOString(),direction:'Flat'}]}, tenant);
     }
     const alarms = tenant => lab.sinkEffects.filter(row => row.tenant === tenant && !row.notification?.clear);
-    it('an idle tenant gets no polling pass; a new low is delivered by the revision wake well before the backstop', async function () {
+    it('an idle tenant gets no polling pass; a new low is delivered by the revision wake without quiet-tenant polling', async function () {
       await reading(120, lab.A, 'normal-a'); await reading(120, lab.B, 'normal-b');
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
         document.timeIntervalMs = 60000;
-        Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, backstopIntervalMs: 600000 });
+        Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
       const passes = async () => Object.fromEntries((await worker.call('health')).consumers.tenants.map(row => [row.tenant, row.passes]));
@@ -36,16 +36,16 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(45, lab.A, 'urgent-low-a'); const changedAt = Date.now();
       const latencyMs = await lab.wait(async () => alarms(lab.A).length >= 1).then(() => Date.now() - changedAt, () => null);
       lab.traceConsumer('wake-on-revision', { latencyMs, before, after, consumers: (await worker.call('health')).consumers.revisedWakes });
-      assert.ok(latencyMs !== null && latencyMs < 10000, 'EV_CONSUMER_REVISION_WAKE delivered in ' + latencyMs + ' ms with a 600 s backstop');
+      assert.ok(latencyMs !== null && latencyMs < 10000, 'EV_CONSUMER_REVISION_WAKE delivered in ' + latencyMs + ' ms without quiet-tenant polling');
       assert.equal(alarms(lab.B).length, 0);
       await lab.stopConsumer(worker);
     });
-    it('a failed delivery is retried with the same request on the fast retry loop, not the backstop', async function () {
+    it('a failed delivery is retried with the same request on the active retry loop', async function () {
       await reading(45, lab.A, 'urgent-low-a');
       await lab.provisionPreview(); await lab.openSink(); lab.sinkMode = 'lost-response';
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
         document.timeIntervalMs = 60000;
-        Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, retryDelayMs: 200, backstopIntervalMs: 600000 });
+        Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, retryDelayMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
       await lab.wait(async () => lab.sinkEffects.some(row => row.tenant === lab.A));

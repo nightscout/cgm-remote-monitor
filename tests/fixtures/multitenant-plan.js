@@ -152,7 +152,7 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';
   realtime.unauthorizedDeadlineMs = 5000;
   Object.assign(evaluator, { evictAfterMs: 600000, evaluationAlertMs: 60000 });
-  Object.assign(evaluator.consumers.realtime, { backstopIntervalMs: 300000, maxConcurrentTenants: 8 });
+  Object.assign(evaluator.consumers.realtime, { maxConcurrentTenants: 8 });
   owner.resolution = { ...canonical };
   owner.ownerSettings = { connectionEnv: 'NS_OWNER_SETTINGS_PG', namespaces: { settings: named('display_settings'), operatorPolicy: named('operator_policy'), authority: named('settings_authority') } };
   owner.ownerActivity = { connectionEnv: 'NS_OWNER_ACTIVITY_PG', namespace: ns.control };

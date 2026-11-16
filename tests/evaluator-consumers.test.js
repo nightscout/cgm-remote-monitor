@@ -31,7 +31,7 @@ describe('explicit evaluator consumer configuration', function () {
     assert.equal(configured.consumers.realtime.route.socketPath, source.NS_REALTIME_INTERNAL_SOCKET);
   });
   it('refuses unknown routes unsafe namespace/datastore and missing or non-Node-compatible explicit bounds', function () {
-    for (const change of [d => { d.consumers.unknown = {}; }, d => { d.consumers.realtime.extra = true; },
+    for (const change of [d => { d.consumers.unknown = {}; }, d => { d.consumers.realtime.extra = true; }, d => { d.consumers.realtime.backstopIntervalMs = 60000; },
       d => { delete d.consumers.realtime.retryIntervalMs; }, d => { d.consumers.realtime.pollIntervalMs = 2147483648; },
       d => { d.consumers.realtime.attemptTimeoutMs = 2147483648; }, d => { d.consumers.realtime.route.operationTimeoutMs = 1001; },
       d => { d.consumers.realtime.route.maxMessageBytes = 10000; },
@@ -58,6 +58,33 @@ describe('selected actual database consumer readiness protocols', function () {
   let mode;
   beforeEach(function () { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(function () { scope.setTenancyMode(mode); });
+  it('screens both physical backend admissions and rechecks structure on explicit invalidation',async function(){
+    const filename=require.resolve('../lib/server/serve/evaluator-consumers'), local=require('node:module').createRequire(filename);
+    const module={exports:{}},backends=[],checks=[];let unsafe=false;
+    const proof=kind=>{checks.push(kind);if(unsafe)throw new Error('SYNTHETIC_STRUCTURAL_CHANGE');};
+    const connection={transaction:fn=>fn(),end:async()=>{}};
+    const mocks={
+      '../../storage/postgres-connection':async options=>{assert.equal(typeof options.admitBackend,'function');backends.push(options.admitBackend);await options.admitBackend({physical:backends.length});return connection;},
+      '../../tenant-notifications/readiness':async()=>proof('outbox'),
+      './evaluator-consumer-readiness':{suppression:async()=>proof('suppression'),sameDatastore:async()=>{},operational:async()=>proof('operational')},
+      '../../tenant-notifications/postgres':()=>({own:async()=>{},close:async()=>{},consume:async()=>{},enqueue:async()=>{},due:async()=>[],begin:async()=>{},dispatch:async()=>{},finish:async()=>{},receipts:async()=>[]}),
+      '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>[],allows:async()=>true})},
+      '../realtime/alarm-transport':{createAdapter:()=>({send(){}})}
+    };
+    require('node:vm').runInThisContext('(function(require,module,exports){'+fs.readFileSync(filename,'utf8')+'\n})',{filename})(id=>Object.hasOwn(mocks,id)?mocks[id]:local(id),module,module.exports);
+    const d=document();d.consumers=selected();const cfg={...parse.parse(d,source),pgstream:{},readCurrent:async()=>null};
+    const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
+    await window.ready();let value;
+    try {
+      value=await module.exports.prepare({config:cfg,clinicalConnection:{},current:()=>null,isCurrent:async()=>true,operationWindow:window,
+        jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),assertOperational:()=>{}});
+      assert.deepEqual(checks,['outbox','suppression','outbox'],'STARTUP_AND_BOTH_BACKEND_ADMISSIONS');
+      await value.verifyOperational();unsafe=true;
+      await assert.rejects(value.verifyOperational(),/SYNTHETIC_STRUCTURAL_CHANGE/,'DDL_CHANGE_REFUSES');
+      for(const admit of backends)await assert.rejects(admit({physical:'replacement'}),/SYNTHETIC_STRUCTURAL_CHANGE/,'REPLACEMENT_BACKEND_REFUSES');
+      unsafe=false;await value.verifyOperational();
+    } finally {await value?.close();await window.close();}
+  });
   it('challenges actual selected connections with one scoped nonce and refuses another datastore without credential comparison', async function () {
     let held = null; const observed = [];
     const clinical = { async transaction (fn) { try { return await fn(); } finally { held = null; } },
@@ -112,7 +139,7 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     const l=await protocol((request,callback)=>callback(failing?new Error('uncertain'):null,{accepted:true}),{retryIntervalMs:100});
     try {
       await l.start();const ids=l.effects.map(row=>row.id);
-      assert.equal(l.consumerTimers.length,2,'EQUAL_CADENCE_ONE_ACTIVE_SWEEP');
+      assert.equal(l.consumerTimers.length,1,'EQUAL_CADENCE_ONE_ACTIVE_SWEEP');
       failing=false;l.advance(1);l.consumerTimers[0].fn();await Promise.all([l.consumers.flush(l.A),l.consumers.flush(l.B)]);
       assert.equal(l.effects.length,4);assert.deepEqual(new Set(l.effects.slice(2).map(row=>row.id)),new Set(ids));
     } finally {await l.close();}
@@ -158,7 +185,7 @@ describe('actual runtime alarm outbox consumer source composition', function () 
     try { assert.equal(signal.aborted, true, 'EVALUATOR_CONSUMER_ABORT_OWNED_WAIT'); }
     finally { complete(new Error('fixture release')); await closing; }
     const stored = l.files.get(l.A).snapshot(); complete(null, { accepted: true }); await Promise.resolve();
-    assert.deepEqual(l.files.get(l.A).snapshot(), stored); assert.equal(l.cancelled.filter(timer => l.consumerTimers.includes(timer)).length, 3, "run, retry and backstop schedules cancelled");
+    assert.deepEqual(l.files.get(l.A).snapshot(), stored); assert.equal(l.cancelled.filter(timer => l.consumerTimers.includes(timer)).length, 2, "run and retry schedules cancelled");
   });
 });
 
@@ -209,66 +236,100 @@ describe('selected evaluator role consumes notification composition', function (
 });
 
 
-describe('owned delivery pass catalogue verification', function () {
+// These expectations intentionally replace the retired per-pass catalogue proof:
+// admission/schema boundaries own structure; delivery keeps current effect fences.
+describe('event driven notification recovery without quiet discovery', function () {
   let previous;
   beforeEach(() => { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(previous));
 
-  async function refusal (mutate = value => value) {
-    const vm = require('node:vm'), { createRequire } = require('node:module');
-    function load (filename, replace, change = value => value) {
-      const local = createRequire(filename), module = { exports: {} };
-      vm.runInThisContext('(function(require,module,exports){' + change(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
-        id => Object.hasOwn(replace, id) ? replace[id] : local(id), module, module.exports);
-      return module.exports;
-    }
-    const component = load(require.resolve('../lib/server/serve/evaluator-consumers'), {}, mutate);
-    const fixture = load(require.resolve('./fixtures/evaluator-consumers-protocol'), { '../../lib/server/serve/evaluator-consumers': component });
-    let unsafe = false, checks = 0;
-    const l = await fixture(undefined, { verifyPass: async () => { checks++; if (unsafe) throw new Error('SYNTHETIC_CONSUMER_METADATA_UNSAFE'); } });
-    try {
-      await l.start();
-      const calls = l.files.get(l.A).calls.length, effects = l.effects.length, checked = checks;
-      unsafe = true; await l.consumers.retry(l.A);
-      assert.equal(l.files.get(l.A).calls.length, calls, 'unsafe delivery pass must perform no producer/store SQL');
-      assert.equal(l.effects.length, effects, 'unsafe delivery pass must publish no effect');
-      assert.equal(checks, checked + 1, 'one metadata verification per delivery pass');
-      assert.equal(l.consumers.health([l.A]).tenants[0].state, 'refused');
-      unsafe = false; await l.consumers.retry(l.A);
-      assert.equal(checks, checked + 2);
-      assert.ok(l.files.get(l.A).calls.length > calls, 'restored metadata admits actual producer/store work');
-    } finally { await l.close(); }
+  function coordinate (mutate = value => value) {
+    const filename = require.resolve('../lib/server/serve/evaluator-consumers');
+    const module = {exports:{}};
+    require('node:vm').runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename,'utf8')) + '\n})', {filename})(require('node:module').createRequire(filename),module,module.exports);
+    return module.exports.coordinate;
   }
-
-  it('checks once before selection/retry/store work, refuses unsafe metadata and restores without per-read scans', async function () {
-    await refusal();
-  });
-
-  it('removing the actual pass verification permits store work and is red; restored source refuses it', async function () {
-    const needle = '          if (verifyPass) await verifyPass(state.tenant);';
-    await assert.rejects(refusal(source => {
-      assert.equal(source.split(needle).length, 2, 'control must land on actual delivery pass');
-      return source.replace(needle, '');
-    }), error => error.code === 'ERR_ASSERTION' && error.actual > error.expected);
-    await refusal();
-  });
-
-  it('awaits pending verification before all producer work and preserves sequential borrowed-parent delivery', async function () {
-    const window = require('./fixtures/operation-window-runtime-protocol')({ trustedWorker: true }).window;
-    await window.ready(); let release, entered, checks = 0, hold = false;
-    const waiting = new Promise(resolve => { entered = resolve; });
-    const l = await protocol(undefined, { operationWindow: window,
-      verifyPass: async tenant => { checks++; window.assertCurrent(tenant); if (hold) await new Promise(resolve => { release = resolve; entered(); }); } });
+  async function resumed (lab, {quiet = false, mutate, send} = {}) {
+    const timers = [], effects = [];
+    const quietOutputs = new Map([lab.A,lab.B].map(tenant => [tenant,{...lab.runtime.last(tenant),eligible:false,result:{emitted:[],requested:[]}}]));
+    const store = Object.fromEntries(['enqueue','consume','due','begin','dispatch','finish','receipts'].map(method => [method,
+      input => lab.files.get(input.tenant).store[method](input)]));
+    const value = coordinate(mutate)({tenants:[lab.A,lab.B], route:'realtime-test', store, reader:lab.alarm.reader,
+      current: quiet ? tenant => quietOutputs.get(tenant) : lab.runtime.last,
+      currentConfig:async tenant=>lab.configs.get(tenant), isCurrent:lab.runtime.isCurrent,
+      // A stale caller supplying the withdrawn option must cause no catalogue work.
+      verifyPass:()=>{throw new Error('UNEXPECTED_DELIVERY_CATALOGUE_PROOF');},
+      adapter:{id:'realtime-test',send(request,callback){effects.push(request);if(send)send(request,callback);else callback(null,{accepted:true});}},
+      now:()=>lab.files.get(lab.A).now(), maxRows:10,maxBytes:100000,maxPayloadBytes:10000,
+      maxInflight:2,attemptTimeoutMs:60000,retryDelayMs:1,pollIntervalMs:100,retryIntervalMs:200,
+      schedule(fn,interval){const timer={fn,interval};timers.push(timer);return timer;},cancel(){} });
+    value.start(); await Promise.all([value.flush(lab.A),value.flush(lab.B)]);
+    return {value,timers,effects};
+  }
+  async function quiet (mutate) {
+    const lab=await protocol();let second;
     try {
-      await l.start();
-      const calls = l.files.get(l.A).calls.length, effects = l.effects.length;
-      hold = true; const pending = l.consumers.retry(l.A);
-      await Promise.race([waiting, pending.then(() => { throw new Error('delivery pass did not await verification'); })]);
-      assert.equal(l.files.get(l.A).calls.length, calls); assert.equal(l.effects.length, effects);
-      hold = false; release(); await pending;
-      const before = checks;
-      await window.run(l.A, async () => { await l.consumers.wake(l.A); await l.consumers.retry(l.A); window.assertCurrent(l.A); });
-      assert.equal(checks, before + 2, 'borrowed requests retain pass verification in their original parent');
-    } finally { release?.(); await l.close(); await window.close(); }
+      second=await resumed(lab,{quiet:true,mutate});
+      const calls=lab.files.get(lab.A).calls.length;
+      assert.equal(second.timers.length,2,'ONLY_ACTIVE_RETRY_TIMERS');
+      for(let i=0;i<3;i++)for(const timer of second.timers)await timer.fn();
+      await second.value.flush(lab.A);
+      assert.equal(lab.files.get(lab.A).calls.length,calls,'QUIET_TENANT_NO_SQL');
+      assert.equal(second.value.health([lab.A]).tenants[0].selections,1,'STARTUP_ONLY_SELECTION');
+      assert.equal(second.effects.length,0);
+    } finally {await second?.value.close();await lab.close();}
+  }
+  it('healthy quiet tenants do no selection or SQL after startup and have no roster timer',async()=>{await quiet();});
+  it('reintroducing quiet discovery is red; restored source leaves quiet tenants alone',async function(){
+    await assert.rejects(quiet(source=>{
+      const needle="      sweep('start', 'run', tenants);";
+      assert.equal(source.split(needle).length,2);
+      return source.replace(needle,needle+" timers.push(schedule(() => sweep('backstop','run',tenants),60000));");
+    }),error=>error.code==='ERR_ASSERTION' && error.message.includes('ONLY_ACTIVE_RETRY_TIMERS'));
+    await quiet();
+  });
+  async function recovery (mutate) {
+    const lab=await protocol((request,callback)=>callback(new Error('lost-response')));let second;
+    try {
+      await lab.start();const id=lab.effects.find(row=>row.tenant===lab.A).id;
+      await lab.consumers.close();lab.advance(1);
+      // New coordinator has an empty RAM active set. Startup reads actual saved
+      // producer + intent rows and retries the same durable identity.
+      second=await resumed(lab,{mutate});
+      assert.equal(second.effects.find(row=>row.tenant===lab.A)?.id,id,'RESTART_RECOVERS_DURABLE_ID');
+      assert.ok(lab.files.get(lab.A).calls.some(row=>row.sql?.includes('tenant_notification_state')));
+      assert.equal(second.value.health([lab.A]).tenants[0].repeatAt !== null,true,'RESTART_RESTORES_REPEAT');
+      // Lose an ephemeral revision wake: no call to revised. Explicit transport
+      // recovery must reconcile the current output against persisted state.
+      lab.advance(60000);await lab.runtime.tick(lab.A);
+      const before=second.effects.length;
+      await second.value.recover();await second.value.flush(lab.A);
+      assert.ok(second.effects.length>before,'RECONNECT_RECOVERS_LOST_WAKE');
+    } finally {await second?.value.close();await lab.close();}
+  }
+  it('restart restores durable retry/repeat and explicit reconnect recovers a dropped output wake',async()=>{await recovery();});
+  it('breaking startup reconciliation or reconnect reconciliation is red; restored paths pass',async function(){
+    for(const needle of ["      sweep('start', 'run', tenants);", "recover: () => sweep('recovery', 'run', [...tenants])"]) {
+      await assert.rejects(recovery(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,needle.startsWith('recover')?'recover: async () => {}':'');}),error=>error.code==='ERR_ASSERTION');
+    }
+    await recovery();
+  });
+  async function revision (mutate) {
+    const lab=await protocol();let second;
+    try {
+      second=await resumed(lab,{mutate});const before=second.effects.length;
+      lab.advance(60000);await lab.runtime.tick(lab.A);
+      second.value.revised(lab.A);await second.value.flush(lab.A);
+      assert.equal(second.effects.length,before+1);
+    } finally {await second?.value.close();await lab.close();}
+  }
+  it('output revision wakes delivery without waiting for a retry timer',async()=>{await revision();});
+  it('reintroducing per-pass catalogue verification is red; restored delivery passes',async function(){
+    await assert.rejects(revision(source=>{
+      const needle='          const selected = await select(state.tenant);';
+      assert.equal(source.split(needle).length,2);
+      return source.replace('pool, schedule','pool, verifyPass, schedule').replace(needle,'          await verifyPass(state.tenant);\n'+needle);
+    }),error=>error.code==='ERR_ASSERTION');
+    await revision();
   });
 });
