@@ -328,6 +328,7 @@
         "tests/realtime-placement-cohort.test.js",
         "tests/realtime-placement.test.js",
         "tests/realtime-disconnect-causes.test.js",
+        "tests/realtime-request-lifetime.test.js",
         "tests/realtime-reconnect-surge.test.js",
         "tests/socket-admission-cache.test.js",
         "tests/realtime-browser-diagnostics.test.js",
