@@ -115,14 +115,16 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
         await mutate(false,stamp=>{expires.srvModified=stamp;return admin.query('INSERT INTO '+entries+'(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(expires)]);});
         await expect('create',{id_kind:'string',doc:expires},'entries');
         const expiryStamp=String((await floor())[0].last_stamp);
-        const entering=await projection(row=>String(row?.checkpoint)===expiryStamp);
-        const beforeProgress=entering.projection[0].output.result.progress;
-        const expired=await projection(row=>String(row?.checkpoint)===expiryStamp&&row.projection[0].output.frame.lastUpdated>edge&&row.projection[0].output.result.progress!==beforeProgress);
-        assert.equal(expired.projection[0].output.trigger,'time-only','STORAGE_EXPIRY_ACTUAL_TIME_COMPLETION');
+        await projection(row=>String(row?.checkpoint)===expiryStamp);
+        const work=async()=>(await admin.query('SELECT work_completed_at::text AS completed_at,work_due_at::text AS due_at FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.completedOutput.consumer+'-completed'])).rows[0];
+        const entering=await work();
+        assert(Number(entering.completed_at)<edge,'STORAGE_EXPIRY_EDGE_MUST_START_IN_FUTURE');
+        assert(Number(entering.due_at)<=edge+1,'STORAGE_EXPIRY_EDGE_MUST_BE_ACTUALLY_DUE');
+        const expired=await wait(async()=>{const row=await work();return Number(row.completed_at)>edge&&(row.due_at===null||Number(row.due_at)>edge+1)?row:null;},'STORAGE_EXPIRY_TIME_COMPLETION_MISSING');
         assert.equal(String((await floor())[0].last_stamp),expiryStamp,'STORAGE_EXPIRY_MUST_NOT_WRITE_SOURCE_CLOCK');
         assert((await rows(config.tenant)).some(row=>row.doc._id===expiryId),'STORAGE_EXPIRY_MUST_KEEP_SOURCE_ROW');
         for(const client of clients)assert(!client.events.some(row=>row.event==='delete'&&row.value.identifier===expiryId),'STORAGE_EXPIRY_MUST_NOT_EMIT_DELETE');
-        record({clinicalExpiry:{sourceId:expiryId,inputCheckpoint:expiryStamp,beforeProgress,afterProgress:expired.projection[0].output.result.progress,trigger:expired.projection[0].output.trigger,sourcePreserved:true}});
+        record({clinicalExpiry:{sourceId:expiryId,inputCheckpoint:expiryStamp,before:entering,after:expired,sourcePreserved:true}});
 
 
       },
