@@ -30,7 +30,7 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
     for(const event of ['create','update','delete'])client.on(event,value=>{item.events.push({event,value});oracle.bounded(item.events,limits);record({clients:events(clients),foreignClients:events(foreign)});});
     const result=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('STORAGE_SUBSCRIBE_NOACK')),config.timeoutMs);
       client.emit('subscribe',{accessToken:credential.token,collections:['entries','food']},value=>{clearTimeout(timer);resolve(value);});});
-    subscriptions.push({tenant:target===clients?'A':'B',transport,host,result});record({subscriptions});assert.deepEqual(result,{success:true,collections:['entries','food']});return credential.token;
+    subscriptions.push({tenant:host===config.host?'A':'B',transport,host,result});record({subscriptions});assert.deepEqual(result,{success:true,collections:['entries','food']});return credential.token;
   }
   async function close(){if(closed)return;closed=true;for(const socket of ownedSockets)socket.close();record({socketsClosed:true});}
   try{
