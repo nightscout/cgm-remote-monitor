@@ -6,7 +6,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const scope = require('../lib/storage/tenant-scope');
 const { EventEmitter } = require('node:events');
-function fixture () {
+function fixture ({change=source=>source}={}) {
+  let stopRefused=false;const children=[];
   const calls = [], roles = new Set(), provisionedIds = new Set(); let inheritedResets = 0, lab;
   const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
   const namespaces = Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity','settings','clock'].map(k => [k, 'protocol_' + k]));
@@ -29,13 +30,13 @@ function fixture () {
   loaded.require = name => {
     if (name === 'node:child_process') return { fork (file, args, options) {
       calls.push({ worker: { file, args, options } });
-      const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.exitCode = 0;
+      const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.exitCode = 0;child.signalCode=null;children.push(child);child.kill=signal=>{calls.push({text:'ROLE_'+signal});child.exitCode=0;queueMicrotask(()=>child.emit('exit',0,null));};
       queueMicrotask(() => child.emit('message', { ready: true })); return child;
     }, spawn () { throw Error('UNEXPECTED_CLI_CHILD'); } };
     if (name === './pgstream-native') return {
       capability: () => ({ binary: '/synthetic/pinned-pgstream', sha256: 'f'.repeat(64), receiverPort: 19421, subscriptionsPort: 19422 }),
-      configuration: ({prefix, capability}) => ({ binaryEnv: 'NS_RT_BOOTSTRAP_PGSTREAM_BINARY', configFileEnv: 'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG', receiverPort: capability.receiverPort, slot: prefix + '_stream', streamRole: prefix + '_stream', bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } }),
-      async setup(options) { calls.push({ producer: options }); return { environment: { NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pinned-pgstream', NS_RT_BOOTSTRAP_PGSTREAM_CONFIG: path.join(options.directory, 'synthetic-stream.json') }, async close() { calls.push({ text: 'PRODUCER_CLOSE' }); } }; }
+      configuration: ({prefix, capability}) => ({ receiver:{url:'http://127.0.0.1:'+capability.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000}, slot: prefix + '_stream', streamRole: prefix + '_stream', bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } }),
+      async setup(options) { calls.push({ producer: options }); return {environment:{},async start(){calls.push({text:'EXTERNAL_PRODUCER_START'});},async stop(){calls.push({text:'EXTERNAL_PRODUCER_STOP'});if(stopRefused)throw Error('SYNTHETIC_STREAM_STOP_FAILED');},async close() { calls.push({ text: 'PRODUCER_CLOSE' }); } }; }
     };
     if (name === '../../lib/migrations/postgres') return { async run(action, options) { calls.push({ migration: {action, ...options} }); } };
     if (name === './m5-current-state-proof') return base;
@@ -50,8 +51,8 @@ function fixture () {
     } };
     return Module.prototype.require.call(loaded, name);
   };
-  loaded._compile(fs.readFileSync(filename, 'utf8'), filename);
-  return { create: loaded.exports, calls, roles, provisionedIds, inheritedResets: () => inheritedResets };
+  loaded._compile(change(fs.readFileSync(filename, 'utf8')), filename);
+  return { create: loaded.exports, calls, roles, children,refuseStreamStop:value=>{stopRefused=value;},provisionedIds, inheritedResets: () => inheritedResets };
 }
 describe('independent registry evaluator fixture setup', function () {
   let prior, uri;
@@ -103,10 +104,20 @@ describe('independent registry evaluator fixture setup', function () {
       assert.equal(composition.operationConfig.participants.find(row => row.id === 'evaluator').endpoint.socketPath, worker.options.env.NS_SERVE_INTERNAL_SOCKET);
       assert(f.calls.some(c => c.text === 'REVOKE ALL ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) FROM PUBLIC'));
       assert(f.calls.some(c => c.text === 'GRANT EXECUTE ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) TO "protocol_provisioner"'));
-      assert.equal(worker.options.env.NS_RT_BOOTSTRAP_PGSTREAM_CONFIG.endsWith('synthetic-stream.json'),true);
+      assert(!Object.hasOwn(worker.options.env,'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG'));assert(!Object.hasOwn(worker.options.env,'NS_RT_BOOTSTRAP_PGSTREAM_BINARY'));
+      assert(f.calls.some(c=>c.text==='EXTERNAL_PRODUCER_START'),'INDEPENDENT_PRODUCER_STARTED_BY_FIXTURE');
       assert(f.calls.some(c=>c.producer),'REAL_PRODUCT_SETUP_REQUIRED_BEFORE_CHILD');
       assert(f.calls.some(c => c.text?.includes('tenant_registry_tenants(uuid, integer)')));
       assert(!f.calls.some(c => c.text?.startsWith('GRANT SELECT ON "provisioned_registry".tenant_registry,')));
     } finally { await lab.close(); }
   });
+  it('stops the independently owned producer before role teardown; omission is red and restoration passes',async function(){
+    async function criterion(change){const f=fixture({change}),lab=f.create();try{await lab.open();await lab.worker(lab.configure());f.children[0].exitCode=null;await lab.stopChildren();const stop=f.calls.findIndex(row=>row.text==='EXTERNAL_PRODUCER_STOP'),signal=f.calls.findIndex(row=>row.text==='ROLE_SIGTERM');assert(stop>=0&&signal>stop,'EXTERNAL_PRODUCER_MUST_DRAIN_BEFORE_ROLE_TEARDOWN');}finally{await lab.close();}}
+    const needle='try{await lab.stopStream?.();}catch(error){errors.push(error);}';
+    await assert.rejects(criterion(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/EXTERNAL_PRODUCER_MUST_DRAIN_BEFORE_ROLE_TEARDOWN/);await criterion(source=>source);
+  });
+  it('still drains role children when producer cleanup refuses and preserves that cleanup error',async function(){
+    const f=fixture(),lab=f.create();try{await lab.open();await lab.worker(lab.configure());f.children[0].exitCode=null;f.refuseStreamStop(true);await assert.rejects(lab.stopChildren(),error=>error instanceof globalThis.AggregateError&&error.errors.some(item=>item.message==='SYNTHETIC_STREAM_STOP_FAILED'));assert(f.calls.some(row=>row.text==='ROLE_SIGTERM'),'ROLE_DRAIN_MUST_NOT_BE_SKIPPED_AFTER_STREAM_CLEANUP_ERROR');}finally{f.refuseStreamStop(false);await lab.close();}
+  });
+
 });

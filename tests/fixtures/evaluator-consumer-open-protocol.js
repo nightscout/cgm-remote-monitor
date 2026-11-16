@@ -54,7 +54,7 @@ module.exports=function openProtocol({env,...options}={}) {
       if(id==='process'||id==='node:process')return processFacade;
       if(id==='./pgstream-native')return {
         capability:()=>({binary:'/synthetic/pgstream',receiverPort:19421,subscriptionsPort:19422}),
-        configuration:({prefix,capability})=>({binaryEnv:'NS_RT_BOOTSTRAP_PGSTREAM_BINARY',configFileEnv:'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG',receiverPort:capability.receiverPort,slot:prefix+'_stream',streamRole:prefix+'_stream',bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,stopMs:2000,recoveryMs:30000,pendingMs:30000,maxRestarts:3}}),
+        configuration:({prefix,capability})=>({receiver:{url:'http://127.0.0.1:'+capability.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000},slot:prefix+'_stream',streamRole:prefix+'_stream',bounds:{heartbeatMs:1000,stallMs:5000,stepMs:5000,recoveryMs:30000,pendingMs:30000}}),
         async setup(){throw Error('NATIVE_PRODUCER_MUST_NOT_START_IN_SETUP_ORDER_PROTOCOL');}
       };
       const resolved=actual.resolve(id);

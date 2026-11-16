@@ -115,6 +115,7 @@ module.exports = function consumersLab () {
   };
   lab.releaseSink = () => { for (const release of held.splice(0)) release(); };
   lab.workerConsumers = async config => {
+    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stopStream?.();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: true, env: {
@@ -126,6 +127,7 @@ module.exports = function consumersLab () {
       ...lab.environment(config), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
     const birthRaw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
     const birth = birthRaw.slice(birthRaw.lastIndexOf(')') + 2).split(' ')[19];
+    child.fixtureBirth=birth;
     children.add(child); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => {
@@ -143,6 +145,7 @@ module.exports = function consumersLab () {
         if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value); }
     });
     child.once('error', error => { clearTimeout(startup); reject(error); });
+    Promise.resolve().then(() => lab.startStream()).catch(error => { clearTimeout(startup); child.kill('SIGTERM'); reject(error); });
     child.on('exit', (code, signal) => { children.delete(child); clearTimeout(startup);
       for (const p of pending.values()) { clearTimeout(p.timer); p.fail(new Error('Consumer role exited with pending action')); } pending.clear();
       console.log('M5_CONSUMER_CHILD_EXIT ' + JSON.stringify({ pid: child.pid, code, signal })); });
@@ -157,18 +160,22 @@ module.exports = function consumersLab () {
     process.kill(-worker.processGroup, 'SIGKILL');
   };
   lab.stopConsumer = async worker => {
+    await lab.stopStream();
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('close'); const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
     worker.child.send({ id: 0, action: 'exit' }); return stopped;
   };
   lab.stopConsumers = async () => {
+    const errors=[];
+    try{await lab.stopStream?.();}catch(error){errors.push(error);}
     lab.releaseSink();
     for (const child of [...children]) {
       const stopped = new Promise(resolve => child.once('exit', (code, signal) => resolve({ code, signal })));
       let forced = false;
-      const timer = setTimeout(() => { forced = true; child.kill('SIGKILL'); }, 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
-      if (forced || result.code !== 0 && !child.fixtureBootRefused) throw new Error('Owned consumer shutdown refused/forced');
+      const timer = setTimeout(() => { forced = true; lab.killConsumer({child,birth:child.fixtureBirth,processGroup:child.pid}); }, 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
+      if (forced || result.code !== 0 && !child.fixtureBootRefused) errors.push(new Error('Owned consumer shutdown refused/forced'));
     }
+    if(errors.length)throw new globalThis.AggregateError(errors,'Consumer actors cleanup refused');
   };
   lab.reset = async () => {
     await lab.stopConsumers(); lab.releaseSink(); if (sink) await sink.close(); sink = null;
@@ -182,6 +189,7 @@ module.exports = function consumersLab () {
     schemaReady = false;
     const errors = [];
     const attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
+    await attempt(() => lab.stopStream?.());
     await attempt(() => lab.stopConsumers()); lab.releaseSink();
     if (sink) await attempt(() => sink.close());
     if (writer) await attempt(() => writer.end());
