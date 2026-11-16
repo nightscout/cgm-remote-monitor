@@ -13,7 +13,7 @@ describe('versioned pool intake infrastructure profile (not runtime authority)',
  it('binds both principals, layout, exact codec/domain, consumer and shared slice rule',()=>{
   const p=profile.create(options);assert.equal(p.binding.protocol,'pgstream-pool-intake-v2');assert.equal(p.binding.policy,legacy.POLICY);assert.equal(p.binding.sliceRule,RULE);
   assert.equal(p.digest,hash(p.binding));assert.equal(p.contractDigest,hash(['evaluator-work-v2',options.namespace,options.consumer,profile.PROTOCOL,p.digest]));
-  assert.deepEqual(p.binding.controlReads,legacy.CONTROL_READS);assert.deepEqual(p.binding.workCatalogueRead,legacy.WORK_CATALOGUE_READ);assert.deepEqual(profile.DOMAIN,legacy.DOMAIN);
+  assert.deepEqual(p.binding.controlReads,{...legacy.CONTROL_READS,tenant_lifecycle_requests:['tenant_id','request_id','artifact_digest','phase'],tenant_lifecycle_ceremony:['tenant_id','request_id','phase'],tenant_lifecycle_recommission:['tenant_id','request_id','generation','artifact_digest','activated']});assert.deepEqual(p.binding.workCatalogueRead,legacy.WORK_CATALOGUE_READ);assert.deepEqual(profile.DOMAIN,legacy.DOMAIN);
   assert.deepEqual(Object.keys(p).sort(),['binding','contractDigest','digest','ownerKey']);assert.strictEqual(profile.validate(p),p);
   assert(Object.isFrozen(p)&&Object.isFrozen(p.binding)&&Object.isFrozen(p.binding.controlReads)&&Object.isFrozen(p.binding.controlReads.tenant_lifecycle_windows)&&Object.isFrozen(p.binding.workCatalogueRead));
  });
