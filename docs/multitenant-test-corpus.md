@@ -76,6 +76,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded bootstrap receipts preserve completed/output/due/pending state |
 | `tests/pgstream-checkpoint.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | observed/completed/output/due atomicity, owner loss, retained-overdue cold serve boot without another clinical write |
 | `tests/pgstream-single-receipt.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | single receipt metadata patches, monotone control state, rollback and old-transfer RED |
+| `tests/pgstream-recovery.integration.test.js` | `NS_PGSTREAM_RECOVERY_TEST=1` | PostgreSQL | | independent maintained producer, durable receipt catchup, evaluator process loss and due work; requires explicit pinned producer inputs |
 | `tests/preview-entries-acquisition.integration.test.js` | `NS_REST_ACQUISITION_NATIVE=1` | | PostgreSQL | actual preview entries read/write and current-authority/restore refusal; owned pinned image and verified container/volume cleanup, operation-window adapter is a refusal protocol |
 | `tests/postgres-connection.test.js` | admin URI only | PostgreSQL | | |
 | `tests/entries-importer-postgres.integration.test.js` | admin URI plus `NS_POPULATED_RECOVERY_DOCKER_TEST=1` | PostgreSQL | PostgreSQL source and fresh restore target | populated stopped-write snapshot/ledger/typed identity reference; no key recovery |

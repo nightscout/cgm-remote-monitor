@@ -197,7 +197,7 @@
         "tests/evaluator-pending-isolation.test.js",
         "tests/pgstream-checkpoint-transfer.test.js",
         "tests/pgstream-heartbeat-inventory.test.js",
-        "tests/pgstream-supervisor.test.js",
+        "tests/pgstream-delivery-health.test.js",
         "tests/pgstream-supervisor-recovery.test.js",
         "tests/pgstream-completed-delivery.test.js",
         "tests/realtime-intake-profile.test.js",

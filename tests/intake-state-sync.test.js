@@ -6,7 +6,7 @@ const actual=require('../lib/pgstream/intake-state');
 const manifest=require('../lib/server/serve/operation-cohort-manifest');
 const transport=require('../lib/server/internal-api/transport');
 const contracts=require('../lib/server/internal-api/contracts');
-const bounds={heartbeatMs:10,stallMs:100,stepMs:20,stopMs:20,recoveryMs:200,pendingMs:200,maxRestarts:2};
+const bounds={heartbeatMs:10,stallMs:100,stepMs:20,recoveryMs:200,pendingMs:200};
 const incarnation='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 const assignmentRevision='9007199254740993';
 const peers=manifest.validate(['evaluator','api','realtime','tenant-admin'].map((role,i)=>({id:role+'-0',roles:[role],namespaces:['synthetic_window'],endpoint:{url:'http://127.0.0.1:'+ (18000+i)+'/',trust:'network',maxBytes:1048576,timeoutMs:20}})));
@@ -78,25 +78,22 @@ describe('actual cohort and private control composition',function(){
   const res=new EventEmitter();res.writeHead=status=>{assert.equal(status,200);res.headersSent=true;};res.end=bytes=>{result=JSON.parse(bytes);res.emit('finish');};await handler(req,res);assert.equal(result.state,'ready');assert.equal(result.request,request.request);
  });
 });
-function supervisorLab(){
- const spawn=()=>{const child=new EventEmitter();return Object.assign(child,{pid:321,exitCode:null,signalCode:null,stdout:null,stderr:null,kill(signal){this.signalCode=signal;this.emit('exit',null,signal);}});};
- return load('../lib/pgstream/supervisor.js',{'node:child_process':{spawn}});
-}
-describe('actual supervisor post-recovery and receipt clock boundaries',function(){
+function deliveryLab(){return load('../lib/pgstream/delivery-health.js',{});}
+describe('actual delivery monitor post-recovery and receipt clock boundaries',function(){
  it('cannot advertise ready at the old callback boundary, promotes after healthy, and withdraws hook failure',async()=>{
-  const module=supervisorLab();let owner,mono=0,wall=1000,pulse=0,failHook=false,ticket;const binding=()=>({participant:peer.id,incarnation});
+  const module=deliveryLab();let owner,mono=0,wall=1000,pulse=0,failHook=false,ticket;const binding=()=>({participant:peer.id,incarnation});
   const publication=actual.publisher({getBinding:binding,assignmentRevision,stallMs:bounds.stallMs,health:()=>{const h=owner?.health();return h?{...h,heartbeatAgeMs:h.monotonicHeartbeatAgeMs}:null;}});
   const request={request:incarnation,...binding(),assignmentRevision};
-  owner=await module.start({binary:process.execPath,configFile:__filename,bounds,now:()=>wall,monotonicNow:()=>mono,pulse:async value=>{pulse=value;},inspect:async()=>({identity:true,grants:true,slot:'valid'}),pending:async()=>({pending:false}),onUnavailable:async code=>{publication.blocked(code);},onRecovered:async()=>{ticket=await publication.prepareRecovery(async()=>{});assert.equal(owner.health().healthy,false);assert.throws(()=>publication.ready(ticket),/FEED_NOT_READY/);assert.equal(publication.inspectIntake(request).state,'recovering');},onHealthy:async()=>{assert.equal(owner.health().healthy,true);publication.ready(ticket);if(failHook)throw Error('synthetic post-healthy failure');}});
+  owner=await module.start({bounds,now:()=>wall,monotonicNow:()=>mono,pulse:async value=>{pulse=value;},inspect:async()=>({identity:true,grants:true,slot:'valid'}),pending:async()=>({pending:false}),onUnavailable:async code=>{publication.blocked(code);},onRecovered:async()=>{ticket=await publication.prepareRecovery(async()=>{});assert.equal(owner.health().healthy,false);assert.throws(()=>publication.ready(ticket),/FEED_NOT_READY/);assert.equal(publication.inspectIntake(request).state,'recovering');},onHealthy:async()=>{assert.equal(owner.health().healthy,true);publication.ready(ticket);if(failHook)throw Error('synthetic post-healthy failure');}});
   try{owner.receipt(pulse);await owner.check();assert.equal(publication.inspectIntake(request).state,'ready');const revision=publication.inspectIntake(request).controlRevision;
    wall=1;mono=40;assert.equal(owner.health().monotonicHeartbeatAgeMs,40);assert.equal(publication.inspectIntake(request).heartbeatAgeMs,40);assert.equal(publication.inspectIntake(request).controlRevision,revision);
    mono=50;owner.receipt(pulse-1);assert.equal(owner.health().monotonicHeartbeatAgeMs,50,'duplicate receipt cannot renew monotonic age');
-   // Force the real supervisor loss/recovery path, then fail its new hook.
+   // Force the delivery loss/recovery path, then fail its new hook.
    wall=1200;await owner.check();assert.equal(publication.inspectIntake(request).state,'blocked');failHook=true;owner.receipt(pulse);await owner.check();assert.equal(owner.health().healthy,false);assert.equal(publication.inspectIntake(request).state,'blocked');
   }finally{await owner.close();}
  });
- it('keeps default supervisor health shape unchanged and refuses heartbeat exhaustion',async()=>{
-  const module=supervisorLab();const owner=await module.start({binary:process.execPath,configFile:__filename,bounds,initialSequence:Number.MAX_SAFE_INTEGER,pulse:async()=>assert.fail('unsafe heartbeat must not pulse'),inspect:async()=>({identity:true,grants:true,slot:'valid'}),pending:async()=>({pending:false}),onUnavailable:async()=>{}});
+ it('keeps default delivery health shape unchanged and refuses heartbeat exhaustion',async()=>{
+  const module=deliveryLab();const owner=await module.start({bounds,initialSequence:Number.MAX_SAFE_INTEGER,pulse:async()=>assert.fail('unsafe heartbeat must not pulse'),inspect:async()=>({identity:true,grants:true,slot:'valid'}),pending:async()=>({pending:false}),onUnavailable:async()=>{}});
   try{assert(!Object.hasOwn(owner.health(),'monotonicHeartbeatAgeMs'));assert.equal(owner.health().code,'PGSTREAM_HEARTBEAT_EXHAUSTED');}finally{await owner.close();}
  });
 });
@@ -107,10 +104,10 @@ describe('actual maintained intake adapter publication wiring',function(){
   const h={healthy:false,terminal:false,closed:false,sequence:2,received:1,monotonicHeartbeatAgeMs:0};
   const store={available:true,own:async()=>{},admit:async()=>{},health:async()=>({pending:false}),close:async()=>{closed++;}};
   const feed={health:()=>({...h}),close:async()=>{closed++;},receipt(){}};
-  const config={consumer:'evaluator-fixture',maxBytes:1000,timeIntervalMs:100,connectionString:'postgres://stream:synthetic@127.0.0.1:15432/disposable_test',tenants:new Map([[incarnation,{}]]),namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},trustedWorker:{settings:'synthetic_settings',operatorPolicy:'synthetic_policy',activity:'synthetic_activity'},pgstream:{binary:'/synthetic/pgstream',configFile:'/synthetic/config',receiverPort:15434,streamRole:'stream',slot:'synthetic_slot',bounds},...(selected?{intakeStateSync:{assignmentRevision}}:{})};
+  const config={consumer:'evaluator-fixture',maxBytes:1000,timeIntervalMs:100,connectionString:'postgres://stream:synthetic@127.0.0.1:15432/disposable_test',tenants:new Map([[incarnation,{}]]),namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},trustedWorker:{settings:'synthetic_settings',operatorPolicy:'synthetic_policy',activity:'synthetic_activity'},pgstream:{receiver:{url:'http://127.0.0.1:15434/',bindHost:'127.0.0.1',trust:'network',maxBytes:2000,timeoutMs:20},streamRole:'stream',slot:'synthetic_slot',bounds},...(selected?{intakeStateSync:{assignmentRevision}}:{})};
   const selectedRoutes=require('../lib/pgstream/evaluator').routes(config);
   const wire={source:{postgres:{url:config.connectionString,mode:'replication',replication:{replication_slot:'synthetic_slot',plugin:{add_tables:selectedRoutes.map(v=>v.schema+'.'+v.table).join(',')}}}},target:{webhooks:{notifier:{strict_mode:true},subscriptions:{store:{url:config.connectionString+'?pool_max_conns=2'},server:{address:'127.0.0.1:15433'}}}}};
-  const module=load('../lib/pgstream/evaluator.js',{'node:fs':{readFileSync:file=>file==='/synthetic/config'?JSON.stringify(wire):Buffer.from('synthetic pinned bytes')},'node:crypto':{createHash:()=>({update(){return this;},digest:()=>require('../lib/pgstream/evaluator').BINARY_SHA256})},'./checkpoint':{create:()=>store},'./receiver':{...require('../lib/pgstream/receiver'),create:options=>{receive=options;return require('../lib/pgstream/receiver').create(options);}},'./supervisor':{RECEIVER_COUNTERS:require('../lib/pgstream/supervisor').RECEIVER_COUNTERS,start:async options=>{ports=options;return feed;}},'node:http':{createServer:handler=>{httpHandler=handler;return {once(){},listen(port,host,callback){callback();},close(callback){closed++;callback();}};}}});
+  const module=load('../lib/pgstream/evaluator.js',{'node:fs':{readFileSync:file=>file==='/synthetic/config'?JSON.stringify(wire):Buffer.from('synthetic pinned bytes')},'node:crypto':{createHash:()=>({update(){return this;},digest:()=>require('../lib/pgstream/evaluator').BINARY_SHA256})},'./checkpoint':{create:()=>store},'./receiver':{...require('../lib/pgstream/receiver'),create:options=>{receive=options;return require('../lib/pgstream/receiver').create(options);}},'./delivery-health':{RECEIVER_COUNTERS:require('../lib/pgstream/delivery-health').RECEIVER_COUNTERS,start:async options=>{ports=options;return feed;}},'node:http':{createServer:handler=>{httpHandler=handler;return {once(){},listen(port,host,callback){callback();},close(callback){closed++;callback();}};}}});
   const owner=await module.open({config,connection:{readOnly:async()=>({rows:[{revision:'1'}]})},intakeBinding:()=>{if(bindingUnavailable)throw Error('INTAKE_BINDING_UNAVAILABLE');return {participant:peer.id,incarnation:mode};},onInput:async()=>{},onRecovered:async()=>{},onUnavailable:async()=>{await drain();},onSchema:async()=>{await drain();},onTerminal:()=>{}});
   return {owner,ports,receive,h,store,async sendSchema(){let status;const req={method:'POST',url:'/pgstream',async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:'synthetic_settings',objects:[]})}}));}},res={writeHead(code){status=code;return this;},end(){}};await httpHandler(req,res);return status;},setInc:v=>{mode=v;},loseBinding:()=>{bindingUnavailable=true;},drain:fn=>{drain=fn;},request:()=>({request:incarnation,participant:peer.id,incarnation:mode,assignmentRevision}),get closed(){return closed;}};
  }

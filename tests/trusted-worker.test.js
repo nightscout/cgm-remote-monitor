@@ -104,8 +104,8 @@ describe('trusted worker metadata and operational scope', function () {
     const original = docs.configs.evaluator;
     for (const key of ['changeFeed', 'recoveryIntervalMs', 'settingsRefreshMs']) delete original[key];
     delete original.postgres.namespaces.changeStamps;
-    if (!original.pgstream) original.pgstream = { binaryEnv: 'NS_PGSTREAM_BINARY', configFileEnv: 'NS_PGSTREAM_CONFIG', receiverPort: 18080, slot: 'trusted_stream', streamRole: 'trusted_stream',
-      bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } };
+    if (!original.pgstream) original.pgstream = { receiver:{url:'http://127.0.0.1:'+18080+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: 'trusted_stream', streamRole: 'trusted_stream',
+      bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
     assert.equal(Object.hasOwn(parse(original), 'settingsRefreshMs'), false);
     assert.equal(parse(original).timeIntervalMs, original.timeIntervalMs);
     for (const name of ['activity', 'settings', 'operatorPolicy', 'clock']) {
