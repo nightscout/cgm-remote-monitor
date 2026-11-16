@@ -27,11 +27,23 @@ describe('addressed raw journal reader and current-worker fence',()=>{
   assert.equal(checks,1,'ONE_ADDRESSED_CONTROL_CHECK');assert.equal(outcomes.get(A),false);assert.equal(outcomes.get(B),true);assert.deepEqual(delivered,[B]);
   const before=f.queries.length;protocol.storageWatched=()=>false;await f.reader.check([A,B],{runtime,protocol,concurrency:2});assert.equal(f.queries.length,before,'NO_UNWATCHED_RAW_TAIL_READ');
  });
- it('default boot uses the same receipt drain for source-tail and completed-frame delivery',()=>{
+ it('default boot uses the same receipt drain and wakes the accepted tenant after raw receipt commit',async()=>{
   const text=require('node:fs').readFileSync(require.resolve('../lib/server/serve/preview-realtime'),'utf8');
   assert.match(text,/check:tenants=>storageEvents.check\(tenants,\{runtime,protocol,concurrency:REFRESH_CONCURRENCY\}\)/,'DEFAULT_MUST_DRAIN_RAW_EVENTS');
   const evaluate=require('node:fs').readFileSync(require.resolve('../lib/server/serve/evaluator-preview'),'utf8');
-  assert.match(evaluate,/receipt\?\.rawDeliveryPending\)workScheduler\?\.wakeDelivery\(\)/,'ACK_COMMIT_MUST_WAKE_EXISTING_DELIVERY');
+  assert.match(evaluate,/receipt\?\.rawDeliveryPending\)workScheduler\?\.wakeDelivery\(tenant\)/,'ACK_COMMIT_MUST_WAKE_ADDRESSED_DELIVERY');
+  // Execute the maintained callback, retaining the real await and addressed wake.
+  // Its replay port resolves only after the durable receipt commits.
+  const callback=evaluate.match(/accept:(async\(tenant,data,domain,store\)=>\{[\s\S]*?)\n        \}\},/);assert(callback,'MAINTAINED_CLINICAL_ACCEPT_CALLBACK_REQUIRED');
+  async function criterion(body){
+   let committed;const receipt={rawDeliveryPending:true},wakes=[];
+   const replay={acceptClinical:async tenant=>{assert.equal(tenant,A);return new Promise(resolve=>{committed=resolve;});}};
+   const accept=new Function('replay','workScheduler','config','return '+body+'}')(replay,{wakeDelivery:tenant=>wakes.push(tenant)},{maxBytes:10000});
+   const accepting=accept(A,{synthetic:true},'entries',{consumer:'synthetic',digest:'synthetic'});
+   assert.deepEqual(wakes,[],'RAW_DELIVERY_MUST_WAIT_FOR_COMMITTED_RECEIPT');committed(receipt);
+   assert.equal(await accepting,receipt);assert.deepEqual(wakes,[A],'RAW_RECEIPT_MUST_WAKE_ITS_TENANT');
+  }
+  await assert.rejects(criterion(callback[1].replace('wakeDelivery(tenant)','wakeDelivery()')),/RAW_RECEIPT_MUST_WAKE_ITS_TENANT/);await criterion(callback[1]);
  });
 
  it('retained tails cannot cross an operation-window restore generation',async()=>{
