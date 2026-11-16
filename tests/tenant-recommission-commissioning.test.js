@@ -116,6 +116,40 @@ describe('current-configuration recommission commissioning (recording protocol)'
     assert(!f.state.trace.some(row => row.sql.includes('tenant_registry_keys')), 'no replacement key selection for a present access group');
   });
 
+  it('advances only absent current policy metadata beyond captured version/audit floors without copying authority', async function () {
+    const f = fixture(); f.args.versionFloors = { subjectPolicy: 7, operatorPolicy: 7 };
+    await withRecordingClaim(f, () => helper.commission(f.args));
+    const subject = f.state.rows.get('commission_subject_policy.subject_policy')[0];
+    const operator = f.state.rows.get('commission_operator_policy.tenant_operator_policy')[0];
+    assert.equal(subject.version, 8); assert.equal(operator.generation, 8);
+    assert.deepEqual(subject.grants, [grant]); assert.deepEqual(operator.policy, f.args.configuration.operatorPolicy);
+    const archivedAuditVersions = new Set([1, 2, 7]);
+    assert(!archivedAuditVersions.has(subject.version + 1), 'the next supported replacement no longer collides with retained audit versions');
+    const before = clone([...f.state.rows]); f.state.trace = [];
+    f.args.versionFloors = { subjectPolicy: 2147483647, operatorPolicy: 2147483647 };
+    f.args.configuration = undefined;
+    await withRecordingClaim(f, () => helper.commission(f.args));
+    assert.deepEqual([...f.state.rows], before); assert.equal(writes(f).length, 0, 'present groups do not consume supplied floors');
+  });
+
+  it('refuses malformed or exhausted version floors before any insert, using actual int4 and settings-reader bounds', async function () {
+    for (const versionFloors of [null, [], { grant: [] }, { subjectPolicy: '7' }, { subjectPolicy: 1.5 },
+      { subjectPolicy: -1 }, { subjectPolicy: -0 }, { operatorPolicy: 2147483648 }]) {
+      const f = fixture(); f.args.versionFloors = versionFloors;
+      await withRecordingClaim(f, async () => assert.rejects(helper.commission(f.args), { code: 'LIFECYCLE_COMMISSION_VERSION_FLOOR_INVALID' }));
+      assert.equal(writes(f).length, 0);
+    }
+    for (const versionFloors of [{ subjectPolicy: 2147483647 }, { operatorPolicy: 2147483646 }, { operatorPolicy: 2147483647 }]) {
+      const f = fixture(); f.args.versionFloors = versionFloors;
+      await withRecordingClaim(f, async () => assert.rejects(helper.commission(f.args), { code: 'LIFECYCLE_COMMISSION_VERSION_EXHAUSTED' }));
+      assert.equal(writes(f).length, 0);
+    }
+    const boundary = fixture(); boundary.args.versionFloors = { subjectPolicy: 2147483646, operatorPolicy: 2147483645 };
+    await withRecordingClaim(boundary, () => helper.commission(boundary.args));
+    assert.equal(boundary.state.rows.get('commission_subject_policy.subject_policy')[0].version, 2147483647);
+    assert.equal(boundary.state.rows.get('commission_operator_policy.tenant_operator_policy')[0].generation, 2147483646);
+  });
+
   it('refuses each omitted current configuration/capability before its first write', async function () {
     for (const key of ['actor', 'eventTime', 'operatorPolicy', 'ownerCatalogue', 'ownerActors', 'ownerConfiguration', 'subjectPolicy', 'access']) {
       const f = fixture(); delete f.args.configuration[key];
@@ -198,5 +232,18 @@ describe('current-configuration recommission commissioning (recording protocol)'
     assert.throws(() => assert.equal(f.state.trace.length, 0), assert.AssertionError);
     const restored = fixture(); await assert.rejects(helper.commission(restored.args), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' });
     assert.equal(restored.state.trace.length, 0);
+  });
+
+  it('control: omitted floor advancement rewinds policy metadata and collides with retained history; restored source advances', async function () {
+    const broken = altered('return floor + 1;', 'return 1;');
+    const f = fixture(); f.args.versionFloors = { subjectPolicy: 7, operatorPolicy: 7 };
+    await withRecordingClaim(f, () => broken.commission(f.args));
+    const version = f.state.rows.get('commission_subject_policy.subject_policy')[0].version;
+    assert.throws(() => assert.equal(version, 8), assert.AssertionError, 'red: ablated floor handling resets the current version to one');
+    assert(new Set([1, 2, 7]).has(version + 1), 'next replacement collides with archived audit version two');
+    const restored = fixture(); restored.args.versionFloors = { subjectPolicy: 7, operatorPolicy: 7 };
+    await withRecordingClaim(restored, () => helper.commission(restored.args));
+    assert.equal(restored.state.rows.get('commission_subject_policy.subject_policy')[0].version, 8);
+    assert.equal(restored.state.rows.get('commission_operator_policy.tenant_operator_policy')[0].generation, 8);
   });
 });
