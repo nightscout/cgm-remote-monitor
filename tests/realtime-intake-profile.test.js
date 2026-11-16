@@ -25,7 +25,7 @@ async function fixture(){
   calls.push({text,values});assert.equal(scope.currentTenant(),A);assert.equal(values[0],A);
   const body={tenant:A,inputCheckpoint:2,checkpoint:2,trigger:'input',rows:[],frame:{lastUpdated:100,sgvs:[]}};
   if(text.includes(' AS output_summary')){const summary={...body};delete summary.rows;delete summary.frame;return{rows:[{tenant:A,contract_digest:state.digest,work_version:2,work_observed:['1',null,null,null,null,null],work_completed:['1',null,null,null,null,null],work_enabled:true,output_identity:'current',output_digest:'a'.repeat(64),output_revision:'3',output_restore_generation:'7',output_summary:summary,frame_at:100}]};}
-  assert.match(text,/SELECT \(projection->0->'output'\)-'result' AS output/);state.physical++;return{rows:[{output:body}]};
+  assert.match(text,/SELECT \(projection->0->'output'\)-'result'-'rows' AS output/);state.physical++;return{rows:[{output:body}]};
  }};
  return{profile,config,connection,state,calls,window:life.window,close:()=>life.window.close()};
 }
