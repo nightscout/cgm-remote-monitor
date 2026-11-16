@@ -381,6 +381,9 @@
         "tests/evaluator-pool-v2.test.js",
         "tests/notification-pool-partition.test.js",
         "tests/notification-pool-maintenance.test.js",
+        "tests/evaluator-pool-readiness.test.js",
+        "tests/realtime-pool-config.test.js",
+        "tests/realtime-pool-output.test.js",
         "tests/pgstream-pool-assignment-candidate.test.js",
         "tests/pgstream-pool-assignment.test.js",
         "tests/pgstream-pool-assignment-protocol.test.js"
