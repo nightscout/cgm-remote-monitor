@@ -20,9 +20,9 @@ function profileInputs ({ writerRole, readerRole, realtimeRole, legacy = false }
   };
   if (legacy) return historical;
   return {
-    sourceCommit: 'f29ff3615e46570b873af1cbe26bbbf4ade80838',
-    sourceSha256: '4d95753e76316708ec7cb6f37fbdb88b9e333fe49a5208b5fe7eec68f2fd24f8',
-    candidateDigest: '54215036c0d7fa29623b46f40e9ce7f6fbae6266e7bec94d14bff8442791001f',
+    sourceCommit: 'abfb36dfb27288fb06c94b9bb1a30a9586f3f2bb',
+    sourceSha256: '60bb63d53357dcf14013859517d82a76fc12bc0ed027795c237154d4a35d1a28',
+    candidateDigest: '1a886ab1df7ccd9203fee9ccb0ac0f96252b69096aedd05c08bb1821525e9edc',
     selection: { profile: FILE }, counter: 'tenant_insertion_ordinal',
     acl: {
       grants: [
