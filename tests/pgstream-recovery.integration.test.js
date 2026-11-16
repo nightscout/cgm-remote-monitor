@@ -57,6 +57,40 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     function completed(row, stamp) {
       return row && BigInt(require('../lib/pgstream/work-state').map(row.work_completed).clock || '0') >= BigInt(stamp);
     }
+    it('reads warm accepted input without waiting for a concurrent receipt writer; old lock is a real native red',async()=>{
+      await write(117);await lab.provisionPreview();
+      const originalEnvironment=lab.extraEnvironment;lab.extraEnvironment={...(originalEnvironment||{})};
+      const original=lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT;
+      async function criterion(mutant){
+        if(mutant)lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT='1';else delete lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT;
+        const worker=await lab.worker(lab.configure());let pending,finished=false,result;
+        try{
+          assert.equal(worker.startup.bootError,undefined);
+          await lab.wait(async()=>!!(await worker.call('last',lab.A)));
+          await lab.admin.query('BEGIN');
+          await lab.admin.query('UPDATE "'+lab.replayNamespace+'".tenant_consumer_checkpoint SET projection=projection WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName]);
+          pending=worker.call('acquire',lab.A).then(value=>{result=value;finished=true;});
+          const prefix='SELECT checkpoint, contract_digest, projection FROM "'+lab.replayNamespace+'".';
+          const observation=await wait(async()=>{
+            if(finished)return {finished:true,blocked:false};
+            await lab.admin.query('SELECT pg_stat_clear_snapshot()');
+            const blocked=(await lab.admin.query("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE $1) AS blocked",[prefix+'%FOR UPDATE%'])).rows[0].blocked;
+            return blocked?{finished,blocked}:false;
+          },5000,'WARM_RECEIPT_LOCK_OBSERVATION_WATCHDOG');
+          lab.tracePreview('warm-accepted-input-held-receipt-writer',{mutant,...observation});
+          assert.equal(finished,true,'WARM_INPUT_READ_BLOCKED_BY_CDC_RECEIPT');
+          assert.equal(result.eligible,true);assert.equal(result.frame.sgvs[0].mgdl,117);
+        }finally{
+          // Commit creates the old RR lock's actual serialization refusal;
+          // the restored read already completed before this writer is released.
+          await lab.admin.query('COMMIT');await pending;await lab.stopWorker(worker);
+          if(original===undefined)delete lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT;else lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT=original;
+        }
+      }
+      try{await assert.rejects(criterion(true),/WARM_INPUT_READ_BLOCKED_BY_CDC_RECEIPT/);await criterion(false);}
+      finally{lab.extraEnvironment=originalEnvironment;}
+    });
+
     it('materializes actual default clinical cohorts, corrections and deletion without warm snapshot/statistics rediscovery',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       try{

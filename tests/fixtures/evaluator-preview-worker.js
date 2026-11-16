@@ -20,6 +20,16 @@ const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item ===
 // Hold the actual clinical result before durable completion. Warm stream cycles
 // intentionally do not execute the old full-source statistics SELECT; that SQL
 // is no longer a valid clinical execution probe.
+// Native negative control only: restore the old ready-input write lock in
+// memory, leaving the actual default CLI composition and source tree intact.
+if(process.env.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT==='1'){
+  const file=require.resolve('../../lib/storage/postgres-durable-replay'),source=require('node:fs').readFileSync(file,'utf8');
+  const needle="checkpointSelect + (stream ? '' : ' FOR UPDATE')";
+  if(!source.includes(needle))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
+  require(file);const module={exports:{}};
+  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'")+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
+  require.cache[file].exports=module.exports;
+}
 const evaluatorPath = require.resolve('../../lib/data/tenant-projection-evaluator');
 const evaluator = require(evaluatorPath);
 require.cache[evaluatorPath].exports = Object.assign((...args) => {
