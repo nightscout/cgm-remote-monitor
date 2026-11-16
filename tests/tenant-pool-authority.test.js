@@ -5,7 +5,7 @@ const authority = require('../lib/tenant-lifecycle/pool-authority');
 const extension = require('../lib/tenant-lifecycle/recommission-candidate');
 const { profile, A, B } = require('./fixtures/lifecycle-domain-profile');
 describe('current tenant lifecycle authority for the worker pool', function () {
-  const read = authority.create({ namespace: 'synthetic_control' });
+  const { read } = authority.create({ namespace: 'synthetic_control' });
   const row = () => ({ tenant: A, generation: '9', phase: 'active', bound: true, deletion: false });
   const query = value => async (text, values) => {
     assert(text.startsWith('SELECT')); assert.deepEqual(values, [A]);
@@ -50,7 +50,7 @@ describe('current tenant lifecycle authority for the worker pool', function () {
     const compiled = new Module(filename, module); compiled.filename = filename; compiled.paths = Module._nodeModulePaths(path.dirname(filename));
     compiled._compile(source.replace(guard, ''), filename);
     let red = false;
-    try { await assert.rejects(compiled.exports.create({ namespace: 'synthetic_control' })(query([{ ...row(), bound: false }]), A)); }
+    try { await assert.rejects(compiled.exports.create({ namespace: 'synthetic_control' }).read(query([{ ...row(), bound: false }]), A)); }
     catch (error) { assert.equal(error.code, 'ERR_ASSERTION'); assert.match(error.message, /Missing expected rejection/); red = true; }
     assert(red, 'physical binding omission must invalidate the refusal oracle');
     await assert.rejects(read(query([{ ...row(), bound: false }]), A), { code: 'LIFECYCLE_POOL_AUTHORITY_REFUSED' });
