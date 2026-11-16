@@ -20,6 +20,12 @@ describe('actual clinical stream SQL transport receipt',()=>{
   assert.equal(staged[0].row.doc.extension.kept,true);
   f.commit();await work;assert.equal(acknowledged,true);assert.equal(f.released,true);
  });
+ it('accepts only a recoverable bounded-gap marker for valid oversized input, keeping the serial feed available to neighbors',async()=>{
+  const f=fixture(),large=structuredClone(event);large.columns.find(c=>c.name==='doc').value=JSON.stringify({_id:'one',extension:'x'.repeat(2000)});
+  await sql.accept({...f.options,data:large,maxBytes:512});
+  const update=f.calls.find(c=>c.text.startsWith('UPDATE')),saved=JSON.parse(update.values[2])[0];
+  assert.equal(saved.ready,false);assert.equal(saved.gap,'CLINICAL_STREAM_BYTE_BOUND');assert.deepEqual(saved.staged,[]);assert(f.calls.some(c=>c.text==='COMMIT'));
+ });
  it('refuses invalid transaction identity before taking a physical connection',async()=>{
   let connected=false;const f=fixture();await assert.rejects(sql.accept({...f.options,data:{...event,xid:undefined},pool:{connect:async()=>{connected=true;}}}),/XID/);assert.equal(connected,false);
  });

@@ -187,13 +187,14 @@ module.exports = function evaluatorPreviewRegistryLab () {
       assert.equal(Number(checkpoint.checkpoint), 0);
     }
   };
-  // This oracle reports committed clinical working rows. The materializer now
+  // This oracle reports the last sealed clinical working rows; it does not
+  // assert that the current input is ready (raw lab.checkpoint exposes gaps). The materializer now
   // persists them inside a cohort envelope; raw staging/receipt tests continue
   // to read lab.checkpoint directly and must not mistake staged rows for input.
   lab.previewCheckpoint = async tenant => {
     const saved=await lab.checkpoint(lab.consumerName,tenant),state=saved.projection?.[0];
     return state?.kind===require('../../lib/storage/clinical-stream-state').KIND
-      ? {...saved,projection:state.ready?state.rows:null}:saved;
+      ? {...saved,projection:state.rows}:saved;
   };
   // Independent storage observation, including after the actual role/window
   // refuses serving. Read the durable typed output rather than reconstruct RAM.

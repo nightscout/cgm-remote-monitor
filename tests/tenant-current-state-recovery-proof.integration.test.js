@@ -369,6 +369,14 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
           { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
         ] } });
+        // Stream acquisition covers accepted cohorts, not routine rediscovery
+        // of a write that the producer has not delivered yet. Wait for the
+        // durable bounded-gap marker and its actual observed clinical clock.
+        await lab.wait(async()=>{
+          const input=(await lab.checkpoint(lab.consumerName,lab.A)).projection?.[0];
+          const observed=(await lab.admin.query('SELECT work_observed FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
+          return input?.gap&&input.ready===false&&BigInt(require('../lib/pgstream/work-state').map(observed.work_observed).clock||'0')>=BigInt(written.after.floor);
+        });
         const refused = await worker.call('acquire'), b = await worker.call('acquire', lab.B), health = await worker.call('health');
         lab.tracePreview('preview-refusal-' + scenario, { written, first, refused, b, health, physical: await lab.previewPhysical(), checkpoint });
         // A failed actual window withdraws RAM serving; the last good clinical

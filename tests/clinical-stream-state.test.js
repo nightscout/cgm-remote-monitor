@@ -42,6 +42,13 @@ describe('durable clinical stream working set',()=>{
   const state=stream.bootstrap(null,{checkpoint:10,signature:{stamp:10,deleted:0},rows:[{domain:'entries',document:{...document('a',100),isValid:false},ordinal:1,storageBytes:80}]},limits);
   assert.equal(state.rows.length,1);assert.equal(stream.output(state).rows.length,0);assert.equal(stream.output(state).stats.dataSize,80);
  });
+ it('persists a bounded explicit recovery gap without certifying clinical completion, then clears it only on a consistent snapshot',()=>{
+  const before=boot(),gap=stream.recoverableGap(before,'CLINICAL_STREAM_ROW_BOUND','0/40',limits);
+  assert.equal(gap.ready,false);assert.deepEqual(gap.rows,before.rows);assert.equal(gap.floor,before.floor);assert.equal(gap.staged.length,0);
+  assert.throws(()=>stream.output(JSON.parse(JSON.stringify(gap))),/BOOTSTRAP_REQUIRED/);
+  const recovered=stream.bootstrap(gap,{checkpoint:12,signature:{stamp:12,deleted:12},rows:[]},limits);
+  assert.equal(recovered.gap,undefined);assert.equal(stream.output(recovered).checkpoint,12);
+ });
  it('refuses malformed identity, missing transaction identity and oversized durable state',()=>{
   assert.throws(()=>stream.eventOf('entries',{...data('I',document('a',1)),xid:undefined}),/XID/);
   assert.throws(()=>stream.eventOf('entries',{...data('D',document('a',1)),identity:[]}),/IDENTITY/);
