@@ -22,3 +22,16 @@ describe('typed clinical stored-byte projection migration',()=>{
   assert.throws(()=>catalogue.validateCatalogue(broken),error=>error.code==='MIG_OPERATION_SQL');catalogue.validateCatalogue(original);
  });
 });
+
+
+describe('physical clinical storage-size admission',()=>{
+ it('requires exact stored-size trigger, invoker body, owner and protected bigint column',async()=>{
+  const opts={namespace:'synthetic_entries',domain:'entries'},body=builder.build(opts).find(sql=>sql.startsWith('CREATE FUNCTION')).split('$clinical_size$')[1];
+  const valid={secured:true,same_owner:true,typed:true,trigger_function:true,trigger_valid:true,nonnegative:true,initial:'0',body,definer:false,volatility:'v',language:'plpgsql',config:['search_path=pg_catalog']};
+  const admission=require('../lib/storage/clinical-storage-size-readiness'),check=row=>admission.assertReady({query:async()=>({rows:row?[row]:[]})},opts);
+  await check(valid);
+  for(const patch of [{trigger_valid:false},{body:'RETURN NULL;'},{definer:true},{typed:false},{same_owner:false},{nonnegative:false}]){
+   await assert.rejects(check({...valid,...patch}),/CLINICAL_STORAGE_SIZE_ADMISSION_REFUSED/);await check(valid);
+  }
+ });
+});
