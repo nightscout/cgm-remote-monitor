@@ -55,6 +55,12 @@ function fixture(){
   if(sql.includes('/* pool-intake-adoption-old-policies */'))return {rows:fault.badPolicy?policies.slice(0,-1):copy(policies)};
   if(sql.includes('/* pool-intake-adoption-ledger */'))return {rows:copy(state.histories[sql.split('"')[1]]).sort((a,b)=>a.name.localeCompare(b.name))};
   if(sql.includes("t.tgname='pool_mutation_protocol'"))return {rows:['pool_membership','pool_desired'].map(table_name=>({table_name,enabled:'A',type:31,arguments:0,unconditional:true,source:require('../lib/pool-membership/fixed-protocol').BODY,definer:false,config:['search_path=pg_catalog'],language:'plpgsql',function_name:'pool_mutation_lock_required',function_arguments:0,trigger_result:true}))};
+  if(sql.includes('/* pool-checkpoint-provision-protocol */'))return {rows:[false,true].map(deferred=>({name:deferred?'pgstream_checkpoint_provision_commit':'pgstream_checkpoint_provision',type:deferred?5:7,enabled:'A',deferrable:deferred,deferred,arguments:0,unconditional:true,columns:'',source:state.functionBodies.provisionBody,function_name:'pgstream_checkpoint_provision_required',definer:false,config:['search_path=pg_catalog'],function_arguments:0,trigger_result:true,language:'plpgsql'}))};
+  if(sql.includes('/* pool-checkpoint-provision-ledger */'))return {rows:copy(state.histories[b.namespace])};
+  if(sql.includes('/* pool-checkpoint-provision-profile */'))return {rows:[copy(state.profile)]};
+  if(sql.includes('t.tgname=ANY($2::text[])'))return {rows:[['pgstream_assignment_protocol',31,false,'assignmentBody','pgstream_assignment_required',candidate.ASSIGNMENT_COLUMNS],['pgstream_effect_protocol',19,false,'effectBody','pgstream_assigned_effect_required',candidate.EFFECT_COLUMNS],['pgstream_effect_commit',17,true,'effectBody','pgstream_assigned_effect_required',[]]].map(([name,type,deferred,key,function_name,columns])=>({name,type,deferred,deferrable:deferred,enabled:'A',arguments:0,unconditional:true,source:state.functionBodies[key],function_name,function_arguments:0,trigger_result:true,definer:false,language:'plpgsql',config:['search_path=pg_catalog'],columns}))};
+  if(sql.includes('/* intake-assert-function */'))return {rows:[{source:state.functionBodies.intakeAssertBody,definer:false,config:['search_path=pg_catalog'],arguments:0,void_result:true,executes:true,language:'plpgsql'}]};
+  if(sql.includes('FROM pg_index'))return {rows:candidate.INDEXES.map(index=>({name:index.name,valid:true,ready:true,unique:false,method:'btree',predicate:index.predicate,columns:index.columns}))};
   if(sql.includes('FROM pg_trigger')&&sql.includes("'notification_partition_effect'"))throw new Error('UNEXPECTED_LITERAL_NOTIFICATION_PROTOCOL');
   if(sql.includes('cardinality(t.tgattr::smallint[])'))return {rows:notification.TABLES.flatMap(table_name=>['notification_partition_effect','notification_partition_commit'].map(name=>({table_name,name,type:name.endsWith('_commit')?29:31,enabled:'A',deferrable:name.endsWith('_commit'),deferred:name.endsWith('_commit'),arguments:0,unconditional:true,column_count:0,source:oldNotify.body,function_name:'pgstream_notification_partition',function_arguments:0,trigger_result:true,definer:false,language:'plpgsql',config:['search_path=pg_catalog']})))};
   if(sql.includes('/* pool-intake-adoption-extra-effects */')||sql.includes('/* pool-intake-adoption-notification-extra-effects */'))return {rows:fault.extraEffects?[{relname:'unknown_trigger'}]:[]};
@@ -79,6 +85,7 @@ function fixture(){
   if(sql.startsWith('CREATE OR REPLACE FUNCTION pgstream_assignment_required')){const tag=/ AS (\$[a-z_]+\$)/.exec(sql)[1];state.functionBodies.assignmentBody=sql.split(tag)[1];return {rows:[]};}
   if(sql.startsWith('CREATE OR REPLACE FUNCTION pgstream_assigned_effect_required')){const tag=/ AS (\$[a-z_]+\$)/.exec(sql)[1];state.functionBodies.effectBody=sql.split(tag)[1];return {rows:[]};}
   if(sql.startsWith('CREATE OR REPLACE FUNCTION pgstream_intake_assert')){const tag=/ AS (\$[a-z_]+\$)/.exec(sql)[1];state.functionBodies.intakeAssertBody=sql.split(tag)[1];return {rows:[]};}
+  if(/^(CREATE|CREATE OR REPLACE) FUNCTION pgstream_checkpoint_provision_required/.test(sql)){const tag=/ AS (\$[a-z_]+\$)/.exec(sql)[1];state.functionBodies.provisionBody=sql.split(tag)[1];return {rows:[]};}
   if(sql.startsWith('GRANT ')||sql.startsWith('CREATE POLICY ')){state.grants.push(sql);return {rows:[]};}
   if(/^(CREATE |ALTER TABLE |REVOKE ALL ON |REVOKE EXECUTE ON |DROP FUNCTION )/.test(sql))return {rows:[]};
   if(sql.includes('/* pool-lifecycle-authority */')){assert.equal(state.tenant,values[0]);const row=state.tables[q(b.lifecycleNamespace)+'.tenant_lifecycle_windows'].find(value=>value.tenant_id===values[0]);return {rows:row?[{tenant:row.tenant_id,bound:true,generation:row.generation,phase:row.phase,deletion:state.deleted.includes(row.tenant_id)}]:[]};}
@@ -89,7 +96,7 @@ function fixture(){
  const actualIntake=require('../lib/pgstream/intake-grants'),actualWorker=require('../lib/pgstream/worker-grants'),poolIntake=require('../lib/pgstream/pool-intake-grants'),poolWorker=require('../lib/pgstream/pool-worker-grants'),poolOperator=require('../lib/pgstream/pool-operator-grants');
  const assertPlans=(kind,plans)=>{port(kind);for(const statement of plans)assert(state.grants.includes(statement),'SOURCE_GRANT_PLAN_EXECUTED: '+kind);};
  const ports={
-  './assignment-protocol':{assertInstalled:async(_query,value)=>{port('assignment',value);const wanted=value.intakeProfile?previous:selected;for(const key of ['assignmentBody','effectBody','intakeAssertBody'])assert.equal(state.functionBodies[key],wanted[key]);}},
+  './assignment-protocol':{assertInstalled:async(query,value)=>{port('assignment',value);return require('../lib/pgstream/assignment-protocol').assertInstalled(query,value);}},
   './intake-grants':{...actualIntake,assertReady:async(_query,value)=>{port('old-intake');assert.equal(value.digest,old.digest);assert.equal(state.role,old.binding.role);}},
   './worker-grants':{...actualWorker,assertReady:async(_query,value)=>{port('old-worker',value);assert.equal(state.role,oldWorkers[value.ordinal].role);}},
   './pool-intake-grants':{...poolIntake,assertReady:async(_query,value)=>{assert.equal(state.role,p.binding.role);assertPlans('new-intake',poolIntake.build(value));}},
@@ -143,5 +150,14 @@ describe('explicit ADMIN selected-v1 to v2 command/rollback source model',()=>{
  it('control: treating OR as AND in the actual bounded CHECK parser makes unknown old source refusal RED then restored GREEN',async()=>{
   const qualify=async change=>{const f=fixture();f.fault.badCheck=true;await assert.rejects(sourceApi({...change,ports:f.ports}).adopt(f.client,f.opts),/PROFILE_CHECK/);};
   const from="if(field!==PROFILE_COLUMNS.at(-1)&&tokens[at++]?.value!=='and')throw fail('PGSTREAM_POOL_ADOPTION_PROFILE_CHECK');",to='if(field!==PROFILE_COLUMNS.at(-1))at++;';await qualify();await assert.rejects(qualify({from,to}),{code:'ERR_ASSERTION'});await qualify();
+ });
+});
+
+describe('actual adoption-to-assignment protocol provenance composition',()=>{
+ it('passes the retained historical ledger through real protocol/provision admission; omission is RED and restored is GREEN',async()=>{
+  const omitted=fixture(),broken=sourceApi({ports:omitted.ports,from:'poolProfile:p,poolIntake:true,predecessorProfile:old,requireIntakeExecute:false',to:'poolProfile:p,poolIntake:true,requireIntakeExecute:false'});
+  await assert.rejects(broken.adopt(omitted.client,omitted.opts),/PGSTREAM_POOL_PROVISION_LEDGER/);assert.deepEqual(omitted.state(),omitted.initial);
+  const restored=fixture();assert.equal((await restored.api.adopt(restored.client,restored.opts)).commitOutcome,'committed');
+  assert(restored.calls.some(call=>call.sql.includes('pool-checkpoint-provision-ledger')));assert(restored.calls.some(call=>call.sql.includes('intake-assert-function')));
  });
 });
