@@ -28,7 +28,7 @@ const { optInSuite } = require('./support/opt-in');
 
 const ROOT = path.resolve(__dirname, '..');
 const PURPOSES = Object.keys(rules.PURPOSES);
-const RECORDS = ['registryKeys', 'legacyCredential', 'rootSecret', 'authorizationConfig', 'ownerPolicy', 'accessTenant', 'accessKeys', 'writeClock', 'lifecycleWindow',
+const RECORDS = ['registryKeys', 'legacyCredential', 'localDataKey', 'rootSecret', 'authorizationConfig', 'ownerPolicy', 'accessTenant', 'accessKeys', 'writeClock', 'lifecycleWindow',
   'activity', 'settings', 'operatorPolicy'];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const freePort = () => new Promise((resolve, reject) => { const server = net.createServer(); server.listen(0, '127.0.0.1', () => { const { port } = server.address(); server.close(() => resolve(port)); }); server.on('error', reject); });
@@ -222,6 +222,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   it('PO_INSPECT_INCOMPLETE: an admitted tenant missing a record or a Vault key is reported incomplete for an operator, naming what is missing', async function () {
     const request = spec(); assert.equal((await provisioning.provision(request)).outcome, 'created');
     await lab.admin.query(`DELETE FROM "${lab.namespaces.settings}".tenant_settings WHERE tenant_id = $1`, [request.id]);
+    await lab.admin.query(`DELETE FROM "${lab.namespaces.legacy}".legacy_data_keys WHERE tenant_id = $1`, [request.id]);
     await lab.admin.query(`DELETE FROM "${lab.namespaces.access}".access_keys WHERE tenant_id = $1 AND kid = 'management1'`, [request.id]);
     const name = rules.vaultKey(request.id, 'signing');
     await lab.vaultRequest(lab.mount + '/keys/' + name + '/config', { deletion_allowed: true });
@@ -229,7 +230,8 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const before = await lab.rowsFor(request.id);
     const report = await provisioning.inspect(request.id);
     assert.equal(report.provisioning, 'incomplete'); assert.equal(report.action, 'operator');
-    assert.deepEqual(report.findings, ['record:accessKeys:partial', 'record:settings:missing', 'vault:signing:missing']);
+    assert.deepEqual(report.findings, ['record:localDataKey:missing', 'record:accessKeys:partial', 'record:settings:missing', 'vault:signing:missing']);
+    assert.equal(report.records.localDataKey, 'absent');
     assert.equal(report.records.accessKeys, 'partial'); assert.equal(report.records.settings, 'absent'); assert.equal(report.vault.keys.signing, 'absent');
     assert.deepEqual(await lab.rowsFor(request.id), before, 'inspection writes nothing');
     assert.equal(await lab.vaultRequest(lab.mount + '/keys/' + name), null, 'inspection creates no key');

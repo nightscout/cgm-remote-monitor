@@ -38,10 +38,10 @@ function create () {
       '-e', 'POSTGRES_USER=bootstrap', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=nightscout_minimum_test', IMAGE],
     { env: { ...process.env, POSTGRES_PASSWORD: password }, timeout: 30000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     assert.match(containerID, /^[a-f0-9]{64}$/);
-    if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/custody.json', JSON.stringify({ pid: process.pid, container, containerID, image: IMAGE, boundSeconds: 180, tmpfs: true }), { flag: 'wx', mode: 0o600 });
     owned = true;
     spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), containerID],
       { detached: true, stdio: 'ignore' }).unref();
+    if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/custody.json', JSON.stringify({ pid: process.pid, container, containerID, image: IMAGE, boundSeconds: 180, tmpfs: true }), { flag: 'wx', mode: 0o600 });
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
     bootstrapURI = 'postgres://bootstrap:' + password + '@127.0.0.1:' + port + '/nightscout_minimum_test';
     const deadline = Date.now() + 30000;

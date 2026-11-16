@@ -346,6 +346,7 @@
         "tests/evaluator-inspection.test.js",
         "tests/trusted-worker.test.js",
         "tests/operation-window-lock-reuse.test.js",
+        "tests/operation-window-minimum-custody.test.js",
         "tests/operation-window-trusted-worker.test.js",
         "tests/preview-entries-acquisition.test.js",
         "tests/entries-create-context.test.js",

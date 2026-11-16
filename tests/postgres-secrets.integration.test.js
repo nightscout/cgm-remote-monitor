@@ -429,6 +429,8 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     await run('up', { direct: true, connectionString: adminURI, namespace: settingsNamespace, catalogue: settingsCatalogue });
     await run('up', { direct: true, connectionString: adminURI, namespace: subjectNamespace, catalogue: policyCatalogue });
     await admin.query(`GRANT USAGE ON SCHEMA "${settingsNamespace}" TO ${appRole}`);
+    const validatorGrants = require('../lib/tenant-settings/function-privileges').writerGrants({ namespace: settingsNamespace, role: appRole });
+    for (const sql of validatorGrants) await admin.query(sql);
     await admin.query(`GRANT SELECT, INSERT, UPDATE ON ${settingsTable} TO ${appRole}`);
     await admin.query(`GRANT SELECT, INSERT ON ${historyTable} TO ${appRole}`);
     await admin.query(`GRANT USAGE ON SCHEMA "${subjectNamespace}" TO ${appRole}`);
@@ -496,6 +498,13 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       const [settingsWorker, otherSettingsWorker] = settingsWorkers;
       const [subjectWorker, otherSubjectWorker] = subjectWorkers;
       await settingsWorker.replace(owner, 0, { DISPLAY_UNITS: 'mmol' });
+      await admin.query(`REVOKE EXECUTE ON FUNCTION "${settingsNamespace}".tenant_settings_values_valid(jsonb) FROM ${appRole}`);
+      try {
+        await assert.rejects(settingsWorker.replace(owner, 1, { SHOW_SECONDS: true }), { code: 'SETTINGS_STORE_UNAVAILABLE' });
+        assert.equal((await settingsWorker.read(owner)).version, 1, 'validator refusal preserves current state');
+        assert.equal((await admin.query(`SELECT count(*)::integer AS n FROM ${historyTable} WHERE tenant_id=$1`, [owner.tenant])).rows[0].n, 1,
+          'validator refusal adds no history');
+      } finally { for (const sql of validatorGrants) await admin.query(sql); }
       await settingsWorker.replace(owner, 1, { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true });
       await subjectWorker.replace(owner, 0, []);
 
