@@ -32,7 +32,7 @@ const observer = require('./fixtures/multitenant-plan-observer');
 const layout = plan.layout('nstp');
 // `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
 // with Vault credentials from the environment; `full-token-files` is `full` with token files.
-const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'selected-metadata'];
+const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'selected-metadata', 'selected-pool'];
 const documentSet = (variant = 'default') => {
   const selected = variant === 'selected-metadata' ? 'full' : variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
   const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout), variant: selected });
@@ -116,8 +116,9 @@ function objects (schema, value, pointer = '', steps = []) {
   if (schema.type === 'array' && Array.isArray(value) && value.length && schema.items) rows.push(...objects(schema.items, value[0], pointer + '/*', [...steps, 0]));
   return rows;
 }
-const opaqueProfile = pointer => pointer === '/intakeProfile' || pointer === '/selectedIntake/profile';
-const withinProfile = pointer => ['/intakeProfile','/selectedIntake/profile'].some(prefix => pointer === prefix || pointer.startsWith(prefix + '/'));
+const PROFILE_POINTERS = ['/intakeProfile', '/predecessorProfile', '/selectedIntake/profile'];
+const opaqueProfile = pointer => PROFILE_POINTERS.includes(pointer);
+const withinProfile = pointer => PROFILE_POINTERS.some(prefix => pointer === prefix || pointer.startsWith(prefix + '/'));
 const reach = (document, steps) => steps.reduce((value, step) => value[step], document);
 
 describe('deployment plan contract', function () {
@@ -126,7 +127,7 @@ describe('deployment plan contract', function () {
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
     const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'admin', 'vcpool'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, 'selected-metadata':roster };
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, 'selected-metadata':roster, 'selected-pool':roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
@@ -184,6 +185,37 @@ describe('deployment plan contract', function () {
       const original = clone(entry.files[file].selectedIntake.profile); mutate(entry.files[file].selectedIntake.profile); assert.equal(good().ok,false);
       entry.files[file].selectedIntake.profile = original; assert.equal(good().ok,true);
     }
+  });
+
+  it('validates the canonical selected pool predecessor without weakening same-domain admission', function () {
+    const set = documentSet('selected-pool'), entry = set.processes.find(row => row.roles.includes('realtime'));
+    const file = entry.environment.MULTITENANT_REALTIME_CONFIG, document = entry.files[file];
+    const profile = require('../lib/pgstream/intake-profile'), pool = require('../lib/pgstream/pool-intake-profile');
+    assert.equal(pool.validate(document.intakeProfile).digest, document.intakeProfile.digest);
+    assert.equal(profile.validate(document.predecessorProfile).digest, document.predecessorProfile.digest);
+    const row = documentsOf('selected-pool').find(row => row.name === 'realtime');
+    assert.deepEqual(verdict(row, () => {}), { shape: false, loader: false, codes: [] });
+    for (const mutate of [doc => { delete doc.predecessorProfile.ownerKey; }, doc => { doc.predecessorProfile = []; }]) {
+      const result = verdict(row, mutate); assert.equal(result.shape, true); assert.equal(result.loader, true);
+    }
+    const old = document.predecessorProfile.binding;
+    const foreign = profile.create(Object.fromEntries(['namespace', 'membershipNamespace', 'lifecycleNamespace', 'role', 'consumer', 'revision', 'members', 'tenants', 'codec', 'generationDomain'].map(key => [key, key === 'lifecycleNamespace' ? 'nstp_foreign_lifecycle' : old[key]])));
+    for (const mutate of [doc => { doc.predecessorProfile.digest = '0'.repeat(64); }, doc => { doc.predecessorProfile = clone(foreign); },
+      doc => { doc.intakeProfile = clone(doc.predecessorProfile); }, doc => { delete doc.intakeProfile; }]) {
+      const result = verdict(row, mutate); assert.equal(result.loader, true, 'canonical profile and same-domain rules remain loader requirements');
+    }
+    const fileName = require.resolve('../lib/server/realtime/config'), source = fs.readFileSync(fileName, 'utf8');
+    const guard = "||['namespace','membershipNamespace','lifecycleNamespace','consumer','codec','generationDomain'].some(key=>predecessorProfile.binding[key]!==intakeProfile.binding[key])";
+    assert.equal(source.split(guard).length, 2);
+    const Module = require('node:module'), altered = new Module(fileName, module);
+    altered.filename = fileName; altered.paths = Module._nodeModulePaths(path.dirname(fileName)); altered._compile(source.replace(guard, ''), fileName);
+    const invalid = { ...document, predecessorProfile: clone(foreign) };
+    let red = false;
+    try { assert.throws(() => altered.exports.parse(invalid, entry.environment)); }
+    catch (error) { assert.equal(error.code, 'ERR_ASSERTION'); assert.match(error.message, /Missing expected exception/); red = true; }
+    assert(red, 'omitting same-domain validation must break the actual loader refusal');
+    assert.throws(() => require('../lib/server/realtime/config').parse(invalid, entry.environment));
+    assert.doesNotThrow(() => require('../lib/server/realtime/config').parse(document, entry.environment));
   });
 
   it('publishes schemas that use only keywords the check evaluates', function () {
