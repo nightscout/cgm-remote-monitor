@@ -12,11 +12,13 @@ const IMAGE='postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9f
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn){for(let i=0;i<2000;i++){if(await fn())return;await delay(5);}assert.fail('NATIVE_SCHEDULER_PROGRESS_TIMEOUT');}
+function heldBody(){let release;const promise=new Promise(resolve=>{release=resolve;});return{promise,release,entered:false};}
 optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCKER_TEST=1')('native trusted evaluator jobs with one physical lifetime client',function(){
  this.timeout(60000);
  const container='ns-evaluator-job-'+crypto.randomBytes(6).toString('hex'),control='job_control',outbox='job_outbox';
  let owned=false,admin,pool,window,connection,release,runtime,consumers,oldMode,clinicalJobs,deliveryJobs;let volumes=[];
  const effects=[];let requested=false,paused=false,allowTimers=true;
+ let clinicalHold,deliveryHold;
  const q=name=>'"'+name+'"';
  before(async function(){
   const password=crypto.randomBytes(24).toString('hex');
@@ -58,11 +60,12 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   const current=async tenant=>({tenant,identity:'a'.repeat(64),env:{settings:{heartbeat:1}}});
   const activity={check:async()=>({eligible:!paused,code:paused?'PAUSED':null,state:{paused,suspended:false}})};
   const result=()=>({tenant:A,checkpoint:0,now:Date.now(),emitted:[],requested:requested?[{kind:'notify',title:'Synthetic alarm',message:'Synthetic details',level:1,group:'default',plugin:{name:'synthetic'}}]:[],properties:{requested}});
+  const evaluate=async()=>{const hold=clinicalHold;if(hold){hold.entered=true;await hold.promise;}return result();};
   runtime=await start({tenants:[A],operationWindow:window,jobContext:clinicalJobs,readCurrent:current,activity,
-   create:async()=>({evaluate:async()=>result(),evaluateTime:async()=>result(),close(){}}),
+   create:async()=>({evaluate,evaluateTime:evaluate,close(){}}),
    recoveryIntervalMs:60000,timeIntervalMs:20,setTimer:(fn,ms)=>setTimeout(()=>{if(allowTimers)fn();},ms),schedule:()=>({}),cancel(){},onRevision:tenant=>consumers?.revised(tenant)});
   consumers=coordinate({tenants:[A],operationWindow:window,jobContext:deliveryJobs,current:runtime.last,currentConfig:current,isCurrent:runtime.isCurrent,store,
-   reader:{read:async()=>[],allows:async()=>true},adapter:{id:'native-controlled',send(request,callback){
+   reader:{read:async()=>{const hold=deliveryHold;if(hold){hold.entered=true;await hold.promise;}return[];},allows:async()=>true},adapter:{id:'native-controlled',send(request,callback){
     admin.query('SELECT state FROM '+q(outbox)+'.tenant_notification_requests WHERE request_id=$1',[request.id]).then(({rows})=>{
      assert.equal(rows.length,1,'INTENT_VISIBLE_OUTSIDE_WORKER_TRANSACTION_BEFORE_HANDOFF');
      assert.equal(rows[0].state,'attempting');effects.push(request);callback(null,{accepted:true,receipt:null,clearedRequestIds:[]});
@@ -109,22 +112,33 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   });
   await assert.rejects(window.run(B,()=>runtime.acquire(A)),/LIFECYCLE_WINDOW_SCOPE_INVALID/);
   let ownedRuntime,ownedDelivery;
-  await window.run(A,async()=>{
-   ownedRuntime=clinicalJobs.run(()=>runtime.tick(A));await delay(2);
-   await assert.rejects(runtime.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
-   ownedDelivery=deliveryJobs.run(()=>consumers.wake(A));await delay(2);
-   await assert.rejects(consumers.wake(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
-  });
-  await Promise.all([ownedRuntime,ownedDelivery]);
+  clinicalHold=heldBody();deliveryHold=heldBody();
+  try {
+   await window.run(A,async()=>{
+    ownedRuntime=clinicalJobs.run(()=>runtime.tick(A));await until(()=>clinicalHold.entered);
+    await assert.rejects(runtime.acquire(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+    clinicalHold.release();await ownedRuntime;clinicalHold=null;
+    ownedDelivery=deliveryJobs.run(()=>consumers.wake(A));await until(()=>deliveryHold.entered);
+    await assert.rejects(consumers.wake(A),{code:'EVALUATOR_JOB_PARENT_BUSY'});
+   });
+  } finally {
+   clinicalHold?.release();deliveryHold?.release();
+   await Promise.allSettled([ownedRuntime,ownedDelivery]);clinicalHold=null;deliveryHold=null;
+  }
   allowTimers=true;await runtime.tick(A);
  });
  it('refuses fresh suspended jobs and paused delivery, then resumes through fresh admission',async function(){
+  allowTimers=false;
   paused=true;await runtime.tick(A);await consumers.wake(A);
   assert.equal(runtime.health([A]).tenants[0].activity.paused,true);
   await admin.query('UPDATE '+q(control)+".tenant_lifecycle_windows SET phase='suspended',claim_id=$2,artifact_digest=repeat('a',64) WHERE tenant_id=$1",[A,crypto.randomUUID()]);
+  // The pinned cohort's getOperations RPC performs this same control drain.
+  // A bare SQL phase write does not revoke a warm process participation.
+  await window.drainTenant(A);
   paused=false;await runtime.acquire(A);await consumers.wake(A);
   assert.equal(runtime.health([A]).tenants[0].code,'EVALUATOR_WINDOW_REFUSED');
   assert.equal(consumers.health([A]).tenants[0].code,'EVALUATOR_CONSUMER_REFUSED');
+  await runtime.invalidateTenant(A);await consumers.invalidateTenant(A);await window.invalidateTenant(A);
   await admin.query('UPDATE '+q(control)+".tenant_lifecycle_windows SET phase='active',claim_id=NULL,artifact_digest=NULL,generation=generation+1 WHERE tenant_id=$1",[A]);
   await runtime.acquire(A);await consumers.wake(A);
   assert.equal(runtime.health([A]).tenants[0].code,null);
@@ -135,6 +149,10 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   let lateWake;await window.run(A,()=>{lateWake=new Promise(resolve=>setTimeout(()=>resolve(consumers.wake(A)),5));lateWake.catch(()=>{});});
   await assert.rejects(lateWake,/LIFECYCLE_WINDOW_SCOPE_INVALID/);
   paused=true;await runtime.tick(A);await runtime.invalidateTenant(A);await consumers.invalidateTenant(A);
+  await admin.query('UPDATE '+q(control)+".tenant_lifecycle_windows SET phase='suspended',claim_id=$2,artifact_digest=repeat('a',64) WHERE tenant_id=$1",[A,crypto.randomUUID()]);
+  await window.drainTenant(A);
+  await until(()=>window.inflight(A).length===0);
+  await window.invalidateTenant(A);
   assert.equal((await admin.query('SELECT count(*)::integer AS n FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished')).rows[0].n,0);
  });
 });

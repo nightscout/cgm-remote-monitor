@@ -42,25 +42,26 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a,
         { identifier, app: 'synthetic-diagnostics', type: 'sgv', date: Date.now(), utcOffset: 0, sgv: 125 }, { 'x-roster-hold': 'postcommit' })
         .then(value => { responseFinished = true; return { value }; }, error => ({ error }));
-      await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'actual stored write before wire completion');
-      const stored = await f.withAdmin(async client => (await client.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].doc);
-      assert.equal(stored.sgv, 125);
-      // Snapshot cadence is not request duration: hold the exact same
-      // controlled lifetime ON/OFF rather than inferring elapsed time from it.
-      await new Promise(resolve => setTimeout(resolve, 1100));
-      let held;
-      if (enabled) {
-        await f.base.until(async () => { held = captured(f.current.get('api-1')).slice(initialSnapshots).findLast(row => row.gauges['window.outer_bodies'].value > 0 && row.pools.storage.activeSQL === 0 && row.pools.operation.activeSQL === 0); return !!held; }, 'held response diagnostic snapshot');
-        assert.equal(held.pools.operation.status, 'MEASURED'); assert.equal(held.pools.operation.sqlStatus, 'MEASURED'); assert.equal(held.pools.storage.sqlStatus, 'MEASURED'); assert(held.pools.operation.checkedout >= 1); assert(held.gauges['lifetime.lease_holders'].value >= 1);
-        assert(held.durations['window.admission'].count > 0); assert(held.durations['window.register'].count > 0); assert(held.durations['api.authorize'].count > 0);
-        assert.equal(held.gauges['lifetime.critical_active'].value, 0); assert(Buffer.byteLength(JSON.stringify(held)) < 8192);
-        assert(!JSON.stringify(held).includes(a)); assert(!JSON.stringify(held).includes(A)); assert(!JSON.stringify(held).includes(identifier));
-      } else { assert.equal(captured(f.current.get('api-1')).length, 0); }
-      let entered = false;
-      const before = await f.restoreState(); assert.equal(before.unfinished, 1);
-      const restoring = f.restore(async () => { entered = true; return 'diagnostic-drain'; }).then(value => ({ value }), error => ({ error }));
-      let Bstatus;
+      let Bstatus, stored, held, entered = false;
       try {
+        await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'actual stored write before wire completion');
+        stored = await f.withAdmin(async client => (await client.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].doc);
+        assert.equal(stored.sgv, 125);
+        // Snapshot cadence is not request duration: hold the exact same
+        // controlled lifetime ON/OFF rather than inferring elapsed time from it.
+        await new Promise(resolve => setTimeout(resolve, 1100));
+        if (enabled) {
+          await f.base.until(async () => { held = captured(f.current.get('api-1')).slice(initialSnapshots).findLast(row => row.gauges['window.outer_bodies'].value > 0 && row.pools.storage.activeSQL === 0 && row.pools.operation.activeSQL === 0); return !!held; }, 'held response diagnostic snapshot');
+          assert.equal(held.pools.operation.status, 'MEASURED'); assert.equal(held.pools.operation.sqlStatus, 'MEASURED'); assert.equal(held.pools.storage.sqlStatus, 'MEASURED'); assert(held.pools.operation.checkedout >= 1); assert(held.gauges['lifetime.lease_holders'].value >= 1);
+          assert(held.durations['window.admission'].count > 0); assert(held.durations['window.register'].count > 0); assert(held.durations['api.authorize'].count > 0);
+          assert.equal(held.gauges['lifetime.critical_active'].value, 0); assert(Buffer.byteLength(JSON.stringify(held)) < 8192);
+          assert(!JSON.stringify(held).includes(a)); assert(!JSON.stringify(held).includes(A)); assert(!JSON.stringify(held).includes(identifier));
+        } else { assert.equal(captured(f.current.get('api-1')).length, 0); }
+        const holder = await f.participantOperations('api-1', A), idle = await f.participantOperations('api-2', A);
+        assert.equal(holder.length, 1); assert.equal(idle.length, 1); assert.notEqual(holder[0], idle[0]);
+        assert.deepEqual(await f.unfinishedOperations(A), [...holder, ...idle].sort());
+        const before = await f.restoreState();
+        const restoring = f.restore(async () => { entered = true; return 'diagnostic-drain'; }).then(value => ({ value }), error => ({ error }));
         const refused = await restoring;
         assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
         assert.equal(entered, false); assert.equal(responseFinished, false);
@@ -68,10 +69,11 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         assert.equal(suspended.phase, 'suspended');
         assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
         assert.equal(suspended.audits, before.audits + 1);
-        assert.equal(suspended.unfinished, before.unfinished, 'HELD_RESPONSES_KEEP_DURABLE_MARKERS');
+        assert.deepEqual(await f.unfinishedOperations(A), holder, 'EXACT_HELD_PARTICIPATION_STAYS_DURABLE');
+        assert.deepEqual(await f.participantOperations('api-2', A), [], 'IDLE_PEER_DRAINS_WITHOUT_WAITING_FOR_HELD_RESPONSE');
         assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
         Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status; assert.equal(Bstatus, 200);
-      } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
+      } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
       await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
