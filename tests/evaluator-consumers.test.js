@@ -78,7 +78,7 @@ describe('selected actual database consumer readiness protocols', function () {
     try {
       value=await module.exports.prepare({config:cfg,clinicalConnection:{},current:()=>null,isCurrent:async()=>true,operationWindow:window,
         jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),assertOperational:()=>{}});
-      assert.deepEqual(checks,['outbox','suppression','outbox'],'STARTUP_AND_BOTH_BACKEND_ADMISSIONS');
+      assert.deepEqual(checks,['outbox','suppression'],'STARTUP_AND_BOTH_BACKEND_ADMISSIONS');
       await value.verifyOperational();unsafe=true;
       await assert.rejects(value.verifyOperational(),/SYNTHETIC_STRUCTURAL_CHANGE/,'DDL_CHANGE_REFUSES');
       for(const admit of backends)await assert.rejects(admit({physical:'replacement'}),/SYNTHETIC_STRUCTURAL_CHANGE/,'REPLACEMENT_BACKEND_REFUSES');
@@ -309,10 +309,48 @@ describe('event driven notification recovery without quiet discovery', function 
   }
   it('restart restores durable retry/repeat and explicit reconnect recovers a dropped output wake',async()=>{await recovery();});
   it('breaking startup reconciliation or reconnect reconciliation is red; restored paths pass',async function(){
-    for(const needle of ["      sweep('start', 'run', tenants);", "recover: () => sweep('recovery', 'run', [...tenants])"]) {
-      await assert.rejects(recovery(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,needle.startsWith('recover')?'recover: async () => {}':'');}),error=>error.code==='ERR_ASSERTION');
+    for(const needle of ["      sweep('start', 'run', tenants);", "          await sweep('recovery', 'run', [...tenants]);"]) {
+      const source=fs.readFileSync(require.resolve('../lib/server/serve/evaluator-consumers'),'utf8');
+      assert.equal(source.split(needle).length,2,'CONTROL_MUST_LAND');
+      const symptom=needle.includes("'start'")?'RESTART_RECOVERS_DURABLE_ID':'RECONNECT_RECOVERS_LOST_WAKE';
+      await assert.rejects(recovery(value=>value.replace(needle,'')),error=>error.code==='ERR_ASSERTION' && error.message.includes(symptom));
     }
     await recovery();
+  });
+  async function overlap (mutate) {
+    const lab=await protocol();let value,release;
+    try {
+      const current=new Map([lab.A,lab.B].map(tenant=>[tenant,{...lab.runtime.last(tenant),eligible:false,result:{emitted:[],requested:[]}}]));
+      let block=false,entered;const blocked=new Promise(resolve=>{entered=resolve;}),gate=new Promise(resolve=>{release=resolve;}),effects=[];
+      const store=Object.fromEntries(['enqueue','consume','due','begin','dispatch','finish','receipts'].map(method=>[method,async input=>{
+        if(method==='consume' && input.tenant===lab.B && block){entered();await gate;}
+        return lab.files.get(input.tenant).store[method](input);
+      }]));
+      value=coordinate(mutate)({tenants:[lab.A,lab.B],route:'realtime-test',store,reader:lab.alarm.reader,current:tenant=>current.get(tenant),
+        currentConfig:async tenant=>lab.configs.get(tenant),isCurrent:lab.runtime.isCurrent,
+        adapter:{id:'realtime-test',send(request,callback){effects.push(request);callback(null,{accepted:true});}},
+        now:()=>lab.files.get(lab.A).now(),maxRows:10,maxBytes:100000,maxPayloadBytes:10000,maxInflight:2,
+        attemptTimeoutMs:1000,retryDelayMs:1,pollIntervalMs:100,retryIntervalMs:200,schedule:()=>({}),cancel(){}});
+      value.start();await Promise.all([value.flush(lab.A),value.flush(lab.B)]);
+      block=true;const first=value.recover();await blocked;await value.flush(lab.A);
+      const before=value.health([lab.A]).tenants[0].selections;
+      lab.advance(60000);await lab.runtime.tick(lab.A);current.set(lab.A,lab.runtime.last(lab.A));
+      let completed=false;const second=value.recover().then(()=>{completed=true;});
+      await Promise.resolve();await Promise.resolve();
+      assert.equal(completed,false,'OVERLAPPING_RECOVERY_MUST_AWAIT_RECONCILIATION');
+      release();await Promise.all([first,second]);
+      assert.ok(value.health([lab.A]).tenants[0].selections>before,'OVERLAPPING_RECOVERY_MUST_REVISIT_ALREADY_SCANNED_TENANT');
+      assert.equal(effects.length,1,'OVERLAPPING_RECOVERY_DELIVERS_LOST_WAKE');
+    } finally {release?.();await value?.close();await lab.close();}
+  }
+  it('overlapping recovery awaits and reruns durable reconciliation after a lost wake',async()=>{await overlap();});
+  it('dropping the recovery rerun is red; restored overlapping recovery delivers',async function(){
+    const needle='} while (recoverAgain && !closed);';
+    const source=fs.readFileSync(require.resolve('../lib/server/serve/evaluator-consumers'),'utf8');
+    assert.equal(source.split(needle).length,2,'CONTROL_MUST_LAND');
+    await assert.rejects(overlap(value=>value.replace(needle,'} while (false);')),
+      error=>error.code==='ERR_ASSERTION' && error.message.includes('OVERLAPPING_RECOVERY_MUST_REVISIT'));
+    await overlap();
   });
   async function revision (mutate) {
     const lab=await protocol();let second;

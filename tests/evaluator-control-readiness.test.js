@@ -67,12 +67,11 @@ describe('Selected suppression control read scope source protocol',function(){
     const prepare=loadPrepare({'../../storage/postgres-connection':async settings=>{
       assert(['synthetic-outbox','synthetic-suppression'].includes(settings.connectionString));
       const connection=settings.connectionString==='synthetic-outbox'?outboxConnection:{...l.db};
-      // The real constructor screens each physical suppression backend once,
-      // before returning it. A connection double must execute that callback.
+      // The real constructor screens both physical backend types before return.
+      assert.equal(typeof settings.admitBackend,'function','COLD_NOTIFICATION_ADMISSION_REQUIRED');
       if(settings.connectionString==='synthetic-suppression') {
-        assert.equal(typeof settings.admitBackend,'function','COLD_SUPPRESSION_ADMISSION_REQUIRED');
         admitSuppression=()=>settings.admitBackend(connection);await admitSuppression();
-      }
+      } else await connection.transaction(()=>settings.admitBackend(connection));
       return connection;
     },'../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.equal(effects,0);assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'COLD_OUTBOX_CHECK_PRECEDES_DEFAULT_OWN');assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4);storesOwned++;},close:async()=>{storesClosed++;}};},
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
@@ -99,7 +98,7 @@ describe('Selected suppression control read scope source protocol',function(){
     await assert.rejects(prepareCheck(s=>s.replace('selected.suppression.namespace, {operationWindow}','selected.suppression.namespace')),/READINESS_REFUSED/);await prepareCheck();
   });
   it('detects a dropped physical-backend admission callback and passes restored constructor composition',async function(){
-    await assert.rejects(prepareCheck(s=>s.replace('operationWindow, admitBackend });','operationWindow });')),/COLD_SUPPRESSION_ADMISSION_REQUIRED/);
+    await assert.rejects(prepareCheck(s=>s.replace('operationWindow, admitBackend });','operationWindow });')),/COLD_NOTIFICATION_ADMISSION_REQUIRED/);
     await prepareCheck();
   });
   it('retains actual unconditional outbox metadata refusal before any tenant reader effects',async function(){
