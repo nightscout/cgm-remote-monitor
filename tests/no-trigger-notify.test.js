@@ -6,7 +6,7 @@
 const assert = require('node:assert');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
-const { scan } = require('../scripts/check-no-trigger-notify');
+const { scan, shippedSources } = require('../scripts/check-no-trigger-notify');
 
 const reasons = sources => scan(sources).findings.map(f => f.reason).sort();
 const trig = body => 'CREATE FUNCTION s.t() RETURNS trigger LANGUAGE plpgsql AS $x$ BEGIN ' + body + ' RETURN NEW; END $x$;\n' +
@@ -54,6 +54,21 @@ describe('no trigger emits NOTIFY (D6)', function () {
       }
     });
   }
+  it('ignores a JavaScript declaration-prefix comparison but retains unreadable emitted definitions', function () {
+    const prefix="CREATE OR REPLACE FUNCTION s.t() RETURNS trigger ";
+    assert.deepStrictEqual(reasons([{file:'candidate.js',text:'if (!sql.startsWith('+JSON.stringify(prefix)+')) throw Error();'}]),[]);
+    assert.ok(reasons([{file:'candidate.js',text:'emit('+JSON.stringify(prefix)+');'}]).includes('TRIGGER_FUNCTION_BODY_UNREADABLE'));
+  });
+  it('scans the actual assembled pool notification trigger and refuses an injected notifier', function () {
+    const source=shippedSources().find(row=>row.file==='lib/tenant-notifications/pool-partition-candidate.js (generated catalogue).json');
+    assert.ok(source,'ACTUAL_GENERATED_POOL_CATALOGUE_REQUIRED');
+    assert.deepStrictEqual(reasons([source]),[]);
+    const catalogue=JSON.parse(source.text),migration=catalogue.migrations.at(-1);
+    assert.ok(migration.up[0].includes('\nBEGIN\n'),'ACTUAL_TRIGGER_BODY_REQUIRED');
+    migration.up[0]=migration.up[0].replace('\nBEGIN\n',"\nBEGIN\n  PERFORM pg_notify('control','synthetic');\n");
+    assert.ok(reasons([{...source,text:JSON.stringify(catalogue)}]).includes('TRIGGER_EMITS_NOTIFY'),'GENERATED_TRIGGER_NOTIFICATION_MUST_BE_RED');
+    assert.deepStrictEqual(reasons([source]),[],'UNMODIFIED_GENERATED_CATALOGUE_MUST_RESTORE');
+  });
   it('passes on the shipped tree and scans its trigger bodies', function () {
     const out = execFileSync(process.execPath, [path.join(__dirname, '../scripts/check-no-trigger-notify.js')], { encoding: 'utf8' });
     assert.match(out, /OK no trigger emits NOTIFY/);

@@ -106,25 +106,27 @@ describe('completed-output delivery reuse', function () {
   });
 });
 
-describe('post-bootstrap operational refresh activation', function () {
-  it('does not repeat initial acquisition and retains verification completed during model boot', async function () {
-    let timer, at=0, verifies=0, refreshes=0;
-    const reader={health:()=>({available:true}),verify:async()=>{verifies++;}};
-    const lifecycle=await require('../lib/trusted-worker/lifecycle')(reader,{intervalMs:100,now:()=>at,schedule:fn=>{timer=fn;return 1;},cancel(){}});
+describe('explicit post-bootstrap operational verification', function () {
+  it('verifies once at startup, stays quiet after boot, and coalesces explicit recovery', async function () {
+    let verifies=0, schedules=0, release;
+    const reader={verify:async()=>{verifies++;if(release)await release.promise;}};
+    const lifecycle=await require('../lib/trusted-worker/lifecycle')(reader,{
+      schedule:()=>{schedules++;return 1;},cancel(){}
+    });
     try {
-      const boot=lifecycle.version();timer();await settle();assert.equal(verifies,1);
-      lifecycle.activateRefresh(async()=>{refreshes++;},10,boot);timer();await settle();
-      assert.equal(refreshes,0,'INITIAL_MODEL_BOOT_MUST_NOT_REPEAT');
-      at=11;timer();await settle();assert.equal(refreshes,1);
-      await lifecycle.verify();timer();await settle();assert.equal(refreshes,2);
+      assert.equal(verifies,1,'STARTUP_MUST_VERIFY_ONCE');
+      await settle();await settle();
+      assert.equal(schedules,0,'POST_BOOT_MUST_NOT_ARM_PERIODIC_REFRESH');
+      assert.equal(verifies,1,'INITIAL_MODEL_BOOT_MUST_NOT_REPEAT');
+      let done;release={promise:new Promise(resolve=>{done=resolve;})};
+      const first=lifecycle.verify(),second=lifecycle.verify();
+      assert.equal(first,second,'CONCURRENT_RECOVERY_MUST_COALESCE');
+      assert.equal(verifies,2,'ADDRESSED_RECOVERY_MUST_VERIFY');
+      done();await first;release=null;
+      await lifecycle.verify();assert.equal(verifies,3,'LATER_EXPLICIT_RECOVERY_MUST_VERIFY');
+      assert.equal(schedules,0,'RECOVERY_MUST_NOT_ARM_PERIODIC_REFRESH');
     } finally {await lifecycle.close();}
-    const second=await require('../lib/trusted-worker/lifecycle')(reader,{schedule:fn=>{timer=fn;return 1;},cancel(){}});
-    try {
-      const boot=second.version();await second.verify();
-      second.activateRefresh(async()=>{refreshes++;},100,boot);timer();await settle();
-      assert.equal(refreshes,3,'VERIFICATION_DURING_BOOT_MUST_STILL_ADOPT');
-      assert.throws(()=>second.activateRefresh(()=>{},100,boot),/already active/);
-    } finally {await second.close();}
+    await assert.rejects(lifecycle.verify(),/lifecycle closed/);
   });
 });
 

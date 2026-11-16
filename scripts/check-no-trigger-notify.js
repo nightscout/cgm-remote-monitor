@@ -26,7 +26,12 @@ const bare = name => name.replace(/"/g, '').split('.').pop().toLowerCase();
 // SQL text of a file: every string of a JSON catalogue, or the raw text of
 // any other file (SQL in JavaScript string literals reads the same way).
 function sqlText (file, text) {
-  if (!file.endsWith('.json')) return text.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+  if (!file.endsWith('.json')) {
+    // A declaration prefix compared by JavaScript is not emitted SQL. Keep
+    // scanning actual definitions, including unreadable ones, outside that literal.
+    if (/\.(?:c?js)$/.test(file)) text = text.replace(/\.startsWith\(\s*(['"])(?:\\.|(?!\1)[^\\])*?\1\s*\)/g, '.startsWith("")');
+    return text.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+  }
   const out = [];
   const visit = value => {
     if (typeof value === 'string') out.push(value);
@@ -127,7 +132,15 @@ function shippedSources () {
   const assignment = require('../lib/pgstream/assignment-candidate').build({
     membershipNamespace: 'notify_gate_membership', lifecycleNamespace: 'notify_gate_lifecycle'
   }).catalogue;
+  const profiles = require('../lib/pgstream/pool-intake-profile');
+  const binding = { checkpointNamespace: 'notify_gate_checkpoint', membershipNamespace: 'notify_gate_membership',
+    lifecycleNamespace: 'notify_gate_lifecycle', consumer: 'gate_synthetic', evaluatorConsumer: 'evaluator-gate_synthetic-completed' };
+  const intakeProfile = profiles.create({ namespace: binding.checkpointNamespace, membershipNamespace: binding.membershipNamespace,
+    lifecycleNamespace: binding.lifecycleNamespace, consumer: 'evaluator-gate_synthetic', role: 'notify_gate_intake', operatorRole: 'notify_gate_operator',
+    codec: profiles.CODEC, generationDomain: profiles.GENERATION_DOMAIN, sliceRule: require('../lib/pool-membership/slice').RULE });
+  const notification = require('../lib/tenant-notifications/pool-partition-candidate').build({ binding, intakeProfile }).catalogue;
   return [...files.map(file => ({ file, text: fs.readFileSync(path.join(ROOT, file), 'utf8') })),
+    { file: 'lib/tenant-notifications/pool-partition-candidate.js (generated catalogue).json', text: JSON.stringify(notification) },
     { file: 'lib/pgstream/assignment-candidate.js (generated catalogue).json', text: JSON.stringify(assignment) }];
 }
 
@@ -143,4 +156,4 @@ if (require.main === module) {
   if (result.findings.length) process.exit(1);
   console.log('OK no trigger emits NOTIFY');
 }
-module.exports = { scan };
+module.exports = { scan, shippedSources };
