@@ -259,6 +259,22 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       return lab.writeCanonical({ tenant, planned: { op: 'create', docs: [runtimeReading(id, sgv, 2)] } });
     }
     const cyclesOf = health => health.tenants.find(row => row.tenant === lab.A).cycles;
+    // Clinical membership excludes activity; its independent durable raw tail
+    // records CRUD. Accepted input, completed clinical work and restore authority
+    // are distinct boundaries and all must cover the canonical write target.
+    async function activityRecovery(id,steps,target) {
+      const input=await lab.checkpoint(lab.consumerName,lab.A),clinical=input.projection?.[0],tail=input.projection?.[1];
+      const completed=await lab.previewCompleted();
+      const row=(await lab.admin.query('SELECT work_observed,work_completed,work_enabled FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
+      const restore=(await lab.admin.query('SELECT generation FROM "'+lab.registryNamespaces.control+'".tenant_lifecycle_windows WHERE tenant_id=$1',[lab.A])).rows[0].generation;
+      const observed=require('../lib/pgstream/work-state').map(row.work_observed),done=require('../lib/pgstream/work-state').map(row.work_completed);
+      const raw=tail?.events?.some(event=>event.domain==='activity'&&event.event==='create'&&event.value.doc?.identifier===id&&event.value.doc.steps===steps);
+      return clinical?.ready&&clinical.rows.length===0&&raw&&Number(input.checkpoint)>=target&&row.work_enabled&&
+        BigInt(observed.clock||0)>=BigInt(target)&&BigInt(done.clock||0)>=BigInt(target)&&
+        String(completed.output_restore_generation)===String(restore)
+        ? {input,completed,observed,done,restore}:null;
+    }
+
     async function start (config = lab.configure()) {
       const worker = await lab.worker(config);
       lab.tracePreview('preview-startup', { startup: worker.startup, physical: await lab.previewPhysical(), logs: worker.logs() });
@@ -281,20 +297,19 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       ] } });
       committed(removed); committed(activity);
       const beforeRestart = await lab.previewPhysical();
-      const cli = await lab.cli(config);
+      const cli = await lab.cli(config);let recovered;
       await lab.wait(async () => {
         if (cli.child.exitCode !== null || cli.child.signalCode !== null) throw new Error('Evaluator CLI exited before acquisition');
-        const checkpoint = await lab.previewCheckpoint(lab.A);
-        // Input projection COMMIT can precede the actual CLI startup log. Wait
-        // for both before inspecting readiness or sending shutdown signals.
-        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity' &&
-          /Evaluator preview started/.test(cli.logs().stdout);
+        recovered=await activityRecovery('preview-activity',1,beforeRestart.A.floor);
+        // Input acceptance can precede CLI readiness and clinical completion.
+        return recovered&&/Evaluator preview started/.test(cli.logs().stdout);
       });
       const afterRestart = await lab.previewPhysical();
-      lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, logs: cli.logs(), removed, activity });
+      lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, recovered, logs: cli.logs(), removed, activity });
       assert.equal(afterRestart.A.tables.entries.length, 0);
-      assert.equal(afterRestart.A.checkpoint.projection.length, 1);
-      assert.equal(afterRestart.A.checkpoint.projection[0].doc.steps, 1);
+      assert.equal(afterRestart.A.checkpoint.projection.length, 0,'M5_EVAL_RESTART_NO_RAW_ACTIVITY_IN_CLINICAL_WINDOW');
+      assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_RESTART_ACTUAL_CLINICAL_ABSENCE');
+      assert.equal(afterRestart.A.tables.activity.find(row=>row.doc._id==='preview-activity').doc.steps,1);
       assert.equal(afterRestart.A.floor, beforeRestart.A.floor);
       assert.deepEqual(afterRestart.B, beforeRestart.B);
       assert.match(cli.logs().stdout, /Evaluator preview started/);
@@ -303,31 +318,23 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     });
     lifecycle('finds committed canonical absence and activity through maintained stream receipts', async function () {
       await seed(); const config = lab.configure(d => { d.timeIntervalMs = 60000; });
-      const worker = await start(config), first = await worker.call('last');
+      const worker = await start(config), first = await worker.call('last'),foreignBefore=(await lab.previewPhysical()).B;
       const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
       const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
         { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
       ] } });
       const afterWrites = await worker.call('last');
-      // The output revision changes only with content (decision
-      // evaluator-revision-on-content-change), and with work on change
-      // (cost-proportional-to-activity) an unchanged tenant runs no cycles:
-      // wait for the maintained producer's acquisition to converge the projection.
-      await lab.wait(async () => {
-        const checkpoint = await lab.previewCheckpoint(lab.A);
-        // The projection COMMIT precedes the cycle's publication: wait for both.
-        return checkpoint.projection?.length === 1 && checkpoint.projection[0].domain === 'activity' && checkpoint.projection[0].doc.steps === 2 &&
-          (await worker.call('last'))?.outputRevision > first.outputRevision;
-      });
-      const observed = lab.tracePreview('preview-backstop', { first, afterWrites, last: await worker.call('last'),
+      let recovered;await lab.wait(async()=>{recovered=await activityRecovery('quiet-activity',2,activity.after.floor);return recovered;});
+      const observed = lab.tracePreview('preview-backstop', { first, afterWrites, recovered, last: await worker.call('last'),
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);
       assert.equal(observed.physical.A.tables.entries.length, 0);
-      assert.equal(observed.physical.A.checkpoint.projection.length, 1, 'M5_EVAL_STREAM_RECOVERY full current absence/activity converges without test wake');
-      assert.equal(observed.physical.A.checkpoint.projection[0].domain, 'activity', 'M5_EVAL_BACKSTOP_RECOVERY no stale deleted entry');
-      assert.equal(observed.physical.A.checkpoint.projection[0].doc.steps, 2);
+      assert.equal(observed.physical.A.checkpoint.projection.length,0,'M5_EVAL_STREAM_RECOVERY clinically bounded absence converges without test wake');
+      assert.equal(observed.physical.A.tables.activity.find(row=>row.doc._id==='quiet-activity').doc.steps,2);
+      assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_BACKSTOP_ACTUAL_CLINICAL_ABSENCE');
+      assert.deepEqual(observed.physical.B,foreignBefore,'M5_EVAL_BACKSTOP_FOREIGN_TENANT_UNCHANGED');
       assert.ok(observed.physical.A.floor > removed.before.floor, 'M5_EVAL_BACKSTOP the delete and activity advanced the floor');
-      assert.ok(observed.last.outputRevision > first.outputRevision);
+      assert(BigInt(recovered.done.clock)>=BigInt(activity.after.floor),'M5_EVAL_BACKSTOP_ACTUAL_COMPLETED_CLOCK');
     });
     lifecycle('keeps unchanged timer input and acquires new clock-backed writes from maintained CDC', async function () {
       await seed(); const worker = await start(), first = await worker.call('last');
