@@ -156,7 +156,11 @@ module.exports=async function bootstrap(input) {
       const exp=Math.floor(now/1000)+o.credentialLifetimeSeconds;
       await admin.query('INSERT INTO '+q(ns.registry)+'.tenant_registry_clock VALUES(true,0)');
       const mgdl=['joined-consumer-handoff','joined-consumer-plugin-ack'].includes(phaseId)?50:123,foreign=177;
-      for(const [i,tenant]of [plan.A,plan.B].entries()) {
+      const priorBinding=(await admin.query("SELECT current_setting('app.current_tenant_id',true) AS binding")).rows[0].binding;
+      try { for(const [i,tenant]of [plan.A,plan.B].entries()) {
+        // Synthetic bootstrap writes obey the same tenant insertion fence as
+        // ordinary writers, including when the fixture admin is a superuser.
+        await admin.query("SELECT set_config('app.current_tenant_id',$1,false)",[tenant]);
         await admin.query('INSERT INTO '+q(ns.registry)+".tenant_registry(tenant_id,state,signing_version) VALUES($1,'active',1)",[tenant]);
         await admin.query('INSERT INTO '+q(ns.registry)+".tenant_registry_hosts(host,tenant_id,kind) VALUES($1,$2,'alias'),($3,$2,'internal')",[i?'two.example.test':'one.example.test',tenant,'internal-'+i+'.example.test']);
         await admin.query('INSERT INTO '+q(ns.registry)+".tenant_registry_keys(tenant_id,purpose,kid,public_key) VALUES($1,'access','key1',$2)",[tenant,publicKeys[i].publicKey]);
@@ -196,7 +200,7 @@ module.exports=async function bootstrap(input) {
         await admin.query('INSERT INTO '+q(ns.rt_checkpoint)+'.tenant_consumer_checkpoint(tenant_id,consumer,contract_digest,checkpoint,projection) VALUES($1,$2,$3,0,NULL)',[tenant,docs.realtime.consumer,require('../../../lib/pgstream/realtime-receipt').contractDigest(ns.rt_checkpoint,docs.realtime.consumer)]);
         const completed=require('../../../lib/pgstream/checkpoint').create({typed:true,connection:{},namespace:ns.eval_checkpoint,consumer:docs.evaluator.consumer,maxBytes:o.maxBytes*2,timeIntervalMs:o.timeIntervalMs});
         await admin.query('INSERT INTO '+q(ns.eval_checkpoint)+'.tenant_consumer_checkpoint(tenant_id,consumer,contract_digest,checkpoint,projection) VALUES($1,$2,$3,0,NULL)',[tenant,completed.consumer,completed.digest]);
-      }
+      } } finally { await admin.query("SELECT set_config('app.current_tenant_id',$1,false)",[priorBinding||'']); }
       phaseEnvironment.RT_BOOTSTRAP_BROWSER_TOKEN='fixture-'+sha1(sha1(rootSecrets[0])+plan.SUBJECT).slice(0,16);
       const physical={};for(const [logical,namespace]of Object.entries(configurationBase.namespaces))physical[logical]=(await admin.query('SELECT tenant_id,id_kind,doc FROM '+q(namespace)+'.'+q(logical)+' ORDER BY tenant_id')).rows;
       const checkpoints={};for(const name of ['rt_checkpoint','eval_checkpoint'])checkpoints[name]=(await admin.query('SELECT * FROM '+q(ns[name])+'.tenant_consumer_checkpoint ORDER BY tenant_id')).rows;
