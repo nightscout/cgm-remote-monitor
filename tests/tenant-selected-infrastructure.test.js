@@ -10,7 +10,7 @@ const check = 'CHECK ((consumer = ' + literal(profile.binding.consumer + '-compl
 const fail = (code, name) => Object.assign(new Error(code + ':' + name), { code });
 function fixture (change = () => {}) {
   const calls = [], rows = ['schema_migrations', 'tenant_consumer_checkpoint', selected.TABLE].map(name => ({ name, kind: 'r', partition: false, inherited: false }));
-  const shape = { global: true, bootstrap_owned: true, augmented: false,
+  const shape = { global: true, owner_safe: true, augmented: false,
     columns: ['consumer', 'profile', 'digest', 'contract_digest'].map(name => ({ name, type: name === 'profile' ? 'jsonb' : 'text', required: true, identity: '', generated: '', default: false })),
     constraints: [{ definition: 'PRIMARY KEY (consumer)', valid: true, deferred: false }, { definition: check, valid: true, deferred: false }] };
   const installed = [{ consumer: profile.binding.consumer + '-completed', profile: profile.binding, digest: profile.digest, contract_digest: profile.contractDigest }];
@@ -31,7 +31,7 @@ describe('selected platform global infrastructure admission', function () {
     await assert.rejects(assertRelationInventory(fixture(), options(null)), { code: 'UNADMITTED' });
   });
   it('refuses changed physical shape, ownership, global row, checks and unknown relations', async function () {
-    for (const change of [({ shape }) => { shape.global = false; }, ({ shape }) => { shape.bootstrap_owned = false; }, ({ shape }) => { shape.augmented = true; },
+    for (const change of [({ shape }) => { shape.global = false; }, ({ shape }) => { shape.owner_safe = false; }, ({ shape }) => { shape.augmented = true; },
       ({ shape }) => { shape.columns[0].default = true; }, ({ shape }) => { shape.constraints[1].definition = check.replace(' AND ', ' OR '); },
       ({ shape }) => { shape.constraints[1].definition = check.replace(profile.digest, 'a'.repeat(64)); }, ({ shape }) => { shape.constraints[0].deferred = true; }]) {
       await assert.rejects(assertRelationInventory(fixture(change), options(selected.declaration(profile))), { code: 'INFRASTRUCTURE_UNSUPPORTED' });
