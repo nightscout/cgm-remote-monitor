@@ -207,6 +207,8 @@ const INVENTORY = [
   { file: 'tests/vault-secrets.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['vault'], gate: PENDING },
   { file: 'tests/tenant-key-retention.integration.test.js', flags: { NS_KEY_RETENTION_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'post-deletion 30-day key retention: destroys Transit keys in its own Vault dev' },
+  { file: 'tests/tenant-recommission.integration.test.js', flags: { NS_TENANT_RECOMMISSION_PG_VAULT_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'exact deletion artifact recovery with actual PostgreSQL grants and Vault; binds the clean source HEAD before resources start' },
   { file: 'tests/tenant-runtime-vault.integration.test.js', flags: { NS_TENANT_RUNTIME_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING },
   { file: 'tests/tenant-entries-http.integration.test.js', flags: { NS_TENANT_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-credential-http.integration.test.js', flags: { NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST: '1' }, shared: ['mongo'], own: ['postgres'], gate: PENDING,
@@ -545,6 +547,16 @@ function runMocha (files, env, signal) {
   });
 }
 
+function recommissionSelection (suites, env, readHead = () => execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim()) {
+  if (!suites.some(suite => suite.flags?.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1')) return null;
+  const head = readHead();
+  const requested = env.NS_TENANT_RECOMMISSION_SOURCE_COMMIT;
+  if (!/^[a-f0-9]{40}$/.test(head) || (requested !== undefined && requested !== head)) {
+    throw new Error('RECOMMISSION_SOURCE_COMMIT_MISMATCH');
+  }
+  return head;
+}
+
 async function main (argv) {
   const options = parseArgs(argv);
   if (!options) return usage();
@@ -559,6 +571,7 @@ async function main (argv) {
     log('no suite matches --only ' + options.only.map(o => JSON.stringify(o)).join(' ') + '; nothing ran');
     return 2;
   }
+  const recommission = recommissionSelection(suites, process.env);
   const producer = producerSelection(suites, process.env);
   if (producer) {
     const native = require('../tests/fixtures/pgstream-native');
@@ -580,6 +593,7 @@ async function main (argv) {
   // wherever the machine's zone points, so a zone-dependent suite fails
   // the same way locally as it would in CI.
   env.TZ = 'UTC';
+  if (recommission) env.NS_TENANT_RECOMMISSION_SOURCE_COMMIT = recommission;
   for (const suite of suites) Object.assign(env, suite.flags);
 
   const signal = { child: null };
@@ -665,7 +679,7 @@ async function main (argv) {
   return status;
 }
 
-module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs, producerSelection };
+module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs, producerSelection, recommissionSelection };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(status => { process.exitCode = status; }, error => {

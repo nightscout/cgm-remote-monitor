@@ -133,6 +133,7 @@ tests as pending with `[pending opt-in: <requirement>]` in the title; one
 | `tests/postgres-secrets.integration.test.js` | `NS_SECRETS_POSTGRES_DOCKER_TEST=1`, `NS_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | the second flag enables its one backup-restore case, which starts raft Vaults |
 | `tests/vault-secrets.integration.test.js` | `NS_VAULT_DOCKER_TEST=1` | | Vault | |
 | `tests/tenant-key-retention.integration.test.js` | `NS_KEY_RETENTION_DOCKER_TEST=1` | | PostgreSQL, Vault | post-deletion 30-day key retention: destroys Transit keys in its own Vault dev |
+| `tests/tenant-recommission.integration.test.js` | `NS_TENANT_RECOMMISSION_PG_VAULT_TEST=1` | | PostgreSQL, Vault | exact artifact recovery; runner binds clean source HEAD through `NS_TENANT_RECOMMISSION_SOURCE_COMMIT` before resources start |
 | `tests/tenant-runtime-vault.integration.test.js` | `NS_TENANT_RUNTIME_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | |
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |

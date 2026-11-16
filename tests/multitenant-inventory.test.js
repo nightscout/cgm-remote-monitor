@@ -39,6 +39,19 @@ describe('multitenant inventory executable environment consumption', function ()
     assert.equal(inventory.producerSelection([{ flags: { NS_PGSTREAM_ROLE_TEST: '1' } }], {}), null, 'low-level SQL receipt controls do not claim a running producer');
   });
 
+  it('binds exact recovery source before allocation and refuses a caller mismatch', function () {
+    const selected = inventory.select(['tenant-recommission.integration']);
+    assert.equal(selected.length, 1);
+    assert.deepEqual(selected[0].shared, []);
+    assert.deepEqual(selected[0].own, ['postgres', 'vault']);
+    const head = 'a'.repeat(40);
+    assert.equal(inventory.recommissionSelection(selected, {}, () => head), head);
+    assert.equal(inventory.recommissionSelection(selected, { NS_TENANT_RECOMMISSION_SOURCE_COMMIT: head }, () => head), head);
+    assert.throws(() => inventory.recommissionSelection(selected, { NS_TENANT_RECOMMISSION_SOURCE_COMMIT: 'b'.repeat(40) }, () => head), /RECOMMISSION_SOURCE_COMMIT_MISMATCH/);
+    assert.throws(() => inventory.recommissionSelection(selected, {}, () => 'bad'), /RECOMMISSION_SOURCE_COMMIT_MISMATCH/);
+    assert.equal(inventory.recommissionSelection([], {}, () => { throw new Error('unselected'); }), null);
+  });
+
   it('accepts the actual source-only bootstrap test without hiding its synthetic admin URI document', function () {
     const file = 'tests/realtime-bootstrap.test.js', source = readSource(file);
     assert(source.includes('NS_TEST_POSTGRES_ADMIN_URI'), 'synthetic input remains explicit');
