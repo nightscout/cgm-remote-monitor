@@ -19,6 +19,7 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
  let owned=false,admin,pool,window,connection,release,runtime,consumers,oldMode,clinicalJobs,deliveryJobs;let volumes=[];
  const effects=[];let requested=false,paused=false,allowTimers=true;
  let clinicalHold,deliveryHold;
+ let foreignParticipation;
  const q=name=>'"'+name+'"';
  before(async function(){
   const password=crypto.randomBytes(24).toString('hex');
@@ -111,6 +112,8 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    await window.run(A,async()=>{await delay(2);window.assertCurrent(A);assert.deepEqual(await pending(),before,'LEGITIMATE_NESTED_AWAIT_REUSES_OWN_LIFETIME');});
   });
   await assert.rejects(window.run(B,()=>runtime.acquire(A)),/LIFECYCLE_WINDOW_SCOPE_INVALID/);
+  foreignParticipation=window.inflight(B);
+  assert.equal(foreignParticipation.length,1,'FOREIGN_CALL_REFUSES_A_INSIDE_VALID_B_PARTICIPATION');
   let ownedRuntime,ownedDelivery,ownedResults;
   clinicalHold=heldBody();deliveryHold=heldBody();
   try {
@@ -156,6 +159,10 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   await window.drainTenant(A);
   await until(()=>window.inflight(A).length===0);
   await window.invalidateTenant(A);
-  assert.equal((await admin.query('SELECT count(*)::integer AS n FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished')).rows[0].n,0);
+  const unfinished=(await admin.query('SELECT tenant_id::text AS tenant,operation_id FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished ORDER BY operation_id')).rows;
+  assert.deepEqual(unfinished.filter(row=>row.tenant===A),[],'DRAINED_A_HAS_NO_DURABLE_MARKER');
+  assert.deepEqual(unfinished,foreignParticipation.map(operation_id=>({tenant:B,operation_id})), 'A_DRAIN_PRESERVES_EXACT_FOREIGN_B_PARTICIPATION');
+  await window.run(B,()=>window.assertCurrent(B));
+  assert.deepEqual(window.inflight(B),foreignParticipation,'B_CONTINUES_WITH_ITS_ORIGINAL_PARTICIPATION');
  });
 });
