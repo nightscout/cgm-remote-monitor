@@ -106,24 +106,23 @@ describe('selected receiver exact recognized profile',()=>{
   assert.throws(()=>create({...selected,routes:[{schema:'wrong_control',table:'tenant_lifecycle_windows',kind:'lifecycle'}]}),/PROFILE_BINDING/);
   assert.throws(()=>create({...selected,intakeProfile:{...p,binding:{...p.binding,codec:'research'}}}),/PROFILE/);
  });
- it('actual evaluator factory refuses cross-layout and cross-consumer selected profiles before opening a binary or store',async()=>{
+ it('actual evaluator factory refuses cross-layout and cross-consumer selected profiles before opening a receipt store',async()=>{
   const profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),config={pgstream:{binary:'/does-not-exist'},namespaces:{checkpoint:p.binding.namespace},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'settings',operatorPolicy:'policy'}};
   config.namespaces.clock='clock';
   for(const change of [{consumer:'evaluator-other'},{namespaces:{...config.namespaces,checkpoint:'wrong_work'}},{trustedWorker:{...config.trustedWorker,activity:'wrong_control'}}])await assert.rejects(require('../lib/pgstream/evaluator').open({config:{...config,...change},intakeProfile:p,controlConnection:{}}),/EVALUATOR_INTAKE_PROFILE_BINDING/);
-  await assert.rejects(require('../lib/pgstream/evaluator').open({config,intakeProfile:p,controlConnection:{}}),{code:'ENOENT'});
  });
 });
 
 describe('selected feed source construction without starting a listener or child',()=>{
  function protocol({selected=true,change=source=>source}={}){
   const fs=require('node:fs'),Module=require('node:module'),path=require('node:path'),file=require.resolve('../lib/pgstream/evaluator'),actual=require(file),profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),calls=[];
-  const config={pgstream:{binary:'/synthetic/binary',configFile:'/synthetic/config',streamRole:'stream_reader',slot:'test_slot',bounds:{stallMs:1000},receiverPort:2345},connectionString:'postgresql://stream_reader:synthetic@127.0.0.1/disposable_test',namespaces:{checkpoint:p.binding.namespace,clock:'input_clock'},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'input_settings',operatorPolicy:'input_policy'},tenants:new Map(p.binding.tenants.map(id=>[id,{}])),maxBytes:10000,timeIntervalMs:1000,intakeStateSync:{assignmentRevision:p.binding.revision},selectedIntake:{controlConnectionString:'postgresql://feed_control:synthetic@127.0.0.1/disposable_test'}};
+  const config={pgstream:{receiver:{url:'http://127.0.0.1:2345/',bindHost:'127.0.0.1',trust:'network',maxBytes:20000,timeoutMs:1000},streamRole:'stream_reader',slot:'test_slot',bounds:{stallMs:1000}},connectionString:'postgresql://stream_reader:synthetic@127.0.0.1/disposable_test',namespaces:{checkpoint:p.binding.namespace,clock:'input_clock'},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'input_settings',operatorPolicy:'input_policy'},tenants:new Map(p.binding.tenants.map(id=>[id,{}])),maxBytes:10000,timeIntervalMs:1000,intakeStateSync:{assignmentRevision:p.binding.revision},selectedIntake:{controlConnectionString:'postgresql://feed_control:synthetic@127.0.0.1/disposable_test'}};
   const source={mode:'replication',url:config.connectionString,replication:{replication_slot:'test_slot',plugin:{add_tables:actual.routes(config).map(r=>r.schema+'.'+r.table).join(',')}}};
   const wire={source:{postgres:source},target:{webhooks:{subscriptions:{store:{url:config.connectionString+'?pool_max_conns=2',cache:{enabled:false}},server:{address:'127.0.0.1:3456'}},notifier:{strict_mode:true}}}};
   const store={consumer:p.binding.consumer+'-completed',...(selected?{profile:p.digest}:{}),own:async()=>{throw Error('SOURCE_STOP_BEFORE_LISTENER');},close:async()=>calls.push({kind:'close'})};
   const m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));const local=m.require.bind(m);
   m.require=name=>name==='node:fs'?{readFileSync:name=>name==='/synthetic/binary'?Buffer.from('synthetic pinned binary'):JSON.stringify(wire)}:name==='node:crypto'?{createHash:()=>({update(){return this;},digest:()=>actual.BINARY_SHA256})}:name==='node:http'?{createServer:()=>assert.fail('NO_LISTENER')}:
-   name==='./checkpoint'?{create:options=>{calls.push({kind:'checkpoint',options});return store;}}:name==='./intake-store'?{create:options=>{calls.push({kind:'intake',options});return store;}}:name==='./supervisor'?{RECEIVER_COUNTERS:require('../lib/pgstream/supervisor').RECEIVER_COUNTERS,start:()=>assert.fail('NO_CHILD')}:
+   name==='./checkpoint'?{create:options=>{calls.push({kind:'checkpoint',options});return store;}}:name==='./intake-store'?{create:options=>{calls.push({kind:'intake',options});return store;}}:name==='./delivery-health'?{RECEIVER_COUNTERS:require('../lib/pgstream/delivery-health').RECEIVER_COUNTERS,start:()=>assert.fail('NO_HEALTH_BEFORE_STORE')}:
    name==='./feed-control'?{assertReady:async()=>{}}:name==='./intake-state'?{selection:value=>value,publisher:options=>{calls.push({kind:'publisher',options});return {terminal:()=>{}};}}:local(name);
   m._compile(change(fs.readFileSync(file,'utf8')),file);return {api:m.exports,config,p,calls,store};
  }

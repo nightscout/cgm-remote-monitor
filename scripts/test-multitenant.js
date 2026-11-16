@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
   { file: 'tests/realtime-completed-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native completed-output role schema, exact metadata update grants, input clinical read refusal and family admission controls' },
   { file: 'tests/pgstream-typed-migration.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -435,7 +437,7 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
 // The caller supplies its exact owned binary/helper/image capability; selection
 // never pulls or substitutes an ordinary PostgreSQL image after a refusal.
 function producerSelection (suites, source) {
-  const needed = suites.some(suite => suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
+  const needed = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
   if (!needed) return null;
   const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
   if (!fields.every(key => typeof source[key] === 'string' && source[key].length) || !/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
