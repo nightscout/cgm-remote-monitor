@@ -30,7 +30,7 @@ require.cache[evaluatorPath].exports = Object.assign((...args) => {
     return result;
   }});
 },evaluator);
-const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
+const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth<3&&error.cause?{cause:failure(error.cause,depth+1)}:{}), ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
 const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
   : running.operationCohort.window.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
@@ -57,7 +57,7 @@ starting = (async () => {
   context = running.contexts.evaluator;
   process.send({ ready: true, contexts: Object.keys(running.contexts), servers: running.servers.length,
     health: context ? context.health() : null });
-})().catch(error => { process.send({ bootError: { name: error.name, message: error.message,
+})().catch(error => { process.send({ bootError: { ...failure(error),
   previewConfigError: error instanceof require('../../lib/server/serve/preview-config').PreviewConfigError } }); process.disconnect(); process.exitCode = 1; });
 
 process.once('SIGTERM', async () => {
