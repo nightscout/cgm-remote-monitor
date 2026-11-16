@@ -371,3 +371,48 @@ describe('event driven notification recovery without quiet discovery', function 
     await revision();
   });
 });
+
+async function placementReconstructionCriterion (change = text => text) {
+  const map = require('./fixtures/realtime-placement-map');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'consumer-placement-reconstruction-'));
+  const file = path.join(directory, 'placement.json');
+  fs.writeFileSync(file, JSON.stringify(map.config()), {mode: 0o600});
+  const placement = map.placement.loadRoutes({MULTITENANT_REALTIME_PLACEMENT: file}, {internal: map.internal});
+  const schemaStartup = require('../lib/pgstream/schema-startup').create();
+  const filename = require.resolve('../lib/server/serve/evaluator-consumers'), local = require('node:module').createRequire(filename);
+  const output = {exports: {}}, jobs = require('../lib/server/serve/evaluator-job-context').create('delivery');
+  const window = require('./fixtures/operation-window-runtime-protocol')({trustedWorker: true}).window;
+  let attempt = 0, closed = 0, ended = 0, value;
+  const connection = {transaction: fn => fn(), end: async () => {ended++;}};
+  const mocks = {
+    '../../storage/postgres-connection': async () => connection,
+    '../../tenant-notifications/readiness': async () => {},
+    './evaluator-consumer-readiness': {suppression: async () => {}, sameDatastore: async () => {}, operational: async () => {}},
+    '../../tenant-notifications/postgres': () => ({consume:async()=>{},enqueue:async()=>{},due:async()=>[],begin:async()=>{},dispatch:async()=>{},finish:async()=>{},receipts:async()=>[],own: async () => {}, close: async () => {closed++;}, async ready () {
+      if (++attempt === 1) {await schemaStartup.schema(async () => {}); throw schemaStartup.interrupted('EVALUATOR_FEED_UNAVAILABLE');}
+    }}),
+    '../../tenant-alarms/postgres': {createReader: () => ({read: async () => [], allows: async () => true})}
+  };
+  require('node:vm').runInThisContext('(function(require,module,exports){' + change(fs.readFileSync(filename, 'utf8')) + '\n})', {filename})(id => Object.hasOwn(mocks, id) ? mocks[id] : local(id), output, output.exports);
+  const d = document(); d.consumers = selected();
+  const parsed = parse.parse(d, source);
+  const config = {...parsed, pgstream: {}, tenants: new Map([[A, {}]]), consumers: {realtime: {...parsed.consumers.realtime, placement}}, readCurrent: async () => null};
+  const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+  try {
+    await window.ready();
+    value = await schemaStartup.prepare(() => output.exports.prepare({config, clinicalConnection: {}, current: () => null, isCurrent: () => true,
+      operationWindow: window, jobContext: jobs, assertOperational: () => {}}));
+    assert.equal(attempt, 2); assert.equal(closed, 1); assert.equal(ended, 2, 'partial construction closes both owned pools');
+    assert.equal(placement.route(A).worker, 'a', 'RECONSTRUCTED_CONSUMER_MUST_RETAIN_CURRENT_PLACEMENT');
+    await value.close(); value = null;
+    assert.equal(placement.route(A).worker, 'a', 'configuration owner retains transport until its own final close');
+    placement.close(); assert.throws(() => placement.route(A), {code: 'REALTIME_CONFIG_REFUSED'});
+  } finally {await value?.close(); placement.close(); await window.close(); jobs.close(); scope.setTenancyMode(previous); fs.rmSync(directory, {recursive: true, force: true});}
+}
+describe('consumer reconstruction retains configuration-owned transport', () => {
+  it('routes through the actual parsed placement after interrupted preparation and owned-pool cleanup', () => placementReconstructionCriterion());
+  it('control: closing shared placement in partial-construction cleanup goes red; restored source passes', async () => {
+    await assert.rejects(placementReconstructionCriterion(text => text.replace('      // The configuration owner retains placement across partial construction.', '      selected.placement?.close();\n      // The configuration owner retains placement across partial construction.')), {code: 'REALTIME_CONFIG_REFUSED'});
+    await placementReconstructionCriterion();
+  });
+});
