@@ -480,6 +480,7 @@
         "tests/authorization-exchange-contract.test.js",
         "tests/pgstream-bootstrap-batch.integration.test.js",
         "tests/pgstream-single-receipt.integration.test.js",
+        "tests/pgstream-recovery.integration.test.js",
         "tests/pgstream-checkpoint.integration.test.js",
         "tests/pgstream-typed-migration.integration.test.js",
         "tests/pgstream-typed-checkpoint.integration.test.js",
