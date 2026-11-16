@@ -55,4 +55,21 @@ describe('current tenant lifecycle authority for the worker pool', function () {
     assert(red, 'physical binding omission must invalidate the refusal oracle');
     await assert.rejects(read(query([{ ...row(), bound: false }]), A), { code: 'LIFECYCLE_POOL_AUTHORITY_REFUSED' });
   });
+  it('admits only exact v2 link layout, tenant RLS and operator column capabilities', function () {
+    const readiness = require('../lib/tenant-lifecycle/recommission-readiness');
+    const metadata = maintenance => ({ oid: 70, kind: 'r', persistence: 'p', secured: true, owns: false, reads: maintenance,
+      broad_writes: false, triggers: false, rules: false, inherited: false, bad_indexes: false, dropped: false, owner_safe: true,
+      columns: readiness.LAYOUT.map(([name, type, not_null, expression]) => ({ name, type, not_null, identity: '', generated: '', default: expression || null,
+        reads: maintenance || authority.READS[extension.TABLE].includes(name), inserts: maintenance && readiness.INSERT.includes(name), updates: maintenance && name === 'activated' })),
+      constraints: readiness.CONSTRAINTS.map(definition => ({ definition, valid: true, deferrable: false })),
+      policies: readiness.policies().map(policy => ({ ...policy, roles: [0], permissive: true })) });
+    for (const maintenance of [false, true]) {
+      readiness.validate(metadata(maintenance), 'synthetic_control', maintenance);
+      for (const change of [value => { value.secured = false; }, value => { value.policies[2].check = 'true'; }, value => { value.columns[2].reads = !maintenance; }, value => { value.columns[0].inserts = !maintenance; }, value => { value.constraints.pop(); }]) {
+        const altered = metadata(maintenance); change(altered);
+        assert.throws(() => readiness.validate(altered, 'synthetic_control', maintenance), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+      }
+    }
+    assert(readiness.operatorGrants({ namespace: 'synthetic_control', role: 'synthetic_operator' }).every(grant => !/DELETE|TRUNCATE|REFERENCES|TRIGGER/.test(grant)));
+  });
 });
