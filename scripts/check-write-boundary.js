@@ -122,7 +122,6 @@ const CLOCK_METADATA_WRITES = {
   'lib/storage/postgres-connection.js': {
     observeEvaluator: { reason: 'consumer observed receipt, not clinical input', sql: /^\s*UPDATE\s+SET\s+projection\s*=\s*jsonb_build_array\b/i },
     observeEvaluatorMany: { reason: 'batched consumer observed receipts, not clinical input', sql: /^\s*WITH\b[\s\S]*\)\s*UPDATE\s+AS\s+checkpoint\s+SET\s+projection\s*=/i },
-    pulsePgstream: { reason: 'deployment heartbeat, not a tenant clinical write', sql: /^\s*UPDATE\s+\.nightscout_heartbeat\s+SET\s+revision\s*=/i }
   }
 };
 function staticText(node) {

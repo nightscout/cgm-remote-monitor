@@ -4,10 +4,10 @@ const {create,parse}=require('../lib/pgstream/receiver');
 const A='11111111-1111-4111-8111-111111111111';
 const event=(table,values,action='U')=>({Data:{action,schema:'synthetic',table,columns:Object.entries(values).map(([name,value])=>({name,value})),identity:null}});
 describe('pgstream explicit input/schema receiver',function(){
- const routes=[{schema:'synthetic',table:'clock',kind:'clock'},{schema:'synthetic',table:'activity',kind:'activity'},{schema:'synthetic',table:'lifecycle',kind:'lifecycle'},{schema:'synthetic',table:'heartbeat',kind:'heartbeat'}];
- let observe,inputs,schemas,heartbeats;
- beforeEach(()=>{observe=[];inputs=[];schemas=[];heartbeats=[];});
- const receiver=extra=>create({routes,store:{consumer:'evaluator-test-completed',observe:async(...args)=>{observe.push(args);}},onInput:async(...args)=>{inputs.push(args);},onSchema:async value=>{schemas.push(value);},onHeartbeat:async value=>{heartbeats.push(value);},...extra});
+ const routes=[{schema:'synthetic',table:'clock',kind:'clock'},{schema:'synthetic',table:'activity',kind:'activity'},{schema:'synthetic',table:'lifecycle',kind:'lifecycle'}];
+ let observe,inputs,schemas;
+ beforeEach(()=>{observe=[];inputs=[];schemas=[];});
+ const receiver=extra=>create({routes,store:{consumer:'evaluator-test-completed',observe:async(...args)=>{observe.push(args);}},onInput:async(...args)=>{inputs.push(args);},onSchema:async value=>{schemas.push(value);},...extra});
  it('does not acknowledge before observed work commits, and does not await clinical computation',async()=>{
    let commit;const durable=new Promise(resolve=>{commit=resolve;});let settled=false;
    const receive=receiver({store:{observe:()=>durable},onInput:()=>new Promise(()=>{})});
@@ -48,8 +48,6 @@ describe('pgstream explicit input/schema receiver',function(){
    const receive=receiver();await receive(event('lifecycle',{tenant_id:A,generation:'7',phase:'active'}));await receive(event('lifecycle',{tenant_id:A,generation:'7',phase:'suspended'}));await receive(event('lifecycle',{tenant_id:A,generation:'8',phase:'active'}));await receive(event('activity',{tenant_id:A,version:'9',paused:true,suspended:false}));
    assert.deepEqual(observe.map(args=>args.slice(1)),[['lifecycle','14',true],['lifecycle','15',false],['lifecycle','16',true],['activity','9',false]]);
  });
- it('heartbeat is fixed worker health work and creates no tenant completion',async()=>{await receiver()(event('heartbeat',{id:1,revision:'19'}));assert.deepEqual(heartbeats,[19]);assert.equal(observe.length,0);});
- it('accepts the DBA bootstrap heartbeat at zero without treating it as live delivery',async()=>{await receiver({onHeartbeat:async revision=>assert(revision>0,'bootstrap zero must not acknowledge current liveness')})(event('heartbeat',{id:1,revision:'0'}));});
  it('refuses numeric versions outside JavaScript exact integer range',async()=>{await assert.rejects(receiver()(event('clock',{tenant_id:A,last_stamp:9007199254740992})),/EVENT_VERSION/);});
  it('preserves raw bigint version lexemes without changing clinical JSON and refuses lifecycle overflow',async()=>{
    const raw=(table,name,value,extra=[])=>JSON.stringify(event(table,{tenant_id:A})).replace('"columns":[','"columns":[{"name":"'+name+'","type":"bigint","value":'+value+'},'+extra.map(value=>JSON.stringify(value)).join(',')+(extra.length?',':''));
@@ -69,7 +67,7 @@ describe('pgstream explicit input/schema receiver',function(){
  });
 });
 
-describe('pgstream deployment routes',function(){it('puts the heartbeat outside the upstream internal schema',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.find(row=>row.kind==='heartbeat').schema,'test_clock');assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
+describe('pgstream deployment routes',function(){it('captures only five real input routes',function(){const routes=require('../lib/pgstream/evaluator').routes({namespaces:{clock:'test_clock',checkpoint:'test_checkpoint'},trustedWorker:{settings:'test_settings',operatorPolicy:'test_policy',activity:'test_activity'}});assert.equal(routes.length,5);assert(!routes.some(row=>row.kind==='heartbeat'));assert(!routes.some(row=>row.table==='tenant_consumer_checkpoint'),'NO_CHECKPOINT_SELFCAPTURE');});});
 
 
 describe('consumer catalogue DDL relevance', function () {
@@ -81,7 +79,7 @@ describe('consumer catalogue DDL relevance', function () {
    consumers:{realtime:{outbox:{namespace:'consumer_outbox'},suppression:{namespace:'consumer_alarm'}}}};
   async function qualify(module){
    const seen=[],routes=module.routes(config);
-   assert.equal(routes.length,6);assert(!routes.some(row=>['consumer_outbox','consumer_alarm'].includes(row.schema)));
+   assert.equal(routes.length,5);assert(!routes.some(row=>['consumer_outbox','consumer_alarm'].includes(row.schema)));
    const receive=create({routes,relevantSchemas:module.relevantSchemas(config),store:{},onInput:()=>{},onHeartbeat:()=>{},onSchema:async schemas=>seen.push(...schemas)});
    for(const schema of ['consumer_outbox','consumer_alarm','unrelated_schema'])await receive({Data:{action:'M',prefix:'pgstream.ddl',content:JSON.stringify({schema_name:schema,objects:[]})}});
    assert.deepEqual(seen,['consumer_outbox','consumer_alarm']);
@@ -110,27 +108,5 @@ describe('selected receiver exact recognized profile',()=>{
   const profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),config={pgstream:{binary:'/does-not-exist'},namespaces:{checkpoint:p.binding.namespace},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'settings',operatorPolicy:'policy'}};
   config.namespaces.clock='clock';
   for(const change of [{consumer:'evaluator-other'},{namespaces:{...config.namespaces,checkpoint:'wrong_work'}},{trustedWorker:{...config.trustedWorker,activity:'wrong_control'}}])await assert.rejects(require('../lib/pgstream/evaluator').open({config:{...config,...change},intakeProfile:p,controlConnection:{}}),/EVALUATOR_INTAKE_PROFILE_BINDING/);
- });
-});
-
-describe('selected feed source construction without starting a listener or child',()=>{
- function protocol({selected=true,change=source=>source}={}){
-  const fs=require('node:fs'),Module=require('node:module'),path=require('node:path'),file=require.resolve('../lib/pgstream/evaluator'),actual=require(file),profiles=require('../lib/pgstream/intake-profile'),f=require('./fixtures/intake-source-protocol'),p=profiles.create(f.options),calls=[];
-  const config={pgstream:{receiver:{url:'http://127.0.0.1:2345/',bindHost:'127.0.0.1',trust:'network',maxBytes:20000,timeoutMs:1000},streamRole:'stream_reader',slot:'test_slot',bounds:{stallMs:1000}},connectionString:'postgresql://stream_reader:synthetic@127.0.0.1/disposable_test',namespaces:{checkpoint:p.binding.namespace,clock:'input_clock'},consumer:p.binding.consumer,trustedWorker:{activity:p.binding.lifecycleNamespace,settings:'input_settings',operatorPolicy:'input_policy'},tenants:new Map(p.binding.tenants.map(id=>[id,{}])),maxBytes:10000,timeIntervalMs:1000,intakeStateSync:{assignmentRevision:p.binding.revision},selectedIntake:{controlConnectionString:'postgresql://feed_control:synthetic@127.0.0.1/disposable_test'}};
-  const source={mode:'replication',url:config.connectionString,replication:{replication_slot:'test_slot',plugin:{add_tables:actual.routes(config).map(r=>r.schema+'.'+r.table).join(',')}}};
-  const wire={source:{postgres:source},target:{webhooks:{subscriptions:{store:{url:config.connectionString+'?pool_max_conns=2',cache:{enabled:false}},server:{address:'127.0.0.1:3456'}},notifier:{strict_mode:true}}}};
-  const store={consumer:p.binding.consumer+'-completed',...(selected?{profile:p.digest}:{}),own:async()=>{throw Error('SOURCE_STOP_BEFORE_LISTENER');},close:async()=>calls.push({kind:'close'})};
-  const m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));const local=m.require.bind(m);
-  m.require=name=>name==='node:fs'?{readFileSync:name=>name==='/synthetic/binary'?Buffer.from('synthetic pinned binary'):JSON.stringify(wire)}:name==='node:crypto'?{createHash:()=>({update(){return this;},digest:()=>actual.BINARY_SHA256})}:name==='node:http'?{createServer:()=>assert.fail('NO_LISTENER')}:
-   name==='./checkpoint'?{create:options=>{calls.push({kind:'checkpoint',options});return store;}}:name==='./intake-store'?{create:options=>{calls.push({kind:'intake',options});return store;}}:name==='./delivery-health'?{RECEIVER_COUNTERS:require('../lib/pgstream/delivery-health').RECEIVER_COUNTERS,start:()=>assert.fail('NO_HEALTH_BEFORE_STORE')}:
-   name==='./feed-control'?{assertReady:async()=>{}}:name==='./intake-state'?{selection:value=>value,publisher:options=>{calls.push({kind:'publisher',options});return {terminal:()=>{}};}}:local(name);
-  m._compile(change(fs.readFileSync(file,'utf8')),file);return {api:m.exports,config,p,calls,store};
- }
- it('uses only receipt store for selected feed, ordinary checkpoint for default, and publishes the actual store profile',async()=>{
-  for(const selected of [false,true]){const f=protocol({selected});await assert.rejects(f.api.open({config:f.config,...(selected?{intakeProfile:f.p,controlConnection:{}}:{}),connection:{},onInput:()=>{}}),/SOURCE_STOP_BEFORE_LISTENER/);assert.deepEqual(f.calls.map(c=>c.kind),[selected?'intake':'checkpoint','publisher','close']);const factory=f.calls[0].options;if(selected){assert.equal(factory.profile.digest,f.p.digest);assert(!Object.hasOwn(factory,'typed'));assert.equal(f.calls[1].options.intakeProfileDigest,f.store.profile);}else{assert.equal(factory.typed,true);assert.equal(factory.namespace,f.config.namespaces.checkpoint);assert(!Object.hasOwn(f.calls[1].options,'intakeProfileDigest'));}}
- });
- it('control: omitting actual store profile publication makes exact selected agreement RED, restored GREEN',async()=>{
-  async function criterion(change){const f=protocol({change});await assert.rejects(f.api.open({config:f.config,intakeProfile:f.p,controlConnection:{},connection:{},onInput:()=>{}}),/SOURCE_STOP_BEFORE_LISTENER/);assert.equal(f.calls.find(c=>c.kind==='publisher').options.intakeProfileDigest,f.store.profile,'ACTUAL_SELECTED_STORE_PROFILE_MUST_BE_PUBLISHED');}
-  await assert.rejects(criterion(source=>{const needle='...(intakeProfile===undefined?{}:{intakeProfileDigest:store.profile}),';assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),{code:'ERR_ASSERTION'});await criterion(source=>source);
  });
 });

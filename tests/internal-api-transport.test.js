@@ -335,7 +335,7 @@ describe('Production public API and internal listener isolation', function () {
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
       // The maintained evaluator input hint is private too; include its actual
       // contract in the same public-listener refusal checks as every other RPC.
-      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/intake-state', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
         '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {

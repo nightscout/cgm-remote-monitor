@@ -6,44 +6,44 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 const trustedWorker = require('../lib/trusted-worker/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function fixture (count, selected, ordinal = 0) {
+function fixture (count, selected, ordinal = 0, change = text => text) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
   const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0 };
-  const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false };
+  const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false, settings: 1, policy: 1, paused: false, suspended: false };
   const connection = { async readOnly (text, values) {
     if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: [1,2,3,4].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
     if (/WHERE false/.test(text)) return { rows: [] };
     if (/activity_version/.test(text)) {
       calls.scans.push([...values[0]]);
-      return { rows: values[0].map(tenant => ({ tenant, activity_version: '1', paused: false, suspended: false, settings: 1, policy: 1, stamp: '1', deleted: '0' })) };
+      return { rows: values[0].map(tenant => ({ tenant, activity_version: '1', paused: state.paused, suspended: state.suspended, settings: state.settings, policy: state.policy, stamp: '1', deleted: '0' })) };
     }
     if (state.holdSettings) await state.holdSettings.promise;
     return { rows: [{ version: 1, values: {}, generation: 1, policy: { deployment: {}, overrides: {} } }] };
   }, async end () {} };
-  const store = { async own () {}, async admit () {}, async close () {},
+  const store = { available: true, async complete () { calls.completed=(calls.completed||0)+1; }, async own () {}, async admit () {}, async close () {},
     async observeMany (page) { calls.pages.push(page); if (state.failPage) throw Error('SYNTHETIC_COMMIT_LOSS'); } };
   const gate = { start () {}, async refresh () {}, admits: tenant => !selected || ids.indexOf(tenant) % 2 === ordinal, reason: () => null, onChange () {}, close () {} };
   const member = { configured: { leaseMs: 1000 }, async register () {}, async close () {} };
   const runtime = { async close () {}, async invalidateTenant (id) { calls.invalidated.push(id); }, health: () => ({ tenants: [] }) };
   const profile = { digest: 'synthetic-profile', binding: { tenants: ids, lifecycleNamespace: 'work_activity', namespace: 'work_checkpoint', consumer: 'work', members: 2, membershipNamespace: 'work_membership', revision: 1, role: 'intake' }, assignment: { owner: tenant => ids.indexOf(tenant) % 2 } };
   const peers = [0,1].map(id => ({ id: String(id), roles: ['evaluator'], endpoint: {} }));
-  const config = { tenants, registry: {}, pgstream: { bounds: { recoveryMs: 30000, stallMs: 5000, heartbeatMs: 1000 } },
+  const config = { tenants, registry: {}, pgstream: { bounds: { recoveryMs: 30000, stepMs: 5000, pendingMs: 30000 } },
     trustedWorker: { activity: 'work_activity', clock: 'work_clock', settings: 'work_settings', operatorPolicy: 'work_policy' },
     namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: {}, maxTenants: 20000 };
-  if (selected) Object.assign(config, { partition: { partitioned: true, ordinal, namespace: 'work_membership', leaseMs: 3000 }, intakeStateSync: { assignmentRevision: 1 },
+  if (selected) Object.assign(config, { partition: { partitioned: true, ordinal, namespace: 'work_membership', leaseMs: 3000 },
     selectedIntake: { profile, workers: ['0','1'], connectionString: 'postgres://intake:synthetic@localhost/test', controlConnectionString: 'postgres://control:synthetic@localhost/test' },
     consumers: { realtime: { partitionMetadata: {}, route: { id: 'synthetic-realtime' } } } });
   if (selected && ordinal === 1) { delete config.selectedIntake.connectionString; delete config.selectedIntake.controlConnectionString; }
-  let callbacks, reader;
+  let callbacks, reader, runtimeOptions;
   const connect = Object.assign(async () => connection, { async readopt () {} });
   const readiness = Object.assign(async () => { calls.readiness++; if (state.holdReadiness) await state.holdReadiness.promise; }, { async provisionTenant () {} });
   const mocks = {
     '../../storage/postgres-connection': connect,
     '../../data/tenant-projection-evaluator': { domains: [] },
-    './evaluator-runtime': async () => runtime,
-    './evaluator-config': { registryEntry () {} },
-    './registry-tenant-set': { async open () { return { tenants, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
+    './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
+    './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
+    './registry-tenant-set': { async open () { return { tenants, isActive:()=>true, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
     './evaluator-readiness': readiness,
     '../../pool-membership': { async member () { return member; } },
     './evaluator-pool': { create: () => gate },
@@ -60,16 +60,15 @@ function fixture (count, selected, ordinal = 0) {
     '../../tenant-lifecycle/operation-window': { isWindow: () => true },
     './operation-cohort-manifest': { isParticipant: () => true },
     './evaluator-consumer-config': { endpoint: () => 'synthetic' },
-    '../../pgstream/intake-state': { worker (options) { const value = { available: false, async synchronize () { if (!value.available) { await options.revalidate(); await options.reconcile(); value.available = true; } }, async close () {} }; return value; } },
     '../../pgstream/checkpoint': { create: () => store },
     '../../pgstream/input-hints': { router: () => () => {}, handler: () => () => {} }
   };
   const filename = require.resolve('../lib/server/serve/evaluator-' + (selected ? 'selected-' : '') + 'preview');
   const loaded = new Module(filename, module); loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : Module.prototype.require.call(loaded, name);
-  loaded._compile(fs.readFileSync(filename, 'utf8'), filename);
-  const options = selected ? { operationWindow: { namespace: 'work_activity', intakeProfileDigest: profile.digest }, intakeBinding () {}, partitionParticipants: peers, partitionParticipant: peers[ordinal] } : { operationWindow: {} };
-  return { calls, state, ids, ownIds: selected ? ids.filter(tenant => profile.assignment.owner(tenant) === ordinal) : ids, store, reader: () => reader, callbacks: () => callbacks,
+  loaded._compile(change(fs.readFileSync(filename, 'utf8')), filename);
+  const options = selected ? { operationWindow: { currentGeneration:()=>1, namespace: 'work_activity', intakeProfileDigest: profile.digest }, intakeBinding () {}, partitionParticipants: peers, partitionParticipant: peers[ordinal] } : { operationWindow: {currentGeneration:()=>1} };
+  return { calls, state, ids, ownIds: selected ? ids.filter(tenant => profile.assignment.owner(tenant) === ordinal) : ids, store, reader: () => reader, callbacks: () => callbacks, runtimeOptions: () => runtimeOptions,
     async boot (atReady = async () => {}) { state.atReady = async () => { try { await atReady(); } catch (error) { state.error = error; throw error; } }; try { return await loaded.exports.boot(config, options); } catch (error) { throw state.error || error; } } };
 }
 describe('evaluator schema work bounds', function () {
@@ -152,4 +151,23 @@ describe('evaluator schema work bounds', function () {
     try { assert.deepEqual(f.calls.scans, [f.ownIds]); assert.equal(f.calls.pages.length, 0); }
     finally { await service.close(); }
   });
+});
+
+describe('actual preview completion authority after computation',()=>{
+ let prior;
+ beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
+ for(const selected of [false,true])for(const kind of ['settings','policy','paused','suspended'])it((selected?'selected':'global')+' refuses silent '+kind+' before durable output',async()=>{
+  const f=fixture(2,selected),service=await f.boot();try{
+   await f.reader().verify();await f.reader().scan(f.ids);
+   const complete=f.runtimeOptions().durable.complete,tenant=f.ownIds[0],before=f.calls.scans.length;
+   f.state[kind]=['paused','suspended'].includes(kind)?true:2;
+   await assert.rejects(complete(tenant,{identity:'1:1'}),/EVALUATOR_COMPLETION_(CONFIG|ACTIVITY)_CHANGED/);
+   assert.equal(f.calls.completed||0,0);assert.deepEqual(f.calls.scans.slice(before),[[tenant]],'COMPLETION_REFRESHES_ONLY_USED_TENANT');
+  }finally{await service.close();}
+ });
+ it('control: removing completion refresh publishes stale authority; restored refuses',async()=>{
+  async function criterion(change){const f=fixture(1,false,0,change),service=await f.boot();try{await f.reader().verify();await f.reader().scan(f.ids);f.state.policy=2;await assert.rejects(f.runtimeOptions().durable.complete(f.ids[0],{identity:'1:1'}),/EVALUATOR_COMPLETION_CONFIG_CHANGED/,'CURRENT_AUTHORITY_REQUIRED_AT_COMPLETION');}finally{await service.close();}}
+  await assert.rejects(criterion(text=>{const needle='await trusted.scan([tenant]);const row=';assert.equal(text.split(needle).length,2);return text.replace(needle,'const row=');}),/CURRENT_AUTHORITY_REQUIRED_AT_COMPLETION/);
+  await criterion(text=>text);
+ });
 });

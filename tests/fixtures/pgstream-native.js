@@ -35,7 +35,7 @@ function configuration({ prefix, capability: selected }) {
   const slot = prefix + '_pgstream', streamRole = prefix + '_pgstream'; q(slot); q(streamRole);
   if (!selected || !Number.isSafeInteger(selected.receiverPort)) fail('PGSTREAM_NATIVE_CAPABILITY_REQUIRED');
   return { receiver:{url:'http://127.0.0.1:'+selected.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000}, slot, streamRole,
-    bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
+    bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
 }
 function binding(source){
   let selected;try{selected=JSON.parse(source[ENV.binding]);}catch{fail('PGSTREAM_NATIVE_BINDING_REQUIRED');}
@@ -124,11 +124,11 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
   if (!admin || typeof admin.query !== 'function' || typeof adminURI !== 'string' || !path.isAbsolute(directory || '') ||
       !pgstream || pgstream.receiver?.url !== 'http://127.0.0.1:'+selected.receiverPort+'/' || pgstream.receiver.bindHost !== '127.0.0.1') fail('PGSTREAM_NATIVE_SETUP_REQUIRED');
   q(evaluatorRole); q(pgstream.streamRole); q(pgstream.slot);
-  const ns=config.namespaces,heartbeat=q(ns.clock)+'.nightscout_heartbeat';
+  const ns=config.namespaces;
   if (!/^evaluator-[A-Za-z0-9_-]{1,100}$/.test(config.consumer)) fail('PGSTREAM_NATIVE_CONSUMER');
   const objects = (await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_exists,EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1) AS role_exists,EXISTS(SELECT 1 FROM pg_replication_slots WHERE slot_name=$2) AS slot_exists,current_setting('wal_level') AS wal_level", [pgstream.streamRole, pgstream.slot])).rows[0];
   if (!objects || objects.schema_exists || objects.role_exists || objects.slot_exists || objects.wal_level !== 'logical') fail('PGSTREAM_NATIVE_OWNED_EMPTY_DATABASE_REQUIRED');
-  let schemaOwned = false, roleOwned = false, heartbeatOwned = false, closed = false, producer;
+  let schemaOwned = false, roleOwned = false, closed = false, producer;
   const own = fs.mkdtempSync(path.join(directory, 'pgstream-')); fs.chmodSync(own, 0o700);
   async function close() {
     if (closed) return;
@@ -138,7 +138,6 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     const slot = (await admin.query('SELECT active FROM pg_replication_slots WHERE slot_name=$1', [pgstream.slot])).rows[0];
     if (slot?.active) fail('PGSTREAM_NATIVE_CHILD_STILL_ACTIVE');
     if (slot) await admin.query('SELECT pg_drop_replication_slot($1)', [pgstream.slot]);
-    if (heartbeatOwned) await admin.query('DROP TABLE ' + heartbeat);
     if (schemaOwned) await admin.query('DROP SCHEMA pgstream CASCADE');
     if (roleOwned) { await admin.query('DROP OWNED BY ' + q(pgstream.streamRole)); await admin.query('DROP ROLE ' + q(pgstream.streamRole)); }
     // Wire/init files contain passwords. Retain private logs in the owned
@@ -157,8 +156,8 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
         routes:require('../../lib/pgstream/evaluator').routes(config),workColumns:require('../../lib/pgstream/checkpoint').WORK_COLUMNS,
         ...(realtimeRole?{realtimeColumns:require('../../lib/pgstream/realtime-receipt').COLUMNS,realtimeConsumers:[realtimeConfig.consumer]}:{})});
     }finally{
-      const owned=(await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_owned,to_regclass($1) IS NOT NULL AS heartbeat_owned",[heartbeat])).rows[0];
-      schemaOwned=owned?.schema_owned===true;heartbeatOwned=owned?.heartbeat_owned===true;
+      const owned=(await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_owned")).rows[0];
+      schemaOwned=owned?.schema_owned===true;
     }
     const configFile = path.join(own, 'wire.yaml'); fs.writeFileSync(configFile, JSON.stringify(wire(config, streamURL.href, selected.subscriptionsPort, canonical)), { flag: 'wx', mode: 0o600 });
     binary(selected.binary, selected.sha256, selected.sha256);

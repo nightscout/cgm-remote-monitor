@@ -45,7 +45,6 @@ const documentSet = (variant = 'default') => {
       const source = require('../lib/pgstream/intake-profile');
       const profile = source.create({ namespace: doc.postgres.namespaces.checkpoint, membershipNamespace: 'nstp_intake_members', lifecycleNamespace: doc.activity.namespace, role: 'nstp_intake_writer', consumer: doc.consumer, revision: '1', members: 2, tenants: [plan.A,plan.B], codec: source.CODEC, generationDomain: source.GENERATION_DOMAIN });
       doc.selectedIntake = { profile: clone(profile), workers: ['evaluator-1','evaluator-2'], connectionEnv: 'NS_INTAKE_WRITER', controlConnectionEnv: 'NS_INTAKE_CONTROL' };
-      doc.intakeStateSync = { assignmentRevision: '1' };
       doc.consumers.realtime.partitionMetadata = { checkpointNamespace: profile.binding.namespace, membershipNamespace: profile.binding.membershipNamespace, lifecycleNamespace: profile.binding.lifecycleNamespace };
       entry.files[file] = doc;
     }

@@ -377,27 +377,9 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       control: { namespace: ns.control, locks: this.locks, participants: this.entries }, ...plan.lifecycle(l) };
     const env = { NS_OPERATOR_PG: urls.operator, NS_SOURCE_COMMIT: 'f'.repeat(40) };
     const operator = canonical.operator;
-    // The selected pgstream binding creates one database-owner global heartbeat
-    // in the clock schema, outside the tenant migration/artifact catalogue.
-    await asBootstrap(async client => {
-      await client.query('CREATE TABLE ' + t('clock', 'nightscout_heartbeat') + '(id integer PRIMARY KEY CHECK(id=1),revision bigint NOT NULL CHECK(revision>=0))');
-      await client.query('INSERT INTO ' + t('clock', 'nightscout_heartbeat') + ' VALUES(1,7)');
-      await client.query('GRANT SELECT,UPDATE(revision) ON ' + t('clock', 'nightscout_heartbeat') + ' TO ' + q(l.roles.evaluator));
-    });
-    const heartbeat = async () => asBootstrap(async client => (await client.query('SELECT id,revision::text FROM ' + t('clock', 'nightscout_heartbeat'))).rows);
-    const pulser = await require('../lib/storage/postgres-connection')({ connectionString: urls.evaluator, max: 1 });
-    try { await pulser.pulsePgstream(ns.clock, 8); } finally { await pulser.end(); }
-    const heartbeatBefore = await heartbeat(); assert.deepEqual(heartbeatBefore, [{ id: 1, revision: '8' }]);
-    await asBootstrap(async client => {
-      const contract = require('../lib/pgstream/heartbeat-inventory');
-      await contract.assert(client, contract.forCatalogue('clock', ns.clock, ['tenant_write_clock']), ns.clock,
-        reason => Object.assign(new Error(reason), { code: reason }));
-    });
     const seeded = await seed();
     const beforeB = await observe(B);
     const artifact = await operator.capture(config, A, env);
-    assert(!artifact.manifest.catalogues.some(c => c.tables.some(t => t.table === 'nightscout_heartbeat')), 'shared heartbeat is not tenant data');
-    assert(!Object.keys(artifact.tables).some(key => key.includes('nightscout_heartbeat')));
     // Unknown siblings are never classified by sharing the clock namespace.
     const unknown = t('clock', 'unexpected_tenant_rows');
     await asBootstrap(client => client.query('CREATE TABLE ' + unknown + '(tenant_id uuid,value text)'));
@@ -417,10 +399,6 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
         finally { await recovery.close(); await cohort.close(); }
       }
     }
-    await asBootstrap(client => client.query('ALTER TABLE ' + t('clock', 'nightscout_heartbeat') + ' ADD COLUMN tenant_id uuid'));
-    try { await assert.rejects(operator.capture(config, A, env), { code: 'LIFECYCLE_RELATION_INFRASTRUCTURE_UNSUPPORTED' }); }
-    finally { await asBootstrap(client => client.query('ALTER TABLE ' + t('clock', 'nightscout_heartbeat') + ' DROP COLUMN tenant_id')); }
-
     await alter();
     const request = crypto.randomUUID(), now = Date.now();
     await inTenant(A, async client => {
@@ -438,7 +416,6 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       { created: 0, replaced: 1, deleted: 1 }, 'seed-a1 replaced back, seed-a2 marked deleted');
     assert.deepEqual(await observe(A), seeded, 'A as captured');
     assert.deepEqual(await observe(B), beforeB, 'B unchanged');
-    assert.deepEqual(await heartbeat(), heartbeatBefore, 'logical restore preserves shared heartbeat exactly');
     assert.equal(await phaseOf(A), 'active');
     assert.equal(await inTenant(A, async client => (await client.query('SELECT phase FROM ' + t('control', 'tenant_lifecycle_key_retention') + ' WHERE request_id=$1', [request])).rows[0].phase), 'restored');
   });
@@ -468,7 +445,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     assert.equal(resumed, true, 'closing the unregistered clinical reader restores the census');
     assert.equal(await phaseOf(A), 'active');
   });
-  it('keeps shared heartbeat bytes outside actual tenant clock deletion', async function () {
+  it('deletes only the selected tenant clock rows', async function () {
     // Narrow native deletion boundary: real RLS, ceremony and deletion SQL.
     // Authority/quiescence are explicit synthetic fixture capabilities; this
     // does not claim an actual all-role deletion shutdown or provider teardown.
@@ -483,8 +460,6 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       await client.query('GRANT SELECT ON ' + q(namespace) + '.schema_migrations TO ' + q(deleter));
       await client.query('GRANT SELECT,DELETE ON ' + q(namespace) + '.tenant_write_clock TO ' + q(deleter));
       await client.query('GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA ' + q(ns.control) + ' TO ' + q(deleter));
-      await client.query('CREATE TABLE ' + q(namespace) + '.nightscout_heartbeat(id integer PRIMARY KEY CHECK(id=1),revision bigint NOT NULL CHECK(revision>=0))');
-      await client.query('INSERT INTO ' + q(namespace) + '.nightscout_heartbeat VALUES(1,23)');
       await client.query('INSERT INTO ' + q(namespace) + '.tenant_write_clock(tenant_id,last_stamp) VALUES($1,17),($2,29)', [A, B]);
     });
     const url = new URL(bootstrapURI); url.username = deleter; url.password = secret;
@@ -502,11 +477,9 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       const input = { tenant: A, namespaces: { clock: namespace }, ledgerNamespace: ns.control, artifact };
       const request = await life.requestDeletion(connection, input); input.requestId = request.requestId;
       await life.confirmDeletion(connection, input); const result = await life.executeDeletion(connection, input);
-      assert.equal(result.deleted['clock.tenant_write_clock'], 1); assert(!Object.keys(result.deleted).some(key => key.includes('nightscout_heartbeat')));
+      assert.equal(result.deleted['clock.tenant_write_clock'], 1);
       await asBootstrap(async client => {
-        assert.deepEqual((await client.query('SELECT id,revision::text FROM ' + q(namespace) + '.nightscout_heartbeat')).rows, [{ id: 1, revision: '23' }]);
         assert.deepEqual((await client.query('SELECT tenant_id,last_stamp::text FROM ' + q(namespace) + '.tenant_write_clock')).rows, [{ tenant_id: B, last_stamp: '29' }]);
-        assert.equal((await client.query("SELECT has_table_privilege($1,$2,'SELECT,INSERT,UPDATE,DELETE') AS held", [deleter, namespace + '.nightscout_heartbeat'])).rows[0].held, false);
       });
     } finally { await connection.end(); }
   });

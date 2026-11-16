@@ -57,19 +57,27 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     function completed(row, stamp) {
       return row && BigInt(require('../lib/pgstream/work-state').map(row.work_completed).clock || '0') >= BigInt(stamp);
     }
-    it('keeps the SAME evaluator alive across external stream outage and resumes exact durable output after explicit fixture restart',async function(){
+    it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
       const began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
       await write(149);const stamp=(await lab.clock()).stamp;
-      let firstUnhealthy=null;
-      await wait(async()=>{const health=(await worker.call('health')).pgstream;if(!health.healthy&&!firstUnhealthy)firstUnhealthy={at:Date.now(),health};return !health.healthy&&health.code==='PGSTREAM_HEARTBEAT_STALLED';},config.document.pgstream.bounds.stallMs+config.document.pgstream.bounds.stepMs,'STALE_EXTERNAL_STREAM_MUST_WITHDRAW_READINESS');
-      const unavailable=(await worker.call('health')).pgstream;assert.equal(unavailable.terminal,false,'EXTERNAL_STREAM_OUTAGE_MUST_NOT_TERMINATE_ROLE');assert.equal(unavailable.code,'PGSTREAM_HEARTBEAT_STALLED');assert.deepEqual(identity(worker.child.pid),evaluator,'SAME_EVALUATOR_SURVIVES_STREAM_OUTAGE');
+      // The application no longer synthesizes feed liveness. Stopping an idle
+      // producer does not revoke source admission or the evaluator owner. Real
+      // undelivered input remains behind the durable observed/completed floor.
+      const stoppedHealth=(await worker.call('health')).pgstream;
+      assert.equal(stoppedHealth.healthy,true,'IDLE_FEED_STOP_MUST_NOT_FABRICATE_ADMISSION_FAILURE');
+      assert.equal(stoppedHealth.owner,true,'ACTUAL_EVALUATOR_OWNER_REMAINS_HELD');
+      for(const field of ['heartbeatAgeMs','monotonicHeartbeatAgeMs','sequence','received','pulses','receipts','probes'])assert.equal(Object.hasOwn(stoppedHealth,field),false,'NO_SYNTHETIC_FEED_LIVENESS_'+field);
+      const stoppedWork=await state();
+      assert(BigInt(stoppedWork.observed.clock)<BigInt(stamp),'STOPPED_FEED_MUST_NOT_FABRICATE_DURABLE_OBSERVATION');
+      assert(BigInt(stoppedWork.completed.clock)<BigInt(stamp),'UNDELIVERED_INPUT_MUST_NOT_BE_MARKED_COMPLETED');
+      assert.deepEqual(identity(worker.child.pid),evaluator,'SAME_EVALUATOR_SURVIVES_STREAM_OUTAGE');
       assert.equal(producer.state().starts,1,'NO_FIXTURE_AUTOMATIC_RESTART');
       await lab.startStream();assert.notEqual(producer.identity().pid,original.pid,'EXPLICIT_EXTERNAL_PRODUCER_REPLACEMENT');
       const recovered=await wait(async()=>{const health=(await worker.call('health')).pgstream,output=await lab.previewCompleted();return health.healthy&&completed(output,stamp)&&BigInt(output.output_revision)>BigInt(before.output_revision)?{health,output}:null;},config.document.pgstream.bounds.recoveryMs,'EXTERNAL_STREAM_MUST_RECOVER_COMMITTED_OUTPUT');
       assert.equal(recovered.output.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149,'EXACT_COMMITTED_FRAME_AFTER_STREAM_RESUME');assert.deepEqual(identity(worker.child.pid),evaluator);
-      lab.tracePreview('independent-stream-fixture-stop-and-resume',{elapsedMs:performance.now()-began,firstUnhealthy,evaluator,producerBefore:original,producerAfter:producer.identity(),unavailable,recoveredHealth:recovered.health,completed:recovered.output.work_completed,scope:'Fixture-controlled standalone producer, not platform restart-policy qualification'});
+      lab.tracePreview('independent-stream-fixture-stop-and-resume',{elapsedMs:performance.now()-began,evaluator,producerBefore:original,producerAfter:producer.identity(),stoppedHealth,stoppedWork,recoveredHealth:recovered.health,completed:recovered.output.work_completed,scope:'Fixture-controlled external restart and durable catchup; silent idle-feed detection and platform restart-policy qualification are not claimed'});
       await lab.stopWorker(worker);
     });
     it('retains a newer observation across held completion and recovers pending clinical work after actual role process-group death',async function(){

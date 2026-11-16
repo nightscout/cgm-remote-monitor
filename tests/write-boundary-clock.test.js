@@ -44,10 +44,10 @@ describe('write-boundary gate: every clinical write advances the tenant write cl
     assert.deepEqual(gate.checkClock("async function f (c) { await c.query(`SELECT /* UPDATE */ has_table_privilege(r.oid,$1,'UPDATE') FROM x FOR UPDATE`); await c.query('INSERT INTO t VALUES (1)'); }")
       .map(line => line.split(' (')[0]), ['f']);
   });
-  it('classifies only fixed receipt and heartbeat updates in the shared connection', function () {
+  it('classifies only fixed receipt updates in the shared connection', function () {
     const file = 'lib/storage/postgres-connection.js';
     const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    for (const name of ['observeEvaluator', 'observeEvaluatorMany', 'pulsePgstream']) {
+    for (const name of ['observeEvaluator', 'observeEvaluatorMany']) {
       const classification = gate.CLOCK_METADATA_WRITES[file][name];
       try {
         delete gate.CLOCK_METADATA_WRITES[file][name];

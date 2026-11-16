@@ -33,7 +33,7 @@ function evaluatorConfig () {
     activity: { connectionEnv: 'ACTIVITY_PG', namespace: 'hot_control' },
     trustedWorker: { activity: 'hot_control', clock: 'hot_clock', settings: 'hot_settings', operatorPolicy: 'hot_policy' },
     pgstream: { receiver:{url:'http://127.0.0.1:'+19913+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: 'hot_stream', streamRole: 'hot_stream',
-      bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } } };
+      bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } } };
 }
 function evaluatorSource () {
   return { EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',

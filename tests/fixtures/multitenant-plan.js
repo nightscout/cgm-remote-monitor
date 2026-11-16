@@ -46,7 +46,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   const limits = { maxRows: 10000, maxBytes: 8388608, maxTenants: 10000 };
   const trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
   const pgstream = { receiver:{url:'http://127.0.0.1:'+19042+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: named('stream'), streamRole: named('stream_reader'),
-    bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
+    bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
   const datastore = urls.evaluator ? (address => ({ hostname: address.hostname, port: Number(address.port || 5432), database: decodeURIComponent(address.pathname.slice(1)) }))(new URL(urls.evaluator)) : undefined;
   const evaluator = { version: 1, ...(datastore ? { datastore } : {}),
     postgres: { connectionEnv: 'NS_EVALUATOR_PG', namespaces: { ...domainNamespaces, clock: ns.clock, checkpoint: ns.eval_checkpoint } },
@@ -145,7 +145,6 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
     ...(tokenFiles ? { tokenFile: CONFIG_DIRECTORY + '/vault-token' } : { tokenEnv: 'NS_VAULT_TOKEN' }) };
   const canonical = { mode: 'canonical-internal', trustedPeers: ['192.0.2.10'] };
   api.localDataAuthentication = 'node';
-  evaluator.intakeStateSync = { assignmentRevision: '1' };
   const intake = require('../../lib/pgstream/intake-profile').create({ namespace: ns.eval_checkpoint, membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), consumer: evaluator.consumer, revision: '1', members: 1, tenants: [A, B], codec: require('../../lib/pgstream/intake-profile').CODEC, generationDomain: require('../../lib/pgstream/intake-profile').GENERATION_DOMAIN });
   realtime.intakeProfile = JSON.parse(JSON.stringify(intake));
   evaluator.consumers.realtime.partitionMetadata = { checkpointNamespace: ns.eval_checkpoint, membershipNamespace: named('partition_members'), lifecycleNamespace: named('partition_lifecycle') };
