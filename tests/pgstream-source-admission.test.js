@@ -70,11 +70,43 @@ describe('addressed schema events and consumer startup construction',()=>{
 });
 
 describe('schema generation entering during an existing startup admission wait',()=>{
- it('retains the generation captured before waiting, so the later interrupted construction can reconcile',async()=>{
+ it('joins every entered schema before beginning construction',async()=>{
   const gate=require('../lib/pgstream/schema-startup').create(),first=deferred(),second=deferred();let attempts=0;
   const a=gate.schema(()=>first.promise);let unavailable=true;
   const preparing=gate.prepare(async()=>{attempts++;if(unavailable)throw gate.interrupted('EVALUATOR_FEED_UNAVAILABLE');return 7;});preparing.catch(()=>{});
   const b=gate.schema(async()=>{await second.promise;unavailable=false;});
-  first.resolve();await a;await turn();assert.equal(attempts,1);second.resolve();await b;assert.equal(await preparing,7);assert.equal(attempts,2);
+  // A stable admission cut is stronger than constructing and retrying during
+  // known in-flight schema work: no constructor runs before both events settle.
+  first.resolve();await a;await turn();assert.equal(attempts,0);second.resolve();await b;assert.equal(await preparing,7);assert.equal(attempts,1);
+ });
+});
+
+async function laterSchemaJoinCriterion(createGate=require('../lib/pgstream/schema-startup').create,{refuse=false}={}){
+ const gate=createGate(),construction=deferred(),a=deferred(),b=deferred();let registrations=0,checks=0,second,prepared=false;
+ const wrapper={...gate,schema(fn){const task=gate.schema(fn);if(++registrations===1)task.then(()=>{second=gate.schema(fn);second.catch(()=>{});});return task;}};
+ const f=await fixture({schemaStartup:wrapper,schema:async()=>{if(++checks===1)await a.promise;else {await b.promise;if(refuse)throw Error('LATER_SCHEMA_UNSAFE');}}});
+ let preparing,delivery;
+ try{
+  preparing=gate.prepare(async()=>{await construction.promise;return 'consumer-constructed';});preparing.then(()=>{prepared=true;},()=>{});
+  await turn();delivery=f.send(ddl);await turn();construction.resolve();await turn();a.resolve();await turn();
+  assert.equal(checks,2);assert(second);assert.throws(f.opened.assertAvailable,/FEED_UNAVAILABLE/);
+  assert.equal(prepared,false,'STARTUP_MUST_JOIN_LATER_SCHEMA_REGISTERED_AT_SETTLEMENT');
+  b.resolve();
+  if(refuse){await assert.rejects(preparing,/LATER_SCHEMA_UNSAFE/);await assert.rejects(second,/LATER_SCHEMA_UNSAFE/);assert.throws(f.opened.assertAvailable,/FEED_UNAVAILABLE/);}
+  else{await second;assert.equal(await preparing,'consumer-constructed');f.opened.assertAvailable();}
+ }finally{construction.resolve();a.resolve();b.resolve();await Promise.allSettled([preparing,delivery,second]);await f.opened.close();}
+}
+describe('startup joins later actual schema work registered at settlement',()=>{
+ it('keeps startup pending while a later actual source-admission/schema task is held',()=>laterSchemaJoinCriterion());
+ it('keeps a later actual schema refusal fail-closed',()=>laterSchemaJoinCriterion(undefined,{refuse:true}));
+ it('control: the former one-snapshot join returns early; restored source waits',async()=>{
+  const name=require.resolve('../lib/pgstream/schema-startup'),text=fs.readFileSync(name,'utf8'),output={exports:{}};
+  const start=text.indexOf('  async function verified (since) {'),end=text.indexOf('  async function prepare (fn) {',start);assert(start>=0&&end>start);
+  const snapshot="  async function verified (since) { const observed=generation; await Promise.all([...schemas]); if(lastFailure&&lastFailure.epoch>since)throw lastFailure.error; return observed; }\n";
+  let broken=text.slice(0,start)+snapshot+text.slice(end);
+  for(const needle of ['while (schemas.size || entered !== generation);','while (schemas.size || completed !== generation);']){assert(broken.includes(needle));broken=broken.replace(needle,'while (false);');}
+  vm.runInThisContext('(function(module,exports){'+broken+'\n})',{filename:name})(output,output.exports);
+  await assert.rejects(laterSchemaJoinCriterion(output.exports.create),/STARTUP_MUST_JOIN_LATER_SCHEMA_REGISTERED_AT_SETTLEMENT/);
+  await laterSchemaJoinCriterion();
  });
 });
