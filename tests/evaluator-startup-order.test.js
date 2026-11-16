@@ -177,6 +177,7 @@ async function previewSchemaCriterion(sourceTransform=text=>text){
  }finally{f.prepare.resolve();verification.resolve();service=service||await boot.catch(()=>null);await event;await service?.close();await f.window.close();}
 }
 describe('actual preview startup schema boundary',()=>{
+ let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('reconciles consumer construction interrupted by the receiver schema gate',()=>previewSchemaCriterion());
  it('control: omitted preview preparation gate goes red and restored source passes',async()=>{
   await assert.rejects(previewSchemaCriterion(text=>text.replace('await schemaStartup.prepare(async () => {','await (async () => {').replace('    });\n    if (consumers)', '    })();\n    if (consumers)')),/PREVIEW_MUST_RECOVER_SCHEMA_INTERRUPTED_PREPARATION/);
@@ -188,6 +189,7 @@ async function previewPlacementOwnerCriterion(sourceTransform=text=>text){
  const f=fixture({sourceTransform});let service;try{f.prepare.resolve();service=await f.boot();await service.close();await service.close();assert.equal(f.state().placementClosed,1,'PREVIEW_MUST_CLOSE_CONFIGURATION_PLACEMENT_ONCE');}finally{await service?.close();await f.window.close();}
 }
 describe('preview configuration transport ownership',()=>{
+ let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('closes shared placement exactly once after consumer drain',()=>previewPlacementOwnerCriterion());
  it('control: omitted final placement close goes red; restored source passes',async()=>{await assert.rejects(previewPlacementOwnerCriterion(text=>text.replace('config.consumers?.realtime?.placement?.close();','')),/PREVIEW_MUST_CLOSE_CONFIGURATION_PLACEMENT_ONCE/);await previewPlacementOwnerCriterion();});
 });
