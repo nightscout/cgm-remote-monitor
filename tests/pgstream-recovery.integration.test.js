@@ -143,4 +143,34 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       lab.tracePreview('actual-role-completed-output-and-future-due-recovery',{death,before,resumed,after,clockBefore,outputRevision:outputAfter.output_revision});
       await lab.stopWorker(next);
     });
+    it('classifies maintained notifier exit versus live no-progress after an injected exact receiver grant failure',async function(){
+      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
+      const original=notifier(worker),initial=(await worker.call('health')).pgstream;
+      const table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint',role='"'+lab.previewRole+'"';
+      const grants=async()=>(await lab.admin.query("SELECT grantor,grantee,is_grantable FROM information_schema.column_privileges WHERE table_schema=$1 AND table_name='tenant_consumer_checkpoint' AND column_name='work_observed' AND grantee=$2 AND privilege_type='UPDATE' ORDER BY grantor",[lab.replayNamespace,lab.previewRole])).rows;
+      const canUpdate=async()=>(await lab.admin.query("SELECT has_column_privilege($1,$2,'work_observed','UPDATE') AS allowed",[lab.previewRole,lab.replayNamespace+'.tenant_consumer_checkpoint'])).rows[0].allowed;
+      const prior=await grants();assert.equal(prior.length,1,'EXACT_PRIOR_COLUMN_GRANT_REQUIRED');assert.equal(prior[0].is_grantable,'NO');assert.equal(await canUpdate(),true);
+      const began=performance.now(),samples=[];let stamp;
+      try{
+        await lab.admin.query('REVOKE UPDATE(work_observed) ON '+table+' FROM '+role);assert.equal(await canUpdate(),false,'EXACT_RECEIVER_GRANT_WITHDRAWN');
+        await write(149);stamp=(await lab.clock()).stamp;
+        const end=performance.now()+2000;
+        while(performance.now()<end){const health=(await worker.call('health')).pgstream;let child=null,childState=null;try{child=identity(original.pid);const stat=fs.readFileSync('/proc/'+original.pid+'/stat','utf8');childState=stat.slice(stat.lastIndexOf(')')+2).trim().split(/\s+/)[0];}catch(error){if(!['ENOENT','ESRCH'].includes(error.code))throw error;child=null;}
+          samples.push({atMs:performance.now()-began,sameChild:child!==null&&JSON.stringify(child)===JSON.stringify(original),childState,received:health.received,pulses:health.pulses,starts:health.starts,terminal:health.terminal});
+          await new Promise(resolve=>setTimeout(resolve,50));
+        }
+      }finally{
+        await lab.admin.query('GRANT UPDATE(work_observed) ON '+table+' TO '+role);assert.deepEqual(await grants(),prior,'EXACT_PRIOR_GRANT_RESTORED');assert.equal(await canUpdate(),true);
+      }
+      const recovered=await wait(async()=>{const health=(await worker.call('health')).pgstream;assert.equal(health.terminal,false,health.code||'GRANT_FAULT_RECOVERY_TERMINAL');return health.healthy&&health.starts>initial.starts&&BigInt((await state()).completed.clock)>=BigInt(stamp)?health:null;},30000,'GRANT_FAILURE_MUST_RECOVER_AFTER_EXACT_RESTORATION');
+      const details=worker.logs().stderr.split('\n').filter(line=>line.startsWith('Pgstream unavailable ')).map(line=>JSON.parse(line.slice('Pgstream unavailable '.length)));
+      assert(details.some(row=>row.receiver?.receiverRefusals>0),'ACTUAL_RECEIVER_REFUSAL_REQUIRED');assert(details.some(row=>row.code==='PGSTREAM_HEARTBEAT_STALLED'),'EXPECTED_TRANSPORT_FAILURE_CLASSIFICATION');
+      const exited=details.find(row=>row.lastChildExit?.pid===original.pid)?.lastChildExit;
+      const classification=exited&&exited.signal===null&&Number.isInteger(exited.code)?'natural-nonzero-child-exit':'live-until-bounded-supervisor-intervention';
+      if(classification==='natural-nonzero-child-exit')assert.notEqual(exited.code,0,'FAILED_CHILD_MUST_EXIT_NONZERO');
+      else assert(details.some(row=>row.childLogs.some(log=>log.message==='stop processing, notify has stopped')),'ENDED_NOTIFY_EVIDENCE_REQUIRED_BEFORE_CALLING_IT_STALLED');
+      assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149);
+      lab.tracePreview('injected-grant-fault-upstream-exit-classification',{fault:'injected-column-grant-withdrawal',classification,original,priorGrant:prior,samples,details,recovered,elapsedMs:performance.now()-began,claim:'Observed behavior for this injected fault, not production failure frequency or proof of permanent wedging'});
+      await lab.stopWorker(worker);
+    });
   });
