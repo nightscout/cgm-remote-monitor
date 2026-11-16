@@ -54,15 +54,33 @@ describe('actual inherited evaluator consumer fixture setup protocol',function()
     assert.equal(p.calls.some(row=>row.kind==='drop-role'&&row.name===foreign),false);assert.equal(p.schemas.size,0);
   });
 
-  it('kills only the registered consumer process group and refuses a changed incarnation or group',function(){
-    const fields=Array(24).fill('0');fields[0]='S';fields[2]='424242';fields[19]='123';
-    const p=protocol({procStat:'424242 (synthetic evaluator) '+fields.join(' ')}),lab=p.factory();
-    const worker={child:{pid:424242,exitCode:null,signalCode:null},birth:'123',processGroup:424242};
-    lab.killConsumer(worker);assert.deepEqual(p.calls.at(-1),{kind:'kill-owned-group',pid:-424242,signal:'SIGKILL'});
-    for(const change of [{birth:'124'},{processGroup:424243},{child:{...worker.child,exitCode:0}}]){
-      const before=p.calls.length;assert.throws(()=>lab.killConsumer({...worker,...change}),/already exited|incarnation\/group changed/);assert.equal(p.calls.length,before);
-      lab.killConsumer(worker);assert.equal(p.calls.at(-1).pid,-424242);
+  it('kills only the registered positive Node PID and refuses changed birth or actual inherited group',function(){
+    const fields=Array(24).fill('0');fields[0]='S';fields[2]='333333';fields[19]='123';
+    function criterion(changeConsumer){
+      const p=protocol({procStat:'424242 (synthetic evaluator) '+fields.join(' '),changeConsumer}),lab=p.factory();
+      const worker={child:{pid:424242,exitCode:null,signalCode:null},birth:'123',processGroup:333333};
+      lab.killConsumer(worker);assert.deepEqual(p.calls.at(-1),{kind:'kill-owned-process',pid:424242,signal:'SIGKILL'},'POSITIVE_PID_ONLY');
+      for(const change of [{birth:'124'},{processGroup:333334},{child:{...worker.child,exitCode:0}}]){
+        const before=p.calls.length;assert.throws(()=>lab.killConsumer({...worker,...change}),/already exited|incarnation\/group changed/,'CHANGED_CONSUMER_CUSTODY_MUST_REFUSE');assert.equal(p.calls.length,before);
+        lab.killConsumer(worker);assert.equal(p.calls.at(-1).pid,424242);
+      }
     }
+    criterion();
+    assert.throws(()=>criterion(source=>{const needle="process.kill(worker.child.pid, 'SIGKILL');";assert.equal(source.split(needle).length,2);return source.replace(needle,"process.kill(-worker.processGroup, 'SIGKILL');");}),/POSITIVE_PID_ONLY/);
+    assert.throws(()=>criterion(source=>{const needle='fields[19] !== worker.birth || ';assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/CHANGED_CONSUMER_CUSTODY_MUST_REFUSE/);
+    criterion();
+  });
+
+  it('actual consumer fork inherits the finite driver group and records the observed group rather than its PID',async function(){
+    const {EventEmitter}=require('node:events'),fields=Array(24).fill('0');fields[0]='S';fields[2]='333333';fields[19]='123';
+    async function criterion(changeConsumer){
+      let selected;const p=protocol({changeConsumer,procStat:'424242 (synthetic consumer) '+fields.join(' '),fork(file,args,options){selected=options;const child=Object.assign(new EventEmitter(),{pid:424242,exitCode:null,signalCode:null,stdout:new EventEmitter(),stderr:new EventEmitter()});child.kill=()=>{child.exitCode=0;queueMicrotask(()=>child.emit('exit',0,null));};queueMicrotask(()=>child.emit('message',{ready:true}));return child;}}),lab=p.factory();
+      try{await lab.open();lab.prepareProduct=async()=>{};lab.startStream=async()=>{};lab.stopStream=async()=>{};lab.stream=()=>undefined;const worker=await lab.workerConsumers({file:'/synthetic/config'});assert.equal(selected.detached,false,'CONSUMER_MUST_INHERIT_DRIVER_GROUP');assert.equal(worker.processGroup,333333,'ACTUAL_GROUP_MUST_BE_CAPTURED');assert.equal(worker.child.fixtureProcessGroup,333333);assert.equal(worker.birth,'123');}finally{await lab.close();}
+    }
+    await criterion();
+    await assert.rejects(criterion(source=>{const needle='silent: true, detached: false';assert.equal(source.split(needle).length,2);return source.replace(needle,'silent: true, detached: true');}),/CONSUMER_MUST_INHERIT_DRIVER_GROUP/);
+    await assert.rejects(criterion(source=>{const needle='processGroup=Number(birthFields[2])';assert.equal(source.split(needle).length,2);return source.replace(needle,'processGroup=child.pid');}),/ACTUAL_GROUP_MUST_BE_CAPTURED/);
+    await criterion();
   });
 
   it('consumes each explicitly supplied synthetic environment in actual fixture open without sharing a process environment',async function(){

@@ -118,7 +118,7 @@ module.exports = function consumersLab () {
     if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: true, env: {
+    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: false, env: {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',
       // These labs read results right after boot: all-tenants readiness, as the
       // api's boot-protocol test (decision readiness-serve-then-warm); serve is
@@ -126,8 +126,9 @@ module.exports = function consumersLab () {
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all',
       ...lab.environment(config), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
     const birthRaw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
-    const birth = birthRaw.slice(birthRaw.lastIndexOf(')') + 2).split(' ')[19];
-    child.fixtureBirth=birth;
+    const birthFields=birthRaw.slice(birthRaw.lastIndexOf(')')+2).trim().split(/\s+/);
+    const birth=birthFields[19],processGroup=Number(birthFields[2]);
+    child.fixtureBirth=birth;child.fixtureProcessGroup=processGroup;
     children.add(child); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = ''; const pending = new Map();
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => {
@@ -135,7 +136,7 @@ module.exports = function consumersLab () {
         pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) });
       child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog'));
     }, 15000);
-    const worker = { child, birth, processGroup: child.pid, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
+    const worker = { child, birth, processGroup, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
       return new Promise((done, fail) => { const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Consumer role IPC watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });
     } };
@@ -154,10 +155,10 @@ module.exports = function consumersLab () {
   lab.killConsumer = worker => {
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) throw new Error('Owned consumer already exited');
     const raw = fs.readFileSync('/proc/' + worker.child.pid + '/stat', 'utf8');
-    const fields = raw.slice(raw.lastIndexOf(')') + 2).split(' ');
-    if (fields[19] !== worker.birth || Number(fields[2]) !== worker.processGroup || worker.processGroup !== worker.child.pid)
+    const fields = raw.slice(raw.lastIndexOf(')') + 2).trim().split(/\s+/);
+    if (fields[19] !== worker.birth || Number(fields[2]) !== worker.processGroup)
       throw new Error('Owned consumer process incarnation/group changed');
-    process.kill(-worker.processGroup, 'SIGKILL');
+    process.kill(worker.child.pid, 'SIGKILL');
   };
   lab.stopConsumer = async worker => {
     await lab.stopStream();
@@ -172,7 +173,7 @@ module.exports = function consumersLab () {
     for (const child of [...children]) {
       const stopped = new Promise(resolve => child.once('exit', (code, signal) => resolve({ code, signal })));
       let forced = false;
-      const timer = setTimeout(() => { forced = true; lab.killConsumer({child,birth:child.fixtureBirth,processGroup:child.pid}); }, 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
+      const timer = setTimeout(() => { forced = true; lab.killConsumer({child,birth:child.fixtureBirth,processGroup:child.fixtureProcessGroup}); }, 10000); child.kill('SIGTERM'); const result = await stopped; clearTimeout(timer);
       if (forced || result.code !== 0 && !child.fixtureBootRefused) errors.push(new Error('Owned consumer shutdown refused/forced'));
     }
     if(errors.length)throw new globalThis.AggregateError(errors,'Consumer actors cleanup refused');
