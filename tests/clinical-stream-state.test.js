@@ -20,6 +20,16 @@ describe('durable clinical stream working set',()=>{
   assert.equal(stream.stage(accepted,event,limits).staged.length,1);
   assert.equal(stream.output(seal(accepted)).rows[0].document.sgv,120);
  });
+ it('deduplicates persisted JSONB key order while retaining distinct equal-LSN rows',()=>{
+  const normalize=value=>Array.isArray(value)?value.map(normalize):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,normalize(v)])):value;
+  const event=stream.eventOf('entries',data('U',document('a',120))),saved=normalize(stream.stage(boot(),event,limits));
+  const check=module=>{const next=module.stage(saved,event,limits);assert.equal(next.staged.length,1,'JSONB_REPLAY_DUPLICATES_COHORT');assert.equal(next,saved,'REPLAY_MUST_KEEP_DURABLE_STATE');};
+  const control=require('./lib/clinical-working-set/control');
+  const broken=control('../lib/storage/clinical-stream-state','isDeepStrictEqual(previous,event)','JSON.stringify(previous)===JSON.stringify(event)');
+  assert.throws(()=>check(broken),/JSONB_REPLAY_DUPLICATES_COHORT/);check(stream);
+  const other=stream.eventOf('entries',data('I',document('b',130)));
+  assert.equal(stream.stage(saved,other,limits).staged.length,2,'DISTINCT_COPY_ROW_MUST_SURVIVE');
+ });
  it('applies delete identities and ignores cohorts already included by consistent bootstrap floor',()=>{
   const staged=stream.stage(boot(),stream.eventOf('entries',data('D',document('a',100))),limits);
   assert.equal(stream.output(seal(staged)).rows.length,0);
