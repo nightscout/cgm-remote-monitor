@@ -10,6 +10,57 @@ const lower = require('../lib/storage/postgres-connection');
 const hash = value => createHash('sha1').update(value).digest('hex');
 optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixed-roster realtime sharding', function () {
   this.timeout(120000);
+  it('SHARD_RAW_STORAGE: actual stock clients retain raw CRUD, live high water and expiry independence', async function () {
+    const f=require('./fixtures/realtime-sharding-native')(),sockets=[],agents=[];
+    const oracle=require('./fixtures/realtime-preview/storage-oracle');
+    try {
+      const {ns}=await f.setup(),[A,B]=f.tenants,admin=f.lab.admin;
+      async function client(tenant,transport){
+        const agent=new http.Agent({lookup:(host,options,done)=>options.all?done(null,[{address:'127.0.0.1',family:4}]):done(null,'127.0.0.1',4)});agents.push(agent);
+        const socket=io('http://'+f.hosts.get(tenant)+'/storage',{forceNew:true,transports:[transport],agent,reconnection:false}),events=[],disconnects=[];sockets.push(socket);socket.on('disconnect',reason=>disconnects.push(reason));
+        for(const event of ['create','update','delete'])socket.on(event,value=>events.push({event,value}));
+        const ack=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('SHARD_RAW_SUBSCRIBE_NOACK')),5000);socket.once('connect_error',reject);socket.once('connect',()=>socket.emit('subscribe',{accessToken:f.credentials.get(tenant),collections:['entries','food']},value=>{clearTimeout(timer);resolve(value);}));});
+        assert.deepEqual(ack,{success:true,collections:['entries','food']});return {socket,events,transport,disconnects};
+      }
+      const clients=await Promise.all(['polling','websocket'].map(t=>client(A,t))),foreign=await client(B,'websocket');
+      const subscribedTail=(await admin.query('SELECT projection->1 AS tail FROM \"'+ns.evaluatorCheckpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,'evaluator-sharding-native'])).rows[0].tail;
+      const table=domain=>'"'+ns[domain]+'"."'+domain+'"';
+      const mutate=(deleted,fn)=>require('./fixtures/realtime-preview/clock-write')({admin,namespace:ns.clock,tenant:A,deleted},fn);
+      const write=(domain,row)=>mutate(false,stamp=>{row.doc.srvModified=stamp;return admin.query('INSERT INTO '+table(domain)+'(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)',[A,row.id_kind,JSON.stringify(row.doc)]);});
+      const expected=async(event,row,domain,group=clients)=>{const want=oracle.single(event,row,domain);try{await f.until(()=>group.every(c=>c.events.some(value=>require('node:util').isDeepStrictEqual(value,want))),'raw '+domain+' '+event);}catch(error){console.log('SHARD_RAW_MISMATCH '+JSON.stringify({want,subscribedTail,rtReceipts:(await admin.query('SELECT consumer,output_received,output_completed,output_owner,output_retry_at FROM \"'+ns.checkpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows,rtHealth:(await f.request(A,'GET','/health',undefined,f.workers.get('a').port)).body,rtStderr:f.workers.get('a').stderr,events:group.map(c=>({transport:c.transport,events:c.events,connected:c.socket.connected,disconnects:c.disconnects})),checkpoint:(await admin.query('SELECT consumer,projection,work_enabled,work_observed,work_completed,delivery_revision,delivery_ack_revision,output_revision,output_restore_generation FROM \"'+ns.evaluatorCheckpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows}));throw error;}assert.deepEqual(foreign.events,[],'SHARD_RAW_FOREIGN_TENANT');};
+      const oldId='old-'+randomUUID(),mealId='meal-'+randomUUID(),now=Date.now();
+      const old={id_kind:'string',doc:{_id:oldId,identifier:'public-'+oldId,type:'sgv',sgv:139,date:now-4*86400000,dateString:new Date(now-4*86400000).toISOString()}};
+      const meal={id_kind:'string',doc:{_id:mealId,identifier:'public-'+mealId,name:'Synthetic raw meal',carbs:12}};
+      await write('entries',old);await expected('create',old,'entries');
+      await write('food',meal);await expected('create',meal,'food');
+      await mutate(false,stamp=>{meal.doc={...meal.doc,carbs:23,srvModified:stamp};return admin.query('UPDATE '+table('food')+' SET doc=$3::jsonb WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,mealId,JSON.stringify(meal.doc)]);});await expected('update',meal,'food');
+      await mutate(true,()=>admin.query('DELETE FROM '+table('food')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,mealId]));await expected('delete',meal,'food');
+      const checkpoint='"'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint',consumer='evaluator-sharding-native';
+      const input=async()=>(await admin.query('SELECT projection->0 AS state FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer])).rows[0].state;
+      await f.until(async()=>!(await input()).staged.length,'raw cohort seal');
+      assert(!(await input()).rows.some(row=>row.doc._id===oldId),'SHARD_RAW_OLD_ENTRY_OUTSIDE_CLINICAL_WINDOW');
+      const fresh=await Promise.all(['polling','websocket'].map(t=>client(A,t)));
+      await new Promise(resolve=>setTimeout(resolve,250));for(const c of fresh)assert.deepEqual(c.events,[],'SHARD_RAW_NO_OFFLINE_REPLAY');
+      const follow={id_kind:'string',doc:{_id:'follow-'+randomUUID(),name:'Synthetic follow',carbs:4}};
+      await write('food',follow);await expected('create',follow,'food',[...clients,...fresh]);
+      await mutate(true,()=>admin.query('DELETE FROM '+table('food')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,follow.doc._id]));await expected('delete',follow,'food',[...clients,...fresh]);
+      for(const c of fresh)assert.equal(c.events.length,2,'SHARD_RAW_NEW_LIVE_EVENTS_EXACTLY_ONCE');
+      const edge=Date.now()+5000,expiry={id_kind:'string',doc:{_id:'expiry-'+randomUUID(),type:'sgv',sgv:138,date:edge-2*86400000,dateString:new Date(edge-2*86400000).toISOString()}};
+      await write('entries',expiry);await expected('create',expiry,'entries');
+      const clock=async()=>String((await admin.query('SELECT last_stamp FROM "'+ns.clock+'".tenant_write_clock WHERE tenant_id=$1',[A])).rows[0].last_stamp),stamp=await clock();
+      const work=async()=>(await admin.query('SELECT work_completed_at::text AS at,work_due_at::text AS due,work_completed FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer+'-completed'])).rows[0];
+      const entering=await f.until(async()=>{const row=await work();return String(row.work_completed?.[0])===stamp?row:null;},'expiry input completed');
+      assert(Number(entering.at)<edge&&Number(entering.due)<=edge+1,'SHARD_RAW_REAL_FUTURE_EXPIRY_DUE');
+      const after=await f.until(async()=>{const row=await work();return Number(row.at)>edge&&(row.due===null||Number(row.due)>edge+1)?row:null;},'actual expiry time-only completion');
+      assert.equal(await clock(),stamp,'SHARD_RAW_EXPIRY_NO_SOURCE_WRITE');
+      assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+table('entries')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,expiry.doc._id])).rows[0].n,1,'SHARD_RAW_EXPIRY_SOURCE_RETAINED');
+      for(const c of [...clients,...fresh])assert(!c.events.some(e=>e.event==='delete'&&e.value.identifier===expiry.doc._id),'SHARD_RAW_NO_EXPIRY_DELETE');
+      await f.setActivity(A,'pause');
+      await f.until(()=>clients.every(c=>!c.socket.connected),'actual pause fences storage session');
+      assert(foreign.socket.connected,'SHARD_RAW_NEIGHBOR_SURVIVES_PAUSE');
+      console.log('SHARD_RAW_STORAGE_PROOF '+JSON.stringify({oldPublicIdentity:old.doc.identifier,foodPublicIdentity:meal.doc.identifier,transports:clients.map(c=>c.transport),freshCountsAfterExpiry:fresh.map(c=>c.events.length),expiry:{stamp,before:entering,after},foreignEvents:foreign.events.length,pauseFenced:true}));
+    } finally {for(const socket of sockets)socket.close();for(const agent of agents)agent.destroy();await f.cleanup();}
+  });
   it('SHARD_REGISTRY_STATUS: actual unsharded registry API lifecycle status preserves its one exact registry cohort label', async function () {
     const f = require('./fixtures/realtime-sharding-native')();
     try {
