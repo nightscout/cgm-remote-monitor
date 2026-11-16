@@ -2,6 +2,7 @@
 // Explicit local PostgreSQL capability. No implicit database, listener or Docker.
 const assert = require('node:assert/strict');
 const { Client } = require('pg');
+const { optInSuite } = require('./support/opt-in');
 const scope = require('../lib/storage/tenant-scope');
 const replayFactory = require('../lib/storage/postgres-durable-replay');
 const stream = require('../lib/storage/clinical-stream-state');
@@ -11,14 +12,16 @@ const tenantStats = require('../lib/storage/postgres-tenant-stats');
 const at = Date.UTC(2026, 10, 16, 12), DAY = 86400000, env = { extendedSettings: {} }, limits = { maxRows: 30, maxBytes: 200000 };
 const brokenModule = require('./lib/clinical-working-set/control');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
-const enabled = !!process.env.CLINICAL_WINDOW_PG_SOCKET;
-(enabled ? describe : describe.skip)('native clinically sufficient bounded bootstrap/recovery', function () {
+const enabled = !!process.env.CLINICAL_WINDOW_PG_SOCKET || process.env.NS_CLINICAL_WINDOW_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
+optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('native clinically sufficient bounded bootstrap/recovery', function () {
   this.timeout(20000);
   let db, connection, handle, previous, queries = [], domains, oldRows, sourceCount;
   const checkpoint = 'synthetic_window_work.tenant_consumer_checkpoint';
   before(async () => {
     previous = scope.getTenancyMode();scope.setTenancyMode('multi');
-    db = new Client({ host: process.env.CLINICAL_WINDOW_PG_SOCKET, user: 'postgres', database: 'postgres' });await db.connect();
+    db = new Client(process.env.CLINICAL_WINDOW_PG_SOCKET
+      ? { host: process.env.CLINICAL_WINDOW_PG_SOCKET, user: 'postgres', database: 'postgres' }
+      : { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });await db.connect();
     for (const domain of [...stream.DOMAINS, 'work', 'clock']) await db.query('DROP SCHEMA IF EXISTS synthetic_window_' + domain + ' CASCADE');
     await db.query('DROP ROLE IF EXISTS synthetic_window_reader');
     await db.query('CREATE ROLE synthetic_window_reader NOLOGIN');

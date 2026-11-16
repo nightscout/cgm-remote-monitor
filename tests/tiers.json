@@ -410,7 +410,6 @@
         "tests/clinical-stream-sql.test.js",
         "tests/clinical-stream-recovery.test.js",
         "tests/clinical-working-set.test.js",
-        "tests/clinical-working-set.integration.test.js",
         "tests/clinical-storage-size.test.js",
         "tests/evaluator-resident-cache.test.js"
       ],
@@ -494,6 +493,8 @@
     },
     "integration": {
       "files": [
+        "tests/clinical-working-set.integration.test.js",
+        "tests/storage-event.integration.test.js",
         "tests/tenant-insertion-readiness.integration.test.js",
         "tests/00_production-safety.test.js",
         "tests/tenant-jwt-http.integration.test.js",

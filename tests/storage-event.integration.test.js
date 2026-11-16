@@ -2,6 +2,7 @@
 // Explicit isolated synthetic PostgreSQL socket; no implicit actors or database.
 const assert=require('node:assert/strict');
 const {Client,Pool}=require('pg');
+const {optInSuite}=require('./support/opt-in');
 const scope=require('../lib/storage/tenant-scope');
 const journal=require('../lib/storage/storage-event-journal');
 const sql=require('../lib/storage/clinical-stream-sql');
@@ -9,14 +10,14 @@ const identity=require('../lib/storage/storage-event-identity-sql');
 const state=require('../lib/storage/clinical-stream-state');
 const control=require('./lib/clinical-working-set/control');
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',digest='a'.repeat(64),completedDigest='b'.repeat(64);
-const enabled=!!process.env.CLINICAL_WINDOW_PG_SOCKET;
-(enabled?describe:describe.skip)('native WAL identity and durable raw delivery independent of clinical cache',function(){
+const enabled=!!process.env.CLINICAL_WINDOW_PG_SOCKET||process.env.NS_CLINICAL_WINDOW_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI;
+optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('native WAL identity and durable raw delivery independent of clinical cache',function(){
  this.timeout(20000);let db,pool,mode;
  const table='synthetic_raw_work.tenant_consumer_checkpoint',consumer='evaluator-synthetic';
  const limits={maxRows:10,maxBytes:200000};
  before(async()=>{
   mode=scope.getTenancyMode();scope.setTenancyMode('multi');
-  const config={host:process.env.CLINICAL_WINDOW_PG_SOCKET,user:'postgres',database:'postgres'};
+  const config=process.env.CLINICAL_WINDOW_PG_SOCKET?{host:process.env.CLINICAL_WINDOW_PG_SOCKET,user:'postgres',database:'postgres'}:{connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI};
   db=new Client(config);await db.connect();await db.query("SET output_plugin_libraries='wal2json'");pool=new Pool({...config,max:2});
   await db.query("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name='synthetic_storage'");
   await db.query('DROP SCHEMA IF EXISTS synthetic_raw CASCADE;DROP SCHEMA IF EXISTS synthetic_raw_work CASCADE;CREATE SCHEMA synthetic_raw;CREATE SCHEMA synthetic_raw_work');

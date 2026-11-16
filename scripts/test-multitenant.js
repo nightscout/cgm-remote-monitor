@@ -54,6 +54,10 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
+  { file: 'tests/storage-event.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'native wal2json FULL identity/TOAST, equal-LSN cohorts, durable raw tail and populated identity migration' },
   { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
   { file: 'tests/realtime-completed-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -439,11 +443,13 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
 // The caller supplies its exact owned binary/helper/image capability; selection
 // never pulls or substitutes an ordinary PostgreSQL image after a refusal.
 function producerSelection (suites, source) {
-  const needed = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
-  if (!needed) return null;
+  const requiresProducer = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
+  const requiresWal = suites.some(suite => suite.flags?.NS_CLINICAL_WINDOW_TEST === '1');
+  if (!requiresProducer && !requiresWal) return null;
   const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
-  if (!fields.every(key => typeof source[key] === 'string' && source[key].length) || !/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
-  return { image: source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE, command: ['-c', 'wal_level=logical', '-c', 'max_replication_slots=4', '-c', 'max_wal_senders=4', '-c', 'max_slot_wal_keep_size=256MB', '-c', 'output_plugin_libraries=wal2json'] };
+  if (requiresProducer && !fields.every(key => typeof source[key] === 'string' && source[key].length)) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
+  if (!/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error((requiresProducer ? 'MAINTAINED_PRODUCER_CAPABILITY_REQUIRED' : 'NATIVE_WAL_IMAGE_REQUIRED') + ': provide the exact owned PostgreSQL wal2json image');
+  return { image: source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE, requiresProducer, command: ['-c', 'wal_level=logical', '-c', 'max_replication_slots=4', '-c', 'max_wal_senders=4', '-c', 'max_slot_wal_keep_size=256MB', '-c', 'output_plugin_libraries=wal2json'] };
 }
 
 async function provisionPostgres (run, producer) {
@@ -573,7 +579,7 @@ async function main (argv) {
   }
   const recommission = recommissionSelection(suites, process.env);
   const producer = producerSelection(suites, process.env);
-  if (producer) {
+  if (producer?.requiresProducer) {
     const native = require('../tests/fixtures/pgstream-native');
     native.capability(process.env); native.binding(process.env);
   }
