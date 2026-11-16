@@ -62,13 +62,14 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
       const began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
       await write(149);const stamp=(await lab.clock()).stamp;
-      await wait(async()=>!(await worker.call('health')).pgstream.healthy,config.document.pgstream.bounds.stallMs+config.document.pgstream.bounds.stepMs,'STALE_EXTERNAL_STREAM_MUST_WITHDRAW_READINESS');
+      let firstUnhealthy=null;
+      await wait(async()=>{const health=(await worker.call('health')).pgstream;if(!health.healthy&&!firstUnhealthy)firstUnhealthy={at:Date.now(),health};return !health.healthy&&health.code==='PGSTREAM_HEARTBEAT_STALLED';},config.document.pgstream.bounds.stallMs+config.document.pgstream.bounds.stepMs,'STALE_EXTERNAL_STREAM_MUST_WITHDRAW_READINESS');
       const unavailable=(await worker.call('health')).pgstream;assert.equal(unavailable.terminal,false,'EXTERNAL_STREAM_OUTAGE_MUST_NOT_TERMINATE_ROLE');assert.equal(unavailable.code,'PGSTREAM_HEARTBEAT_STALLED');assert.deepEqual(identity(worker.child.pid),evaluator,'SAME_EVALUATOR_SURVIVES_STREAM_OUTAGE');
       assert.equal(producer.state().starts,1,'NO_FIXTURE_AUTOMATIC_RESTART');
       await lab.startStream();assert.notEqual(producer.identity().pid,original.pid,'EXPLICIT_EXTERNAL_PRODUCER_REPLACEMENT');
       const recovered=await wait(async()=>{const health=(await worker.call('health')).pgstream,output=await lab.previewCompleted();return health.healthy&&completed(output,stamp)&&BigInt(output.output_revision)>BigInt(before.output_revision)?{health,output}:null;},config.document.pgstream.bounds.recoveryMs,'EXTERNAL_STREAM_MUST_RECOVER_COMMITTED_OUTPUT');
       assert.equal(recovered.output.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149,'EXACT_COMMITTED_FRAME_AFTER_STREAM_RESUME');assert.deepEqual(identity(worker.child.pid),evaluator);
-      lab.tracePreview('independent-stream-fixture-stop-and-resume',{elapsedMs:performance.now()-began,evaluator,producerBefore:original,producerAfter:producer.identity(),unavailable,recoveredHealth:recovered.health,completed:recovered.output.work_completed,scope:'Fixture-controlled standalone producer, not platform restart-policy qualification'});
+      lab.tracePreview('independent-stream-fixture-stop-and-resume',{elapsedMs:performance.now()-began,firstUnhealthy,evaluator,producerBefore:original,producerAfter:producer.identity(),unavailable,recoveredHealth:recovered.health,completed:recovered.output.work_completed,scope:'Fixture-controlled standalone producer, not platform restart-policy qualification'});
       await lab.stopWorker(worker);
     });
     it('retains a newer observation across held completion and recovers pending clinical work after actual role process-group death',async function(){
