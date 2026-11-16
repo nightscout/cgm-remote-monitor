@@ -76,9 +76,10 @@ describe('evaluator preview readiness protocol', function () {
     async function check (kind) {
       let count = 0;
       const insertion = require('../lib/storage/postgres-insertion-readiness'), metadata = insertion.metadata;
+      const sizes=require('../lib/storage/clinical-storage-size-readiness'),sizeAdmission=sizes.assertReady;
       // This recorder proves evaluator scope checks; insertion physical metadata
       // is independently exercised by its own protocol/native suites.
-      insertion.metadata = async () => {};
+      insertion.metadata = async () => {};sizes.assertReady=async()=>{};
       try { await screen({ async query (sql,args) {
         count++;
         if (count === 1) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false,
@@ -88,7 +89,7 @@ describe('evaluator preview readiness protocol', function () {
         if(checkpoint)assert.deepEqual(args[1],['checkpoint','projection','contract_digest',...require('../lib/pgstream/checkpoint').WORK_COLUMNS],'exact typed bookkeeping grant set');
         return { rows: [{ secured: kind !== 'rls', reads: kind !== 'select', forbidden: kind === 'insert',
           updates: !checkpoint && kind === 'update', bookkeeping: checkpoint && kind !== 'missing-owned-update', extra: kind === 'extra-update' }] };
-      } }, cfg); } finally { insertion.metadata = metadata; }
+      } }, cfg); } finally { insertion.metadata = metadata;sizes.assertReady=sizeAdmission; }
     }
     await check(null);
     for (const kind of ['operator', 'schema', 'unrelated', 'rls', 'select', 'insert', 'update', 'missing-owned-update', 'extra-update']) {
@@ -315,9 +316,10 @@ describe('serve boot with retained durable overdue work', function () {
         replay:{async reconcile(){acquisitions.set(current.tenant,acquisitions.get(current.tenant)+1);if(current.tenant===A){started.resolve();await gate.promise;}return {checkpoint:7,progress:'retained-db',signature:{stamp:7,deleted:0},rows:[]};}}}),
       durable:{begin:async()=>({clock:'7'}),complete:async(tenant,value)=>{completions.push({tenant,...value});return {changed:false,output:{tenant,identity:value.identity,outputRevision:9,contentDigest:'same',inputCheckpoint:7,result:value.result}};}},
       recoveryIntervalMs:1000,timeIntervalMs:60000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
-    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
+    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');let startup;
     try {
-      await started.promise;
+      // The shared scheduler starts A; the runtime has no independent boot queue.
+      startup=service.acquire(A);await started.promise;
       // The shipped workDrain dispatches overdue rows with pendingAt=null as
       // tick(), while the retained-state serve boot is still acquiring A.
       await service.tick(B);
@@ -341,6 +343,6 @@ describe('serve boot with retained durable overdue work', function () {
       assert.equal(acquisitions.get(B),4,'NEW_EPOCH_MUST_ACQUIRE_CURRENT_INPUT');
       assert.equal(service.health([B]).tenants[0].progress.generation,generation);
       assert.equal(service.health([B]).tenants[0].progress.failedCompletions,0);
-    }finally{gate.resolve();await service.close();await window.window.close();scope.setTenancyMode(previous);}
+    }finally{gate.resolve();await startup;await service.close();await window.window.close();scope.setTenancyMode(previous);}
   });
 });

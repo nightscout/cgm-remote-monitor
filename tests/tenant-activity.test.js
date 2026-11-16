@@ -268,7 +268,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
       api, readCurrent, runtime: () => runtime, domains: ['entries'] });
     const detector=require('../lib/pgstream/realtime-output').detector({
       config:{completedOutput:{namespace:'synthetic_completed',consumer:'evaluator-test'}},
-      connection:{readOnly:async text=>{assert.match(text,/output_revision::text AS revision,work_enabled/);return {rows:[A,B].map(tenant=>({tenant,revision:String(writes.get(tenant)),work_enabled:policy.eligible('read',rows.get(tenant).state)}))};}},
+      connection:{readOnly:async text=>{assert.match(text,/output_revision::text AS revision,work_enabled/);return {rows:[A,B].map(tenant=>({tenant,revision:String(writes.get(tenant)+1),work_enabled:policy.eligible('read',rows.get(tenant).state)}))};}},
       trusted:{scan:async tenants=>new Map(tenants.map(tenant=>[tenant,{activity:rows.get(tenant)}]))},
       readAll:async tenants=>new Map(tenants.map(tenant=>[tenant,{tenant,identity:'same',env}])),owner:()=>{},onIneligible:tenant=>protocol.invalidateTenant(tenant,'completed-control')});
     runtime = await require('../lib/server/realtime/runtime')({ tenants:[A,B],readCurrent,detect:detector,watchedTenants:protocol.watchedTenants,

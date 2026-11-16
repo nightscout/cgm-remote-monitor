@@ -223,6 +223,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
       './evaluator-config': settingsOf,
       '../../storage/postgres-connection': async () => ({ end: async () => {} }),
+      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_REGISTRY_CACHE_FIXTURE');}}),
       '../../pool-membership': { member: async () => ({ register: async () => {}, close: async () => {}, configured: { leaseMs: 1000 } }) },
       './evaluator-pool': { create: () => ({ start () {}, refresh: async () => {}, close () {}, admits: () => true }) },
       '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],

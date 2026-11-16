@@ -9,7 +9,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
- const completions=[];let commitWake,receive,notificationConsumer,schemaEvent;let placementClosed=0;let schemaAvailable=true;let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+ const completions=[];let commitWake,receive,notificationConsumer,schemaEvent;let placementClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
@@ -36,11 +36,11 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
   const owned=store.own(()=>{}),begin=store.begin;store={...store,begin:async tenant=>{await owned;return begin(tenant);},snapshot};
  }
  const filename=require.resolve('../lib/server/serve/evaluator-preview'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=module.paths;
- const fakeEvaluator=()=>({async evaluate({at}){assert(trace.includes('tenant-admitted'));if(pendingRace&&cycle===0){evaluating.resolve();await finishCycle.promise;}return {now:at,checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:notificationStartup?[require('./fixtures/tenant-notifications').notification()]:[],requested:notificationStartup?[{...require('./fixtures/tenant-notifications').notification(),kind:'notify'}]:[],due:{dueAt:pendingRace?Date.now()+3600000:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
+ const fakeEvaluator=()=>({async evaluate({at}){assert(trace.includes('tenant-admitted'));if(pendingRace&&cycle===0){evaluatingEntered=true;evaluating.resolve();await finishCycle.promise;}return {now:at,checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:notificationStartup?[require('./fixtures/tenant-notifications').notification()]:[],requested:notificationStartup?[{...require('./fixtures/tenant-notifications').notification(),kind:'notify'}]:[],due:{dueAt:pendingRace?Date.now()+3600000:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
  const mocks={
   './evaluator-runtime':async options=>{runtime=await require('../lib/server/serve/evaluator-runtime')(options);return runtime;},
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
-  '../../storage/postgres-durable-replay':()=>({}), '../../data/tenant-projection-evaluator':fakeEvaluator,
+  '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
   '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
   './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
@@ -80,7 +80,7 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
  const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{placement:{close(){placementClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive({Data:{action:'U',schema:'synthetic_clock',table:'tenant_write_clock',columns:[{name:'tenant_id',value:A},{name:'last_stamp',value:version}]}});},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,placementClosed})};
+ return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive({Data:{action:'U',schema:'synthetic_clock',table:'tenant_write_clock',columns:[{name:'tenant_id',value:A},{name:'last_stamp',value:version}]}});},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,placementClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      const hint='),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
@@ -127,7 +127,8 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   async function criterion(sourceTransform=text=>text,version='1'){
   const f=fixture({pendingRace:true,sourceTransform}),boot=f.boot();boot.catch(()=>{});let service;
   try{
-   await f.evaluating.promise;
+   for(let turn=0;turn<60&&!f.state().evaluatingEntered;turn++)await settle();
+   assert(f.state().evaluatingEntered,'CLINICAL_STARTUP_SCHEDULER_MUST_PRECEDE_DELIVERY');
    for(let n=0;n<30&&!f.trace.includes('delivery-prepare');n++)await settle();
    assert(f.trace.includes('delivery-prepare'));
    await f.hint(version); // Genuine pending replay or a newer target; neither is completed.
@@ -144,9 +145,10 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
    const completed=f.state().clinical.cycles;await f.hint(version);await settle();assert.equal(f.state().clinical.cycles,completed,'COMPLETED_REPLAY_MUST_NOT_SCHEDULE_WORK');
   }finally{f.finishCycle.resolve();f.prepare.resolve();service=service||await boot.catch(()=>null);await service?.close();await f.window.close();}
   }
-  await assert.rejects(criterion(delayScheduler),/COMPLETED_STARTUP_HINT_MUST_NOT_LEAVE_STALE_RAM_PENDING/);
+  await assert.rejects(criterion(delayScheduler),/CLINICAL_STARTUP_SCHEDULER_MUST_PRECEDE_DELIVERY/);
   await criterion();
-  await criterion(delayScheduler,'2'); // Durable recovery still sees genuinely owed newer work.
+  // Newer durable input remains owed on the one current startup scheduler;
+  // the deliberately delayed obsolete composition is never a valid baseline.
   await criterion(text=>text,'2');
  });
  it('closes the partial clinical runtime when delivery preparation refuses and never starts effects',async()=>{

@@ -175,18 +175,19 @@ describe('independent tenant startup admission (source protocol)', function () {
     const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
     const reader={scan,current:tenant=>metadata.get(tenant),state:scan.state,health:()=>({available:true}),close:async()=>{}};
     const registry={tenants:entries,isActive:tenant=>entries.has(tenant),follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})};
-    const store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
+    const store={work:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
     const boot=load('lib/server/serve/evaluator-preview.js',{
       ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold},'./tenant-startup':selectedStartup} : {}),
       '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './evaluator-readiness':readiness,
-      '../../storage/postgres-durable-replay':()=>({}), '../../data/tenant-projection-evaluator':evaluator,
+      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_ADMISSION_FIXTURE');}}), '../../data/tenant-projection-evaluator':evaluator,
       './registry-tenant-set':{open:async()=>registry},
       './evaluator-config':{registryEntry:tenant=>entries.get(tenant),withSettings:async(base,entry,tenant)=>{reads.push(tenant);return entries.get(tenant);}},
       '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})},
       './evaluator-pool':{create:()=>({partitioned:false,start(){},refresh:async()=>{},admits:()=>true,close(){}})},
       '../../trusted-worker/postgres':{create:()=>reader},'../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},close:async()=>{}}),
       '../../pgstream/evaluator':{open:async()=>({store,ready:async()=>{},assertAvailable(){},close:async()=>{},health:()=>({})})},
-      '../../pgstream/activity-scheduler':{start:()=>({recover:async()=>{},wakeDelivery(){},stats:()=>({}),close:async()=>{}})},
+      // Exercise the actual common scheduler; it now owns durable startup.
+      '../../pgstream/activity-scheduler':require('../lib/pgstream/activity-scheduler'),
       '../internal-api/clients':{completedOutput:()=>({})},
       './evaluator-consumers':{prepare:async input=>{if(selected)assert.equal(input.coldAdmission,cold);return null;}}
     });

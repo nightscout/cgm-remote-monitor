@@ -127,6 +127,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
     const runtime={acquire:async()=>{},tick:async()=>{},health:()=>({tenants:[]}),last:()=>null,isCurrent:async()=>true,close:async()=>{calls.runtimeClose++;if(outcome==='both-close-fail')throw Error('synthetic runtime close failure');}};
     const boot=isolated('server/serve/evaluator-preview.js',{
       '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
+      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_SETTINGS_FIXTURE');}}),
       '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
       './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},

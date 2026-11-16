@@ -21,7 +21,7 @@
       "checksum": "f0c4f976d276f18ad11b694755411e8c61b8dec50700a0ed0d6aaa484440431b"
     },
     {
-      "name": "0002_activity_storage_bytes",
+      "name": "0099_activity_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "activity"

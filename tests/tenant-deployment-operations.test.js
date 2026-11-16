@@ -576,7 +576,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.equal(common.sha256(common.canonical(profile.catalogue)), inputs.candidateDigest);
     assert.equal(common.sha256(fs.readFileSync(path.join(ROOT, inputs.selection.profile), 'utf8')), inputs.sourceSha256);
     assert.equal(selected.census.tables, 56);
-    assert.equal(profile.catalogue.migrations.length, 4);
+    assert.equal(profile.catalogue.migrations.length, 5);
     const up = profile.catalogue.migrations[1].up;
     assert.ok(up.indexOf('ALTER TABLE profile VALIDATE CONSTRAINT socket_order_requires_empty') < up.indexOf('ALTER TABLE profile ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY'));
     assert.deepEqual(inputs.acl.grants.filter(grant => grant.sequencePrivileges), []);
@@ -603,6 +603,10 @@ describe('whole deployment source admission and filesystem durability', function
     await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(candidate));
     assert.throws(() => admit({ root: scratch, namespaces: namespaces() }), { code: 'OPERATIONS_CENSUS_ALTERNATIVE_CHANGED' });
     await fs.promises.unlink(path.join(scratch, file));
+    const standardFile = path.join(scratch, 'migrations/candidates/postgres-profile-v1.json');
+    const historical = JSON.parse(await fs.promises.readFile(standardFile, 'utf8'));
+    historical.migrations = historical.migrations.slice(0, 1);
+    await fs.promises.writeFile(standardFile, JSON.stringify(historical));
     assert.equal(admit({ root: scratch, namespaces: namespaces() }).catalogues.find(entry => entry.kind === 'profile').catalogue.migrations.length, 1);
     assert.throws(() => admit({ root: scratch, namespaces: namespaces(), selection: { profile: file } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
   });

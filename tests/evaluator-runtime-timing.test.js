@@ -22,6 +22,8 @@ async function criterion (start = runtime, failure) {
           return { pendingAt: null, changed: true, output: { tenant, identity: current.identity,
             outputRevision: ++revision, contentDigest: 'b'.repeat(64), inputCheckpoint: 1, result: current.result } }; } },
       recoveryIntervalMs: 1000, timeIntervalMs: 1000, schedule: () => ({}), cancel () {}, setTimer: () => ({}), clearTimer () {} });
+    // The common scheduler now requests durable startup explicitly.
+    await service.acquire(A);
     const first = diag.snapshot().durations;
     assert.equal(first['evaluator.execute_acquisition'].count, 1, 'EXECUTOR_CALL_REQUIRED');
     assert.equal(first['evaluator.execute_acquisition'].sumMs, 7, 'EXECUTOR_EXCLUDES_CONFIG_AND_RECEIPT_WAIT');

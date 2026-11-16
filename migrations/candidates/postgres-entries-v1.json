@@ -76,7 +76,7 @@
       "checksum": "24f606cac2b67bd93b6c0bb1275f770d71394039232e590fa5a0169dfdf7d82e"
     },
     {
-      "name": "0005_entries_storage_bytes",
+      "name": "0099_entries_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "entries"

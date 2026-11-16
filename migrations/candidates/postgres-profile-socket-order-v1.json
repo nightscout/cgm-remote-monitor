@@ -70,7 +70,7 @@
       "checksum": "1ce95fb2a5ae9b5a3d669cd645ee70c6775a9591260f15170a9ffb0c349727f2"
     },
     {
-      "name": "0005_profile_storage_bytes",
+      "name": "0099_profile_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "profile"

@@ -73,7 +73,7 @@
       "checksum": "ed999d5afc77013bc2bfb51a4f6a892e31254879b16be6c85e9cdd2b3fe74ae4"
     },
     {
-      "name": "0005_treatments_storage_bytes",
+      "name": "0099_treatments_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "treatments"

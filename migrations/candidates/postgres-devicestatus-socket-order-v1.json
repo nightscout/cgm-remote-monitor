@@ -71,7 +71,7 @@
       "checksum": "054ea76d63ece5586f8a154f14ddc9109aca6bef8657d061c90e8bcebf56c27d"
     },
     {
-      "name": "0005_devicestatus_storage_bytes",
+      "name": "0099_devicestatus_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "devicestatus"

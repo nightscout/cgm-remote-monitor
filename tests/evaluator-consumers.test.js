@@ -201,6 +201,7 @@ describe('selected evaluator role consumes notification composition', function (
     const runtime = { acquire: async () => { calls.push('clinical-acquire'); }, tick: async () => {},
       last: () => null, isCurrent: async () => true, health: () => ({ tenants: [] }), close: async () => { calls.push('clinical-close'); } };
     const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
+      if (name === '../../storage/postgres-durable-replay') return () => ({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_COMPOSITION_FIXTURE');}});
       if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
       if (name === './registry-tenant-set') return {open:async()=>({tenants:new Map([[A,parse.registryEntry(A)]]),isActive:()=>true,revision:()=>1,stats:()=>({}),follow:async()=>{},close:async()=>{}})};
       if (name === '../../pool-membership') return {member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})};
@@ -224,7 +225,9 @@ describe('selected evaluator role consumes notification composition', function (
     let role;
     try {
       role = await sandbox.module.exports.boot(cfg,{operationWindow:window});
-      assert.deepEqual(calls.slice(0, 4), ['clinical-readiness', 'clinical-start', 'consumer-prepare', 'consumer-start'], 'EVALUATOR_CONSUMER_SELECTED_BOOT');
+      assert.deepEqual(calls.slice(0,3),['clinical-readiness','clinical-start','consumer-prepare'],'EVALUATOR_CONSUMER_SELECTED_BOOT');
+      assert(calls.indexOf('consumer-start')>calls.indexOf('consumer-prepare'),'CONSUMERS_START_AFTER_PREPARATION');
+      // Clinical startup may proceed while the independent delivery roster prepares.
       await role.acquire(A); assert.equal(calls.at(-1), 'consumer-wake', 'clinical promise completed without awaiting held handoff');
       assert.equal(role.health().consumers.enabled, true);
       await role.close(); await role.close();
