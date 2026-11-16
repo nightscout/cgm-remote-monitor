@@ -464,30 +464,15 @@
     },
     "pgstream": {
       "type": "object",
-      "description": "Required maintained CDC child with explicit bounded health and recovery.",
+      "description": "Durable CDC receiver for an independently managed pgstream service.",
       "required": [
-        "binaryEnv",
-        "configFileEnv",
-        "receiverPort",
+        "receiver",
         "slot",
         "streamRole",
         "bounds"
       ],
       "additionalProperties": false,
       "properties": {
-        "binaryEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
-        },
-        "configFileEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
-        },
-        "receiverPort": {
-          "type": "integer",
-          "minimum": 1024,
-          "maximum": 65535
-        },
         "slot": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,62}$"
@@ -502,10 +487,8 @@
             "heartbeatMs",
             "stallMs",
             "stepMs",
-            "stopMs",
             "recoveryMs",
-            "pendingMs",
-            "maxRestarts"
+            "pendingMs"
           ],
           "additionalProperties": false,
           "properties": {
@@ -524,11 +507,6 @@
               "minimum": 1,
               "maximum": 2147483647
             },
-            "stopMs": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 2147483647
-            },
             "recoveryMs": {
               "type": "integer",
               "minimum": 1,
@@ -538,11 +516,39 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 2147483647
+            }
+          }
+        },
+        "receiver": {
+          "type": "object",
+          "required": [
+            "url",
+            "trust",
+            "bindHost",
+            "maxBytes",
+            "timeoutMs"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^http://[^/]+/$"
             },
-            "maxRestarts": {
+            "trust": {
+              "const": "network"
+            },
+            "bindHost": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "timeoutMs": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 100
+              "maximum": 2147483647
             }
           }
         }

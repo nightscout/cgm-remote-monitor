@@ -45,8 +45,8 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   const domainNamespaces = Object.fromEntries(clinical.map(name => [name, ns[name]]));
   const limits = { maxRows: 10000, maxBytes: 8388608, maxTenants: 10000 };
   const trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
-  const pgstream = { binaryEnv: 'NS_PLAN_PGSTREAM_BINARY', configFileEnv: 'NS_PLAN_PGSTREAM_CONFIG', receiverPort: 19042, slot: named('stream'), streamRole: named('stream_reader'),
-    bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, stopMs: 2000, recoveryMs: 30000, pendingMs: 30000, maxRestarts: 3 } };
+  const pgstream = { receiver:{url:'http://127.0.0.1:'+19042+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: named('stream'), streamRole: named('stream_reader'),
+    bounds: { heartbeatMs: 1000, stallMs: 5000, stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
   const datastore = urls.evaluator ? (address => ({ hostname: address.hostname, port: Number(address.port || 5432), database: decodeURIComponent(address.pathname.slice(1)) }))(new URL(urls.evaluator)) : undefined;
   const evaluator = { version: 1, ...(datastore ? { datastore } : {}),
     postgres: { connectionEnv: 'NS_EVALUATOR_PG', namespaces: { ...domainNamespaces, clock: ns.clock, checkpoint: ns.eval_checkpoint } },
