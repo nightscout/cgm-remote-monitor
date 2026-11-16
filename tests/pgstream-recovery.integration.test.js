@@ -46,7 +46,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       throw new Error(symptom);
     }
     async function write(value, id='synthetic-recovery') {
-      const at = await lab.epoch();
+      const at = Date.now();
       return lab.persistDomains({ entries:[{ _id:id, type:'sgv', sgv:value, date:at-1000, dateString:new Date(at-1000).toISOString(), direction:'Flat' }] });
     }
     function completed(row, stamp) {
