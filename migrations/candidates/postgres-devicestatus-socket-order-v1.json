@@ -89,6 +89,17 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "eeebda78e750f137999dc931f16b6121aa20c528ede741c0ca1db3cfeab6c3fb"
+    },
+    {
+      "name": "0100_devicestatus_storage_identity",
+      "operation": {
+        "kind": "storage-event-identity-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" REPLICA IDENTITY FULL"
+      ],
+      "checksum": "a7f75f116f14c4d87a274bac531bd3e433978fe9893a2e2153d0c36c63968c3a"
     }
   ]
 }

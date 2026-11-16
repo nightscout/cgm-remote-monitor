@@ -23,8 +23,8 @@ describe('streamed clinical input recovery through actual replay module',()=>{
  });
  it('control: restoring snapshot acquisition on warm events fails with source-read symptom, then restored source passes',async()=>{
   const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module'),file=require.resolve('../lib/storage/postgres-durable-replay'),source=fs.readFileSync(file,'utf8');
-  const needle='if (stream && streamState?.ready && saved.contract_digest === snapshotDigest)';assert(source.includes(needle));
-  const broken={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'if (false)')+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
+  const needle='if (stream && streamState?.ready && saved.contract_digest === snapshotDigest &&';assert(source.includes(needle));
+  const broken={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'if (false &&')+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
   const f=fixture(broken.exports);await assert.rejects(scope.withTenant(A,()=>f.handle.reconcile({...limits,signature:true})),/WARM_CLINICAL_SOURCE_READ/);
   const restored=fixture();await scope.withTenant(A,()=>restored.handle.reconcile({...limits,signature:true}));
  });

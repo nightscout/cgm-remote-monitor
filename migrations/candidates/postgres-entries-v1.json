@@ -94,6 +94,17 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "91fb4ce719b3f8662bc8e74a56933163f1aaecc22623c1e04db83d2ecca9f052"
+    },
+    {
+      "name": "0100_entries_storage_identity",
+      "operation": {
+        "kind": "storage-event-identity-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" REPLICA IDENTITY FULL"
+      ],
+      "checksum": "79155ea42355e07e170a0176d38699dc4a800b1326abdd0b5d1e519c234c6fa4"
     }
   ]
 }

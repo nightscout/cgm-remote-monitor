@@ -74,6 +74,17 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "017ef90212b13878c436de157b7abb490bb95c270ff4438f04d3f109cbfc9550"
+    },
+    {
+      "name": "0100_food_storage_identity",
+      "operation": {
+        "kind": "storage-event-identity-v1",
+        "domain": "food"
+      },
+      "up": [
+        "ALTER TABLE \"nightscout_migration_namespace\".\"food\" REPLICA IDENTITY FULL"
+      ],
+      "checksum": "ee61bcb9ab4bfcf6143c22b02108b77e21d9c2596340f47fcce9048c7b18aea9"
     }
   ]
 }
