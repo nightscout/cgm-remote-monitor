@@ -44,14 +44,14 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   // This suite isolates physical migration/admission SQL; native backend authority has separate gates.
   port.admitEvaluatorTyped=options=>require('../lib/pgstream/work-state').admit({pool:admissionPool,observeBackend:async()=>{},...options});
   const options={connection:port,namespace,consumer:'evaluator-admit',maxBytes:1048576,timeIntervalMs:60000};
-  const legacy=checkpoint.create(options),typed=checkpoint.create({...options,typed:true});
+  const legacy=require('./fixtures/legacy-evaluator-checkpoint')(namespace,options.consumer),typed=checkpoint.create({...options,typed:true});
   const state={kind:'evaluator-work-v1',observed:{clock:'9007199254740993'},completed:{clock:'9007199254740993'},observedAt:{clock:0},pendingAt:null,nextDueAt:8572.42857142857,completedAt:0,enabled:true,output:null};
   await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint,projection) VALUES ($1,$2,$3,0,$4::jsonb)`,[tenant,legacy.consumer,legacy.digest,JSON.stringify([state])]);
   await typed.admit([tenant]);
   const before=(await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[typed.consumer])).rows[0];
   assert.equal(before.work_due_at,'8573');assert.equal(before.work_observed[0],'9007199254740993');assert.deepEqual(before.projection,[{kind:'evaluator-work-v2',output:null}]);
   await typed.admit([tenant]);assert.deepEqual((await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[typed.consumer])).rows[0],before);
-  await assert.rejects(legacy.begin(tenant),/EVALUATOR_OUTPUT_CONTRACT|EVALUATOR_OUTPUT_NOT_READY/);
+  assert.throws(()=>checkpoint.create(options),/EVALUATOR_CHECKPOINT_TYPED_REQUIRED/,'retired runtime is refused before any read');
   assert.deepEqual(await typed.begin(tenant),{clock:'9007199254740993'});
  });
  it('rejects a changed migration checksum',()=>{const broken=structuredClone(candidate);broken.migrations[1].checksum='0'.repeat(64);assert.throws(()=>catalogue.validateCatalogue(broken),/checksum mismatch/);});

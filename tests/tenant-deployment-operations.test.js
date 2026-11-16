@@ -423,7 +423,7 @@ describe('whole deployment source admission and filesystem durability', function
       if (key.startsWith('evaluator_')) {
         assert.equal(restored[0].work_observed[0], '9007199254740993');assert.equal(restored[0].work_observed[1], null);
         assert.equal(restored[0].output_restore_generation, '9223372036854775807');assert.deepEqual(restored[0].projection[0].output.frame.values, [false, 0, null, '9007199254740993']);
-        assert.throws(() => require('../lib/pgstream/checkpoint').shape(restored[0].projection), /EVALUATOR_OUTPUT_NOT_READY/, 'old reader fails closed on typed projection');
+        assert.throws(() => require('../lib/pgstream/checkpoint').create({typed:false}), /EVALUATOR_CHECKPOINT_TYPED_REQUIRED/, 'retired reader is refused before it can consume a restored projection');
       } else assert.equal(restored[0].output_received, '9007199254740993');
     }
     const selected = admission.catalogues.filter(entry => entry.kind.includes('checkpoint'));

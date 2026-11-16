@@ -3,15 +3,16 @@ const assert=require('node:assert/strict');
 const {Client}=require('pg');
 const {optInSuite}=require('./support/opt-in');
 const scope=require('../lib/storage/tenant-scope');
-const {create}=require('../lib/pgstream/checkpoint');
+const {create,WORK_COLUMNS}=require('../lib/pgstream/checkpoint');
+const workState=require('../lib/pgstream/work-state');
 optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('pgstream observed and completed checkpoints on actual PostgreSQL',function(){
  this.timeout(30000);const lab=require('./fixtures/tenant-projection-evaluator')();let store;
- before(async()=>{await lab.open();for(const namespace of new Set(Object.values(lab.tables).map(table=>table.split('.')[0]))){if((await lab.admin.query('SELECT to_regclass($1) AS counter',[namespace+'.tenant_insertion_ordinal'])).rows[0].counter)await lab.admin.query(`GRANT SELECT ON "${namespace}".tenant_insertion_ordinal TO "${lab.readerRole}"`);}await lab.admin.query(`CREATE POLICY pgstream_completed_metadata ON "${lab.replayNamespace}".tenant_consumer_checkpoint TO "${lab.readerRole}" USING (consumer='evaluator-roles-completed') WITH CHECK (consumer='evaluator-roles-completed')`);});
- beforeEach(async()=>{await lab.reset();store=create({connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});for(const tenant of [lab.A,lab.B]){await lab.provisionView(tenant);await lab.provision(store.consumer,tenant,null,0,store.digest);}await store.own(()=>{});});
+ before(async()=>{await lab.open();await require('../lib/migrations/postgres').run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:lab.replayNamespace,catalogue:require('../migrations/candidates/postgres-evaluator-work-v2.json')});await lab.admin.query('GRANT UPDATE('+WORK_COLUMNS.join(',')+') ON \"'+lab.replayNamespace+'\".tenant_consumer_checkpoint TO \"'+lab.readerRole+'\"');for(const namespace of new Set(Object.values(lab.tables).map(table=>table.split('.')[0]))){if((await lab.admin.query('SELECT to_regclass($1) AS counter',[namespace+'.tenant_insertion_ordinal'])).rows[0].counter)await lab.admin.query(`GRANT SELECT ON "${namespace}".tenant_insertion_ordinal TO "${lab.readerRole}"`);}await lab.admin.query(`CREATE POLICY pgstream_completed_metadata ON "${lab.replayNamespace}".tenant_consumer_checkpoint TO "${lab.readerRole}" USING (consumer='evaluator-roles-completed') WITH CHECK (consumer='evaluator-roles-completed')`);});
+ beforeEach(async()=>{await lab.reset();store=create({typed:true,connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});for(const tenant of [lab.A,lab.B]){await lab.provisionView(tenant);await lab.provision(store.consumer,tenant,null,0,store.digest);}await store.own(()=>{});await store.admit([lab.A,lab.B]);});
  afterEach(async()=>{await store?.close();});after(()=>lab.close());
  const result=()=>({checkpoint:1,signature:{stamp:1,deleted:0},properties:{},emitted:[],requested:[],frame:{delta:false,sgvs:[],lastUpdated:Date.now()},rows:[],due:{dueAt:Date.now()+10000,slow:[]},trigger:'acquisition'});
- const output=async tenant=>(await lab.checkpoint(store.consumer,tenant)).projection?.[0];
- it('admits the actual role checkpoint metadata grant and detects a removed bookkeeping grant',async()=>{await lab.admin.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');const config={namespaces:{...Object.fromEntries(Object.entries(lab.tables).map(([name,table])=>[name,table.split('.')[0]])),clock:lab.namespaces.clock,checkpoint:lab.replayNamespace},socketOrderDomains:[]};const screen=()=>lab.reader.withTenant(lab.A,()=>require('../lib/server/serve/evaluator-readiness').screen(lab.reader,config));await screen();await lab.admin.query(`REVOKE UPDATE(contract_digest) ON "${lab.replayNamespace}".tenant_consumer_checkpoint FROM "${lab.readerRole}"`);try{await assert.rejects(screen(),/unsafe evaluator table privileges/);}finally{await lab.admin.query(`GRANT UPDATE(contract_digest) ON "${lab.replayNamespace}".tenant_consumer_checkpoint TO "${lab.readerRole}"`);}await screen();});
+ const output=async tenant=>{const row=(await lab.admin.query('SELECT * FROM \"'+lab.replayNamespace+'\".tenant_consumer_checkpoint WHERE consumer=$1 AND tenant_id=$2',[store.consumer,tenant])).rows[0];const body=row.projection?.[0]?.output;return {...workState.state(row),output:body?{...body,identity:row.output_identity,contentDigest:row.output_digest,outputRevision:Number(row.output_revision),restoreGeneration:row.output_restore_generation}:null};};
+ it('admits the actual role checkpoint metadata grant and detects a removed bookkeeping grant',async()=>{await lab.admin.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');const config={namespaces:{...Object.fromEntries(Object.entries(lab.tables).map(([name,table])=>[name,table.split('.')[0]])),clock:lab.namespaces.clock,checkpoint:lab.replayNamespace},socketOrderDomains:[],pgstream:true};const screen=()=>lab.reader.withTenant(lab.A,()=>require('../lib/server/serve/evaluator-readiness').screen(lab.reader,config));await screen();await lab.admin.query(`REVOKE UPDATE(contract_digest) ON "${lab.replayNamespace}".tenant_consumer_checkpoint FROM "${lab.readerRole}"`);try{await assert.rejects(screen(),/unsafe evaluator table privileges/);}finally{await lab.admin.query(`GRANT UPDATE(contract_digest) ON "${lab.replayNamespace}".tenant_consumer_checkpoint TO "${lab.readerRole}"`);}await screen();});
  it('coalesces monotone committed versions before completion, including paused receipt',async()=>{
    await store.observe(lab.A,'clock','3');await store.observe(lab.A,'clock','2');await store.observe(lab.B,'activity','1',false);
    assert.deepEqual((await output(lab.A)).observed,{clock:'3'});assert.deepEqual((await output(lab.A)).completed,{});
@@ -32,8 +33,8 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle}));
    const changed={...cycle,frame:{...cycle.frame,lastUpdated:cycle.frame.lastUpdated+1000}};
    const second=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:changed}));assert.equal(second.changed,false);assert.equal(second.output.outputRevision,1);
-   assert.equal((await output(lab.A)).nextDueAt,cycle.due.dueAt);assert.deepEqual((await output(lab.A)).completed,{clock:'1'});
-   await store.close();const restored=create({connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000,now:()=>cycle.due.dueAt+1});
+   assert.equal((await output(lab.A)).nextDueAt,Math.ceil(cycle.due.dueAt));assert.deepEqual((await output(lab.A)).completed,{clock:'1'});
+   await store.close();const restored=create({typed:true,connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000,now:()=>cycle.due.dueAt+1});
    assert.equal((await restored.work()).length,1);assert.equal((await restored.work())[0].tenant,lab.A);
  });
  it('refuses persisted output across pause and unpause until current control versions complete',async()=>{await store.observe(lab.A,'clock','1');await store.observe(lab.A,'activity','1',true);let observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));await store.observe(lab.A,'activity','2',false);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);await store.observe(lab.A,'activity','3',true);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);observed=await store.begin(lab.A);await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result()}));assert(await store.output(lab.A,'a'.repeat(64)));});
@@ -42,7 +43,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    cycle.frame.sgvs=[{synthetic:'x'.repeat(32768)}];
    await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle}));
    await store.observe(lab.A,'clock','2');
-   const received=[];const bounded=create({connection:{...lab.reader,
+   const received=[];const bounded=create({typed:true,connection:{...lab.reader,
      query:async(...args)=>{const value=await lab.reader.query(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));return value;},
      readOnly:async(...args)=>{const value=await lab.reader.readOnly(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));return value;}
    },namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});
@@ -56,13 +57,13 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    await store.observe(lab.A,'clock','1');const observed=await store.begin(lab.A),cycle=result();cycle.frame.sgvs=[{synthetic:'x'.repeat(32768)}];
    const first=await store.complete(lab.A,{observed,identity:'a'.repeat(64),result:cycle});
    const received=[],sent=[];
-   const bounded=create({connection:{...lab.reader,async query(...args){const value=await lab.reader.query(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));if(args[0].startsWith('UPDATE'))sent.push(args[1][3]);return value;}},namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});
+   const bounded=create({typed:true,connection:{...lab.reader,async query(...args){const value=await lab.reader.query(...args);received.push(Buffer.byteLength(JSON.stringify(value.rows)));if(args[0].startsWith('UPDATE'))sent.push(args[1][12]);return value;}},namespace:lab.replayNamespace,consumer:'evaluator-roles',maxBytes:4*1024*1024,timeIntervalMs:60000});
    await store.close();await bounded.own(()=>{});
    try{
      const next=await bounded.complete(lab.A,{observed,identity:'a'.repeat(64),result:{...cycle,frame:{...cycle.frame,lastUpdated:cycle.frame.lastUpdated+1000},due:{dueAt:cycle.due.dueAt+1000,slow:[]}},retainedOutput:{...first.output,runtimeId:'existing-runtime'}});
      assert.equal(next.changed,false);assert.equal(next.output.outputRevision,1);
      assert(received.every(bytes=>bytes<4096),'MATCHED_COMPLETION_MUST_NOT_TRANSFER_CLINICAL_FRAME');
-     assert.equal(sent.length,1);assert(!Object.hasOwn(JSON.parse(sent[0]),'output'),'UNCHANGED_OUTPUT_MUST_NOT_BE_SENT');
+     assert.equal(sent.length,1);assert.equal(sent[0],undefined,'UNCHANGED_OUTPUT_MUST_NOT_BE_SENT');
      const persisted=await output(lab.A);assert.deepEqual(persisted.output,JSON.parse(JSON.stringify(first.output)));assert.deepEqual(persisted.completed,observed);assert.equal(persisted.nextDueAt,cycle.due.dueAt+1000);
    }finally{await bounded.close();}
  });
@@ -83,7 +84,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
    const seed=lab.evaluator(lab.B,{env,includeFrame:true});
    const seeded=await scope.withTenant(lab.B,()=>seed.evaluate({at}));seed.close();
    await store.complete(lab.B,{observed:await store.begin(lab.B),identity:'a'.repeat(64),result:seeded});
-   await lab.admin.query(`UPDATE "${lab.replayNamespace}".tenant_consumer_checkpoint SET projection=jsonb_set(projection,'{0,nextDueAt}',$3::jsonb) WHERE tenant_id=$1 AND consumer=$2`,[lab.B,store.consumer,String(at-1)]);
+   await lab.admin.query(`UPDATE "${lab.replayNamespace}".tenant_consumer_checkpoint SET work_due_at=$3::bigint WHERE tenant_id=$1 AND consumer=$2`,[lab.B,store.consumer,String(at-1)]);
    const before=await output(lab.B),clock=await lab.clock(lab.B),work=await store.work();
    const due=work.find(row=>row.tenant===lab.B);assert(due);assert.equal(due.pendingAt,null);
    let release,entered;const gate=new Promise(resolve=>{release=resolve;}),started=new Promise(resolve=>{entered=resolve;});

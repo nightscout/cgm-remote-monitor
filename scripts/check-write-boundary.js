@@ -116,14 +116,8 @@ const CLOCK_EXEMPT = {
   'lib/storage/postgres-write-clock.js': 'the clock row itself',
   'lib/storage/postgres-durable-replay.js': "a consumer's own checkpoint, not clinical input"
 };
-// The shared connection also owns these fixed metadata updates. Classify the
-// statement and method, rather than exempting every future write in that module.
-const CLOCK_METADATA_WRITES = {
-  'lib/storage/postgres-connection.js': {
-    observeEvaluator: { reason: 'consumer observed receipt, not clinical input', sql: /^\s*UPDATE\s+SET\s+projection\s*=\s*jsonb_build_array\b/i },
-    observeEvaluatorMany: { reason: 'batched consumer observed receipts, not clinical input', sql: /^\s*WITH\b[\s\S]*\)\s*UPDATE\s+AS\s+checkpoint\s+SET\s+projection\s*=/i },
-  }
-};
+// No connection-local mutation bypasses the clinical write-clock inventory.
+const CLOCK_METADATA_WRITES = {};
 function staticText(node) {
   if (!node) return '';
   if (node.type === 'StringLiteral') return node.value;

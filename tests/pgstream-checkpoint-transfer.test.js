@@ -6,25 +6,37 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 // Source protocol: the actual checkpoint/owner composition with a transactional
 // SQL port. Native SQL row locking/JSONB behavior belongs to integration tests.
 function fixture(maxBytes=1024*1024){
- let state={kind:'evaluator-work-v1',observed:{clock:'1'},completed:{},observedAt:{clock:1},pendingAt:1,enabled:true,output:null},fallbacks=0,patches=[],fail=false;
- const connection={async holdAdvisoryLock(){return {available:true,close:async()=>{},async withTenant(tenant,fn){assert.equal(tenant,A);const before=copy(state);try{const value=await fn();if(fail)throw Error('COMMIT_LOST');return value;}catch(error){state=before;throw error;}}};},
+ let row,fallbacks=0,patches=[],fail=false;
+ const connection={async holdAdvisoryLock(){return {available:true,close:async()=>{},async withTenant(tenant,fn){assert.equal(tenant,A);const before=copy(row);try{const value=await fn();if(fail)throw Error('COMMIT_LOST');return value;}catch(error){row=before;throw error;}}};},
   async query(text,values){
    assert.equal(values[0],A);
-   if(text.startsWith('SELECT jsonb_build_array')){assert.match(text,/CASE WHEN jsonb_typeof\(projection->0->'output'\)='object' THEN .* ELSE NULL END AS output_summary/,'COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR');const projection=copy(state);delete projection.output;const summary=copy(state.output);if(summary){delete summary.rows;delete summary.frame;}return {rows:[{projection:[projection],output_summary:summary,frame_at:state.output?.frame?.lastUpdated??null,contract_digest:store.digest}]};}
-   if(text.startsWith("SELECT projection->0->'output'")){fallbacks++;return {rows:[{output:copy(state.output)}]};}
-   if(text.startsWith('UPDATE')){assert.match(text,/jsonb_build_array\(\(projection->0\)\|\|\$4::jsonb\)/);const patch=JSON.parse(values[3]);patches.push(patch);state={...state,...patch};return {rowCount:1};}
+   if(text.startsWith("SELECT projection->0->'output'")){fallbacks++;return {rows:[{output:copy(row.projection[0].output)}]};}
+   if(text.startsWith('SELECT')){assert.match(text,/CASE WHEN jsonb_typeof\(projection->0->'output'\)='object' THEN .* ELSE NULL END AS output_summary/,'COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR');const summary=copy(row.projection[0].output);if(summary){delete summary.rows;delete summary.frame;}return {rows:[{...copy(row),output_summary:summary,frame_at:row.projection[0].output?.frame?.lastUpdated??null}]};}
+   if(text.startsWith('UPDATE')){const patch={completed:values[3],due:values[4],pending:values[5]};if(values[12])patch.output=JSON.parse(values[12])[0].output;patches.push(patch);row.work_completed=values[3];row.work_due_at=values[4];row.work_pending_at=values[5];row.output_identity=values[7];row.output_digest=values[8];row.output_revision=String(values[9]);row.output_restore_generation=values[10];row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(values[11]));if(values[12])row.projection=JSON.parse(values[12]);return {rowCount:1};}
    throw Error('UNEXPECTED_SQL');
   }};
- const store=create({connection,namespace:'synthetic',consumer:'evaluator-test',maxBytes,timeIntervalMs:60,now:()=>50});
+ const store=create({typed:true,connection,namespace:'synthetic',consumer:'evaluator-test',maxBytes,timeIntervalMs:60,now:()=>50});
+ row={tenant:A,contract_digest:store.digest,work_version:2,work_observed:['1',null,null,null,null,null],work_completed:[null,null,null,null,null,null],work_observed_at:['1',null,null,null,null,null],work_pending_at:1,work_due_at:null,work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:null,output_digest:null,output_revision:'0',output_restore_generation:null,projection:[{kind:'evaluator-work-v2',output:null}]};
+ const current=()=>({...require('../lib/pgstream/work-state').state(row),output:row.projection[0].output?{...copy(row.projection[0].output),identity:row.output_identity,contentDigest:row.output_digest,outputRevision:Number(row.output_revision),restoreGeneration:row.output_restore_generation}:null});
  const result=()=>({checkpoint:1,trigger:'acquisition',properties:{bgnow:123},emitted:[],requested:[],encodedRows:[{synthetic:'x'.repeat(32768)}],frame:{sgvs:[{mgdl:123}],lastUpdated:10},due:{dueAt:100,slow:[]}});
- return {store,result,state:()=>copy(state),patches,fallbacks:()=>fallbacks,observe(){state.observed.clock='2';state.pendingAt=20;},fail(){fail=true;}};
+ return {store,result,state:()=>copy(current()),patches,fallbacks:()=>fallbacks,observe(){row.work_observed[0]='2';row.work_pending_at=20;},fail(){fail=true;}};
 }
 describe('completed checkpoint retained-output transfer contract',function(){
+ it('refuses retired implicit/false checkpoint selection before opening a connection',()=>{for(const typed of [undefined,false])assert.throws(()=>create({typed,connection:new Proxy({},{get(){throw Error('retired selection touched connection');}})}),/EVALUATOR_CHECKPOINT_TYPED_REQUIRED/);});
+ it('control: removing typed selection refusal admits a retired caller; the restored factory refuses it',()=>{
+  const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/pgstream/checkpoint'),source=fs.readFileSync(file,'utf8');
+  const needle="if (options.typed !== true) throw new TypeError('EVALUATOR_CHECKPOINT_TYPED_REQUIRED');";assert(source.includes(needle));
+  const broken={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'')+'\n})',{filename:file})(require('node:module').createRequire(file),broken,broken.exports);
+  const options={connection:{},namespace:'synthetic',consumer:'evaluator-test',maxBytes:1024,timeIntervalMs:1000};
+  const criterion=creator=>assert.throws(()=>creator(options),/EVALUATOR_CHECKPOINT_TYPED_REQUIRED/,'RETIRED_CALLER_MUST_REFUSE');
+  assert.throws(()=>criterion(broken.exports.create),/RETIRED_CALLER_MUST_REFUSE/);criterion(create);
+ });
+
  async function seed(f){await f.store.own(()=>{});return f.store.complete(A,{observed:{clock:'1'},identity,result:f.result()});}
  it('patches only metadata for unchanged TIME content while preserving current due and completed versions',async()=>{
   const f=fixture(),first=await seed(f);f.observe();const result=f.result();result.frame.lastUpdated=50;result.due.dueAt=200;
-  const next=await f.store.complete(A,{observed:{clock:'2'},identity,result,retainedOutput:{...first.output,runtimeId:'same-runtime'}});
-  assert.equal(f.fallbacks(),0,'MATCHED_RETAINED_OUTPUT_MUST_AVOID_FULL_TRANSFER');assert.equal(next.changed,false);assert.deepEqual(next.output,first.output);
+  const hint={...first.output,runtimeId:'same-runtime'},next=await f.store.complete(A,{observed:{clock:'2'},identity,result,retainedOutput:hint});
+  assert.equal(f.fallbacks(),0,'MATCHED_RETAINED_OUTPUT_MUST_AVOID_FULL_TRANSFER');assert.equal(next.changed,false);assert.equal(next.output,hint);
   assert(!Object.hasOwn(f.patches[1],'output'),'UNCHANGED_OUTPUT_MUST_NOT_BE_SENT');assert(Buffer.byteLength(JSON.stringify(f.patches[1]))<1024);
   assert.equal(f.state().nextDueAt,200);assert.deepEqual(f.state().completed,{clock:'2'});assert.equal(f.state().pendingAt,null);assert.equal(f.state().output.outputRevision,1);
  });
@@ -33,7 +45,7 @@ describe('completed checkpoint retained-output transfer contract',function(){
   assert.equal(f.fallbacks(),1,'INVALID_RETAINED_OUTPUT_MUST_READ_PHYSICAL');assert.deepEqual(next.output,first.output);assert.equal(next.changed,false);
  });
  it('publishes changed content and restore epoch together with completion',async()=>{const f=fixture(),first=await seed(f),result=f.result();result.properties.bgnow=124;
-  const next=await f.store.complete(A,{observed:{clock:'1'},identity,result,restoreGeneration:7,retainedOutput:first.output});assert(next.changed);assert.equal(next.output.outputRevision,2);assert.equal(f.state().output.restoreGeneration,7);assert.deepEqual(f.state().completed,{clock:'1'});assert(Object.hasOwn(f.patches[1],'output'));});
+  const next=await f.store.complete(A,{observed:{clock:'1'},identity,result,restoreGeneration:7,retainedOutput:first.output});assert(next.changed);assert.equal(next.output.outputRevision,2);assert.equal(f.state().output.restoreGeneration,'7');assert.deepEqual(f.state().completed,{clock:'1'});assert(Object.hasOwn(f.patches[1],'output'));});
  it('refuses rollback, byte overflow and failed COMMIT without advancing retained or persisted output',async()=>{const f=fixture(),first=await seed(f),before=f.state();
   await assert.rejects(f.store.complete(A,{observed:{clock:'0'},identity,result:f.result(),retainedOutput:first.output}),/VERSION_REFUSED/);
   const huge=f.result();huge.frame.sgvs=[{synthetic:'x'.repeat(1024*1024)}];await assert.rejects(f.store.complete(A,{observed:{clock:'1'},identity,result:huge,retainedOutput:first.output}),/BYTE_BOUND/);

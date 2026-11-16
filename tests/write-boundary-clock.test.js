@@ -44,22 +44,13 @@ describe('write-boundary gate: every clinical write advances the tenant write cl
     assert.deepEqual(gate.checkClock("async function f (c) { await c.query(`SELECT /* UPDATE */ has_table_privilege(r.oid,$1,'UPDATE') FROM x FOR UPDATE`); await c.query('INSERT INTO t VALUES (1)'); }")
       .map(line => line.split(' (')[0]), ['f']);
   });
-  it('classifies only fixed receipt updates in the shared connection', function () {
+  it('refuses a new unclassified connection-local clinical UPDATE', function () {
     const file = 'lib/storage/postgres-connection.js';
     const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    for (const name of ['observeEvaluator', 'observeEvaluatorMany']) {
-      const classification = gate.CLOCK_METADATA_WRITES[file][name];
-      try {
-        delete gate.CLOCK_METADATA_WRITES[file][name];
-        assert(gate.checkClockInventory(ROOT).some(line => line.startsWith(file + ':')), name + ' must be measured by the inventory');
-      } finally { gate.CLOCK_METADATA_WRITES[file][name] = classification; }
-    }
-    const needle = 'UPDATE ${relation} SET projection=jsonb_build_array(';
-    assert(source.includes(needle));
-    const clinical = source.replace(needle, 'UPDATE clinical_rows SET projection=jsonb_build_array(');
-    assert(gate.checkClockInventory(ROOT, { [file]: clinical }).some(line => line.startsWith(file + ':')),
-      'a clinical table in an otherwise classified method must remain unclassified');
     assert.deepEqual(gate.checkClockInventory(ROOT), []);
+    const planted = source + '\nasync function unclassified(c) { await c.query("UPDATE clinical_rows SET value=1"); }';
+    assert(gate.checkClockInventory(ROOT, { [file]: planted }).some(line => line.startsWith(file + ':')),
+      'removing retired metadata exemptions must preserve the clinical write boundary');
   });
   it('detects the mutating statement after a read-only WITH clause', function () {
     assert.match(gate.checkClock('async function f(c) { await c.query("WITH p AS (SELECT 1) UPDATE clinical_rows SET x=1"); }').join('\n'), /issues UPDATE without advancing/);
