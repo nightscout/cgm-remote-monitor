@@ -365,7 +365,12 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
         await seed(); await seed(lab.B, 'preview-reading', 333);
         const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
-        const worker = await start(config), first = await worker.call('last'), checkpoint = await lab.previewCheckpoint(lab.A), completed = await lab.previewCompleted(lab.A);
+        const worker = await start(config);let first;
+        // Establish the actual last-good model before testing its retention.
+        // A concurrent durable receipt can refuse a bootstrap snapshot; the
+        // common scheduler must recover it within the existing watchdog.
+        await lab.wait(async()=>{first=await worker.call('last');return first?.eligible===true&&value(first)===111;});
+        const checkpoint = await lab.previewCheckpoint(lab.A), completed = await lab.previewCompleted(lab.A);
         const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
           { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
         ] } });

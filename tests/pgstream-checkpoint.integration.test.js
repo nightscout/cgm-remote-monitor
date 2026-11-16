@@ -94,6 +94,8 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
      readCurrent:async tenant=>({tenant,identity:'a'.repeat(64)}),
      create:async current=>{const component=lab.evaluator(current.tenant,{env,includeFrame:true});return current.tenant===lab.A?{...component,evaluate:async args=>{entered();await gate;return component.evaluate(args);}}:component;},
      durable:{begin:store.begin,complete:store.complete},recoveryIntervalMs:1000,timeIntervalMs:60000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
+   // The common scheduler owns startup; this runtime primitive is addressed explicitly.
+   const acquisition=service.acquire(lab.A);
    try{
      await started;await service[due.pendingAt!==null?'acquire':'tick'](due.tenant);
      const current=await output(lab.B),progress=service.health([lab.B]).tenants[0].progress;
@@ -104,7 +106,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1' && !!process.env.NS_TEST_POST
      assert.equal(current.nextDueAt,seeded.due.dueAt);assert.deepEqual(current.output.result.due,seeded.due);
      assert.deepEqual(await lab.clock(lab.B),clock,'NO_CLINICAL_WRITE_FOR_RECOVERY');
      console.log('PGSTREAM_RETAINED_DUE '+JSON.stringify({computed:seeded.due,persisted:current.nextDueAt}));
-   }finally{release();await service.close();await window.window.close();}
+   }finally{release();await acquisition;await service.close();await window.window.close();}
  });
 
 });

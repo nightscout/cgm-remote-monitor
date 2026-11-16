@@ -27,7 +27,7 @@
         "LOCK TABLE \"nightscout_migration_namespace\".\"profile\" IN ACCESS EXCLUSIVE MODE",
         "SET LOCAL row_security = off",
         "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
-        "UPDATE \"nightscout_migration_namespace\".\"profile\" SET storage_bytes=pg_column_size(doc)",
+        "DO $clinical_size_backfill$\nDECLARE original_binding text := current_setting('app.current_tenant_id',true); selected_tenant uuid;\nBEGIN\n  FOR selected_tenant IN SELECT DISTINCT tenant_id FROM \"nightscout_migration_namespace\".\"profile\" LOOP\n    PERFORM set_config('app.current_tenant_id',selected_tenant::text,true);\n    UPDATE \"nightscout_migration_namespace\".\"profile\" SET storage_bytes=pg_column_size(doc) WHERE tenant_id=selected_tenant;\n  END LOOP;\n  PERFORM set_config('app.current_tenant_id',COALESCE(original_binding,''),true);\nEND\n$clinical_size_backfill$",
         "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ALTER COLUMN storage_bytes SET NOT NULL",
         "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ALTER COLUMN storage_bytes SET DEFAULT 0",
         "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"profile\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"profile\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
@@ -35,7 +35,7 @@
         "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"profile\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
         "SET LOCAL row_security = on"
       ],
-      "checksum": "02d2c49d629e1495821c091b7884ea6a9cf1b9dc57fae32ef07a6041265617c5"
+      "checksum": "80b9bbe0dc378e264f3c4ac2f16b85cbad0879e537ad31b18742138ef0d49b5f"
     },
     {
       "name": "0100_profile_storage_identity",
