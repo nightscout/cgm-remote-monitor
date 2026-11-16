@@ -110,6 +110,14 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     const tenantHealth = (health, tenant) => health.tenants.find(row => row.tenant === tenant);
     const consumerHealth = (health, tenant) => health.consumers.tenants.find(row => row.tenant === tenant);
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+    // A typed bootstrap can initialize empty bookkeeping without completing
+    // clinical input. Compare the completed semantic fields, not SQL NULL shape.
+    async function noCompletion(before,label){
+      const after=await lab.previewCompleted(lab.A);
+      for(const key of ['checkpoint','output_identity','output_digest','output_revision','output_restore_generation'])assert.deepEqual(after[key],before[key],label+' '+key);
+      assert.deepEqual(after.projection?.[0]?.output??null,before.projection?.[0]?.output??null,label+' output');
+      assert.deepEqual(after.work_completed??Array(6).fill(null),before.work_completed??Array(6).fill(null),label+' covered versions');
+    }
 
     it('paused A: no acquisition, timer work or output for A, uploads still stored; B unaffected; unpause recomputes before publishing', async function () {
       await reading(50, lab.A); await reading(50, lab.B);
@@ -118,7 +126,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       // Phase 1: actual committed B work progresses while A remains paused.
       // The maintained worker does not schedule unchanged idle evaluations.
       await lab.provisionPreview(); provisioned = true;
-      const startCheckpoint = await lab.previewCheckpoint(lab.A); // before any evaluator process exists
+      const startCheckpoint = await lab.previewCheckpoint(lab.A), completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
       let worker = await boot(document => { document.timeIntervalMs = 150; });
       await reading(48, lab.A); // new A data while paused: any acquisition would advance A's checkpoint
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
@@ -130,7 +138,10 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       let health = await worker.call('health');
       lab.traceConsumer('activity-paused-before-verdict', { checkpointA: await lab.previewCheckpoint(lab.A), checkpointB: await lab.previewCheckpoint(lab.B),
         effectsA: effects(lab.A).length, a: tenantHealth(health, lab.A), b: tenantHealth(health, lab.B), consumerA: consumerHealth(health, lab.A) });
-      assert.deepEqual(await lab.previewCheckpoint(lab.A), startCheckpoint, 'ACTIVITY_PAUSED_NO_ACQUISITION A replay checkpoint never advanced');
+      // Paused uploads may be durably accepted; they cannot earn clinical
+      // coverage or publish output. Envelope initialization is not acquisition.
+      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,startCheckpoint.checkpoint,'ACTIVITY_PAUSED_NO_ACQUISITION sealed floor unchanged');
+      await noCompletion(completedBefore,'ACTIVITY_PAUSED_NO_COMPLETION');
       assert.equal(effects(lab.A).length, 0, 'ACTIVITY_PAUSED_NO_DELIVERY'); assert.deepEqual(await lab.requests(lab.A), []);
       assert.deepEqual([tenantHealth(health, lab.A).code, tenantHealth(health, lab.A).activity, tenantHealth(health, lab.A).outputRevision],
         ['EVALUATOR_TENANT_PAUSED', 'paused', null]);
@@ -179,13 +190,14 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await stores.operator.transition(operatorActor(lab.A), 'suspend');
       await assert.rejects(stores.owner.transition(ownerActor(lab.A), 'unpause'), { code: 'ACTIVITY_SUSPENDED' });
       await lab.provisionPreview(); provisioned = true;
-      const start = await lab.previewCheckpoint(lab.A); // before any evaluator process exists
+      const start = await lab.previewCheckpoint(lab.A), completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
       let worker = await boot();
       await reading(47, lab.A); // suspended: stored here by the storage port; the API refusal is not wired in this lane
       await worker.call('acquire', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       let health = await worker.call('health');
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_SUSPENDED');
-      assert.deepEqual(await lab.previewCheckpoint(lab.A), start, 'ACTIVITY_SUSPENDED_NOTHING_RUNS');
+      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,start.checkpoint,'ACTIVITY_SUSPENDED_NO_SEALED_ADVANCE');
+      await noCompletion(completedBefore,'ACTIVITY_SUSPENDED_NO_COMPLETION');
       assert.equal(effects(lab.A).length, 0); assert.ok(effects(lab.B).length >= 1);
       // Operator moves A from suspended to paused (owner pause kept), then restart.
       await stores.operator.transition(operatorActor(lab.A), 'pause');
@@ -198,7 +210,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       health = await worker.call('health');
       lab.traceConsumer('activity-restart-before-verdict', { a: tenantHealth(health, lab.A), checkpointA: await lab.previewCheckpoint(lab.A) });
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_PAUSED', 'ACTIVITY_RESTART_PRESERVES');
-      assert.deepEqual(await lab.previewCheckpoint(lab.A), start); assert.equal(effects(lab.A).length, 0);
+      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,start.checkpoint,'ACTIVITY_RESTART_NO_SEALED_ADVANCE');
+      await noCompletion(completedBefore,'ACTIVITY_RESTART_NO_COMPLETION');
+      assert.equal(effects(lab.A).length, 0);
       await lab.stopConsumer(worker);
     });
 

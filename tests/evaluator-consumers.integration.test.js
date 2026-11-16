@@ -91,6 +91,13 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.equal(after[0].notification.message,"default - Urgent was ack'd");
       const changedAt=await lab.epoch(); await lab.persistDomains({entries:[{_id:'synthetic-b-changed',type:'sgv',sgv:48,date:changedAt-500,
         dateString:new Date(changedAt-500).toISOString(),direction:'Flat'}]}, lab.B);
+      // A storage COMMIT and recoverable CDC acceptance are separate boundaries.
+      // Wait for B's actual accepted clock, then test its clinical delivery.
+      const target=(await lab.clock(lab.B)).stamp;
+      await lab.wait(async()=>{
+        const row=(await lab.admin.query('SELECT work_observed FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.B,lab.consumerName+'-completed'])).rows[0];
+        return BigInt(row?.work_observed?.[0]||'0')>=BigInt(target);
+      });
       await worker.call('acquire',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B,'B keeps delivering on its own new data');
       lab.traceConsumer('control-ack-with-failed-clinical',{suppression,after,health:await worker.call('health'),state:await lab.producerState()}); await lab.stopConsumer(worker);
     });

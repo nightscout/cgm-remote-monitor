@@ -25,7 +25,7 @@ const evaluator = require(evaluatorPath);
 require.cache[evaluatorPath].exports = Object.assign((...args) => {
   const engine = evaluator(...args);
   return Object.freeze({...engine, async evaluate(options) {
-    const result = await engine.evaluate(options);
+    let result;try{result=await engine.evaluate(options);}catch(error){process.send({clinicalFailure:failure(error)});throw error;}
     if(armed){armed=false;held=true;process.send({held:true});await new Promise(done=>{release=done;});}
     return result;
   }});

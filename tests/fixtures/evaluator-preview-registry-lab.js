@@ -246,6 +246,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant, ...extra });
       }); } };
     child.on('message', message => {
+      if(message.clinicalFailure)lab.tracePreview('clinical-refusal',message.clinicalFailure);
       if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; clearTimeout(timeout); resolve({ ...handle, startup: message }); }
       else if (message.held) { if (heldResolve) heldResolve(); }
       else if (pending.has(message.id)) {

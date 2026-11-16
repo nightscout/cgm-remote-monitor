@@ -29,9 +29,31 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     if (admin) await admin.end();
     if (errors.length) throw new globalThis.AggregateError(errors, 'Owned upgrade cleanup refused');
   });
+  for (const domain of ['treatments','devicestatus','profile']) for (const populated of [false,true]) {
+    it('upgrades standard size-projected '+domain+' only when the ordering source is empty ('+populated+')',async()=>{
+      const namespace=prefix+'_standard_'+domain+'_'+(populated?'full':'empty');schemas.push(namespace);
+      const standard=require('../migrations/candidates/postgres-'+domain+'-v1.json');
+      const options={direct:true,connectionString:uri,namespace,statementTimeoutMs:10000};
+      await admin.query('CREATE SCHEMA '+q(namespace));await run('up',{...options,catalogue:standard});
+      const table=q(namespace)+'.'+q(domain);
+      if(populated)await admin.query('INSERT INTO '+table+'(tenant_id,id_kind,doc) VALUES($1,$2,$3)',[A,'string',{_id:'preserved',synthetic:true}]);
+      const history=async()=>(await admin.query('SELECT name,checksum FROM '+q(namespace)+'.schema_migrations ORDER BY name')).rows;
+      const before=await history();
+      if(populated){
+        await assert.rejects(run('up',{...options,catalogue:catalogues[domain]}),/socket_order_requires_empty|check constraint/);
+        assert.deepEqual(await history(),before,'POPULATED_ORDERING_REFUSAL_RETAINS_LEDGER');
+        assert.equal((await admin.query('SELECT doc,storage_bytes=pg_column_size(doc) AS exact FROM '+table)).rows[0].exact,true);
+      }else{
+        const upgraded=await run('up',{...options,catalogue:catalogues[domain]});
+        assert.deepEqual(upgraded.done,catalogues[domain].migrations.filter(m=>!before.some(row=>row.name===m.name)).map(m=>m.name));
+        assert.equal((await run('check',{...options,catalogue:catalogues[domain]})).current,true);
+      }
+    });
+  }
   for (const domain of proposal.DOMAINS) it('preserves populated '+domain+' values, seeds each tenant and refuses the older catalogue', async () => {
     const namespace = prefix+'_'+domain, catalogue = catalogues[domain];
-    const old = {...catalogue,migrations:catalogue.migrations.slice(0,-2)};
+    // Preserve the actual pre-conversion immutable history, independent of the new size tail.
+    const old = {...catalogue,migrations:catalogue.migrations.filter(m=>m.operation?.kind!=='clinical-storage-size-v1').slice(0,-2)};
     const options = {direct:true,connectionString:uri,namespace,statementTimeoutMs:10000};
     schemas.push(namespace); await admin.query('CREATE SCHEMA '+q(namespace));
     await run('up',{...options,catalogue:old});
@@ -41,6 +63,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     const before = await read();
     await run('up',{...options,catalogue});
     assert.deepEqual(await read(),before);
+    assert.equal((await admin.query('SELECT bool_and(storage_bytes=pg_column_size(doc)) AS exact FROM '+table)).rows[0].exact,true,'POPULATED_STORAGE_BACKFILL_EXACT');
     assert.equal((await run('check',{...options,catalogue})).current,true);
     assert.deepEqual((await admin.query('SELECT tenant_id,last_ordinal::text AS floor FROM '+q(namespace)+'.tenant_insertion_ordinal ORDER BY tenant_id')).rows,
       [{tenant_id:A,floor:'3'},{tenant_id:B,floor:'2'}]);
