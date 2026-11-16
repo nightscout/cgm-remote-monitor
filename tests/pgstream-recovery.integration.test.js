@@ -79,6 +79,21 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm source snapshot/statistics/catalogue reads forbidden'});
       }finally{await lab.stopWorker(worker);}
     });
+    it('lets an unrelated tenant complete newly arriving input while the first tenant is held',async function(){
+      await write(110);const at=Date.now();
+      await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:210,date:at,dateString:new Date(at).toISOString()}]},lab.B);
+      const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      try{
+        const held=await holdNext(worker,131);
+        const newer=Date.now();await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:241,date:newer,dateString:new Date(newer).toISOString()}]},lab.B);
+        const stamp=(await lab.clock(lab.B)).stamp;
+        const output=await wait(async()=>{const row=await lab.previewCompleted(lab.B);return completed(row,stamp)?row:null;},5000,'IDLE_SLOT_MUST_COMPLETE_NEIGHBOR_BEFORE_HELD_TENANT_RELEASE');
+        assert.equal(output.projection[0].output.frame.sgvs.find(row=>row._id==='neighbor').mgdl,241);
+        assert(BigInt((await state()).completed.clock)<BigInt(held),'HELD_TENANT_MUST_REMAIN_UNFINISHED');
+        await worker.call('release');await wait(async()=>BigInt((await state()).completed.clock)>=BigInt(held),5000,'HELD_TENANT_MUST_RESUME');
+        lab.tracePreview('default-held-tenant-neighbor-progress',{held,neighbor:stamp,scope:'actual default role/CDC with one held clinical completion and an independently completed tenant'});
+      }finally{await worker.call('release');await lab.stopWorker(worker);}
+    });
     it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),originalStarts=producer.state().starts,before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
