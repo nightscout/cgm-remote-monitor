@@ -56,7 +56,7 @@
       "checksum": "5cde7aa25d99400b377f9fbbcd31e876343b5d0557dd7f8dde150ff33e490779"
     },
     {
-      "name": "0004_food_storage_bytes",
+      "name": "0099_food_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
         "domain": "food"
