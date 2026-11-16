@@ -69,4 +69,36 @@ describe('clinically sufficient derived windows', () => {
     const mutating = brokenModule('../lib/storage/clinical-stream-state', 'const state={...saved,policy,rows:windowPolicy.select(saved.rows,policy)};', 'const state=Object.assign(saved,{policy,rows:windowPolicy.select(saved.rows,policy)});');
     assert.throws(() => expiry(mutating), /EXPIRY_MUTATED_ITS_SOURCE/);expiry(state);
   });
+  it('distinguishes successive transient expiries from one durable cohort without rewriting that cohort', () => {
+    const original = boot([row('entries', 'first', { date: at - 2 * DAY }), row('entries', 'second', { date: at - 2 * DAY + 1000 })]);
+    const criterion = module => {
+      const first = module.output(module.expire(original, policy.create(env, at + 1), limits));
+      const second = module.output(module.expire(original, policy.create(env, at + 1001), limits));
+      assert.deepEqual(first.signature, second.signature);
+      assert.notEqual(first.progress, second.progress, 'DISTINCT_EXPIRY_SUBSETS_MUST_NOT_REUSE_PREPARED_ROWS');
+    };
+    criterion(state);
+    const broken = brokenModule('../lib/storage/clinical-stream-state', "+':'+state.rows.length:KIND", ':KIND');
+    assert.throws(() => criterion(broken), /DISTINCT_EXPIRY_SUBSETS/);criterion(state);
+    assert.equal(original.rows.length, 2, 'TRANSIENT_EXPIRY_PRESERVES_DURABLE_BASE');
+  });
+  it('prunes the growing durable set inside receipt sealing and keeps omitted metadata documents and rewind recovery safe', () => {
+    const original = boot([row('entries', 'edge', { date: at - 2 * DAY }), row('entries', 'retained', { date: at, extension: 'kept' })]);
+    const event = { xid: 43, lsn: '0/40', action: 'U', domain: 'entries', id_kind: 'string', id: 'retained',
+      row: { domain: 'entries', id_kind: 'string', id: 'retained', storageBytes: 120 } };
+    const staged = state.stage(original, event, limits);
+    const criterion = module => {
+      const next = module.seal(staged, { xid: 43, lsn: '0/50', floor: at + 1, deleted: 0 }, limits);
+      assert.deepEqual(next.rows.map(r => r.doc._id), ['retained'], 'RECEIPT_MUST_PRUNE_EXPIRED_DURABLE_MEMBERS');
+      assert.equal(next.rows[0].doc.extension, 'kept');assert.equal(next.rows[0].storageBytes, 120);
+      assert.equal(next.policy.at, at + 1);
+      assert.throws(() => module.expire(next, policy.create(env, at), limits), /BOOTSTRAP_REQUIRED/);
+      return next;
+    };
+    criterion(state);
+    const broken = brokenModule('../lib/storage/clinical-stream-state', 'if(state.policy&&floor>state.policy.at){', 'if(false){');
+    assert.throws(() => criterion(broken), /RECEIPT_MUST_PRUNE/);criterion(state);
+    assert.equal(state.seal(staged, { xid: 43, lsn: '0/50', floor: 11, deleted: 0 }, limits).policy.at, at, 'OLDER_COMMIT_CLOCK_MUST_NOT_REWIND_POLICY');
+    assert.equal(original.rows.length, 2, 'RECEIPT_MUST_NOT_MUTATE_PRIOR_COHORT');
+  });
 });
