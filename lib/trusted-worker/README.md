@@ -23,21 +23,24 @@ clinical/output and restore checks remain. A changed configuration is reloaded.
 Realtime retains the effective entry while the registry base and retained
 settings snapshot are unchanged, avoiding repeated environment construction.
 
-The feed's coalesced dirty map is detached before a check starts. A new hint
-arriving during that check stays dirty for the following tick. The processed
-checkpoint is never advanced to a hinted generation that was not acquired. The
-existing periodic rotation finds a lost hint; a degraded/reconnected evaluator
-feed clears the selected settings caches and reconciles in full. Current settings
-snapshots also expire after ten minutes by default (`settingsRefreshMs`, configurable from 1 to 2147483647 ms), independently of version changes; the
-next due operation or reconciliation reloads them. The maximum quiet reload
-interval includes the configured reconciliation sweep and scheduler delay.
+The evaluator scans addressed tenants on input/control work and before checking
+whether output is current. The producer and dispatcher retain fresh authority
+checks across asynchronous suppression, receipt and commit boundaries. Settings
+snapshots are reused only while persisted settings/policy versions and registry
+source identity match; elapsed time alone does not invalidate them. Explicit
+stream recovery clears selected snapshots and reconciles durable work. A dropped
+hint cannot make an obsolete identity pass the per-use authority check.
 
-`lifecycle` verifies the metadata contract at boot, every ten minutes and after
-failure/recovery. Its AsyncResource is created outside tenant/request scope.
+`lifecycle` verifies the metadata contract at boot and explicit schema or
+transport recovery. The maintained single-host streaming roles have no periodic
+admission or full-roster settings refresh. Selected topology research retains its
+separate lifecycle policy. Its AsyncResource is created outside tenant/request
+scope.
 Operational verification is two fixed queries per worker check, independent of
 roster size. It does not run once per tenant or enter a tenant job's operation
 window. A refused query invalidates retained metadata/settings and refuses new
-reads until independent operational verification succeeds. Global and tenant
+reads until operational verification succeeds. Addressed clinical or output
+receipt work can retry that verification before entering a tenant window. Global and tenant
 invalidation fence in-flight reads so an old completion cannot repopulate caches.
 Closing drains the verifier/readers before the clinical connection is closed.
 

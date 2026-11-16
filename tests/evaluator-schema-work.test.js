@@ -6,10 +6,10 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 const trustedWorker = require('../lib/trusted-worker/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function fixture (count, selected, ordinal = 0, change = text => text) {
+function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
-  const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0 };
+  const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0 };
   const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false, settings: 1, policy: 1, paused: false, suspended: false };
   const connection = { async readOnly (text, values) {
     if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: [1,2,3,4].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
@@ -35,7 +35,7 @@ function fixture (count, selected, ordinal = 0, change = text => text) {
     selectedIntake: { profile, workers: ['0','1'], connectionString: 'postgres://intake:synthetic@localhost/test', controlConnectionString: 'postgres://control:synthetic@localhost/test' },
     consumers: { realtime: { partitionMetadata: {}, route: { id: 'synthetic-realtime' } } } });
   if (selected && ordinal === 1) { delete config.selectedIntake.connectionString; delete config.selectedIntake.controlConnectionString; }
-  let callbacks, reader, runtimeOptions;
+  let callbacks, reader, runtimeOptions, schedulerOptions;
   const connect = Object.assign(async () => connection, { async readopt () {} });
   const readiness = Object.assign(async () => { calls.readiness++; if (state.holdReadiness) await state.holdReadiness.promise; }, { async provisionTenant () {} });
   const mocks = {
@@ -49,11 +49,11 @@ function fixture (count, selected, ordinal = 0, change = text => text) {
     './evaluator-pool': { create: () => gate },
     './pool-config': { pool: () => ({ max: 2 }), tenantReadiness: () => 'serve', startupConcurrency: () => 1 },
     '../../trusted-worker/postgres': { create (options) { reader = trustedWorker.create(options); return reader; } },
-    '../../trusted-worker/lifecycle': async value => { await value.verify(); return { verify: () => value.verify(), version: () => 1, activateRefresh () {}, async close () {} }; },
+    '../../trusted-worker/lifecycle': realLifecycle ? (value, options) => require('../lib/trusted-worker/lifecycle')(value, { ...options, schedule: fn => { calls.timers.push(fn); return { unref () {} }; }, cancel () {} }) : async value => { await value.verify(); return { verify: () => value.verify(), version: () => 1, activateRefresh () {}, async close () {} }; },
     '../../pgstream/evaluator': { async open (options) { callbacks = options; return { store, async ready () { await state.atReady(); }, async close () {}, assertAvailable () {}, health: () => ({ healthy: true }) }; } },
     './tenant-startup': { create: () => ({ async warm () {}, async close () {}, isReady: () => true }) },
-    './evaluator-consumers': { async prepare () { return { start () {}, async close () {} }; } },
-    '../../pgstream/activity-scheduler': { start: () => ({ async recover () {}, wakeDelivery () {}, wake: (...args) => calls.wakes.push(args), async close () {} }) },
+    './evaluator-consumers': { async prepare () { return { start () {}, async recover () { calls.deliveryRecovery++; }, async close () {} }; } },
+    '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, wakeDelivery () {}, wake: (...args) => calls.wakes.push(args), async close () {} }); } },
     '../internal-api/clients': { completedOutput: () => ({ hintCompletedOutput () {} }), pgstreamInput: () => ({}) },
     './evaluator-inspection': () => () => ({}),
     '../../pgstream/intake-profile': { validate: () => profile },
@@ -68,7 +68,7 @@ function fixture (count, selected, ordinal = 0, change = text => text) {
   loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : Module.prototype.require.call(loaded, name);
   loaded._compile(change(fs.readFileSync(filename, 'utf8')), filename);
   const options = selected ? { operationWindow: { currentGeneration:()=>1, namespace: 'work_activity', intakeProfileDigest: profile.digest }, intakeBinding () {}, partitionParticipants: peers, partitionParticipant: peers[ordinal] } : { operationWindow: {currentGeneration:()=>1} };
-  return { calls, state, ids, ownIds: selected ? ids.filter(tenant => profile.assignment.owner(tenant) === ordinal) : ids, store, reader: () => reader, callbacks: () => callbacks, runtimeOptions: () => runtimeOptions,
+  return { calls, state, ids, ownIds: selected ? ids.filter(tenant => profile.assignment.owner(tenant) === ordinal) : ids, store, reader: () => reader, callbacks: () => callbacks, runtimeOptions: () => runtimeOptions, schedulerOptions: () => schedulerOptions,
     async boot (atReady = async () => {}) { state.atReady = async () => { try { await atReady(); } catch (error) { state.error = error; throw error; } }; try { return await loaded.exports.boot(config, options); } catch (error) { throw state.error || error; } } };
 }
 describe('evaluator schema work bounds', function () {
@@ -140,12 +140,56 @@ describe('evaluator schema work bounds', function () {
         assert.equal(f.calls.scans.flat().length, f.ownIds.length);
       } finally { await scheduler?.close(); await service.close(); }
     });
+    it(name + ' reconciles durable notification work on the next turn after stream recovery acknowledges', async () => {
+      const f = fixture(2, selected), service = await f.boot();
+      try {
+        await f.callbacks().onRecovered(f.store);
+        assert.equal(f.calls.deliveryRecovery, 0, 'RECOVERY_CANNOT_SELECT_BEFORE_STREAM_ACK');
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(f.calls.deliveryRecovery, 1, 'RECONNECT_MUST_RECOVER_DURABLE_NOTIFICATION_WORK');
+      } finally { await service.close(); }
+    });
     it(name + ' recovery refuses an uncommitted bootstrap page', async () => {
       const f = fixture(65, selected); const service = await f.boot();
       try { f.state.failPage = true; await assert.rejects(f.callbacks().onRecovered(f.store), /SYNTHETIC_COMMIT_LOSS/); assert.equal(f.calls.pages.length, 1); }
       finally { await service.close(); }
     });
   }
+  async function quietCriterion (change = text => text) {
+    const f = fixture(65, false, 0, change, true), service = await f.boot();
+    try {
+      const scans = f.calls.scans.length, verified = f.calls.verify, wakes = f.calls.wakes.length;
+      // The injected scheduler exposes every idle actor without wall-clock waits.
+      assert.equal(f.calls.timers.length, 0, 'QUIET_STREAM_MUST_HAVE_NO_METADATA_TIMER');
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(f.calls.scans.length, scans); assert.equal(f.calls.verify, verified); assert.equal(f.calls.wakes.length, wakes);
+      await f.callbacks().onSchema(['work_clock']);
+      assert.equal(f.calls.verify, verified + 1, 'REAL_SCHEMA_CHANGE_STILL_VERIFIES');
+      assert.equal(f.calls.scans.length, scans, 'SCHEMA_ACK_DOES_NOT_SCAN_QUIET_ROSTER');
+      await f.callbacks().onRecovered(f.store);
+      assert.deepEqual(f.calls.scans.at(-1), f.ids, 'ACTUAL_RECOVERY_RECONCILES_ROSTER');
+    } finally { await service.close(); }
+  }
+  it('quiet streaming has no metadata SQL/roster timer, while schema and transport recovery still reconcile', () => quietCriterion());
+  it('revalidates unavailable metadata only when addressed work arrives and retains real structural refusal', async () => {
+    const f = fixture(2, false, 0, text => text, true), service = await f.boot();
+    try {
+      const verified=f.calls.verify; f.reader().invalidate();
+      assert.equal(f.calls.verify,verified,'FAILURE_MUST_NOT_START_A_DISCOVERY_POLL');
+      await f.schedulerOptions().scan([f.ids[0]]);
+      assert.equal(f.calls.verify,verified+1,'ADDRESSED_RETRY_REVALIDATES_WITHDRAWN_READER');
+      assert.deepEqual(f.calls.scans.at(-1),[f.ids[0]],'RETRY_SCANS_ONLY_ADDRESSED_TENANT');
+      f.reader().invalidate(); f.state.secured=false;
+      await assert.rejects(f.schedulerOptions().scan([f.ids[0]]),/TRUSTED_WORKER_UNAVAILABLE/);
+      assert.equal(f.reader().state().available,false);
+    } finally { await service.close(); }
+  });
+  it('control: periodic admission reinstatement creates an idle actor; restored source has none', async () => {
+    await assert.rejects(quietCriterion(text => {
+      assert(text.includes('eventDriven: true')); return text.replace('eventDriven: true', 'eventDriven: false');
+    }), /QUIET_STREAM_MUST_HAVE_NO_METADATA_TIMER/);
+    await quietCriterion();
+  });
   it('selected ordinal one reconciles its own slice before startup without an eager scan or intake bootstrap', async () => {
     const f = fixture(65, true, 1), service = await f.boot();
     try { assert.deepEqual(f.calls.scans, [f.ownIds]); assert.equal(f.calls.pages.length, 0); }
