@@ -177,6 +177,29 @@ describe('local Node/PostgreSQL multitenant data credentials', function () {
     assert.deepEqual([f.effects.decrypt, f.effects.verify, f.effects.sign], [0, 0, 0]);
   });
 
+  it('refuses previous-profile renewal after current recommission while retaining plain credentials and tenant B', async function () {
+    const f = await fixture(), context = await f.verifierContext(A);
+    const old = await f.secrets.signJWT(context, credential('subject'), 28800);
+    const issuedBefore = await f.exchange({ tenant: A, credential: old }); assert(issuedBefore);
+    const state = f.states.get(A); state.rootVersion++; state.subjects.forEach(subject => subject.credentialVersion++); state.previousProfileAllowed = false;
+    assert.equal(await f.exchange({ tenant: A, credential: old }), null);
+    assert.equal(await f.dataRead(issuedBefore.token), null);
+    const fresh = await f.exchange({ tenant: A, credential: credential('subject') }); assert(fresh); assert(await f.dataRead(fresh.token));
+    await f.secrets.encrypt(await f.verifierContext(B), 'root', Buffer.from(ROOT));
+    const other = await f.secrets.signJWT(await f.verifierContext(B), credential('subject'), 28800);
+    assert(await f.exchange({ tenant: B, credential: other }), 'A recommission cannot close B renewal');
+  });
+
+  it('makes old-profile resurrection red when the exchange omits its current-profile flag, restored source refuses', async function () {
+    const f = await fixture(), old = await f.secrets.signJWT(await f.verifierContext(A), credential('subject'), 28800);
+    f.states.get(A).previousProfileAllowed = false;
+    const broken = modified(require.resolve('../lib/server/tenant-app/local-exchange'), source => source.replace('previous.subjectId, { previous: true }', 'previous.subjectId'));
+    const exchange = broken({ credentials: f.credentials, secrets: f.secrets, authority: f.authority, verifierContext: f.verifierContext, store: f.store, codec: f.codec, audit: f.audit, now: () => 1700000000000 });
+    let red = false;
+    try { assert.equal(await exchange({ tenant: A, credential: old }), null); } catch (error) { assert.equal(error.code, 'ERR_ASSERTION'); red = true; }
+    assert(red); assert.equal(await f.exchange({ tenant: A, credential: old }), null);
+  });
+
   it('keeps status issuance and admin query-token authentication out of previous-profile renewal', async function () {
     const f = await fixture(), context = await f.verifierContext(A);
     const old = await f.secrets.signJWT(context, credential('subject'), 28800); f.reset(); f.vaultUnavailable(true);
@@ -273,6 +296,28 @@ describe('local data credential persistence and preparation protocols', function
     assert.equal((await store.signingKey(A)).privateKey, key.privateKey);
     unavailable = true;
     await assert.rejects(store.readVerification(A), error => error.code === 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' && !error.message.includes('sensitive'));
+  });
+
+  it('reads the retained activation barrier in the same tenant-bound metadata statement and refuses absent authority', async function () {
+    const file = require.resolve('../lib/secrets/legacy-postgres'), loaded = new Module(file, module);
+    loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file)); const original = loaded.require.bind(loaded);
+    const prepared = material.prepare(Buffer.from(ROOT), SUBJECTS); let missing = false; const calls = [];
+    const connection = { withTenant: async (_tenant, fn) => fn(), end: async () => {}, query: async (sql, values) => {
+      if (sql.includes('FROM pg_class')) return { rows: Array.from({ length: 3 }, () => ({ secured: true, owns: false, reads: true, writes: false })) };
+      calls.push(sql); assert.deepEqual(values.length, 1);
+      assert(sql.includes('"synthetic_control".tenant_lifecycle_recommission x WHERE x.tenant_id=c.tenant_id AND x.activated'));
+      return { rows: prepared.subjects.map(subject => ({ root_verifiers: prepared.rootVerifiers, root_version: 9, root_reference_id: 'root', verifier_root_reference_id: 'root',
+        subject_id: subject.subjectId, verifiers: subject.verifiers, credential_version: 9, token_prefix: 'named', verifier_token_prefix: 'named', keys: [],
+        ...(missing ? {} : { previous_profile_allowed: values[0] !== A }) })) };
+    } };
+    loaded.require = name => name === '../storage/postgres-connection' ? async () => connection : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' } : original(name);
+    loaded._compile(fs.readFileSync(file, 'utf8'), file);
+    const store = await loaded.exports({ connectionString: 'synthetic', namespace: 'synthetic_legacy', localVerification: true, recommissionNamespace: 'synthetic_control' });
+    assert.equal((await store.readVerification(A)).previousProfileAllowed, false);
+    assert.equal((await store.readVerification(B)).previousProfileAllowed, true);
+    assert.equal(calls.length, 2); assert(calls.every(sql => !sql.includes('private_key')));
+    missing = true; await assert.rejects(store.readVerification(A), { code: 'SECRETS_LEGACY_AUTHORITY_INVALID' });
+    await store.close();
   });
 
   function preparationFixture () {
