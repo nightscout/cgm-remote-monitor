@@ -18,7 +18,8 @@
 //                        fixed roster (two api instances, a named realtime
 //                        worker), so each field's type meets its loader;
 //                        its Vault credentials are environment references,
-//                        and `full-token-files` is the same with token files
+//                        and `full-token-files` is the same with token files.
+//                        `selected-pool` carries the canonical pool/predecessor pair
 //   documentSet(docs)    those documents as `nightscout plan check` takes them
 const { createHash } = require('node:crypto');
 const { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle } = require('./multitenant-registry-layout');
@@ -32,7 +33,7 @@ const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'provisioner',
   'owner_settings', 'owner_activity', 'owner_credentials', 'pool_operator'];
 
 function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.example.test:8200', variant = 'default' }) {
-  if (!['default', 'full', 'full-token-files'].includes(variant)) throw new TypeError('Unknown test plan variant');
+  if (!['default', 'full', 'full-token-files', 'selected-pool'].includes(variant)) throw new TypeError('Unknown test plan variant');
   const full = variant !== 'default';
   const ns = l.namespaces, named = name => l.prefix + '_' + name;
   // Registry-mode namespaces. The suites that load this plan do not migrate
@@ -133,11 +134,11 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
       NS_VCPOOL_SECRETS_PG: urls.api, NS_VCPOOL_ACTIVITY_PG: urls.activity_reader, NS_VCPOOL_DEFINITIONS_PG: urls.provisioner } };
   if (variant === 'full') { delete vcpool.config.vault.tokenFile; vcpool.config.vault.tokenEnv = 'NS_VAULT_TOKEN'; vcpool.environment.NS_VAULT_TOKEN = 'synthetic-placeholder'; }
   const docs = { configs, environments, operations, remote, locks, admin, vcpool };
-  return full ? everyOptionalField(docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles: variant === 'full-token-files' }) : docs;
+  return full ? everyOptionalField(docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles: variant === 'full-token-files', selectedPool: variant === 'selected-pool' }) : docs;
 }
 
 // The `full` variant: each optional field the contract names, with a value its loader accepts.
-function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles }) {
+function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles, selectedPool }) {
   const ns = l.namespaces, { api, realtime, evaluator } = docs.configs, owner = docs.configs['tenant-admin'], env = docs.environments;
   for (const role of [evaluator, realtime]) role.trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
   // Exactly one credential source per Vault block: a token file, or an environment reference.
@@ -146,9 +147,14 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   const canonical = { mode: 'canonical-internal', trustedPeers: ['192.0.2.10'] };
   api.localDataAuthentication = 'node';
   const intake = require('../../lib/pgstream/intake-profile').create({ namespace: ns.eval_checkpoint, membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), consumer: evaluator.consumer, revision: '1', members: 1, tenants: [A, B], codec: require('../../lib/pgstream/intake-profile').CODEC, generationDomain: require('../../lib/pgstream/intake-profile').GENERATION_DOMAIN });
-  realtime.intakeProfile = JSON.parse(JSON.stringify(intake));
+  const selected = selectedPool ? require('../../lib/pgstream/pool-intake-profile').create({ namespace: ns.eval_checkpoint,
+    membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), operatorRole: named('intake_operator'),
+    consumer: evaluator.consumer, codec: intake.binding.codec, generationDomain: intake.binding.generationDomain,
+    sliceRule: require('../../lib/pool-membership/slice').RULE }) : intake;
+  realtime.intakeProfile = JSON.parse(JSON.stringify(selected));
+  if (selectedPool) realtime.predecessorProfile = JSON.parse(JSON.stringify(intake));
   evaluator.consumers.realtime.partitionMetadata = { checkpointNamespace: ns.eval_checkpoint, membershipNamespace: named('partition_members'), lifecycleNamespace: named('partition_lifecycle') };
-  for (const operation of Object.values(docs.operations)) operation.intakeProfile = JSON.parse(JSON.stringify(intake));
+  for (const operation of Object.values(docs.operations)) operation.intakeProfile = JSON.parse(JSON.stringify(selected));
   api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';
   realtime.unauthorizedDeadlineMs = 5000;
   Object.assign(evaluator, { evictAfterMs: 600000, evaluationAlertMs: 60000 });
