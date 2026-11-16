@@ -52,12 +52,24 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
   }
   for (const domain of proposal.DOMAINS) it('preserves populated '+domain+' values, seeds each tenant and refuses the older catalogue', async () => {
     const namespace = prefix+'_'+domain, catalogue = catalogues[domain];
-    // Preserve the actual pre-conversion immutable history, independent of the new size tail.
-    const old = {...catalogue,migrations:catalogue.migrations.filter(m=>m.operation?.kind!=='clinical-storage-size-v1').slice(0,-2)};
+    // The source is the immutable global-identity prefix, before the named
+    // tenant-local conversion. Later shared size/identity tails do not change
+    // that historical boundary or grant the old source a tenant-local trigger.
+    const conversion=catalogue.migrations.findIndex(m=>m.operation?.kind==='tenant-insertion-v1');
+    assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
+    assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
+      {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
+      {kind:'clinical-storage-size-v1',domain},{kind:'storage-event-identity-v1',domain}
+    ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
+    const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
+    assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
+      ['0001_'+domain,'0002_'+domain+(domain==='entries'?'_insertion_order':'_socket_order')]);
     const options = {direct:true,connectionString:uri,namespace,statementTimeoutMs:10000};
     schemas.push(namespace); await admin.query('CREATE SCHEMA '+q(namespace));
     await run('up',{...options,catalogue:old});
     const table = q(namespace)+'.'+q(domain);
+    assert.notEqual((await admin.query('SELECT pg_get_serial_sequence($1,$2) AS sequence',[namespace+'.'+domain,'insertion_ordinal'])).rows[0].sequence,null,
+      'OLD_SOURCE_MUST_HAVE_GLOBAL_IDENTITY_BEFORE_CONVERSION');
     for (const [tenant,id] of [[A,'a1'],[B,'b1'],[A,'a2']]) await admin.query('INSERT INTO '+table+'(tenant_id,id_kind,doc) VALUES($1,$2,$3)',[tenant,'string',{_id:id,synthetic:true}]);
     const read = async () => (await admin.query('SELECT tenant_id,id_kind,doc,insertion_ordinal::text AS ordinal FROM '+table+' ORDER BY insertion_ordinal')).rows;
     const before = await read();
