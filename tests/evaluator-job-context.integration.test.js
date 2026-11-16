@@ -111,7 +111,7 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    await window.run(A,async()=>{await delay(2);window.assertCurrent(A);assert.deepEqual(await pending(),before,'LEGITIMATE_NESTED_AWAIT_REUSES_OWN_LIFETIME');});
   });
   await assert.rejects(window.run(B,()=>runtime.acquire(A)),/LIFECYCLE_WINDOW_SCOPE_INVALID/);
-  let ownedRuntime,ownedDelivery;
+  let ownedRuntime,ownedDelivery,ownedResults;
   clinicalHold=heldBody();deliveryHold=heldBody();
   try {
    await window.run(A,async()=>{
@@ -123,8 +123,11 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    });
   } finally {
    clinicalHold?.release();deliveryHold?.release();
-   await Promise.allSettled([ownedRuntime,ownedDelivery]);clinicalHold=null;deliveryHold=null;
+   ownedResults=await Promise.allSettled([ownedRuntime,ownedDelivery]);clinicalHold=null;deliveryHold=null;
   }
+  // Cleanup settles every job even after a primary assertion fails. On the
+  // positive path, both owned jobs must succeed; settlement is not success.
+  for(const outcome of ownedResults)if(outcome.status==='rejected')throw outcome.reason;
   allowTimers=true;await runtime.tick(A);
  });
  it('refuses fresh suspended jobs and paused delivery, then resumes through fresh admission',async function(){
