@@ -70,7 +70,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
           await lab.admin.query('BEGIN');
           await lab.admin.query('UPDATE "'+lab.replayNamespace+'".tenant_consumer_checkpoint SET projection=projection WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName]);
           pending=worker.call('acquire',lab.A).then(value=>{result=value;finished=true;});
-          const prefix='SELECT checkpoint, contract_digest, projection FROM "'+lab.replayNamespace+'".';
+          const prefix='SELECT checkpoint, contract_digest, jsonb_build_array(projection->0) AS projection FROM "'+lab.replayNamespace+'".';
           const observation=await wait(async()=>{
             if(finished)return {finished:true,blocked:false};
             await lab.admin.query('SELECT pg_stat_clear_snapshot()');
@@ -100,15 +100,22 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
           {_id:'cohort-two',type:'sgv',sgv:142,date:at,dateString:new Date(at).toISOString()}]});
         const cohort=(await lab.clock()).stamp;
         const output=await wait(async()=>{const row=await lab.previewCompleted();return completed(row,cohort)?row:null;},10000,'DEFAULT_ROW_COHORT_NOT_COMPLETED');
-        const rows=output.projection[0].output.rows;
+        // Raw clinical rows belong to the accepted input; durable output carries
+        // the actual engine frame rather than another copy of that projection.
+        const rows=(await lab.previewCheckpoint(lab.A)).projection;
+        const frame=output.projection[0].output.frame;
+        assert(frame.sgvs.some(row=>row._id==='cohort-one'&&row.mgdl===141),'COHORT_ENGINE_FRAME_MISSING');
+        assert(frame.sgvs.some(row=>row._id==='cohort-two'&&row.mgdl===142),'COHORT_PARTIAL_ENGINE_FRAME');
         assert(rows.some(row=>row.doc._id==='cohort-one'&&row.doc.extension.synthetic==='preserved'),'EXTENSION_ROW_MISSING');
         assert(rows.some(row=>row.doc._id==='cohort-two'),'COHORT_PARTIAL_OUTPUT');
         await write(151,'cohort-one',600000);const corrected=(await lab.clock()).stamp;
         await wait(async()=>completed(await lab.previewCompleted(),corrected),10000,'LATE_CORRECTION_NOT_COMPLETED');
-        assert.equal((await lab.previewCompleted()).projection[0].output.rows.find(row=>row.doc._id==='cohort-one').doc.sgv,151);
+        assert.equal((await lab.previewCheckpoint(lab.A)).projection.find(row=>row.doc._id==='cohort-one').doc.sgv,151);
+        assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='cohort-one').mgdl,151,'CORRECTED_ENGINE_FRAME');
         await lab.hardDelete('entries',{_id:'cohort-two'});const removed=(await lab.clock()).stamp;
         await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
-        assert(!(await lab.previewCompleted()).projection[0].output.rows.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
+        assert(!(await lab.previewCheckpoint(lab.A)).projection.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
+        assert(!(await lab.previewCompleted()).projection[0].output.frame.sgvs.some(row=>row._id==='cohort-two'),'DELETED_ENGINE_FRAME_RETAINED');
         const after=await worker.call('queries');assert.deepEqual(after,initial,'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
         lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm source snapshot/statistics/catalogue reads forbidden'});
       }finally{await lab.stopWorker(worker);}

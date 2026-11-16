@@ -2,11 +2,11 @@
 const assert=require('node:assert/strict');
 const normalize=require('../../../lib/api3/storage/mongoCollection/utils').normalizeDoc;
 const {decodeDocument}=require('../../../lib/storage/postgres-identity');
-function single(event,row){
+function single(event,row,domain='entries'){
   const doc=decodeDocument(row);normalize(doc);const sent=[];
   const socket=new(require('../../../lib/api3/storageSocket'))({},{},{});
   socket.namespace={to:()=>({emit:(kind,value)=>sent.push({event:kind,value})})};
-  const payload=event==='delete'?{colName:'entries',identifier:doc.identifier}:{colName:'entries',doc};
+  const payload=event==='delete'?{colName:domain,identifier:doc.identifier}:{colName:domain,doc};
   socket['emit'+event[0].toUpperCase()+event.slice(1)](payload);
   return JSON.parse(JSON.stringify(sent[0]));
 }
@@ -37,9 +37,10 @@ function typed(physical,expected,record){
   });
 }
 function revoked(physical,record){
-  const marker=physical.checkpoint?.projection?.[0]?.kind==='evaluator-work-v2'&&physical.checkpoint.projection[0].output?.rows?.some(row=>row.domain==='entries'&&row.id_kind==='string'&&row.doc._id===physical.marker);
+  const marker=physical.checkpoint?.projection?.[0]?.kind==='evaluator-work-v2'&&physical.checkpoint.projection[0].output?.frame?.sgvs?.some(row=>row._id===physical.marker&&row.mgdl===444);
+  const raw=physical.rawTail?.events?.some(row=>row.domain==='entries'&&row.event==='create'&&row.value.doc?.identifier===physical.marker);
   return verdict('STORAGE_CURRENT_COLLECTION_REVOKED',physical,record,()=>{
-  if(!marker||String(physical.checkpoint.checkpoint)!==String(physical.floor)||physical.grants.length!==0||
+  if(!marker||!raw||String(physical.checkpoint.checkpoint)!==String(physical.floor)||physical.grants.length!==0||
     physical.current.denied||!Array.isArray(physical.current.collections)||physical.current.collections.length!==0||physical.current.permissions?.read!==false||
     !physical.rows.some(row=>row.id_kind==='string'&&row.doc._id===physical.marker))throw new Error('STORAGE_REVOCATION_CAUSAL_BOUNDARY_REQUIRED');
     assert(BigInt(physical.clockAfter[0].last_stamp)>BigInt(physical.clockBefore[0].last_stamp),'STORAGE_REVOCATION_CLOCK_ADVANCED');

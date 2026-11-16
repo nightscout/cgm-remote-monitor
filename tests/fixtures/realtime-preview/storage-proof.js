@@ -10,6 +10,7 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
   const limits={maxRows:realtimeConfig.maxRows,maxBytes:realtimeConfig.maxBytes};
   const identifier=crypto.randomBytes(12).toString('hex'),marker='synthetic-revoked-'+crypto.randomUUID();let exercised=false,closed=false;
   const q=name=>{assert.match(name,/^[a-z][a-z0-9_]{0,62}$/);return '"'+name+'"';};
+  const food=q(config.namespaces.food)+'.food';
   const entries=q(config.entriesNamespace)+'.entries',clock=q(config.clockNamespace)+'.tenant_write_clock',checkpoint=q(realtimeConfig.completedOutput.namespace)+'.tenant_consumer_checkpoint';
   const mutate=(deleted,write)=>clockWrite({admin,namespace:config.clockNamespace,tenant:config.tenant,deleted},write);
   const grants=q(config.authorizationNamespace)+'.tenant_authorization_subject_roles';
@@ -28,8 +29,8 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
     const client=await connect({transport,host,namespace:'/storage'});ownedSockets.push(client);const item={socket:client,transport,events:[]};target.push(item);
     for(const event of ['create','update','delete'])client.on(event,value=>{item.events.push({event,value});oracle.bounded(item.events,limits);record({clients:events(clients),foreignClients:events(foreign)});});
     const result=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('STORAGE_SUBSCRIBE_NOACK')),config.timeoutMs);
-      client.emit('subscribe',{accessToken:credential.token,collections:['entries']},value=>{clearTimeout(timer);resolve(value);});});
-    subscriptions.push({tenant:target===clients?'A':'B',transport,host,result});record({subscriptions});assert.deepEqual(result,{success:true,collections:['entries']});return credential.token;
+      client.emit('subscribe',{accessToken:credential.token,collections:['entries','food']},value=>{clearTimeout(timer);resolve(value);});});
+    subscriptions.push({tenant:target===clients?'A':'B',transport,host,result});record({subscriptions});assert.deepEqual(result,{success:true,collections:['entries','food']});return credential.token;
   }
   async function close(){if(closed)return;closed=true;for(const socket of ownedSockets)socket.close();record({socketsClosed:true});}
   try{
@@ -68,6 +69,62 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
         await mutate(true,()=>admin.query('DELETE FROM '+entries+' WHERE tenant_id=$1 AND id_kind=\'objectid\' AND doc->>\'_id\'=$2',[config.tenant,identifier]));expected.push(oracle.single('delete',object));
         await wait(()=>clients.every(client=>client.events.some(row=>row.event==='delete'&&row.value.identifier===identifier)),'STORAGE_TYPED_DELETE_NOT_OBSERVED');
         await stage('delete',[updated]);record({typedWireAmbiguity:{identifier,physicalKinds:['objectid','string'],normalizedIdentifierShared:true,deleteDoesNotIdentifyKind:true}});
+        // Live raw CRUD is independent of clinical membership. Use public IDs
+        // distinct from physical IDs so FULL old identity is observable on wire.
+        const oldId='synthetic-old-'+crypto.randomUUID(),foodId='synthetic-food-'+crypto.randomUUID();
+        const old={id_kind:'string',doc:{_id:oldId,identifier:'public-'+oldId,type:'sgv',sgv:139,date:now-4*86400000,dateString:new Date(now-4*86400000).toISOString()}};
+        const meal={id_kind:'string',doc:{_id:foodId,identifier:'public-'+foodId,name:'synthetic raw food',carbs:12}};
+        const expect=async(event,row,domain,groups=clients)=>{
+          const wanted=oracle.single(event,row,domain);
+          await wait(()=>groups.every(client=>client.events.some(item=>require('node:util').isDeepStrictEqual(item,wanted))),'STORAGE_RAW_'+domain.toUpperCase()+'_'+event.toUpperCase()+'_MISSING');
+          for(const client of foreign)assert.deepEqual(client.events,[],'STORAGE_RAW_FOREIGN_WIRE_UNCHANGED');
+          return wanted;
+        };
+        await mutate(false,stamp=>{old.doc.srvModified=stamp;return admin.query('INSERT INTO '+entries+'(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(old.doc)]);});
+        const oldWire=await expect('create',old,'entries');
+        await mutate(false,stamp=>{meal.doc.srvModified=stamp;return admin.query('INSERT INTO '+food+'(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(meal.doc)]);});
+        await expect('create',meal,'food');
+        await mutate(false,stamp=>{meal.doc={...meal.doc,carbs:23,srvModified:stamp};return admin.query('UPDATE '+food+' SET doc=$3::jsonb WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[config.tenant,foodId,JSON.stringify(meal.doc)]);});
+        await expect('update',meal,'food');
+        await mutate(true,()=>admin.query('DELETE FROM '+food+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[config.tenant,foodId]));
+        await expect('delete',meal,'food');
+        const rawStamp=String((await floor())[0].last_stamp);
+        const bounded=await projection(row=>BigInt(row?.checkpoint||0)>=BigInt(rawStamp));
+        assert(!bounded.projection[0].output.frame.sgvs.some(row=>row._id===oldId),'OLD_RAW_ENTRY_MUST_NOT_ENTER_CLINICAL_FRAME');
+        const input=(await admin.query('SELECT projection->0 AS clinical FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.completedOutput.consumer])).rows[0].clinical;
+        assert(!input.rows.some(row=>row.domain==='entries'&&row.doc._id===oldId),'OLD_RAW_ENTRY_MUST_NOT_ENTER_CLINICAL_WINDOW');
+        record({rawOutsideClinical:{oldWire,completedCheckpoint:bounded.checkpoint,publicFoodIdentifier:meal.doc.identifier}});
+        // A newly subscribed stock client starts at current high water. It
+        // receives neither historical population nor events from its offline gap.
+        const fresh=[];
+        for(const transport of ['polling','websocket'])await socket(transport,config.host,config.credentialEnv,fresh);
+        await pause(config.observationMs);
+        for(const client of fresh)assert.deepEqual(client.events,[],'STORAGE_RECONNECT_MUST_NOT_REPLAY_OLD_TAIL');
+        const follow={id_kind:'string',doc:{_id:'synthetic-follow-'+crypto.randomUUID(),name:'synthetic after reconnect',carbs:4}};
+        await mutate(false,stamp=>{follow.doc.srvModified=stamp;return admin.query('INSERT INTO '+food+'(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(follow.doc)]);});
+        await expect('create',follow,'food',[...clients,...fresh]);
+        await mutate(true,()=>admin.query('DELETE FROM '+food+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[config.tenant,follow.doc._id]));
+        await expect('delete',follow,'food',[...clients,...fresh]);
+        for(const client of fresh){assert.equal(client.events.length,2,'STORAGE_RECONNECT_EXACT_LIVE_CRUD');client.socket.close();}
+        record({reconnectHighWater:{clients:events(fresh),noOfflineReplay:true}});
+        // Exercise an actual membership edge without deleting source storage.
+        // The common due scheduler must perform time-only clinical completion;
+        // its independent raw tail must emit no fabricated storage deletion.
+        const expiryId='synthetic-expiry-'+crypto.randomUUID(),edge=Date.now()+5000;
+        const expires={_id:expiryId,type:'sgv',sgv:138,date:edge-2*86400000,dateString:new Date(edge-2*86400000).toISOString()};
+        await mutate(false,stamp=>{expires.srvModified=stamp;return admin.query('INSERT INTO '+entries+'(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(expires)]);});
+        await expect('create',{id_kind:'string',doc:expires},'entries');
+        const expiryStamp=String((await floor())[0].last_stamp);
+        const entering=await projection(row=>String(row?.checkpoint)===expiryStamp);
+        const beforeProgress=entering.projection[0].output.result.progress;
+        const expired=await projection(row=>String(row?.checkpoint)===expiryStamp&&row.projection[0].output.frame.lastUpdated>edge&&row.projection[0].output.result.progress!==beforeProgress);
+        assert.equal(expired.projection[0].output.trigger,'time-only','STORAGE_EXPIRY_ACTUAL_TIME_COMPLETION');
+        assert.equal(String((await floor())[0].last_stamp),expiryStamp,'STORAGE_EXPIRY_MUST_NOT_WRITE_SOURCE_CLOCK');
+        assert((await rows(config.tenant)).some(row=>row.doc._id===expiryId),'STORAGE_EXPIRY_MUST_KEEP_SOURCE_ROW');
+        for(const client of clients)assert(!client.events.some(row=>row.event==='delete'&&row.value.identifier===expiryId),'STORAGE_EXPIRY_MUST_NOT_EMIT_DELETE');
+        record({clinicalExpiry:{sourceId:expiryId,inputCheckpoint:expiryStamp,beforeProgress,afterProgress:expired.projection[0].output.result.progress,trigger:expired.projection[0].output.trigger,sourcePreserved:true}});
+
+
       },
       async afterRevocation(){
         assert(exercised,'storage exercise must precede existing parent quiet removal and grant tightening');
@@ -84,9 +141,10 @@ module.exports=async function start({input,roles,admin,connect,realtimeConfig}){
         const doc={_id:marker,type:'sgv',sgv:444,date:Date.now(),device:'synthetic-revoked-storage'};doc.dateString=new Date(doc.date).toISOString();
         await mutate(false,stamp=>{doc.srvModified=stamp;return admin.query('INSERT INTO '+entries+' (tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb)',[config.tenant,JSON.stringify(doc)]);});
         const after=await floor();
-        const barrier=await projection(row=>String(row?.checkpoint)===String(after[0].last_stamp)&&row?.projection?.[0]?.kind==='evaluator-work-v2'&&row.projection[0].output?.rows?.some(item=>item.domain==='entries'&&item.id_kind==='string'&&item.doc._id===marker));
-        record({revocationPipelineBarrier:barrier});await pause(config.observationMs);
-        const physical={marker,grants:storedGrants,current,checkpoint:barrier,floor:after[0].last_stamp,clockBefore:before,clockAfter:await floor(),rows:await rows(config.tenant),
+        const barrier=await projection(row=>String(row?.checkpoint)===String(after[0].last_stamp)&&row?.projection?.[0]?.kind==='evaluator-work-v2'&&row.projection[0].output?.frame?.sgvs?.some(item=>item._id===marker&&item.mgdl===444));
+        const rawTail=(await admin.query('SELECT projection->1 AS storage FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[config.tenant,realtimeConfig.completedOutput.consumer])).rows[0].storage;
+        record({revocationPipelineBarrier:barrier,revocationRawTail:rawTail});await pause(config.observationMs);
+        const physical={marker,grants:storedGrants,current,checkpoint:barrier,rawTail,floor:after[0].last_stamp,clockBefore:before,clockAfter:await floor(),rows:await rows(config.tenant),
           foreignBefore:beforeForeign,foreignAfter:await rows(config.foreignTenant),clients:clients.map((client,i)=>({transport:client.transport,events:client.events.slice(starts[i])})),
           foreignClients:foreign.map((client,i)=>({transport:client.transport,events:client.events.slice(foreignStarts[i])}))};
         oracle.revoked(physical,record);

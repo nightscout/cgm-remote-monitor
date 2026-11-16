@@ -48,12 +48,13 @@ describe('joined storage physical/wire/current-collection oracles',function(){
     }
   });
   const physical=()=>({marker:'synthetic-marker',grants:[],current:{permissions:{read:false},collections:[]},
-    checkpoint:{checkpoint:'43',projection:[{kind:'evaluator-work-v2',output:{rows:[{domain:'entries',id_kind:'string',doc:{_id:'synthetic-marker'}}]}}]},floor:'43',
+    checkpoint:{checkpoint:'43',projection:[{kind:'evaluator-work-v2',output:{frame:{sgvs:[{_id:'synthetic-marker',mgdl:444}]}}}]},floor:'43',
+    rawTail:{events:[{domain:'entries',event:'create',value:{doc:{identifier:'synthetic-marker'}}}]},
     rows:[{id_kind:'string',doc:{_id:'synthetic-marker'}}],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'43'}],
     foreignBefore:[],foreignAfter:[],clients:[{transport:'polling',events:[]}],foreignClients:[{transport:'websocket',events:[]}]});
   it('requires actual consumed marker/grant/current-auth preconditions instead of treating a missing pipeline as semantic red',function(){
     oracle.revoked(physical(),()=>{});
-    for(const mutate of [p=>p.checkpoint.projection=[],p=>p.grants=[{role_name:'still-reader'}],p=>p.current.denied=true,p=>p.rows=[]]){
+    for(const mutate of [p=>p.checkpoint.projection=[],p=>p.rawTail.events=[],p=>p.grants=[{role_name:'still-reader'}],p=>p.current.denied=true,p=>p.rows=[]]){
       const p=physical();mutate(p);assert.throws(()=>oracle.revoked(p,()=>{}),error=>!(error instanceof assert.AssertionError)&&/CAUSAL_BOUNDARY/.test(error.message));
     }
     assert.throws(()=>oracle.bounded([string],{maxRows:0,maxBytes:10000}),/PROOF_BOUND/);
