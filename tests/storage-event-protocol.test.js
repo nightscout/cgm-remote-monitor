@@ -10,10 +10,10 @@ class Socket extends EventEmitter{
  async receive(event,...args){await Promise.all(this.listeners(event).map(fn=>fn(...args)));}
 }
 function fixture(module=factory){
- let tail=journal.empty(),allowed=true,held=false;
+ let tail=journal.empty(),allowed=true,held=false,failRead=false;
  const protocol=module.create({admission:{resolve:async req=>req.headers.host==='b.test'?B:A},
- api:{authorizeSocket:async()=>{if(held)throw new Error('temporarily unavailable');return {permissions:{read:allowed,write:false,write_treatment:false,ack:false},collections:allowed?['food','entries','activity']:[]};},executeSocketMutation:async()=>{}},readCurrent:async()=>({identity:'same'}),runtime:()=>({}),domains:['food','entries','activity'],storageEvents:{read:async()=>tail}});
- return {protocol,get tail(){return tail;},set allowed(v){allowed=v;},set held(v){held=v;},reset(){tail=journal.reset(tail);},
+ api:{authorizeSocket:async()=>{if(held)throw new Error('temporarily unavailable');return {permissions:{read:allowed,write:false,write_treatment:false,ack:false},collections:allowed?['food','entries','activity']:[]};},executeSocketMutation:async()=>{}},readCurrent:async()=>({identity:'same'}),runtime:()=>({}),domains:['food','entries','activity'],retry:{minMs:5,maxMs:20},storageEvents:{read:async()=>{if(failRead){failRead=false;throw new Error('TRANSIENT_RAW_READ');}return tail;}}});
+ return {protocol,failReadOnce:()=>{failRead=true;},get tail(){return tail;},set allowed(v){allowed=v;},set held(v){held=v;},reset(){tail=journal.reset(tail);},
  append(domain,action,id,extra={}){const doc={_id:id,identifier:'public-'+id,...extra},cols=Object.entries({id_kind:'string',doc}).map(([name,value])=>({name,value}));tail=journal.append(tail,domain,{xid:7,lsn:'0/'+(32+tail.head).toString(16),action,columns:action==='D'?null:cols,identity:action==='I'?null:cols},{maxRows:3,maxBytes:10000});},
  async socket(host){const socket=new Socket(host);await protocol.prepare(socket);protocol.bind(socket,'/storage');let answer;await socket.receive('subscribe',{},value=>{answer=value;});assert.equal(answer.success,true);return socket;},close:()=>protocol.close()};
 }
@@ -40,6 +40,10 @@ describe('raw storage live-session delivery independent of clinical completion',
  });
  it('ignores an older concurrent tail after a newer subscribe/delivery without disconnecting',async()=>{
   const f=fixture();try{f.append('food','I','before');const old=structuredClone(f.tail);f.append('food','I','newer');const a=await f.socket();await f.protocol.storage({tenant:A,tail:old});assert(!a.disconnected);assert.deepEqual(a.sent,[]);}finally{f.close();}
+ });
+
+ it('retries temporary journal-read pressure while subscribing without inventing a refusal',async()=>{
+  const f=fixture();try{f.failReadOnce();const a=await f.socket();assert(!a.disconnected);f.append('food','I','after-retry');await f.protocol.storage({tenant:A,tail:f.tail});assert.equal(a.sent.length,1);}finally{f.close();}
  });
 
 });
