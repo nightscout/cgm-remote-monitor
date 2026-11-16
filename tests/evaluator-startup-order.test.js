@@ -6,18 +6,36 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text}={}){
- const prepare=deferred(),admission=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
- let commitWake;let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false}={}){
+ const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
+ const completions=[];let commitWake,receive;let runtime,output,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
  const reader={scan,current:t=>metadata.get(t),state:scan.state,async close(){},health:()=>({available:true})};
  const startup={async warm(){},isReady:()=>true,async ensure(){trace.push('tenant-admitted');},async close(){},health:()=>({})};
  const readiness=async()=>{checks++;if(holdAdmission)await admission.promise;};readiness.provisionTenant=async()=>{};
- const store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);output={tenant,identity,contentDigest:'digest'+(++revision),outputRevision:revision,result:value.result};trace.push('completed');commitWake?.({tenant,kind:'complete'});return {output,changed:true};},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};
+ let store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);output={tenant,identity,contentDigest:'digest'+(++revision),outputRevision:revision,result:value.result};trace.push('completed');commitWake?.({tenant,kind:'complete'});return {output,changed:true};},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};
+ if(pendingRace){
+  // Actual receipt/completion modules; the SQL/backend port alone is synthetic.
+  const work=require('../lib/pgstream/work-state');
+  const row={tenant:A,work_version:2,work_observed:['1',null,null,null,null,null],work_completed:[null,null,null,null,null,null],work_observed_at:[Date.now(),null,null,null,null,null],work_pending_at:Date.now(),work_due_at:null,work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:null,output_digest:null,output_revision:'0',output_restore_generation:null};
+  const snapshot=()=>structuredClone(row);
+  const sql={async query(text,args){
+   if(text.startsWith('SELECT projection'))return {rows:[{output:row.projection?.[0]?.output}]};
+   if(text.includes('min(work_due_at)'))return {rows:[{due:row.work_due_at}]};
+   if(text.includes('delivery_revision>delivery_ack_revision'))return {rows:[]};
+   if(text.startsWith('SELECT'))return {rows:text.includes('work_due_at<=$2')&&row.work_pending_at===null&&(row.work_due_at===null||Number(row.work_due_at)>args[1])?[]:[snapshot()]};
+   if(text.startsWith('WITH input')){const patch=JSON.parse(args[1])[0];Object.assign(row,{work_observed:patch.observed,work_observed_at:patch.observed_at,work_pending_at:patch.pending_at});return {rowCount:1};}
+   if(text.startsWith('UPDATE')){Object.assign(row,{work_completed:args[3],work_due_at:args[4],work_pending_at:args[5],work_completed_at:args[6],output_identity:args[7],output_digest:args[8],output_revision:String(args[9]),output_restore_generation:args[10]});if(args[12])row.projection=JSON.parse(args[12]);completions.push(snapshot());return {rowCount:1};}
+   throw Error('UNEXPECTED_SYNTHETIC_SQL '+text);
+  }};
+  const backend={...connection,query:sql.query,readOnly:sql.query,holdAdvisoryLock:async()=>({available:true,withTenant:async(tenant,fn)=>fn(),close:async()=>{}}),observeEvaluatorTyped:options=>work.observeInTransaction({client:sql,...options})};
+  store=require('../lib/pgstream/typed-checkpoint').create({connection:backend,namespace:'synthetic_checkpoint',consumer:'evaluator-test',maxBytes:100000,timeIntervalMs:60000});row.contract_digest=store.digest;
+  const owned=store.own(()=>{}),begin=store.begin;store={...store,begin:async tenant=>{await owned;return begin(tenant);},snapshot};
+ }
  const filename=require.resolve('../lib/server/serve/evaluator-preview'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=module.paths;
- const fakeEvaluator=()=>({async evaluate(){assert(trace.includes('tenant-admitted'));return {checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:[],requested:[],due:{dueAt:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
+ const fakeEvaluator=()=>({async evaluate(){assert(trace.includes('tenant-admitted'));if(pendingRace&&cycle===0){evaluating.resolve();await finishCycle.promise;}return {checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:[],requested:[],due:{dueAt:pendingRace?Date.now()+3600000:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
  const mocks={
   './evaluator-runtime':async options=>{runtime=await require('../lib/server/serve/evaluator-runtime')(options);return runtime;},
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
@@ -28,7 +46,7 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
-  '../../pgstream/evaluator':{open:async({onCommit})=>{commitWake=onCommit;return {store,ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}};}},
+  '../../pgstream/evaluator':{open:async({onCommit,onInput})=>{commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_clock',table:'tenant_write_clock',kind:'clock'}],store,onInput,onSchema:async()=>{}});return {store,ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}};}},
   './registry-tenant-set':{open:async()=>{trace.push('registry-open');return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
   './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext}){trace.push('delivery-prepare');await prepare.promise;return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
@@ -40,8 +58,9 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
  const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{},consumers:{realtime:true},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {prepare,admission,trace,window,async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks})};
+ return {prepare,admission,trace,window,evaluating,finishCycle,completions,snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive({Data:{action:'U',schema:'synthetic_clock',table:'tenant_write_clock',columns:[{name:'tenant_id',value:A},{name:'last_stamp',value:version}]}});},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks})};
 }
+function delayScheduler(source){const a=source.indexOf('    {\n      const hint='),b=source.indexOf("    consumers = await require('./evaluator-consumers').prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('completes clinical work while delivery prepares and start sweep recovers the early revision',async()=>{
@@ -51,6 +70,33 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
    f.prepare.resolve();service=await boot;for(let n=0;n<30&&!f.state().delivered;n++)await settle();assert(f.state().delivered>0,'START_SWEEP_MUST_RECOVER_EARLY_REVISION');
    const sent=f.state().delivered;await service.acquire(A);assert(f.state().delivered>sent,'LATER_REVISIONS_MUST_REACH_CURRENT_CONSUMERS');
   }finally{f.prepare.resolve();service=service||await boot.catch(()=>null);await service?.close();await f.window.close();}
+ });
+ it('reconciles a genuine pending hint during boot; delayed-scheduler control is red and restored source passes',async function(){
+  this.timeout(10000);
+  async function criterion(sourceTransform=text=>text,version='1'){
+  const f=fixture({pendingRace:true,sourceTransform}),boot=f.boot();boot.catch(()=>{});let service;
+  try{
+   await f.evaluating.promise;
+   for(let n=0;n<30&&!f.trace.includes('delivery-prepare');n++)await settle();
+   assert(f.trace.includes('delivery-prepare'));
+   await f.hint(version); // Genuine pending replay or a newer target; neither is completed.
+   f.finishCycle.resolve();
+   for(let n=0;n<60&&!f.completions.length;n++)await settle();
+   assert(f.completions.length);assert.equal(f.completions[0].work_completed[0],'1');
+   if(version==='1')assert.equal(f.completions[0].work_pending_at,null);
+   else {assert.equal(f.completions[0].work_observed[0],'2');assert.notEqual(f.completions[0].work_pending_at,null,'NEWER_DURABLE_TARGET_MUST_REMAIN_PENDING');}
+   f.prepare.resolve();service=await boot;
+   await new Promise(resolve=>setTimeout(resolve,1100));
+   assert.equal(f.state().clinical.code,null,'COMPLETED_STARTUP_HINT_MUST_NOT_LEAVE_STALE_RAM_PENDING');
+   assert.equal(f.state().clinical.ready,true,'COMPLETED_STARTUP_HINT_MUST_NOT_LEAVE_STALE_RAM_PENDING');
+   assert.equal(f.state().clinical.code,null);assert.equal(f.snapshot().work_pending_at,null);
+   const completed=f.state().clinical.cycles;await f.hint(version);await settle();assert.equal(f.state().clinical.cycles,completed,'COMPLETED_REPLAY_MUST_NOT_SCHEDULE_WORK');
+  }finally{f.finishCycle.resolve();f.prepare.resolve();service=service||await boot.catch(()=>null);await service?.close();await f.window.close();}
+  }
+  await assert.rejects(criterion(delayScheduler),/COMPLETED_STARTUP_HINT_MUST_NOT_LEAVE_STALE_RAM_PENDING/);
+  await criterion();
+  await criterion(delayScheduler,'2'); // Durable recovery still sees genuinely owed newer work.
+  await criterion(text=>text,'2');
  });
  it('closes the partial clinical runtime when delivery preparation refuses and never starts effects',async()=>{
   const f=fixture({pgstreamEnabled}),boot=f.boot();boot.catch(()=>{});
