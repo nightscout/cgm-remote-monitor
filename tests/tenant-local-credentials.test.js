@@ -331,6 +331,39 @@ describe('local data credential persistence and preparation protocols', function
     await assert.rejects(store.readVerification(A), error => error.code === 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' && !error.message.includes('sensitive'));
   });
 
+  it('reads verifiers on a borrowed request connection, keeping its own pool for other reads', async function () {
+    const file = require.resolve('../lib/secrets/legacy-postgres'), loaded = new Module(file, module);
+    loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file)); const original = loaded.require.bind(loaded);
+    const prepared = material.prepare(Buffer.from(ROOT), SUBJECTS), own = [], borrowed = [];
+    const rows = () => ({ rows: prepared.subjects.map(subject => ({ root_verifiers: prepared.rootVerifiers, root_version: 1, root_reference_id: 'root',
+      verifier_root_reference_id: 'root', subject_id: subject.subjectId, verifiers: subject.verifiers, credential_version: 1, token_prefix: 'named',
+      verifier_token_prefix: 'named', keys: [] })) });
+    const connection = { withTenant: async (_tenant, fn) => fn(), end: async () => {}, query: async sql => {
+      if (sql.includes('FROM pg_class')) return { rows: Array.from({ length: 3 }, () => ({ secured: true, owns: false, reads: true, writes: false })) };
+      own.push(sql); return rows();
+    } };
+    const request = { withTenant: async (tenant, fn) => { borrowed.push('tenant:' + tenant); return fn(); },
+      query: async input => { borrowed.push(input); return rows(); } };
+    loaded.require = name => name === '../storage/postgres-connection' ? async () => connection : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' } : original(name);
+    loaded._compile(fs.readFileSync(file, 'utf8'), file);
+    await assert.rejects(loaded.exports({ connectionString: 'synthetic', namespace: 'local_auth', verificationConnection: request }), /local verification connection/);
+    await assert.rejects(loaded.exports({ connectionString: 'synthetic', namespace: 'local_auth', localVerification: true, verificationConnection: {} }), /local verification connection/);
+    const store = await loaded.exports({ connectionString: 'synthetic', namespace: 'local_auth', localVerification: true, verificationConnection: request });
+    assert.equal(store.usesConnection(request), true); assert.equal(store.usesConnection(connection), false);
+    assert.equal((await store.readVerification(A)).rootVersion, 1);
+    assert.equal(borrowed[0], 'tenant:' + A);
+    assert.deepEqual(borrowed[1].values, [A]); assert.equal(borrowed[1].query_timeout, 5000); assert.match(borrowed[1].text, /WHERE c.tenant_id=\$1/);
+    assert.deepEqual(own, [], 'VERIFIER_READ_ON_REQUEST_CONNECTION');
+    await store.read(A); assert.equal(own.length, 1, 'METADATA_READ_ON_OWN_POOL');
+    request.query = async () => { throw Error('sensitive synthetic database detail'); };
+    await assert.rejects(store.readVerification(A), error => error.code === 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' && !error.message.includes('sensitive'));
+    const unshared = await loaded.exports({ connectionString: 'synthetic', namespace: 'local_auth', localVerification: true });
+    assert.equal(unshared.usesConnection(request), false);
+    const credentials = material.create({ read: store.readVerification, verifyToken: () => null, usesConnection: store.usesConnection });
+    assert.equal(credentials.usesConnection(request), true);
+    assert.equal(material.create({ read: store.readVerification, verifyToken: () => null }).usesConnection, undefined);
+  });
+
   it('reads the retained activation barrier in the same tenant-bound metadata statement and refuses absent authority', async function () {
     const file = require.resolve('../lib/secrets/legacy-postgres'), loaded = new Module(file, module);
     loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file)); const original = loaded.require.bind(loaded);

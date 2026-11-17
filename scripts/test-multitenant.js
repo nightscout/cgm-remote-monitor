@@ -74,6 +74,8 @@ const INVENTORY = [
     note: 'native single typed receipt metadata patches preserve clinical output and monotone control state; rollback and old-transfer RED control' },
   { file: 'tests/preview-entries-acquisition.integration.test.js', flags: { NS_REST_ACQUISITION_NATIVE: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'actual preview entries read/write, current-authority and restore refusal on owned pinned PostgreSQL; operation-window adapter is a refusal protocol' },
+  { file: 'tests/rest-fused-authority.integration.test.js', flags: { NS_REST_FUSED_AUTHORITY_NATIVE: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'one tenant transaction for current verifier and authority reads under the actual operation window; revocation, rotation, maintenance, suspension and generation refusal' },
   { file: 'tests/realtime-placement-owner.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
   { file: 'tests/realtime-placement-publication.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
