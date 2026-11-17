@@ -199,15 +199,9 @@ module.exports = function evaluatorPreviewRegistryLab () {
       assert.equal(Number(checkpoint.checkpoint), 0);
     }
   };
-  // This oracle reports atomically accepted clinical working rows; it does not
-  // assert that the current input is ready (raw lab.checkpoint exposes gaps). The materializer now
-  // persists them inside a native-coverage envelope. Coverage/recovery tests
-  // read lab.checkpoint directly to distinguish clinical and raw acceptance.
-  lab.previewCheckpoint = async tenant => {
-    const saved=await lab.checkpoint(lab.consumerName,tenant),state=saved.projection?.[0];
-    return state?.kind===require('../../lib/storage/clinical-stream-state').KIND
-      ? {...saved,projection:state.rows}:saved;
-  };
+  // Compact SQL stores native coverage and pending work, never clinical rows.
+  // Read this receipt honestly; clinical outcomes belong to completed output.
+  lab.previewCheckpoint = tenant => lab.checkpoint(lab.consumerName,tenant);
   // Independent storage observation, including after the actual role/window
   // refuses serving. Read the durable typed output rather than reconstruct RAM.
   lab.previewCompleted = async (tenant = lab.A) => {
