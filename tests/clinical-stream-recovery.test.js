@@ -47,6 +47,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
   if(text.includes('pg_advisory_xact_lock_shared'))return {rows:[{}]};
   const current=active||durable;
   if(text.startsWith('SELECT c.tenant_id'))return {rows:[{tenant:A,...jsonb(current.input),contract_digest:handle.snapshotDigest}]};
+  if(text.startsWith("SELECT projection->0->'output' AS output"))return {rows:[{output:structuredClone(current.output.projection[0].output)}]};
   if(text.startsWith('SELECT checkpoint,'))return {rows:[{...jsonb(current.input),contract_digest:handle.snapshotDigest}]};
   if(text.startsWith('SELECT contract_digest,work_version,')){
    if(serializationOnce){serializationOnce=false;throw Object.assign(new Error('SERIALIZATION_REFUSED'),{code:'40001'});}return {rows:[structuredClone(current.output)]};

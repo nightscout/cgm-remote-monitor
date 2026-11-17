@@ -65,6 +65,11 @@ describe('atomic native clinical and control SQL receipt',()=>{
   await sql.accept({...f.options,tenant:A,invalidate:true});assert.equal(f.durable.get(A).projection[0].floor,12);
   await assert.rejects(sql.accept({...f.options,tenant:A,invalidate:true,lockKey:undefined}),/RECOVERY_LOCK/);assert.equal(f.durable.get(A).projection[0].floor,12);
  });
+ it('accepts only the explicit fixed worker tenant without effects on a neighbor',async()=>{
+  const f=fixture(),before=structuredClone(f.durable.get(B));
+  const receipt=await sql.acceptTransaction({...f.options,admits:tenant=>tenant===A,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),observations:[{tenant:B,observed:{settings:'4'}}]});
+  assert.deepEqual(receipt.map(r=>r.tenant),[A]);assert.deepEqual(f.durable.get(B),before);assert.equal(f.cache.get(A).rows.length,1);
+ });
  it('does no SQL for empty filtered cohorts and rejects malformed partial input before pool acquisition',async()=>{
   const f=fixture();assert.deepEqual(await sql.acceptTransaction({...f.options,envelope:native.envelope([])}),[]);assert.equal(f.connected,0);
   const partial=native.envelope([native.row('a')]);partial.Transaction.pop();await assert.rejects(sql.acceptTransaction({...f.options,envelope:partial}),/BOUNDARY/);assert.equal(f.connected,0);
