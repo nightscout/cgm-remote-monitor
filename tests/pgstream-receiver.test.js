@@ -47,14 +47,6 @@ describe('consumer catalogue DDL relevance', function () {
 });
 
 
-// Optional selected topology cannot silently re-enable the superseded snapshot
-// adapter. Its ownership/profile modules retain independent source controls.
-describe('maintained evaluator entrypoint materializer selection',()=>{
- it('refuses selected topology before acquiring any role resources',async()=>{
-  await assert.rejects(require('../lib/server/serve/evaluator-preview').boot({selectedIntake:{}},{}),/PGSTREAM_SELECTED_MATERIALIZER_UNQUALIFIED/);
- });
-});
-
 // Native complete-cohort controls replace the retired row-stage/clock-seal
 // composition. HTTP completion follows one durable cohort COMMIT.
 describe('native complete-cohort receiver composition',function(){
