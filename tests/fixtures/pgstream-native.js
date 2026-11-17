@@ -126,9 +126,21 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
       !pgstream || pgstream.receiver?.url !== 'http://127.0.0.1:'+selected.receiverPort+'/' || pgstream.receiver.bindHost !== '127.0.0.1') fail('PGSTREAM_NATIVE_SETUP_REQUIRED');
   q(evaluatorRole); q(pgstream.streamRole); q(pgstream.slot);
   const ns=config.namespaces;
+  const policyResources=[{namespace:ns.checkpoint,relation:'tenant_consumer_checkpoint',name:'pgstream_evaluator_metadata'},
+    ...(realtimeRole?[
+      {namespace:ns.checkpoint,relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_output'},
+      {namespace:realtimeConfig?.namespaces?.checkpoint,relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_metadata'},
+      {namespace:realtimeConfig?.namespaces?.checkpoint,relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_delivery_update'}]:[])];
+  for(const policy of policyResources){q(policy.namespace);q(policy.relation);q(policy.name);}
+  const readPolicies=async()=> (await admin.query(`SELECT /* native-fixture-policy-resources */ n.nspname AS namespace,c.relname AS relation,p.polname AS name
+    FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+    JOIN jsonb_to_recordset($1::jsonb) AS requested(namespace text,relation text,name text)
+      ON requested.namespace=n.nspname AND requested.relation=c.relname AND requested.name=p.polname`,[JSON.stringify(policyResources)])).rows;
   if (!/^evaluator-[A-Za-z0-9_-]{1,100}$/.test(config.consumer)) fail('PGSTREAM_NATIVE_CONSUMER');
   const objects = (await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_exists,EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1) AS role_exists,EXISTS(SELECT 1 FROM pg_replication_slots WHERE slot_name=$2) AS slot_exists,current_setting('wal_level') AS wal_level", [pgstream.streamRole, pgstream.slot])).rows[0];
   if (!objects || objects.schema_exists || objects.role_exists || objects.slot_exists || objects.wal_level !== 'logical') fail('PGSTREAM_NATIVE_OWNED_EMPTY_DATABASE_REQUIRED');
+  if((await readPolicies()).length)fail('PGSTREAM_NATIVE_POLICY_ALREADY_EXISTS');
+  let ownedPolicies=[];
   let schemaOwned = false, roleOwned = false, closed = false, producer;
   const own = fs.mkdtempSync(path.join(directory, 'pgstream-')); fs.chmodSync(own, 0o700);
   async function close() {
@@ -139,6 +151,12 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     const slot = (await admin.query('SELECT active FROM pg_replication_slots WHERE slot_name=$1', [pgstream.slot])).rows[0];
     if (slot?.active) fail('PGSTREAM_NATIVE_CHILD_STILL_ACTIVE');
     if (slot) await admin.query('SELECT pg_drop_replication_slot($1)', [pgstream.slot]);
+    // Initial absence reserves only these declared canonical policy resources.
+    // Track successful drops so retry after partial cleanup stays exact.
+    for(const policy of [...ownedPolicies]){
+      await admin.query('DROP POLICY ' + q(policy.name) + ' ON ' + q(policy.namespace) + '.' + q(policy.relation));
+      ownedPolicies=ownedPolicies.filter(value=>value!==policy);
+    }
     if (schemaOwned) await admin.query('DROP SCHEMA pgstream CASCADE');
     if (roleOwned) { await admin.query('DROP OWNED BY ' + q(pgstream.streamRole)); await admin.query('DROP ROLE ' + q(pgstream.streamRole)); }
     // Wire/init files contain passwords. Retain private logs in the owned
@@ -159,6 +177,7 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     }finally{
       const owned=(await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_owned")).rows[0];
       schemaOwned=owned?.schema_owned===true;
+      ownedPolicies=await readPolicies();
     }
     const configFile = path.join(own, 'wire.yaml'); fs.writeFileSync(configFile, JSON.stringify(wire(config, streamURL.href, selected.subscriptionsPort, canonical)), { flag: 'wx', mode: 0o600 });
     binary(selected.binary, selected.sha256, selected.sha256);

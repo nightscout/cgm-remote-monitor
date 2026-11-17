@@ -73,3 +73,74 @@ describe('independently owned native producer fixture lifecycle (inert child por
     await assert.rejects(criterion(loaded.exports.createProducer),/NO_PRODUCER_BEFORE_RECEIVER_READY/);await criterion(fixture.createProducer);
   });
 });
+
+describe('native fixture exact policy resource custody (inert SQL)',function(){
+  let directory;
+  beforeEach(()=>{directory=fs.mkdtempSync(path.join(os.tmpdir(),'native-policy-custody-'));});
+  afterEach(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  function subject({realtime=false,partial=false,existing=false,change=source=>source}={}){
+    const Module=require('node:module'),filename=require.resolve('./fixtures/pgstream-native'),source=fs.readFileSync(filename,'utf8');
+    const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
+    // Isolate byte-pin/binding selection only; execute the actual setup/close
+    // orchestration with recorded canonical initialization and SQL resources.
+    const selection='const selected = capability(source), canonical=binding(source), pgstream = config.pgstream;';
+    assert.equal(source.split(selection).length,2);
+    loaded._compile(change(source.replace(selection,'const selected = source.selected, canonical=source.canonical, pgstream = config.pgstream;')),filename);
+    const file=path.join(directory,'synthetic-producer');fs.writeFileSync(file,'synthetic byte-pinned producer',{mode:0o700});
+    const selected={binary:file,sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),receiverPort:21461,subscriptionsPort:21462};
+    const config={consumer:'evaluator-synthetic',namespaces:{checkpoint:'synthetic_eval',clock:'synthetic_clock'},trustedWorker:{settings:'synthetic_settings',operatorPolicy:'synthetic_policy',activity:'synthetic_control'},pgstream:fixture.configuration({prefix:'synthetic_fixture',capability:selected})};
+    const resources=[{namespace:'synthetic_eval',relation:'tenant_consumer_checkpoint',name:'pgstream_evaluator_metadata'},...(realtime?[
+      {namespace:'synthetic_eval',relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_output'},
+      {namespace:'synthetic_rt',relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_metadata'},
+      {namespace:'synthetic_rt',relation:'tenant_consumer_checkpoint',name:'pgstream_realtime_delivery_update'}]:[])];
+    const key=row=>JSON.stringify(row),policies=new Map(),calls=[];let schema=false,role=false,slot=false;
+    const unrelated={namespace:'synthetic_eval',relation:'tenant_consumer_checkpoint',name:'peer_policy'};policies.set(key(unrelated),unrelated);
+    if(existing)policies.set(key(resources[0]),resources[0]);
+    const admin={async query(sql,values){
+      calls.push({sql,values});
+      if(sql.includes('AS schema_exists'))return{rows:[{schema_exists:schema,role_exists:role,slot_exists:slot,wal_level:'logical'}]};
+      if(sql.includes('native-fixture-policy-resources'))return{rows:JSON.parse(values[0]).filter(row=>policies.has(key(row)))};
+      if(sql.startsWith('CREATE ROLE ')){role=true;return{rows:[]};}
+      if(sql.includes('AS schema_owned'))return{rows:[{schema_owned:schema}]};
+      if(sql.startsWith('SELECT active FROM pg_replication_slots'))return{rows:slot?[{active:false}]:[]};
+      if(sql.startsWith('SELECT pg_drop_replication_slot')){slot=false;return{rows:[]};}
+      if(sql.startsWith('DROP POLICY ')){
+        const m=/^DROP POLICY "([^"]+)" ON "([^"]+)"\."([^"]+)"$/.exec(sql);assert(m,'EXACT_POLICY_DROP');
+        const resource={namespace:m[2],relation:m[3],name:m[1]};assert(policies.has(key(resource)),'DROP_ONLY_PRESENT_OWNED_POLICY');policies.delete(key(resource));return{rows:[]};
+      }
+      if(sql.startsWith('DROP SCHEMA pgstream'))schema=false;
+      if(sql.startsWith('DROP ROLE '))role=false;
+      return{rows:[]};
+    }};
+    const canonical={async init(){calls.push({init:true});schema=true;slot=true;for(const row of partial?resources.slice(0,1):resources)policies.set(key(row),row);if(partial)throw Error('SYNTHETIC_PARTIAL_INIT');},wire(){return{synthetic:true};}};
+    const setup=()=>loaded.exports.setup({admin,adminURI:'postgres://synthetic@127.0.0.1/synthetic',directory,config,evaluatorRole:'synthetic_evaluator',...(realtime?{realtimeRole:'synthetic_realtime',realtimeConfig:{namespaces:{checkpoint:'synthetic_rt'},consumer:'realtime-synthetic'}}:{}),source:{selected,canonical}});
+    return{setup,calls,resources,policies,key,unrelated,state:()=>({schema,role,slot})};
+  }
+  it('retires evaluator and realtime policies after slot shutdown and can initialize another cold source',async()=>{
+    for(const realtime of [false,true]){
+      const f=subject({realtime}),first=await f.setup();await first.close();
+      assert.deepEqual(f.state(),{schema:false,role:false,slot:false});
+      assert.deepEqual([...f.policies.values()],[f.unrelated],'PEER_POLICY_UNCHANGED');
+      const drops=f.calls.filter(row=>row.sql?.startsWith('DROP POLICY '));assert.equal(drops.length,realtime?4:1,'ALL_OWNED_POLICIES_RETIRED');
+      const slot=f.calls.findIndex(row=>row.sql?.startsWith('SELECT pg_drop_replication_slot')),policy=f.calls.findIndex(row=>row.sql?.startsWith('DROP POLICY ')),schema=f.calls.findIndex(row=>row.sql?.startsWith('DROP SCHEMA pgstream'));
+      assert(slot<policy&&policy<schema,'POLICY_CLEANUP_AFTER_SLOT_AND_BEFORE_SCHEMA');
+      const next=await f.setup();await next.close();assert.equal(f.calls.filter(row=>row.init).length,2);
+    }
+  });
+  it('refuses an unexpected initial canonical policy before mutation and preserves its owner',async()=>{
+    const f=subject({existing:true});await assert.rejects(f.setup(),/POLICY_ALREADY_EXISTS/);
+    assert.equal(f.calls.filter(row=>row.init).length,0);assert(!f.calls.some(row=>row.sql?.startsWith('CREATE ROLE ')||row.sql?.startsWith('DROP ')));
+    assert(f.policies.has(f.key(f.resources[0])));assert(f.policies.has(f.key(f.unrelated)));
+  });
+  it('cleans only policies created by a partial owned initialization',async()=>{
+    const f=subject({realtime:true,partial:true});await assert.rejects(f.setup(),/SYNTHETIC_PARTIAL_INIT/);
+    assert.deepEqual(f.state(),{schema:false,role:false,slot:false});assert.deepEqual([...f.policies.values()],[f.unrelated]);
+    assert.equal(f.calls.filter(row=>row.sql?.startsWith('DROP POLICY ')).length,1,'ONLY_CREATED_POLICY_DROPPED');
+  });
+  it('control: omitted owned policy retirement leaves the next source unsafe; restoration retires it',async()=>{
+    const needle="await admin.query('DROP POLICY ' + q(policy.name) + ' ON ' + q(policy.namespace) + '.' + q(policy.relation));";
+    async function criterion(change){const f=subject({realtime:true,change}),value=await f.setup();await value.close();assert.deepEqual([...f.policies.values()],[f.unrelated],'OWNED_POLICY_RESOURCE_LEAK');}
+    await assert.rejects(criterion(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/OWNED_POLICY_RESOURCE_LEAK/);
+    await criterion(source=>source);
+  });
+});
