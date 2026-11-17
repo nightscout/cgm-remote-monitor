@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-assigned-worker.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'independent fixed-roster worker processes, native held-backend replacement and stale completion refusal' },
   { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'tenant-bound read-only native receipt authority, maintenance lock through COMMIT, active/suspended admission and ownership refusal' },
   { file: 'tests/postgres-imported-snapshot.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

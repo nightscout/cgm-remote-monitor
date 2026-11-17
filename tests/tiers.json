@@ -660,7 +660,8 @@
         "tests/evaluator-effect-idempotency.integration.test.js",
         "tests/preview-entries-acquisition.integration.test.js",
         "tests/rest-fused-authority.integration.test.js",
-        "tests/realtime-completed-readiness.integration.test.js"
+        "tests/realtime-completed-readiness.integration.test.js",
+        "tests/pgstream-assigned-worker.integration.test.js"
       ],
       "env": true,
       "require": [
