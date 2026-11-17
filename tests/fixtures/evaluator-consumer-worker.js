@@ -4,6 +4,13 @@
 let running, context, startup;
 const encode = value => JSON.parse(JSON.stringify(value));
 const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
+// Report rejected native transaction receipts through inherited fixture IPC.
+// Only error metadata crosses this diagnostic seam; no clinical payload does.
+const receiverPath=require.resolve('../../lib/pgstream/receiver'),receiver=require(receiverPath);
+require.cache[receiverPath].exports={...receiver,create(options){
+  const receive=receiver.create(options);
+  return async event=>{try{return await receive(event);}catch(error){if(process.connected)process.send({nativeFailure:failure(error)});throw error;}};
+}};
 const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
   : running.operationCohort.window.run(tenant, () => context.last(tenant));
 process.on('message', async request => {

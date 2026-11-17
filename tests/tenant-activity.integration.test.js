@@ -20,42 +20,46 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
   'tenant activity: durable pause/suspend on actual PostgreSQL and the actual evaluator role', function () {
     this.timeout(90000);
     const lab = createLab();
-    const namespace = 'activity_' + randomUUID().replace(/-/g, '').slice(0, 12);
-    const provisioningNamespace = namespace + '_provision';
-    const roles = { reader: namespace + '_reader', owner: namespace + '_owner', operator: namespace + '_operator' };
+    const migrationNamespace = 'activity_' + randomUUID().replace(/-/g, '').slice(0, 12);
+    const provisioningNamespace = migrationNamespace + '_provision';
+    const roles = { reader: migrationNamespace + '_reader', owner: migrationNamespace + '_owner', operator: migrationNamespace + '_operator' };
+    let namespace;
     const urls = {}, stores = {}; let prior, initialVersions, provisioned = false;
     const operatorActor = tenant => ({ tenant, principal: 'synthetic-operator', consumer: 'operator-cli' });
     const ownerActor = tenant => ({ tenant, principal: 'owner', consumer: 'tenant-admin' });
     const catalogue = require('../lib/tenant-lifecycle/postgres-candidate.json');
-    const lockKeys = () => ({ [lab.A]: '9101', [lab.B]: '9102' });
+    const lockKeys = () => Object.fromEntries([lab.A,lab.B].map(tenant=>[tenant,require('../lib/tenant-registry/rules').lockKey(tenant)]));
     let backfill, ownerUrl;
-    const ceremonyRole = namespace + '_ceremony', schemaOwner = namespace + '_schema_owner';
+    const ceremonyRole = migrationNamespace + '_ceremony', schemaOwner = migrationNamespace + '_schema_owner';
     before(async function () {
       prior = scope.getTenancyMode(); scope.setTenancyMode('multi');
       await lab.open();
+      // Runtime activity and native receipt/restore authority use the actual
+      // provisioned control namespace. Migration primitives stay isolated.
+      namespace=lab.registryNamespaces.control;
       const admin = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       // Migrations run as a NOSUPERUSER schema owner, as in a deployment: the
       // backfill must see every tenant despite FORCE ROW LEVEL SECURITY.
       const ownerPassword = randomBytes(24).toString('hex');
       await lab.admin.query(`CREATE ROLE "${schemaOwner}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${ownerPassword}'`);
       ownerUrl = new URL(admin); ownerUrl.username = schemaOwner; ownerUrl.password = ownerPassword;
-      await lab.admin.query(`CREATE SCHEMA "${namespace}" AUTHORIZATION "${schemaOwner}"`);
+      await lab.admin.query(`CREATE SCHEMA "${migrationNamespace}" AUTHORIZATION "${schemaOwner}"`);
       // The runner issues CREATE SCHEMA IF NOT EXISTS; held only while migrating.
       const database = (await lab.admin.query('SELECT current_database() AS name')).rows[0].name;
       await lab.admin.query(`GRANT CREATE ON DATABASE "${database}" TO "${schemaOwner}"`);
-      await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace,
+      await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace: migrationNamespace,
         catalogue: { ...catalogue, migrations: catalogue.migrations.filter(m => m.name < '0007_tenant_activity') } });
       for (const [tenant, key] of Object.entries(lockKeys())) {
-        await lab.admin.query(`INSERT INTO "${namespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
+        await lab.admin.query(`INSERT INTO "${migrationNamespace}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)`, [tenant, key]);
       }
-      await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace, catalogue });
+      await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace: migrationNamespace, catalogue });
       // The C/D transaction primitive is independent of the A/B evaluator
       // roster. Its rows must not enter that roster's maintained WAL stream.
       await run('up', { direct: true, connectionString: ownerUrl.toString(), namespace: provisioningNamespace, catalogue });
       await lab.admin.query(`REVOKE CREATE ON DATABASE "${database}" FROM "${schemaOwner}"`);
-      backfill = { rows: (await lab.admin.query(`SELECT tenant_id,version::text,paused,suspended,deletion_request_id FROM "${namespace}".tenant_activity ORDER BY tenant_id`)).rows,
-        audit: (await lab.admin.query(`SELECT tenant_id,verb,authority,principal,consumer FROM "${namespace}".tenant_activity_audit ORDER BY tenant_id`)).rows,
-        forced: (await lab.admin.query(`SELECT relforcerowsecurity FROM pg_class WHERE oid=to_regclass($1)`, ['"' + namespace + '".tenant_lifecycle_windows'])).rows[0].relforcerowsecurity };
+      backfill = { rows: (await lab.admin.query(`SELECT tenant_id,version::text,paused,suspended,deletion_request_id FROM "${migrationNamespace}".tenant_activity ORDER BY tenant_id`)).rows,
+        audit: (await lab.admin.query(`SELECT tenant_id,verb,authority,principal,consumer FROM "${migrationNamespace}".tenant_activity_audit ORDER BY tenant_id`)).rows,
+        forced: (await lab.admin.query(`SELECT relforcerowsecurity FROM pg_class WHERE oid=to_regclass($1)`, ['"' + migrationNamespace + '".tenant_lifecycle_windows'])).rows[0].relforcerowsecurity };
       for (const [kind, role] of [...Object.entries(roles), ['ceremony', ceremonyRole]]) {
         const password = randomBytes(24).toString('hex');
         await lab.admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
@@ -65,8 +69,6 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.admin.query(`GRANT SELECT, INSERT, UPDATE ON "${namespace}".tenant_lifecycle_requests TO "${ceremonyRole}"`);
       await lab.admin.query(`GRANT SELECT, INSERT, UPDATE ON "${namespace}".tenant_lifecycle_ceremony TO "${ceremonyRole}"`);
       for (const kind of Object.keys(roles)) stores[kind] = await activityStore.create({ connectionString: urls[kind], namespace, capability: kind });
-      lab.extraEnv.NS_ACTIVITY_READER = urls.reader;
-      await lab.useActivity(namespace, 'NS_ACTIVITY_READER', urls.reader);
     });
     beforeEach(async function () {
       await lab.reset(); provisioned = false;
@@ -84,7 +86,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.stopConsumers().catch(error => errors.push(error));
       for (const store of Object.values(stores)) await store.close().catch(error => errors.push(error));
       if (lab.admin) {
-        for (const owned of [namespace, provisioningNamespace]) await lab.admin.query('DROP SCHEMA IF EXISTS "' + owned + '" CASCADE').catch(error => errors.push(error));
+        for (const owned of [migrationNamespace, provisioningNamespace]) await lab.admin.query('DROP SCHEMA IF EXISTS "' + owned + '" CASCADE').catch(error => errors.push(error));
         for (const role of [...Object.values(roles), ceremonyRole, schemaOwner]) {
           await lab.admin.query(`DROP OWNED BY "${role}"`).catch(error => errors.push(error));
           await lab.admin.query(`DROP ROLE IF EXISTS "${role}"`).catch(error => errors.push(error));
@@ -138,10 +140,19 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       let health = await worker.call('health');
       lab.traceConsumer('activity-paused-before-verdict', { checkpointA: await lab.previewCheckpoint(lab.A), checkpointB: await lab.previewCheckpoint(lab.B),
         effectsA: effects(lab.A).length, a: tenantHealth(health, lab.A), b: tenantHealth(health, lab.B), consumerA: consumerHealth(health, lab.A) });
-      // Paused uploads may be durably accepted; they cannot earn clinical
-      // coverage or publish output. Envelope initialization is not acquisition.
-      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,startCheckpoint.checkpoint,'ACTIVITY_PAUSED_NO_ACQUISITION sealed floor unchanged');
+      // Paused uploads may advance native input receipt; they cannot earn
+      // clinical coverage, run a clinical cycle or publish output.
+      assert.equal(tenantHealth(health,lab.A).cycles,0,'ACTIVITY_PAUSED_NO_CLINICAL_ACQUISITION');
       await noCompletion(completedBefore,'ACTIVITY_PAUSED_NO_COMPLETION');
+      const accepted=await lab.previewCheckpoint(lab.A),input=accepted.projection?.[0];
+      assert(input,'ACTIVITY_PAUSED_UPLOAD_NATIVE_RECEIPT');
+      assert.equal(input.kind,'clinical-stream-v2');assert.equal(input.ready,false);assert.equal(input.rows,undefined);
+      assert(accepted.projection[1].events.some(event=>event.domain==='entries'&&event.value.doc?.sgv===48),'ACTIVITY_PAUSED_UPLOAD_RAW_RECEIPT');
+      const pending=(await lab.admin.query('SELECT work_observed,work_completed,work_pending_at FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
+      assert.equal(String(pending.work_observed[5]),String(input.floor));
+      assert(BigInt(pending.work_observed[5])>BigInt(pending.work_completed[5]??'0'),'ACTIVITY_PAUSED_UPLOAD_REMAINS_PENDING');
+      assert.notEqual(pending.work_pending_at,null);
+
       assert.equal(effects(lab.A).length, 0, 'ACTIVITY_PAUSED_NO_DELIVERY'); assert.deepEqual(await lab.requests(lab.A), []);
       assert.deepEqual([tenantHealth(health, lab.A).code, tenantHealth(health, lab.A).activity, tenantHealth(health, lab.A).outputRevision],
         ['EVALUATOR_TENANT_PAUSED', 'paused', null]);
@@ -149,6 +160,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.equal(await worker.call('last', lab.A), null);
       assert.ok(tenantHealth(health, lab.B).cycles > bBefore, 'ACTIVITY_B_UNAFFECTED committed B work completed');
       assert.notDeepEqual(await lab.previewCheckpoint(lab.B), bCheckpoint, 'ACTIVITY_B_UNAFFECTED committed B input acquired');
+      assert((await worker.call('last',lab.B)).result.properties.bgnow.sgvs.some(row=>row.mgdl===49),'ACTIVITY_B_CURRENT_READING_WHILE_A_PAUSED');
       assert.notDeepEqual(await lab.previewCheckpoint(lab.B), startCheckpoint);
       await lab.stopConsumer(worker);
       // Phase 2: default (manual) timers; B delivery, upload, unpause.
@@ -190,13 +202,13 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await stores.operator.transition(operatorActor(lab.A), 'suspend');
       await assert.rejects(stores.owner.transition(ownerActor(lab.A), 'unpause'), { code: 'ACTIVITY_SUSPENDED' });
       await lab.provisionPreview(); provisioned = true;
-      const start = await lab.previewCheckpoint(lab.A), completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
+      const completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
       let worker = await boot();
       await reading(47, lab.A); // suspended: stored here by the storage port; the API refusal is not wired in this lane
       await worker.call('acquire', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       let health = await worker.call('health');
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_SUSPENDED');
-      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,start.checkpoint,'ACTIVITY_SUSPENDED_NO_SEALED_ADVANCE');
+      assert.equal(tenantHealth(health,lab.A).cycles,0,'ACTIVITY_SUSPENDED_NO_CLINICAL_ACQUISITION');
       await noCompletion(completedBefore,'ACTIVITY_SUSPENDED_NO_COMPLETION');
       assert.equal(effects(lab.A).length, 0); assert.ok(effects(lab.B).length >= 1);
       // Operator moves A from suspended to paused (owner pause kept), then restart.
@@ -210,7 +222,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       health = await worker.call('health');
       lab.traceConsumer('activity-restart-before-verdict', { a: tenantHealth(health, lab.A), checkpointA: await lab.previewCheckpoint(lab.A) });
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_PAUSED', 'ACTIVITY_RESTART_PRESERVES');
-      assert.equal((await lab.previewCheckpoint(lab.A)).checkpoint,start.checkpoint,'ACTIVITY_RESTART_NO_SEALED_ADVANCE');
+      assert.equal(tenantHealth(health,lab.A).cycles,0,'ACTIVITY_RESTART_NO_CLINICAL_ACQUISITION');
       await noCompletion(completedBefore,'ACTIVITY_RESTART_NO_COMPLETION');
       assert.equal(effects(lab.A).length, 0);
       await lab.stopConsumer(worker);

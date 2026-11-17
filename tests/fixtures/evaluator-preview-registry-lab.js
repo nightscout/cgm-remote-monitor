@@ -132,15 +132,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
         config: selected, evaluatorRole: lab.previewRole });
       producerIdentity = identity;
     };
-    lab.useActivity = async (namespace, reference, connection) => {
-      const old = lab.document.trustedWorker.activity;
-      assert(/^[a-z][a-z0-9_]{0,62}$/.test(namespace), 'fixture activity namespace required');
-      if (old !== namespace) await lab.admin.query('REVOKE SELECT ON "' + old + '".tenant_activity FROM "' + lab.previewRole + '"');
-      lab.document.activity = { namespace, connectionEnv: reference };
-      lab.document.trustedWorker.activity = namespace;
-      for (const sql of require('../../lib/trusted-worker/postgres').grants({ namespaces: lab.document.trustedWorker, roles: [lab.previewRole] })) await lab.admin.query(sql);
-      lab.extraEnvironment = { ...(lab.extraEnvironment || {}), [reference]: connection };
-    };
     lab.setSettings = async (settings, tenant) => {
       settings = require('../../lib/tenant-settings/catalogue').normalize(settings);
       const ids = tenant === undefined ? [lab.A, lab.B] : [tenant];

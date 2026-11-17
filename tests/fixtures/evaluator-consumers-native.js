@@ -87,7 +87,9 @@ module.exports = function consumersLab () {
   lab.configureConsumers = (change = () => {}) => {
     const document = structuredClone(lab.document); change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
-    parser.parse(document, { ...lab.environment({ file }), ...source, ...lab.extraEnv });
+    // Recovery credentials exist only after prepareProduct creates the owned
+    // stream role. Validate shape now; the worker validates all live identities.
+    parser.parseMetadata(document);
     configuredFile = file; return { document, file };
   };
   lab.writerConnection = () => writer;
@@ -141,6 +143,7 @@ module.exports = function consumersLab () {
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });
     } };
     child.on('message', message => {
+      if(message.nativeFailure){lab.traceConsumer('native-receipt-refused',message.nativeFailure);return;}
       if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; if (message.bootError) lab.traceConsumer('role-boot-refusal', { ...message, pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) }); clearTimeout(startup); resolve({ ...worker, startup: message }); }
       else if (pending.has(message.id)) { const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
         if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value); }

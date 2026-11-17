@@ -27,6 +27,39 @@ function fixture({holdCommit=false,loseReply=false}={}){
  return {options,calls,durable,cache,get connected(){return connected;},commit:()=>commit()};
 }
 describe('atomic native clinical and control SQL receipt',()=>{
+ it('accepts a fresh inactive tenant before clinical bootstrap and keeps its raw work durably pending',async()=>{
+  const f=fixture(),initialDigest='b'.repeat(64),row=f.durable.get(A);
+  Object.assign(row,{projection:null,checkpoint:0,contract_digest:initialDigest});f.cache.delete(A);
+  const receipt=await sql.acceptTransaction({...f.options,initialDigest});
+  const saved=f.durable.get(A),input=saved.projection[0];
+  assert.equal(input.ready,false);assert.equal(input.rows,undefined);assert.equal(input.floor,1);
+  assert.equal(input.stream.snapshot_position,'0/0');assert.equal(input.stream.accepted_position,'0/30');
+  assert.equal(saved.contract_digest,digest);assert.equal(saved.work_observed[5],'1');assert.equal(saved.work_completed[5]??null,null);
+  assert.notEqual(saved.work_pending_at,null);assert.equal(saved.projection[1].head,1);assert.equal(receipt[0].rawDeliveryPending,true);
+  assert.notEqual(f.cache.get(A)?.ready,true,'COLD_RECEIPT_MUST_NOT_CREATE_READY_CLINICAL_RAM');
+  assert(f.calls.every(c=>!c.text.includes('.entries')),'COLD_RECEIPT_MUST_NOT_ACQUIRE_SOURCE');
+ });
+ it('replays an uncertain fresh receipt without duplicating raw delivery or its pending token',async()=>{
+  const f=fixture({loseReply:true}),initialDigest='b'.repeat(64);
+  Object.assign(f.durable.get(A),{projection:null,checkpoint:0,contract_digest:initialDigest});f.cache.delete(A);
+  await assert.rejects(sql.acceptTransaction({...f.options,initialDigest}),/LOST_COMMIT_REPLY/);
+  const committed=structuredClone(f.durable),offset=f.calls.length;
+  await sql.acceptTransaction({...f.options,initialDigest});assert.deepEqual(f.durable,committed);
+  assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.durable.get(A).work_observed[5],'1');
+  assert.equal(f.calls.slice(offset).filter(call=>call.text.startsWith('UPDATE ')||call.text.startsWith('WITH input')).length,0,'FRESH_REPLAY_MUST_NOT_REWRITE');
+ });
+ it('refuses foreign or nonempty initial contracts and rolls back a fresh multi-tenant receipt on a failed fence',async()=>{
+  const initialDigest='b'.repeat(64);
+  for(const patch of [{projection:null,checkpoint:0,contract_digest:'c'.repeat(64)},
+    {projection:[],checkpoint:0,contract_digest:initialDigest},{projection:null,checkpoint:1,contract_digest:initialDigest}]){
+   const f=fixture();Object.assign(f.durable.get(A),patch);f.cache.delete(A);const before=structuredClone(f.durable);
+   await assert.rejects(sql.acceptTransaction({...f.options,initialDigest}),/CLINICAL_STREAM_CONTRACT/);assert.deepEqual(f.durable,before);
+  }
+  const f=fixture();for(const tenant of [A,B]){Object.assign(f.durable.get(tenant),{projection:null,checkpoint:0,contract_digest:initialDigest});f.cache.delete(tenant);}
+  const before=structuredClone(f.durable);let fences=0;
+  await assert.rejects(sql.acceptTransaction({...f.options,initialDigest,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),assertFence:async()=>{if(++fences===4)throw new Error('FRESH_OWNER_CHANGED');return '1';}}),/FRESH_OWNER_CHANGED/);
+  assert.deepEqual(f.durable,before,'FRESH_RECEIPT_MUST_ROLL_BACK_INPUT_RAW_AND_PENDING');
+ });
  it('holds transport ACK until complete SQL COMMIT and does no source/window acquisition',async()=>{
   const f=fixture({holdCommit:true});let ack=false;const pending=sql.acceptTransaction(f.options).then(()=>{ack=true;});
   await new Promise(resolve=>setImmediate(resolve));assert.equal(ack,false);assert.equal(f.durable.get(A).projection[0].rows.length,0);
