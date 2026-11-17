@@ -12,6 +12,10 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ### Fixed
 
+- **Calibrations report:** Match raw sensor signals consistently with either
+  date order, excluding derived readings and missing or stale signals. Explain
+  automatic chart selection, label meter values and missing raw data, and use
+  colour swatches with a responsive table and chart layout.
 - **Day to Day OpenAPS markers:** Keep the connected glucose line's hover
   targets invisible when OpenAPS is selected. They previously appeared as
   overlapping black rings that disappeared as the pointer moved over them.

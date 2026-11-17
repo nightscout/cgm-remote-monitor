@@ -152,6 +152,7 @@
         "tests/pentagon-report.test.js",
         "tests/boluscalc.quickpick-rebuild.test.js",
         "tests/boluscalc.quickpick.test.js",
+        "tests/calibrations-report.test.js",
         "tests/client.alarm-no-reading.test.js",
         "tests/client.alarm-snooze.test.js",
         "tests/client.renderer.tooltip-units.test.js",

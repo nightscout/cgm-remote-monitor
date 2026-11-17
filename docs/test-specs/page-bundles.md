@@ -83,6 +83,14 @@ hashes and the sole added report source. The reports allowance moves from
 artifact is byte-identical; other entry limits and the 426,000-byte combined
 limit remain unchanged. The measured combined size is 412,659 bytes.
 
+The Calibrations matching and presentation follow-up adds a further 468 reports
+gzip bytes (71,211 to 71,679), using the same runtime and dependencies. Its
+[measurement](../audits/calibrations-report-bundle.json) records artifact and
+source hashes. The reports allowance becomes 72,019 bytes, preserving the same
+340-byte headroom. Other JavaScript artifacts and budgets remain unchanged;
+the combined size is 413,127 bytes against the existing 426,000-byte limit.
+The responsive layout styles are served as static CSS.
+
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. The final head subsequently passed both Firefox jobs; no failures were waived.
 

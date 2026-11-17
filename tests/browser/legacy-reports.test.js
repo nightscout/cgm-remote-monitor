@@ -302,7 +302,7 @@ describe('legacy reports in a real browser', function () {
       const hourly = await page.locator('#hourlystats-report td').allTextContents();
       assert.ok(hourly.includes('16 (100%)'));
       assert.equal(await page.locator('#success-grid').count(), 1);
-      assert.ok((await page.locator('#calibrations-placeholder').textContent()).includes('CAL:  Scale: 1.10 Intercept: 31102 Slope: 776.91'));
+      assert.ok((await page.locator('#calibrations-placeholder').textContent()).includes('Calibration: Scale: 1.10 Intercept: 31102 Slope: 776.91'));
 
     });
   });
@@ -408,6 +408,86 @@ describe('legacy reports in a real browser', function () {
         await page.reload();
         assert.deepEqual(await page.evaluate(() => [localStorage.getItem('reportChartStyle_glucosedistribution'),
           localStorage.getItem('reportChartStyle_dailystats')]), ['pie', 'bar']);
+      });
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('explains Calibrations, matches either date order and fits narrow screens in ' + theme, async function () {
+      await withReports(async page => {
+        await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+        await page.locator('#calibrations').click();
+        await page.evaluate(theme => {
+          const client = window.Nightscout.client;
+          client.settings.theme = theme;
+          document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+          document.body.classList.add('report-page');
+          const start = Date.parse('2015-08-08T10:00:00Z');
+          const meter = (minutes, y) => ({mills: start + minutes * 60000, y, device: 'synthetic'});
+          const sensor = (minutes, filtered, type = 'sgv') => ({mills: start + minutes * 60000, filtered, type});
+          const data = {
+            '2015-08-08': {sgv: [sensor(3, 60000), sensor(0, 58000), sensor(0, 99999, 'rawbg')],
+              mbg: [meter(1, 108), meter(4, 110)], cal: [{mills: start + 60001, scale: 1, intercept: 0, slope: 1000}],
+              treatments: [{mills: start + 120000, eventType: 'Sensor Start'}]},
+            '2015-08-09': {sgv: [sensor(1443, 62000), sensor(1440, 59000)],
+              mbg: [meter(1441, 112), meter(1444, 114), meter(1455, 116)],
+              cal: [{mills: start + 1441 * 60000 + 1, scale: 1, intercept: 0, slope: 1000}], treatments: []}
+          };
+          const plugin = window.Nightscout.report_plugins('calibrations');
+          document.getElementById('calibrations-placeholder').innerHTML = plugin.html(client);
+          window.renderCalibrationFixture = newestFirst => plugin.report(data,
+            newestFirst ? ['2015-08-09', '2015-08-08'] : ['2015-08-08', '2015-08-09']);
+          window.calibrationDataUnchanged = () => JSON.stringify(data) === original;
+          const original = JSON.stringify(data);
+          window.renderCalibrationFixture(true);
+        }, theme);
+        const requestCount = requests.length;
+        const expectedRaw = ['58000', '60000', '59000', '62000', 'Not available'];
+        const raw = () => page.locator('.calibrations-mbg td:last-child').allTextContents();
+        assert.deepEqual(await raw(), expectedRaw);
+        assert.equal(await page.locator('.calibrations-checkbox:checked').count(), 3);
+        assert.equal(await page.locator('.calibrations-point').count(), 2);
+        assert.equal(await page.locator('.calibrations-curve').count(), 1);
+        assert.ok((await page.locator('.calibrations-help').allTextContents()).join(' ').includes('selected automatically'));
+        assert.ok((await page.locator('.calibrations-help').allTextContents()).join(' ').includes('only change this display'));
+        assert.deepEqual(await page.locator('.calibrations-table th').allTextContents(),
+          ['Show in chart', 'Date / time', 'Meter glucose (mg/dL)', 'Raw signal']);
+        assert.ok((await page.locator('.calibrations-event').textContent()).includes('Sensor Start'));
+        const checks = page.locator('.calibrations-checkbox');
+        for (let i = 0; i < 5; i++) await checks.nth(i).uncheck();
+        assert.equal(await page.locator('.calibrations-point, .calibrations-curve').count(), 0);
+        assert.match(await page.locator('#calibrations-status').textContent(), /Select a meter reading/);
+        await checks.first().focus();
+        await page.keyboard.press('Space');
+        assert.equal(await page.locator('.calibrations-point').count(), 1);
+        assert.equal(await page.locator('.calibrations-curve').count(), 1);
+        await checks.first().uncheck();
+        await checks.last().check();
+        assert.match(await page.locator('#calibrations-status').textContent(), /No matching raw sensor data/);
+        await page.evaluate(() => window.renderCalibrationFixture(false));
+        assert.deepEqual(await raw(), expectedRaw);
+        assert.equal(await page.evaluate(() => window.calibrationDataUnchanged()), true);
+        assert.equal(requests.length, requestCount, 'selection changes only the display');
+        if (process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS) {
+          await page.locator('#calibrations-placeholder').screenshot({path: process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS + '/' + theme + '-desktop.png'});
+        }
+        for (const width of [375, 320]) {
+          await page.setViewportSize({width, height: 812});
+          const layout = await page.locator('.calibrations-layout').evaluate(node => {
+            const list = node.querySelector('#calibrations-list').getBoundingClientRect();
+            const chart = node.querySelector('#calibrations-chart-panel').getBoundingClientRect();
+            return {width: node.clientWidth, scroll: node.scrollWidth, listBottom: list.bottom, chartTop: chart.top};
+          });
+          assert.ok(layout.chartTop >= layout.listBottom, JSON.stringify(layout));
+          assert.ok(layout.scroll <= layout.width + 1, JSON.stringify(layout));
+          assert.equal(await checks.first().isVisible(), true);
+        }
+        if (process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS) {
+          await page.locator('#calibrations-placeholder').screenshot({path: process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS + '/' + theme + '-phone.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#calibrations-chart svg').isVisible(), true);
+        assert.equal(await page.locator('#calibrations-list').evaluate(node => getComputedStyle(node).maxHeight), 'none');
       });
     });
   }

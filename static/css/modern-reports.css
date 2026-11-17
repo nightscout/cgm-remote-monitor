@@ -79,7 +79,6 @@
 .modern-ui .report-page #treatments-placeholder :is(tr[style*="background"], th) { background: #fff !important; }
 .modern-ui .report-page #treatments-placeholder td[style*="background"] { background: #fff !important; }
 .modern-ui .report-page #treatments-placeholder table { min-width: 1050px; }
-.modern-ui .report-page #calibrations-list { min-width: 250px; }
 .modern-ui .report-page .tooltip { background: #fff; color: #243246; border-color: #b8c7d9; }
 /* Distinguish report context, headline measures and chart sections. */
 .modern-ui .report-page .agp-header { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #dce4ee; }
