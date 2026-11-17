@@ -52,6 +52,15 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     finally { await admin.query(`REVOKE UPDATE(checkpoint,projection,contract_digest) ON ${table} FROM "${role}"`); }
     await readiness.screen(reader, config);
   });
+  it('accepts membership of pg_use_reserved_connections only and still refuses any other predefined role', async function () {
+    await admin.query(`GRANT pg_use_reserved_connections TO "${role}"`);
+    try { await readiness.screen(reader, config); }
+    finally { await admin.query(`REVOKE pg_use_reserved_connections FROM "${role}"`); }
+    await admin.query(`GRANT pg_signal_backend TO "${role}"`);
+    try { await assert.rejects(readiness.screen(reader, config), /unsafe evaluator identity/); }
+    finally { await admin.query(`REVOKE pg_signal_backend FROM "${role}"`); }
+    await readiness.screen(reader, config);
+  });
   it('requires SELECT of the completed evaluator source without granting that source UPDATE', async function () {
     await admin.query(`REVOKE SELECT ON "${source}".tenant_consumer_checkpoint FROM "${role}"`);
     try { await assert.rejects(readiness.screen(reader, config), /unsafe evaluator table privileges/); }
