@@ -8,7 +8,6 @@
 // covers: lib/tenant-lifecycle/restore-resume.js
 const assert = require('node:assert/strict'), fs = require('node:fs'), http = require('node:http');
 const { randomUUID } = require('node:crypto');
-const Module = require('node:module');
 const { Pool } = require('pg');
 const { optInSuite } = require('./support/opt-in');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
@@ -19,7 +18,7 @@ const entry = identifier => ({ identifier, type: 'sgv', date: Date.now(), utcOff
 const DIGEST = 'e'.repeat(64);
 
 optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME_DOCKER_TEST=1')(
-  'restore resume, pre-check and operation clearance on native PostgreSQL with actual API processes', function () {
+  'restore, resume and legacy marker inspection on native PostgreSQL with actual API processes', function () {
     this.timeout(180000);
     const f = createFixture(), [A, B] = f.base.tenants, pools = [], written = [];
     let a, b, observer, sequence = 0;
@@ -169,116 +168,37 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert.equal((await state()).window.phase, 'active');
     });
 
-    // What the actual API process answers for its own unfinished operations.
-    async function reported (id) {
-      const client = require('../lib/server/internal-api/clients').lifecycleParticipant(f.participants.find(peer => peer.id === id).endpoint);
-      const status = await client.getStatus({ request: randomUUID() });
-      return (await client.getOperations({ request: randomUUID(), tenant: A, incarnation: status.incarnation, identity: status.identity })).operations;
-    }
-    it('pre-check leaves A open; participation is cleared only after its owner and all real bodies are gone', async function () {
-      // Warm markers belong to processes, including idle processes. Holding a
-      // response reuses that process's marker instead of allocating a new row.
-      for (const id of ['api-1', 'api-2']) assert.equal(await aServes(id), 200);
-      const owned = await reported('api-1'), other = await reported('api-2');
-      assert.equal(owned.length, 1); assert.equal(other.length, 1);
-      const first = held('api-1', 'resume-held-1'); await first.ready();
-      const marker = (await state()).unfinished.filter(row => owned.includes(row.operation_id));
-      assert.equal(marker.length, 1);
-      assert.deepEqual(await reported('api-1'), owned, 'PARTICIPANT_REPORTS_RUNNING actual held responses retain the original participation');
-      assert.deepEqual(await reported('api-2'), other, 'idle participation is durable until an explicit drain');
-      const present = await operator(({ resume }) => resume.clearOperations(A));
-      assert.deepEqual(present.cleared, []);
-      assert.deepEqual(present.retained, [...owned, ...other].sort().map(operation => ({ operation, reason: 'OWNER_BACKEND_PRESENT' })));
-      assert.deepEqual((await state()).cleared, []);
-      // Ending the owner cannot make an uncertain participation disappear.
-      await admin(client => client.query('SELECT pg_terminate_backend($1)', [marker[0].owner_pid]));
-      assert.equal((await state()).window.phase, 'active', 'OWNER_LOSS_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
-      // The invalidated wire may already be closed. The participant must stop
-      // reporting the old marker before clearance can claim its body is gone.
-      f.current.get('api-1').child.kill('SIGUSR2'); await first.done;
-      // Ending the wire body does not itself re-admit a failed lifetime session.
-      // Observe real serving recovery on this same process before a fresh restore;
-      // its old durable participation still requires the explicit clearance below.
-      const survivingPid = f.current.get('api-1').child.pid;
-      await f.base.until(async () => await aServes('api-1') === 200, 'same process recovers its failed lifetime session after every body drains');
-      assert.equal(f.current.get('api-1').child.pid, survivingPid);
-      assert((await state()).unfinished.some(row => row.operation_id === owned[0]), 'recovery preserves the uncertain durable marker');
-      await f.base.until(async () => !(await reported('api-1')).includes(owned[0]), 'the process ended every body under the lost participation');
-      // A fresh remote cohort needs current participant status. Test the
-      // independent orphan precheck after the lost owner's process recovers,
-      // while its old durable participation still has not been cleared.
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')),
-        error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.orphaned === 1));
-      assert.equal((await state()).window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(await aServes('api-2'), 200);
-      const beforeClear = await state();
-      const cleared = await operator(({ resume }) => resume.clearOperations(A));
-      assert.deepEqual(cleared.cleared, owned);
-      assert.deepEqual(cleared.retained, beforeClear.unfinished.filter(row => !owned.includes(row.operation_id) && !beforeClear.cleared.includes(row.operation_id)).map(row => ({ operation: row.operation_id, reason: 'OWNER_BACKEND_PRESENT' })));
-      const captured = await state();
-      assert.deepEqual(captured.cleared, owned);
-      assert(captured.unfinished.some(row => row.operation_id === owned[0]), 'CLEARANCE_APPENDS_ONLY the original row stays unfinished');
-      // The serving role can neither read nor write a clearance; the operator cannot clear a false owner.
-      const serving = new Pool({ connectionString: f.lifetimeConnectionString, max: 1 }); pools.push(serving);
-      await assert.rejects(serving.query('SELECT 1 FROM preview_control.tenant_lifecycle_operation_clearance'), { code: '42501' });
-      await serving.end();
-      assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-clearance')))).state, 'activated');
-      assert.equal(await aServes('api-1'), 200); await bWrites('after-clearance');
-    });
-
-    it('an API process killed with a request in flight: J closes A for good, the pre-check refuses, clearance then restore succeed', async function () {
-      assert.equal(await aServes('api-2'), 200);
-      const orphans = await reported('api-2');
-      assert.equal(orphans.length, 1, 'the target process already owns one participation before its next response');
-      const second = held('api-2', 'resume-held-2'); await second.ready();
-      await f.base.kill(f.current.get('api-2')); f.current.delete('api-2'); await second.done;
-      await f.start('api-2', { readinessTenant: B });
-      assert((await state()).unfinished.some(row => row.operation_id === orphans[0]), 'the killed process leaves its existing durable participation');
-      // The current controller refuses the known orphan before changing the window.
-      const openBefore = await state();
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' }));
-      assert.deepEqual(await state(), openBefore, 'ORPHAN_PREFLIGHT_REFUSAL_LEAVES_ACTIVE_STATE_UNCHANGED');
-      // The row policy refuses a clearance that misstates the record's owner.
-      const client = await observer.connect();
+    it('retains legacy clearance evidence independently of restore admission', async function () {
+      // Create an old-format marker through its real narrow owner; release that
+      // backend so inspect and explicit clearance can report its known outcome.
+      const operation = randomUUID();
+      const legacy = new Pool({ connectionString: f.lifetimeConnectionString, max: 1 });
+      const owner = await legacy.connect();
       try {
-        await client.query('BEGIN'); await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
-        await assert.rejects(client.query('INSERT INTO preview_control.tenant_lifecycle_operation_clearance(tenant_id,operation_id,generation,marker_pid,marker_birth) SELECT tenant_id,operation_id,generation,owner_pid+1,owner_birth FROM preview_control.tenant_lifecycle_operations WHERE operation_id=$1', [orphans[0]]),
-          { code: '42501' }, 'CLEARANCE_OWNER_POLICY');
-      } finally { await client.query('ROLLBACK'); client.release(); }
-      // Control: the J controller (the pre-check removed from the source) commits the
-      // closure and then cannot drain. This is the drills' permanent closure.
-      const file = require.resolve('../lib/tenant-lifecycle/maintenance-window'), source = fs.readFileSync(file, 'utf8');
-      const mutated = source.replace('      await preflight();\n', ''); assert.notEqual(mutated, source);
-      const loaded = new Module(file, module); loaded.filename = file; loaded.paths = Module._nodeModulePaths(require('node:path').dirname(file)); loaded._compile(mutated, file);
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')), { code: 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT' }), { controller: loaded.exports });
-      const closed = await state();
-      assert.equal(closed.window.phase, 'suspended', 'without the pre-check the tenant is closed by a restore that could never drain');
-      assert(await aServes('api-1') >= 400);
-      // A generation transition now retires process participation even before
-      // data replacement. Resume cannot forgive an orphan: clearance comes first.
-      await operator(({ resume }) => assert.rejects(resume.resume(A, { claimId: closed.window.claim_id }), { code: 'LIFECYCLE_RESUME_PENDING_OPERATIONS' }));
-      assert.equal((await state()).window.phase, 'suspended');
-      const result = await operator(({ resume }) => resume.clearOperations(A));
-      assert.deepEqual(result, { tenant: A, cleared: orphans, retained: [] });
-      assert.equal((await operator(({ resume }) => resume.resume(A, { claimId: closed.window.claim_id }))).interrupted, 'before-data');
-      assert.equal(await aServes('api-1'), 200); assert.equal(await aServes('api-2'), 200);
-      assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-orphan')))).state, 'activated');
-      await bWrites('after-orphan');
+        await owner.query('BEGIN');
+        await owner.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
+        await owner.query('INSERT INTO preview_control.tenant_lifecycle_operations(tenant_id,operation_id,generation) VALUES($1,$2,1)', [A, operation]);
+        await owner.query('COMMIT');
+      } finally { owner.release(true); await legacy.end(); }
+      const result = await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('legacy-marker')));
+      assert.equal(result.state, 'activated');
+      assert.deepEqual((await operator(({ resume }) => resume.inspect(A))).operations, { unfinished: 1, ownerGone: 1 });
+      assert.deepEqual(await operator(({ resume }) => resume.clearOperations(A)), { tenant: A, cleared: [operation], retained: [] });
+      assert((await state()).unfinished.some(row => row.operation_id === operation));
+      await bWrites('after-clearance');
     });
 
-    it('retains an idle process participation after abrupt death until explicit clearance', async function () {
-      assert.equal(await aServes('api-2'), 200, 'the response has already finished before the process is killed');
-      const owned = await reported('api-2'); assert.equal(owned.length, 1);
-      await f.base.kill(f.current.get('api-2')); f.current.delete('api-2');
+    it('preserves a committed write across loss of the response process and restoration', async function () {
+      const pending = held('api-2', 'resume-held-committed');
+      await pending.ready();
+      try {
+        await f.base.kill(f.current.get('api-2')); f.current.delete('api-2');
+        assert.equal(await pending.done, null);
+      } finally { pending.abort(); }
       await f.start('api-2', { readinessTenant: B });
-      const before = await state();
-      assert(before.unfinished.some(row => row.operation_id === owned[0]), 'idle process ownership is conservative and durable');
-      await operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('idle orphan must not be guessed complete')), { code: 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' }));
-      assert.deepEqual(await state(), before, 'pre-check leaves the active tenant unchanged');
-      const clearance = await operator(({ resume }) => resume.clearOperations(A));
-      assert.deepEqual(clearance.cleared, owned);
-      assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-idle-clearance')))).state, 'activated');
-      for (const id of ['api-1', 'api-2']) assert.equal(await aServes(id), 200);
-      await bWrites('after-idle-clearance');
+      assert.equal((await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('after-process-loss')))).state, 'activated');
+      assert.equal((await call('api-1', A, 'GET', '/api/v3/entries/resume-held-committed', a)).status, 200);
+      await bWrites('after-process-loss');
     });
 
     it('no write of the other tenant was lost, and A kept its own', async function () {

@@ -6,7 +6,7 @@ function fixture({holdCommit=false,loseReply=false}={}){
  let current,commit,connected=0;
  const client={release:()=>{},query:async(text,values=[])=>{
   calls.push({text,values});
-  if(text==='BEGIN'){current=structuredClone(durable);return {};}
+  if(text==='BEGIN' || text==='BEGIN ISOLATION LEVEL READ COMMITTED'){current=structuredClone(durable);return {};}
   if(text==='ROLLBACK'){current=null;return {};}
   if(text==='COMMIT'){
    if(holdCommit)await new Promise(resolve=>{commit=resolve;});

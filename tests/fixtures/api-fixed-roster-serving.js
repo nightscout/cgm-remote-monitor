@@ -19,7 +19,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, resume, lifetimeURI, config, previousMode, preflightReads = 0;
+  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, resume, lifetimeURI, config, previousMode;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -108,16 +108,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     privateProxy = serviceProxy(true); await new Promise(resolve => privateProxy.listen(port, '127.0.0.4', resolve));
     publicProxy = serviceProxy(false); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));
     operatorPool = new Pool({ connectionString: operatorURI, max: 1 });
-    // Observe an actual completed preflight read. Lease-death tests kill the
-    // backend only after this; no substitute query or product timer is added.
-    operatorPool.on('connect', client => {
-      const query = client.query.bind(client);
-      client.query = (...args) => {
-        const result = query(...args), text = typeof args[0] === 'string' ? args[0] : args[0]?.text;
-        if (!text?.includes('/* restore-preflight */')) return result;
-        return result.then(value => { preflightReads++; return value; });
-      };
-    });
     cohort = await cohorts.createRemote({ namespace, tenants: ['registry:' + base.provisioned.namespaces.registry], participants });
     controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs });
     resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, pool: operatorPool, cohort });
@@ -138,7 +128,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     get cohortTenants () { return ['registry:' + base.provisioned.namespaces.registry]; },
     get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; }, get cohort () { return cohort; },
     get serviceWorker () { return { port: publicProxy.address().port }; },
-    get preflightReads () { return preflightReads; },
     restoreState: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
       'SELECT phase,generation::text,claim_id,artifact_digest,' +
       '(SELECT count(*)::int FROM preview_control.tenant_lifecycle_restore_audit WHERE tenant_id=$1) AS audits,' +

@@ -113,14 +113,15 @@ describe('exact artifact recommission reconstruction plan', function () {
     assert(!Object.isFrozen(artifact));
   });
 
-  it('resets sessions, archived assignments/output and delivery attempts; current keys/grants are not archive authority', function () {
+  it('resets sessions and producer state while preserving live delivery obligations and authority', function () {
     const artifact = capture(), result = plan(artifact);
     for (const key of ['access.access_sessions', 'access.management_session_requests', 'human_session.human_sessions',
       'human_session.human_access_tokens', 'checkpoint.tenant_consumer_checkpoint', 'evaluator_checkpoint.tenant_consumer_checkpoint',
-      'notification_outbox.tenant_notification_heads', 'notification_outbox.tenant_notification_requests', 'notification_outbox.tenant_notification_state']) {
+      'notification_outbox.tenant_notification_state']) {
       assert(result.reset.includes(key), key); assert(!Object.hasOwn(result.tables, key));
     }
-    for (const key of ['access.access_tenants', 'access.access_keys', 'authorization.tenant_owner_policy', 'authorization.tenant_owner_actors',
+    for (const key of ['notification_outbox.tenant_notification_heads', 'notification_outbox.tenant_notification_requests',
+      'access.access_tenants', 'access.access_keys', 'authorization.tenant_owner_policy', 'authorization.tenant_owner_actors',
       'subject_policy.subject_policy', 'operator_policy.tenant_operator_policy', 'owner_configuration.tenant_owner_configuration_authority']) {
       assert(result.current.includes(key), key); assert(!Object.hasOwn(result.tables, key));
     }

@@ -24,7 +24,12 @@ optInSuite(uri,'NS_TEST_POSTGRES_ADMIN_URI')('native intake authority under read
  it('holds the existing maintenance fence through COMMIT and refuses an exclusive maintenance owner',async()=>{
   await reader.query('BEGIN');await fence(reader,A);
   assert.equal((await admin.query('SELECT pg_try_advisory_lock($1::bigint) AS held',[rules.lockKey(A)])).rows[0].held,false,'RESTORE_MUST_NOT_CROSS_RECEIPT_COMMIT');
-  await reader.query('COMMIT');await admin.query('SELECT pg_advisory_lock($1::bigint)',[rules.lockKey(A)]);
+  const {tryGenerationLock}=require('../lib/tenant-lifecycle/transaction-fence');
+  assert.equal(await fence(reader,A,{final:true}),generation+':1');
+  assert.equal(await tryGenerationLock(admin,rules.lockKey(A),true),false,'SUSPENSION_MUST_NOT_CROSS_RECEIPT_COMMIT');
+  await reader.query('COMMIT');
+  assert.equal(await tryGenerationLock(admin,rules.lockKey(A),true),true,'COMMIT_RELEASES_GENERATION_LOCK');
+  await admin.query('SELECT pg_advisory_lock($1::bigint)',[rules.lockKey(A)]);
   try{await reader.query('BEGIN');await assert.rejects(fence(reader,A),/MAINTENANCE_FENCE/);await reader.query('ROLLBACK');}finally{await admin.query('SELECT pg_advisory_unlock($1::bigint)',[rules.lockKey(A)]);}
  });
  it('refuses changed registry lock identity and lost receiver ownership',async()=>{

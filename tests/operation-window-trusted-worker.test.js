@@ -17,7 +17,7 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     assert.equal(current.length, 2, 'each registration checks current tenant state');
     for (const [sql] of current) {
       assert(!sql.includes('pg_auth_members') && !sql.includes('string_agg') && !sql.includes('sha256'));
-      assert(sql.includes('w.tenant_id=$1') && sql.includes('r.rolsuper') && sql.includes('pg_backend_pid()'));
+      assert(sql.includes('w.tenant_id=$1') && !sql.includes('r.rolsuper') && !sql.includes('pg_backend_pid()'));
     }
     await f.window.verifyClient(f.client);
     await f.window.verifyOperational();
@@ -53,14 +53,6 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
   for (const [label, options, code] of [
     ['suspension', { phase: 'suspended' }, 'LIFECYCLE_WINDOW_SUSPENDED'],
     ['tenant binding', { key: '23' }, 'LIFECYCLE_WINDOW_BINDING_CHANGED'],
-    ['role elevation', { superuser: true }, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['role CREATEROLE', {createrole:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['role CREATEDB', {createdb:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['role REPLICATION', {replication:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['control-owner membership', {ownsControl:true}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['current principal', {roleOid:62}, 'LIFECYCLE_WINDOW_ROLE_UNSAFE'],
-    ['datastore replacement', { datastore: { postmaster_birth: 'changed' } }, 'LIFECYCLE_WINDOW_DATASTORE_CHANGED'],
-    ['backend replacement', { sqlPid: 124 }, 'LIFECYCLE_WINDOW_DATASTORE_CHANGED']
   ]) it('checks live ' + label + ' before trusted body SQL', async function () {
     // Apply changes only after successful startup admission.
     const live = { trustedWorker: true }; const changed = fixture(live); await changed.window.ready(); Object.assign(live, options);
@@ -85,10 +77,10 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     await started; drift = true;
     await assert.rejects(f.window.verifyOperational(), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
     releaseBody(); assert.equal((await settled).code, 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');
-    assert.deepEqual([...f.pending.values()], [false], 'withdrawn request output does not complete process participation');
+    assert.equal(f.pending.size, 0);
     drift = false; await f.window.verifyOperational();
     await f.window.close();
-    assert.deepEqual([...f.pending.values()], [true]);
+    assert.equal(f.pending.size, 0);
   });
   it('withdraws trusted admission when acquiring the operational backend fails', async function () {
     const f = fixture({ trustedWorker: true }); await f.window.ready();
@@ -99,6 +91,25 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
     await f.window.verifyOperational(); await f.window.run(A, () => {});
     await f.window.close();
+  });
+  it('withdraws an open public output scope after a failed readiness screen', async function () {
+    const f = fixture({ trustedWorker: false });
+    let entered, release;
+    const started = new Promise(resolve => { entered = resolve; });
+    const held = new Promise(resolve => { release = resolve; });
+    const body = f.window.run(A, async () => {
+      entered(); await held;
+      assert.equal(f.window.current(A), false);
+      assert.throws(() => f.window.assertCurrent(A), { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' });
+    });
+    try {
+      await started;
+      await assert.rejects(f.window.verifyOperational(() => { throw Error('synthetic privilege drift'); }), /privilege drift/);
+      await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' });
+      release(); await body;
+      await f.window.verifyOperational();
+      await f.window.run(A, () => f.window.assertCurrent(A));
+    } finally { release(); await body.catch(() => {}); await f.window.close(); }
   });
   it('keeps admission withdrawn through the held related callback, then reopens', async function () {
     const f = fixture({ trustedWorker: true }); await f.window.ready();
@@ -150,39 +161,34 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
   });
 });
 
-describe('Process participation and physical lower exclusion (source protocol)', function () {
+describe('Generation scope and physical lower exclusion (source protocol)', function () {
   const turns = () => new Promise(resolve => setImmediate(resolve));
-  const lockCalls = f => f.log.filter(([sql]) => sql.includes('pg_try_advisory_lock_shared')).length;
-  async function exercise(createWindow) {
-    const f = fixture({trustedWorker:true}, createWindow);
+  it('takes an independent transaction lock and samples current generation on every lower effect', async () => {
+    const f = fixture({ trustedWorker: true });
     try {
-    await f.window.run(A, async () => {
-      for(let i=0;i<3;i++) {
-        const lease=await f.window.acquireClient(f.client,A);
-        try { assert.equal(await f.window.assertClient(f.client,A,lease),'1'); }
-        finally { await lease.close(); }
-      }
-    });
-    assert.equal(lockCalls(f),4,'LOWER_SQL_MUST_OWN_PHYSICAL_EXCLUSION');
-    assert.equal(f.log.filter(([sql])=>sql.includes('/* operation-window-current')).length,4,'every lower transaction still checks live authority');
-    assert.deepEqual([...f.pending.values()],[false]);
+      await f.window.run(A, async () => {
+        for (let i = 0; i < 3; i++) {
+          const lease = await f.window.acquireClient(f.client, A);
+          try {
+            assert.equal(await f.window.assertClient(f.client, A, lease), '1');
+            await f.window.assertCommit(f.client, A, lease);
+          } finally { await lease.close(); }
+        }
+      });
+      assert.equal(f.log.filter(([sql]) => sql.startsWith('SELECT pg_try_advisory_xact_lock_shared($1::bigint)')).length, 3);
+      assert.equal(f.log.filter(([sql]) => sql.includes('/* operation-window-final */')).length, 3);
+      assert.equal(f.pending.size, 0);
     } finally { await f.window.close(); }
-  }
-  it('takes a physical lock and checks current authority for every lower transaction', async()=>exercise());
-  it('does not borrow a trusted lifetime for default public work or for work without an outer operation', async()=>{
-    const publicFixture=fixture();await publicFixture.window.run(A,async()=>{const lease=await publicFixture.window.acquireClient(publicFixture.client,A);await lease.close();});
-    assert.equal(lockCalls(publicFixture),2);await publicFixture.window.close();
-    const trusted=fixture({trustedWorker:true});await trusted.window.ready();const lease=await trusted.window.acquireClient(trusted.client,A);await lease.close();assert.equal(lockCalls(trusted),1);await trusted.window.close();
   });
   it('drains admitted child SQL before settling the body and refuses escaped children',async()=>{
     const f=fixture({trustedWorker:true});let lower,entered,releaseLate,late;
     const started=new Promise(resolve=>{entered=resolve;}),later=new Promise(resolve=>{releaseLate=resolve;});
     let settled=false;
     const work=f.window.run(A,async()=>{lower=await f.window.acquireClient(f.client,A);late=later.then(()=>f.window.acquireClient(f.client,A));entered();}).then(()=>{settled=true;});
-    await started;await turns();assert.equal(settled,false);assert.deepEqual([...f.pending.values()],[false]);
-    assert.equal(f.log.filter(([sql])=>sql.includes('pg_advisory_unlock_shared')).length,1,'cold registration releases its lock before request bodies');
+    await started;await turns();assert.equal(settled,false);assert.equal(f.pending.size, 0);
+    assert.equal(f.log.filter(([sql])=>sql.includes('pg_advisory_unlock_shared')).length,0,'SQL transaction boundaries release tenant locks');
     releaseLate();await assert.rejects(late,{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'});
-    await lower.close();await work;assert.deepEqual([...f.pending.values()],[false]);await f.window.close();
+    await lower.close();await work;assert.equal(f.pending.size, 0);await f.window.close();
   });
   it('refuses inherited nested bodies and authority after the parent returns while admitted SQL drains',async()=>{
     const f=fixture({trustedWorker:true});let lower,enter,release,late;
@@ -202,62 +208,9 @@ describe('Process participation and physical lower exclusion (source protocol)',
   });
   for(const [name,change,code] of [
     ['suspension',o=>{o.phase='suspended';},'LIFECYCLE_WINDOW_SUSPENDED'],
-    ['backend',o=>{o.sqlPid=124;},'LIFECYCLE_WINDOW_DATASTORE_CHANGED'],
-    ['restore generation',o=>{o.generation='2';},'LIFECYCLE_WINDOW_BINDING_CHANGED'],
-    ['role',o=>{o.superuser=true;},'LIFECYCLE_WINDOW_ROLE_UNSAFE']
+    ['restore generation',o=>{o.generation='2';},'LIFECYCLE_WINDOW_SUSPENDED']
   ])it('retains current '+name+' checks on each physical lower transaction',async()=>{
     const options={trustedWorker:true},f=fixture(options);
     await f.window.run(A,async()=>{const lease=await f.window.acquireClient(f.client,A);try{change(options);await assert.rejects(f.window.assertClient(f.client,A,lease),{code});}finally{await lease.close();}});await f.window.close();
-  });
-  it('detects an ablated lower physical lock and restores the control',async()=>{
-    const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/tenant-lifecycle/operation-window');
-    const text=fs.readFileSync(file,'utf8'),needle='const row = metadata ? null :';
-    assert(text.includes(needle));const broken=text.replace(needle,'const row = metadata || !lifetime ? {held:true} :');
-    const output={exports:{}};vm.runInThisContext('(function(require,module,exports){'+broken+'\n})',{filename:file})(require('node:module').createRequire(file),output,output.exports);
-    await assert.rejects(exercise(output.exports.create),/LOWER_SQL_MUST_OWN_PHYSICAL_EXCLUSION/);
-    await exercise();
-  });
-});
-
-
-// Live owner membership must be checked on every transaction inside one HTTP
-// lifetime. The former all-membership/catalogue-epoch cache assertions are retired.
-describe('Public live principal boundaries inside one serving operation', function () {
-  async function exercise (createWindow) {
-    let bodies = 0;
-    const options = {};
-    const f = fixture(options, createWindow);
-    async function transaction () {
-      const lease = await f.window.acquireClient(f.client, A);
-      try {
-        await f.client.query('BEGIN');
-        await f.client.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
-        await f.window.assertClient(f.client, A, lease);
-        bodies++; await f.client.query('COMMIT');
-      } catch (error) { await f.client.query('ROLLBACK'); throw error; }
-      finally { await lease.close(); }
-    }
-    try {
-      await f.window.run(A, async () => {
-        await transaction(); options.ownsControl = true;
-        await assert.rejects(transaction(), {code:'LIFECYCLE_WINDOW_ROLE_UNSAFE'});
-        assert.equal(bodies,1);
-        options.ownsControl = false; await transaction();
-      });
-      assert.equal(bodies,2);
-      assert.equal(epochs(f).length,0);
-      assert.deepEqual([...f.pending.values()],[false]);
-    } finally {await f.window.close();}
-  }
-  it('rejects current control-owner membership between transactions in one lifetime', async () => exercise());
-  it('detects a broken owner-membership live fence and restores green', async function () {
-    const fs=require('node:fs'),vm=require('node:vm');
-    const file=require.resolve('../lib/tenant-lifecycle/operation-window');
-    const source=fs.readFileSync(file,'utf8'),needle=' || row.owns_control !== false';
-    assert(source.includes(needle));
-    const output={exports:{}};
-    vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,'')+'\n})',{filename:file})(require('node:module').createRequire(file),output,output.exports);
-    await assert.rejects(exercise(output.exports.create),/Missing expected rejection/);
-    await exercise();
   });
 });

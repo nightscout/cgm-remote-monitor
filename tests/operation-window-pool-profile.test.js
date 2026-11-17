@@ -23,9 +23,22 @@ describe('v2 dynamic operation-window authority adapter (recording SQL)',()=>{
  it('refuses terminal, suspended and generation-inconsistent current authority',async()=>{
   for(const [state,generation]of [['deleted','1'],['suspended','1'],['active','2']]){const f=setup(state,generation);try{await f.window.ready();const lease=await f.window.acquireClient(f.client,A);await assert.rejects(f.window.assertClient(f.client,A,lease),/TENANT_AUTHORITY/);await lease.close();}finally{await f.window.close();}}
  });
- it('control: omitting actual current-authority admission permits a deleted tenant, then restoration refuses',async()=>{
-  const file=require.resolve('../lib/tenant-lifecycle/operation-window'),source=fs.readFileSync(file,'utf8'),needle=source.split('\n').find(line=>line.includes('if(poolProfile){const current=await poolAuthority.read'));assert(needle);
-  const qualify=async mutate=>{const f=setup('deleted','1',mutate);try{await f.window.ready();const lease=await f.window.acquireClient(f.client,A);try{await assert.rejects(f.window.assertClient(f.client,A,lease),/TENANT_AUTHORITY/);}finally{await lease.close();}}finally{await f.window.close();}};
-  await assert.rejects(qualify(s=>s.replace(needle,'')),{code:'ERR_ASSERTION'});await qualify();
+ it('checks the source authority again before commit after an initially eligible admission',async()=>{
+  const f=setup(), query=f.client.query;
+  try {
+   await f.window.ready();
+   const lease=await f.window.acquireClient(f.client,A);
+   try {
+    assert.equal(await f.window.assertClient(f.client,A,lease),'1');
+    f.client.query=async(text,values)=>{
+     const result=await query(text,values);
+     if(typeof text==='string'&&text.includes('pool-lifecycle-authority')) result.rows[0].deletion=true;
+     return result;
+    };
+    await assert.rejects(f.window.assertCommit(f.client,A,lease),/TENANT_AUTHORITY/);
+    f.client.query=query;
+    await f.window.assertCommit(f.client,A,lease);
+   } finally { await lease.close(); }
+  } finally { await f.window.close(); }
  });
 });

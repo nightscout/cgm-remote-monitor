@@ -15,7 +15,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text && typeof text === 'object') ({ text, values } = text);
     log.push([text, values]);
     // Live principal, datastore and typed window in one bounded statement.
-    if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current'))) {
+    if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current') || text.includes('/* operation-window-final'))) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }
         : { lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' };
       return { rows: [{ role_oid: options.roleOid || 61, owns_control: !!options.ownsControl, rolcreaterole: !!options.createrole, rolcreatedb: !!options.createdb, rolreplication: !!options.replication, rolsuper: !!options.superuser, rolbypassrls: false, ...datastore, ...options.datastore, pid: options.sqlPid || 123, ...window }] };
@@ -26,7 +26,7 @@ module.exports = function fixture (options = {}, createWindow = create) {
       ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
     if (text.startsWith('SELECT pg_backend_pid()')) return { rows: [{ ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' }] };
     if (text.includes('pg_control_system()')) return { rows: [{ cluster: options.cluster || '7300000000000000001' }] };
-    if (text.includes('pg_try_advisory_lock_shared')) return { rows: [{ held: options.held !== false }] };
+    if (text.includes('pg_try_advisory_lock_shared') || text.includes('pg_try_advisory_xact_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
     if (text === 'SHOW transaction_read_only') return { rows: [{ transaction_read_only: options.metadataReadOnly || 'on' }] };
     if (text.startsWith('SELECT lock_key')) return { rows: [{ lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' }] };

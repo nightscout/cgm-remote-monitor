@@ -56,15 +56,10 @@ function fixture (options = {}) {
     }
     if (text.includes('restore-audit-current')) return { rows: [clone(target().audit)] };
     if (text.startsWith('UPDATE ') && text.includes('tenant_lifecycle_restore_audit')) { target().audit.state = text.includes("SET state='restored'") ? 'restored' : 'activated'; return { rows: [], rowCount: 1 }; }
-    // Pre-check reads (before any write). `m.preflight` holds the records that are
-    // unfinished while the tenant is still open; `m.pending` models records
-    // registered between the pre-check and the suspension commit.
-    if (text.includes('restore-preflight-refresh')) return { rows: [] };
-    if (text.includes('restore-preflight')) {
-      if (!m.closedBefore) { assert.equal(m.durable.window.phase, 'active', 'pre-check runs only while the tenant is open'); assert.equal(m.durable.audit, null); }
-      return { rows: clone(m.preflight || []) };
+    if (text.includes('pg_try_advisory_xact_lock(')) {
+      assert(m.working);
+      return { rows: [{ held: !m.generationBusy }] };
     }
-    if (text.includes('restore-pending')) { if (m.finishOnPoll) m.pending = []; return { rows: clone(m.pending) }; }
     if (text.includes('restore-exclusive-acquire')) { if (!m.busy) m.locked = true; return { rows: [{ held: m.locked }] }; }
     if (text.includes('restore-exclusive-held')) return { rows: [{ held: m.locked }] };
     if (text.includes('pg_advisory_unlock')) { const held = m.locked; m.locked = false; return { rows: [{ released: held }] }; }
@@ -174,20 +169,13 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     assert.equal(runtime.health().tenants[0].code, 'EVALUATOR_TENANT_PAUSED');
     await runtime.close(); await api.close();
   });
-  it('admits registration FK references with a bounded non-key claim and still drains before restore', async function () {
-    const { m, api } = fixture({ claimBlocker: 'registration-fk', pending: [{ operation_id: 'old-generation' }], finishOnPoll: true });
-    await api.withRestore(A, { artifactDigest: DIGEST }, async () => {
-      assert.equal(m.durable.window.phase, 'suspended');
-      assert.deepEqual(m.pending, []);
-      assert.equal(m.locked, true);
-    });
-    const claim = m.trace.find(sql => sql.includes('restore-window-claim'));
-    assert.match(claim, /WHERE tenant_id=\$1 FOR NO KEY UPDATE NOWAIT$/);
-    const pending = m.trace.find(sql => sql.includes('restore-pending'));
-    assert(!/generation\s*=/.test(pending), 'drain must include unfinished registrations from every generation');
-    assert.equal(m.trace.filter(sql => sql.includes('restore-window-claim')).length, 1, 'claim must never retry');
-    assert.equal(m.durable.audit.state, 'activated');
-    assert.deepEqual(m.foreign, { ordinal: 100, doc: 'B-current' });
+  it('refuses a final effect commit in progress before advancing the generation', async function () {
+    const { m, api } = fixture({ generationBusy: true });
+    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, () => assert.fail()), code('LIFECYCLE_RESTORE_LOCK_BUSY'));
+    assert.equal(m.durable.window.phase, 'active');
+    assert.equal(m.durable.window.generation, '1');
+    assert.equal(m.durable.audit, null);
+    assert(!m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO ')));
     await api.close();
   });
   it('refuses a competing maintenance row lock before suspension without retry or effects', async function () {
@@ -229,43 +217,15 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => {}), code('LIFECYCLE_RESTORE_AUTHORITY_REFUSED'));
     assert.equal(m.durable.window.phase, 'active'); assert.equal(m.durable.audit, null); await api.close();
   });
-  it('refuses restore effects until actual process bodies drain, even with no durable pending rows', async function () {
-    const { m, api } = fixture({ running: ['actual-held-response'] });
-    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, () => assert.fail('RESTORE_BEFORE_PROCESS_DRAIN')), { code: 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT' });
-    assert.equal(m.durable.window.phase, 'suspended');
-    assert.equal(m.durable.audit.state, 'suspended');
-    assert.deepEqual(m.durable.rows, []);
-    await api.close();
-  });
-  it('never clears orphan/pending operations or reopens after the drain deadline', async function () {
-    const pending = [{ operation_id: 'uncertain-callback', owner_pid: 999, owner_birth: 'old' }];
-    const { m, api } = fixture({ pending });
-    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('body must not run')), code('LIFECYCLE_RESTORE_DRAIN_TIMEOUT'));
-    assert.deepEqual(m.pending, pending); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'suspended'); assert(!m.invalidated); await api.close();
-  });
-  it('refuses before closing the tenant on a record whose owner backend is gone', async function () {
-    const { m, api } = fixture({ preflight: [{ operation_id: 'orphan', owner_pid: 999, owner_birth: 'old', gone: true }, { operation_id: 'live', owner_pid: 7, owner_birth: 'live', gone: false }] });
-    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('body must not run')),
-      error => error.code === 'LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS' && error.unfinished === 2 && error.orphaned === 1);
-    assert.equal(m.durable.window.phase, 'active', 'RESTORE_PREFLIGHT_LEAVES_OPEN'); assert.equal(m.durable.window.generation, '1'); assert.equal(m.durable.audit, null);
-    assert(!m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO ') || sql === 'COMMIT'), 'the pre-check writes nothing');
-    assert(!m.trace.some(sql => sql.includes('restore-window-claim')), 'the window row is not claimed');
-    assert(m.released && m.pinReleased && !m.invalidated && !m.locked); await api.close();
-  });
-  it('leaves a record with a present owner to the drain after suspension, as before', async function () {
-    const live = [{ operation_id: 'live', owner_pid: 7, owner_birth: 'live', gone: false }];
-    const { m, api } = fixture({ preflight: live, pending: live, finishOnPoll: true });
-    const result = await api.withRestore(A, { artifactDigest: DIGEST }, async () => 'restored');
-    assert.equal(result.state, 'activated'); assert.equal(m.trace.filter(sql => sql.includes('/* restore-preflight */')).length, 1);
-    const first = m.trace.findIndex(sql => sql.includes('/* restore-preflight */')), claim = m.trace.findIndex(sql => sql.includes('restore-window-claim'));
-    assert(first >= 0 && first < claim, 'pre-check precedes the claim'); await api.close();
-  });
-  it('does not count a cleared record as unfinished', async function () {
-    const { m, api } = fixture(); await api.withRestore(A, { artifactDigest: DIGEST }, async () => {});
-    for (const tag of ['restore-preflight', 'restore-pending']) {
-      const sql = m.trace.find(text => text.includes('/* ' + tag + ' */'));
-      assert.match(sql, /finished=false AND NOT EXISTS \(SELECT 1 FROM "synthetic_window"\."tenant_lifecycle_operation_clearance" c WHERE c\.operation_id=o\.operation_id\)/);
-    }
+  it('finishes restore while a committed response remains held', async function () {
+    const { m, api } = fixture({ running: ['held-response'] });
+    const result = await api.withRestore(A, { artifactDigest: DIGEST }, async () => {
+      assert.deepEqual(m.running, ['held-response']);
+      assert.equal(m.durable.window.phase, 'suspended');
+      assert.equal(m.locked, true);
+    });
+    assert.equal(result.state, 'activated');
+    assert.deepEqual(m.running, ['held-response']);
     await api.close();
   });
   it('does not queue a global lock or enter restore when A shared holders remain', async function () {

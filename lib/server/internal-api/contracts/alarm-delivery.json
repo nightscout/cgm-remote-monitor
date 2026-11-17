@@ -23,6 +23,13 @@
           },
           "notification": {
             "type": "object",
+            "properties": {
+              "originGeneration": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "description": "Lifecycle generation at durable enqueue. Preserve this value through retry and fanout for display and audit. Older requests with unknown origin omit this property."
+              }
+            },
             "description": "Extensible serialized notification produced by tenant-notifications/contract; transported without changing provider/plugin fields."
           },
           "receipts": {

@@ -36,13 +36,13 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         await assert.rejects(pool.query('SELECT 1/0'), { code: '22012' }); assert.equal(diag.snapshot().pools.storage.activeSQL, 0);
       } finally { if (first) first.release(); if (queued) second = await queued.catch(() => null); if (second) second.release(); await pool.end(); diag.close(); }
     });
-    it('preserves stored results/errors and restore drain while separating held responses from SQL', async () => {
+    it('separates held responses from SQL while restore proceeds with diagnostics on or off', async () => {
       const identifier = 'diagnostics-held-response'; let responseFinished = false;
       const initialSnapshots = captured(f.current.get('api-1')).length;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a,
         { identifier, app: 'synthetic-diagnostics', type: 'sgv', date: Date.now(), utcOffset: 0, sgv: 125 }, { 'x-roster-hold': 'postcommit' })
         .then(value => { responseFinished = true; return { value }; }, error => ({ error }));
-      let Bstatus, stored, held, entered = false;
+      let Bstatus, stored, held, restored;
       try {
         await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'actual stored write before wire completion');
         stored = await f.withAdmin(async client => (await client.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].doc);
@@ -52,39 +52,26 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         await new Promise(resolve => setTimeout(resolve, 1100));
         if (enabled) {
           await f.base.until(async () => { held = captured(f.current.get('api-1')).slice(initialSnapshots).findLast(row => row.gauges['window.outer_bodies'].value > 0 && row.pools.storage.activeSQL === 0 && row.pools.operation.activeSQL === 0); return !!held; }, 'held response diagnostic snapshot');
-          assert.equal(held.pools.operation.status, 'MEASURED'); assert.equal(held.pools.operation.sqlStatus, 'MEASURED'); assert.equal(held.pools.storage.sqlStatus, 'MEASURED'); assert(held.pools.operation.checkedout >= 1); assert(held.gauges['lifetime.lease_holders'].value >= 1);
-          assert(held.durations['window.admission'].count > 0); assert(held.durations['window.register'].count > 0); assert(held.durations['api.authorize'].count > 0);
+          assert.equal(held.pools.operation.status, 'MEASURED'); assert.equal(held.pools.operation.sqlStatus, 'MEASURED'); assert.equal(held.pools.storage.sqlStatus, 'MEASURED');
+          assert(held.durations['window.admission'].count > 0); assert(held.durations['api.authorize'].count > 0);
           assert.equal(held.gauges['lifetime.critical_active'].value, 0); assert(Buffer.byteLength(JSON.stringify(held)) < 8192);
           assert(!JSON.stringify(held).includes(a)); assert(!JSON.stringify(held).includes(A)); assert(!JSON.stringify(held).includes(identifier));
         } else { assert.equal(captured(f.current.get('api-1')).length, 0); }
-        const holder = await f.participantOperations('api-1', A), idle = await f.participantOperations('api-2', A);
-        assert.equal(holder.length, 1); assert.equal(idle.length, 1); assert.notEqual(holder[0], idle[0]);
-        assert.deepEqual(await f.unfinishedOperations(A), [...holder, ...idle].sort());
         const before = await f.restoreState();
-        const restoring = f.restore(async () => { entered = true; return 'diagnostic-drain'; }).then(value => ({ value }), error => ({ error }));
-        const refused = await restoring;
-        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
-        assert.equal(entered, false); assert.equal(responseFinished, false);
-        const suspended = await f.restoreState();
-        assert.equal(suspended.phase, 'suspended');
-        assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
-        assert.equal(suspended.audits, before.audits + 1);
-        assert.deepEqual(await f.unfinishedOperations(A), holder, 'EXACT_HELD_PARTICIPATION_STAYS_DURABLE');
-        assert.deepEqual(await f.participantOperations('api-2', A), [], 'IDLE_PEER_DRAINS_WITHOUT_WAITING_FOR_HELD_RESPONSE');
-        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
-        Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status; assert.equal(Bstatus, 200);
+        restored = await f.restore(async () => {
+          assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503);
+          Bstatus = (await call('api-1', B, 'GET', '/api/v3/entries', b)).status;
+          assert.equal(Bstatus, 200);
+        });
+        assert.equal(restored.state, 'activated');
+        assert.equal(BigInt(restored.generation), BigInt(before.generation) + 1n);
+        assert.equal(responseFinished, false, 'RESTORE_FINISHED_WITH_WIRE_HELD');
       } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
-      await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
-      const closed = await f.restoreState();
-      const resumed = await f.resume(closed.claim_id);
-      assert.equal(resumed.interrupted, 'before-data'); assert.equal(resumed.state, 'active');
-      const restored = await f.restore(async () => { entered = true; return 'diagnostic-drain'; });
-      assert.equal(restored.state, 'activated'); assert.equal(entered, true);
       const denied = await call('api-1', B, 'GET', '/api/v3/entries', a); assert.equal(denied.status, 401);
-      if (enabled) await f.base.until(async () => captured(f.current.get('api-1')).some(row => row.gauges['window.outer_bodies'].value === 0 && row.durations['window.body_response_inclusive'].maxMs >= 900 && row.durations['window.complete_inclusive'].count > held.durations['window.complete_inclusive'].count), 'completion duration observed after actual response drain');
+      if (enabled) await f.base.until(async () => captured(f.current.get('api-1')).some(row => row.gauges['window.outer_bodies'].value === 0 && row.durations['window.body_response_inclusive'].maxMs >= 900), 'completion duration observed after actual response drain');
       outcomes.push({ storedSGV: stored.sgv, write: response.value.status, B: Bstatus, wrongTenant: denied.status, restore: restored.state });
-      if (outcomes.length === 2) assert.deepEqual(outcomes[1], outcomes[0], 'SAME_SOURCE_ON_OFF_RESULTS_AND_DRAIN');
+      if (outcomes.length === 2) assert.deepEqual(outcomes[1], outcomes[0], 'SAME_SOURCE_ON_OFF_RESULTS_AND_RESTORE');
     });
   });

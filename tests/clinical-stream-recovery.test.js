@@ -41,7 +41,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
  let canonicalRows=Array.from({length:sourceRows},(_,i)=>({domain:'entries',id_kind:'string',doc:{_id:'snapshot-'+i,date:1,sgv:123},stamp:null,ordinal:i+1,storage_bytes:80}));
  const connection={async query(text,args=[]){
   queries.push(text);
-  if(text==='BEGIN'){assert.equal(active,null);active=structuredClone(durable);return {};}
+  if(text==='BEGIN' || text==='BEGIN ISOLATION LEVEL READ COMMITTED'){assert.equal(active,null);active=structuredClone(durable);return {};}
   if(text==='ROLLBACK'){active=null;return {};}
   if(text==='COMMIT'){durable=active;active=null;return {command:'COMMIT'};}
   if(text.includes('pg_advisory_xact_lock_shared'))return {rows:[{}]};

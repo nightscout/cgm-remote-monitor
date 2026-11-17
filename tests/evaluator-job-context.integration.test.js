@@ -108,12 +108,12 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    await Promise.all([consumers.wake(A),consumers.wake(A)]);
    assert.equal(runtime.health([A]).tenants[0].progress.completedAcquisitions,completed,'BORROWED_RUNTIME_CALLS_GET_NO_FRESH_CREDIT');
    const pending=async()=> (await admin.query('SELECT operation_id FROM '+q(control)+'.tenant_lifecycle_operations WHERE NOT finished ORDER BY operation_id')).rows;
-   const before=await pending();assert.equal(before.length,1);
+   const before=await pending();assert.equal(before.length,0);
    await window.run(A,async()=>{await delay(2);window.assertCurrent(A);assert.deepEqual(await pending(),before,'LEGITIMATE_NESTED_AWAIT_REUSES_OWN_LIFETIME');});
   });
   await assert.rejects(window.run(B,()=>runtime.acquire(A)),/LIFECYCLE_WINDOW_SCOPE_INVALID/);
   foreignParticipation=window.inflight(B);
-  assert.equal(foreignParticipation.length,1,'FOREIGN_CALL_REFUSES_A_INSIDE_VALID_B_PARTICIPATION');
+  assert.deepEqual(foreignParticipation, [], 'the foreign refusal creates no durable participants');
   let ownedRuntime,ownedDelivery,ownedResults;
   clinicalHold=heldBody();deliveryHold=heldBody();
   try {
@@ -138,9 +138,7 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   paused=true;await runtime.tick(A);await consumers.wake(A);
   assert.equal(runtime.health([A]).tenants[0].activity.paused,true);
   await admin.query('UPDATE '+q(control)+".tenant_lifecycle_windows SET phase='suspended',claim_id=$2,artifact_digest=repeat('a',64) WHERE tenant_id=$1",[A,crypto.randomUUID()]);
-  // The pinned cohort's getOperations RPC performs this same control drain.
-  // A bare SQL phase write does not revoke a warm process participation.
-  await window.drainTenant(A);
+  // New application work observes the committed suspended phase.
   paused=false;await runtime.acquire(A);await consumers.wake(A);
   assert.equal(runtime.health([A]).tenants[0].code,'EVALUATOR_WINDOW_REFUSED');
   assert.equal(consumers.health([A]).tenants[0].code,'EVALUATOR_CONSUMER_REFUSED');

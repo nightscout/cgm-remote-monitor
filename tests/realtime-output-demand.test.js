@@ -55,6 +55,38 @@ describe('addressed realtime output demand',function(){
      assert.equal(f.counts.identities,1,'EXPLICIT_FRESH_DEMAND_REQUIRES_IDENTITY');const fresh=await demand;assert.equal(fresh.frame.title,identity);
    }finally{await service.close();}
  });
+ it('retires a held fanout before restore completes and admits the next projection', async function () {
+   const tenant = id(1), published = [];
+   let begin, resume, revision = 1;
+   const entered = new Promise(resolve => { begin = resolve; });
+   const held = new Promise(resolve => { resume = resolve; });
+   const service = await runtime({
+     tenants: [tenant], readCurrent: async () => ({ tenant, identity: tenant }),
+     create: () => ({ acquire: async () => ({ tenant, checkpoint: revision, rows: [], frame: {} }) }),
+     async fanout ({ next, assertCurrent }) {
+       if (next.checkpoint === 2) { begin(); await held; }
+       assertCurrent();
+       published.push(next.checkpoint);
+     },
+     schedule: () => 1, cancel () {}
+   });
+   let old;
+   try {
+     revision = 2; old = service.refresh(tenant);
+     old.catch(() => {});
+     await entered;
+     let invalidated = false;
+     const invalidating = service.invalidateTenant(tenant, { restoring: true }).then(() => { invalidated = true; });
+     await new Promise(resolve => setImmediate(resolve));
+     assert.equal(invalidated, true, 'RESTORE_MUST_NOT_DRAIN_HELD_FANOUT');
+     assert.equal(service.last(tenant), null);
+     revision = 3; await service.refresh(tenant);
+     assert.equal(service.last(tenant).checkpoint, 3);
+     resume(); await assert.rejects(old, /REALTIME_CYCLE_CHANGED/); await invalidating;
+     assert.deepEqual(published, [1, 3], 'STALE_FRAME_MUST_NOT_BE_SENT');
+     assert.equal(service.last(tenant).checkpoint, 3);
+   } finally { resume(); await old?.catch(() => {}); await service.close(); }
+ });
  it('retains viewer demand arriving while an unwatched control read is held',async()=>{
    const tenant=id(1),f=fixture([tenant]);let watched=[],entered,release,hold=true;
    const blocked=new Promise(resolve=>{entered=resolve;});

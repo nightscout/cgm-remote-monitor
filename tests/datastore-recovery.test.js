@@ -67,7 +67,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
     }
     it('keeps datastore adoption unpublished while a failed owner still has a real callback', () => recoveryWithHeldBody());
     it('control: premature adoption fails the held-body recovery oracle; restored source passes', async () => {
-      const broken = load(WINDOW, {}, source => source.replace('if (failedParticipants.some', 'database = nextDatabase; if (failedParticipants.some'));
+      const broken = load(WINDOW, {}, source => source.replace('if ([...activeBodies].some', 'database = nextDatabase; if ([...activeBodies].some'));
       await assert.rejects(recoveryWithHeldBody(broken.create), /FAILED_DRAIN_MUST_NOT_PUBLISH_ADOPTION/);
       await recoveryWithHeldBody();
     });
@@ -81,7 +81,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
       assert.deepEqual(f.window.datastore, before, 'CANCELLED_RECOVERY_CANNOT_ADOPT');
       await assert.rejects(f.window.run(A, () => assert.fail('cancelled recovery served')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
-      await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
+      await f.window.close();
     });
     it('does not adopt after cancellation while the supplemental cluster read is pending', async function () {
       const { f, options, before } = await restartedWindow(); let release, entered;
@@ -91,7 +91,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const controller = new AbortController(), pending = f.window.recover({ signal: controller.signal });
       await reading; controller.abort(); release({ rows: [{ cluster: '7000000000000000001' }] });
       await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
-      assert.deepEqual(f.window.datastore, before); await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
+      assert.deepEqual(f.window.datastore, before); await f.window.close();
     });
     it('runs the full catalogue admission again before adopting', async function () {
       const { f } = await restartedWindow();
@@ -104,7 +104,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const result = await f.window.recover({ beforeAdopt: () => assert.fail('same postmaster') });
       assert.equal(result.restarted, false);
       const before = f.log.length; await f.window.run(A, () => 2);
-      assert.equal(f.log.length, before, 'same-datastore verification preserves warm participation');
+      assert(f.log.slice(before).some(([sql]) => sql.includes('operation-window-current')), 'same-datastore recovery still checks current serving generation');
       await f.window.close();
     });
     for (const change of [{ server_address: '127.0.0.2' }, { server_port: 5433 }]) {
@@ -202,11 +202,12 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
   });
 
   describe('supervisor', function () {
-    function harness ({ mutate, bound = 60000, source = SUPERVISOR } = {}) {
+    function harness ({ mutate, bound = 60000, source = SUPERVISOR, publicWindow = false } = {}) {
       const timers = [], events = [], state = { clock: 0, probe: null, recover: null, readopt: null, restarted: true, available: true, exhausted: [] };
       const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); }, resume: () => { events.push('resume-a'); } }, { invalidateAll: async () => { events.push('invalidate-b'); } }];
       const cohort = {
         window: {
+          ...(publicWindow ? { trustedWorker: false, verifyOperational: async verify => { events.push('structural'); await verify(); } } : {}),
           probe: async () => { events.push('probe'); if (state.probe) throw state.probe; },
           recover: async ({ beforeAdopt }) => {
             events.push('recover'); if (state.recover) throw state.recover;
@@ -236,6 +237,18 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       assert.deepEqual(h.events, ['probe', 'probe']); assert.equal(h.state.available, true);
       assert.equal(h.supervisor.state().state, 'serving');
       await h.supervisor.close();
+    });
+    it('rechecks public control and data privileges at readiness and withdraws on structural failure', async function () {
+      const h = harness({ publicWindow: true });
+      try {
+        await h.supervisor.tick();
+        assert.deepEqual(h.events, ['probe', 'structural', 'readopt']);
+        h.events.length = 0;
+        h.state.readopt = new Error('synthetic data privilege drift');
+        await h.supervisor.tick();
+        assert.equal(h.state.available, false);
+        assert.deepEqual(h.events.slice(0, 4), ['probe', 'structural', 'readopt', 'unavailable']);
+      } finally { await h.supervisor.close(); }
     });
     it('reports unavailable at the first failed probe, backs off, and serves only after recover, readopt and a passing probe', async function () {
       const h = harness(); h.supervisor.start();

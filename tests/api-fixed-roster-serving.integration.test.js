@@ -10,7 +10,7 @@ const manifests = require('../lib/server/serve/operation-cohort-manifest');
 const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
 const entry = identifier => ({ identifier, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-roster', sgv: 125 });
 optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER_SERVING_DOCKER_TEST=1')(
-  'fixed roster with two actual API CLI processes and real lifetime leases', function () {
+  'fixed roster with two actual API CLI processes and tenant transaction fences', function () {
     this.timeout(120000);
     const f = createFixture({ drainTimeoutMs: 500 }), [A, B] = f.base.tenants;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(id === 'service' ? f.serviceWorker : f.current.get(id), tenant, method, path, token, body, headers);
@@ -82,44 +82,74 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       }
     });
 
-    it('suspends A and refuses data entry until held responses finish, then resumes and restores with B continuing', async function () {
-      let responseDone = false, entered = false;
+    it('restores A while its pre-restore HTTP success is held and B continues', async function () {
+      let responseDone = false;
       const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-held-A'), { 'x-roster-hold': 'postcommit' })
-        .then(value => { responseDone = true; return { value }; }, error => ({ error }));
+        .then(value => { responseDone = true; return { value }; }, error => { responseDone = true; return { error }; });
       try {
         await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'actual post-commit response held');
-        assert.equal((await stored('native-held-A')).length, 1, 'independent storage sees committed write before response');
-        // Durable rows name process participation, not individual responses.
-        // Capture the exact holder and its idle peer before suspension.
-        const held = await f.participantOperations('api-1', A), idle = await f.participantOperations('api-2', A);
-        assert.equal(held.length, 1); assert.equal(idle.length, 1); assert.notEqual(held[0], idle[0]);
-        assert.deepEqual(await f.unfinishedOperations(A), [...held, ...idle].sort());
+        assert.equal((await stored('native-held-A')).length, 1);
         const before = await f.restoreState();
-        const outcome = f.restore(async () => { entered = true; return 'bounded-restore-body'; }).then(value => ({ value }), error => ({ error }));
-        const refused = await outcome;
-        assert.equal(refused.error?.code, 'LIFECYCLE_RESTORE_DRAIN_TIMEOUT');
-        assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'); assert.equal(responseDone, false);
-        const suspended = await f.restoreState();
-        assert.equal(suspended.phase, 'suspended');
-        assert.equal(BigInt(suspended.generation), BigInt(before.generation) + 1n);
-        assert.equal(suspended.audits, before.audits + 1);
-        assert.deepEqual(await f.unfinishedOperations(A), held, 'EXACT_HELD_PARTICIPATION_STAYS_DURABLE');
-        assert.deepEqual(await f.participantOperations('api-2', A), [], 'IDLE_PEER_DRAINS_WITHOUT_WAITING_FOR_HELD_RESPONSE');
-        assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 503, 'A refuses new work while suspended');
-        assert.equal((await call('api-2', B, 'POST', '/api/v3/entries', b, entry('native-B-progress'))).status, 201);
-        assert.equal((await call('service', B, 'GET', '/api/v3/entries/native-B-progress', b)).status, 200);
-      } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
+        const restored = await f.restore(async () => {
+          assert.equal(responseDone, false, 'HTTP_SUCCESS_STILL_HELD');
+          assert.equal((await call('api-2', A, 'POST', '/api/v3/entries', a, entry('native-refused-A'))).status, 503);
+          assert.equal((await call('api-2', B, 'POST', '/api/v3/entries', b, entry('native-B-progress'))).status, 201);
+        });
+        assert.equal(restored.state, 'activated');
+        assert.equal(BigInt(restored.generation), BigInt(before.generation) + 1n);
+        assert.equal(responseDone, false, 'RESTORE_FINISHED_BEFORE_HTTP_SUCCESS');
+      } finally { f.current.get('api-1').child.kill('SIGUSR2'); }
       const response = await pending;
-      assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
-      await f.base.until(async () => (await f.restoreState()).unfinished === 0, 'real response lifetimes finish');
-      const closed = await f.restoreState();
-      const resumed = await f.resume(closed.claim_id);
-      assert.equal(resumed.interrupted, 'before-data'); assert.equal(resumed.state, 'active');
-      const restored = await f.restore(async () => { entered = true; return 'bounded-restore-body'; });
-      assert.equal(restored.state, 'activated'); assert.equal(entered, true);
+      assert.equal(response.error, undefined);
+      assert.equal(response.value.status, 201);
+      assert.equal((await stored('native-refused-A')).length, 0);
       for (const id of ['api-1', 'api-2']) assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 200);
       assert.equal((await stored('native-B-progress'))[0].tenant_id, B);
     });
+
+    for (const version of ['v1', 'v3']) {
+      it('returns retryable HTTP status and rolls back a crossing ' + version + ' write', async function () {
+        const id = 'native-crossing-' + version, path = '/api/' + version + '/entries';
+        const payload = entry(id), body = version === 'v1' ? [payload] : payload;
+        const arm = f.mark('arm-write', 'api-1'), held = f.mark('held-write', 'api-1');
+        fs.rmSync(held, { force: true });
+        fs.writeFileSync(arm, 'hold', { flag: 'wx', mode: 0o600 });
+        const pending = call('api-1', A, 'POST', path, a, body);
+        let restoration, exclusive;
+        const release = () => f.current.get('api-1').child.kill('SIGUSR2');
+        const observe = client => {
+          const query = client.query;
+          client.query = function (...args) {
+            const result = query.apply(this, args);
+            if (!args[0]?.text?.includes('restore-exclusive-acquire')) return result;
+            this.query = query;
+            return result.then(value => { exclusive = value.rows[0].held; release(); return value; });
+          };
+        };
+        try {
+          await Promise.race([
+            f.base.until(() => fs.existsSync(held), 'actual SQL write is held before COMMIT'),
+            pending.then(reply => { throw new Error('API write finished before the INSERT barrier with HTTP ' + reply.status); })
+          ]);
+          f.operatorPool.once('acquire', observe);
+          restoration = f.restore(async () => {});
+          const [reply, outcome] = await Promise.all([pending, restoration]);
+          assert.equal(exclusive, false, 'restore saw the in-flight tenant transaction');
+          assert.equal(outcome.state, 'activated');
+          assert.equal(reply.status, 503, 'RESTORE_CROSSING_HTTP_STATUS');
+          assert.equal(reply.headers['retry-after'], '1', 'RESTORE_CROSSING_HTTP_RETRY_AFTER');
+          assert.equal((await stored(id)).length, 0);
+          const retry = await call('api-1', A, 'POST', path, a, body);
+          assert.equal(retry.status, version === 'v1' ? 200 : 201);
+          assert.equal((await stored(id)).length, 1);
+        } finally {
+          f.operatorPool.removeListener('acquire', observe);
+          release();
+          await Promise.allSettled([pending, restoration]);
+          fs.rmSync(arm, { force: true });
+        }
+      });
+    }
 
     it('rejects a replaced actual API incarnation under its old pin, and accepts a fresh pin', async function () {
       const client = await f.operatorPool.connect(); let pin;
@@ -142,21 +172,6 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       for (const row of observed) assert(row.connections > 0 && row.connections <= 4, 'two replicas, each configured with pool maximum 2: ' + JSON.stringify(row));
       assert.equal(observed.length, 2);
       process.stdout.write('FIXED_ROSTER_POOL_OBSERVED ' + JSON.stringify(observed) + '\n');
-    });
-
-    it('control: prematurely finishing the real response lifetime makes the held-response drain oracle red', async function () {
-      fs.rmSync(f.mark('held', 'api-1'), { force: true });
-      let entered = false, responseDone = false;
-      const pending = call('api-1', A, 'POST', '/api/v3/entries', a, entry('native-early-release'),
-        { 'x-roster-hold': 'postcommit', 'x-roster-release-lifetime': '1' }).then(value => { responseDone = true; return { value }; }, error => ({ error }));
-      try {
-        await f.base.until(async () => fs.existsSync(f.mark('held', 'api-1')), 'early lifetime control applied');
-        const result = await f.restore(async () => { entered = true; return 'early-release-control'; });
-        assert.equal(result.state, 'activated'); assert.equal(entered, true); assert.equal(responseDone, false, 'actual success response still withheld');
-        assert.throws(() => assert.equal(entered, false, 'HELD_RESPONSE_BLOCKS_RESTORE'), /HELD_RESPONSE_BLOCKS_RESTORE/);
-      } finally { f.current.get('api-1').child.kill('SIGUSR2'); await pending; }
-      const response = await pending;
-      assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
     });
 
     it('preserves a committed B write after killing its actual API before the success response', async function () {

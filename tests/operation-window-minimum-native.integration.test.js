@@ -35,6 +35,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
   const f = fixture.create();
   before(() => f.start());
   after(() => f.close());
+  require('./fixtures/restore-transaction-fence-native')(f);
   const refuseBody = async fn => {
     let entered = false;
     await assert.rejects(fn(async () => { entered = true; }));
@@ -104,10 +105,10 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
   });
 
-  it('refuses elevated principal flags on a warm backend and restores safely', async function () {
+  it('refuses elevated principal flags at backend re-admission and restores safely', async function () {
     await active();
     await f.sql('ALTER ROLE ' + f.q(f.l.roles.api) + ' CREATEDB');
-    try { await refuseBody(fn => f.lower.withTenant(f.A, fn)); }
+    try { await assert.rejects(f.openLower(), error => ['LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code)); }
     finally { await f.sql('ALTER ROLE ' + f.q(f.l.roles.api) + ' NOCREATEDB'); }
     await active();
   });
@@ -116,8 +117,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
     await f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [f.A, require('node:crypto').randomUUID(), 'a'.repeat(64)]);
     try {
-      // Warm outer admission is local; pinned process drain closes it.
-      await f.window.drainTenant(f.A);
+      // Both serving admission and actual lower SQL observe the suspended generation.
       await refuseBody(fn => f.window.run(f.A, fn));
       await refuseBody(fn => f.lower.withTenant(f.A, fn));
       await f.operation(f.B);
@@ -134,39 +134,15 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
   });
 
-  it('drains a held response before finishing participation and reopening a fresh generation', async function () {
-    let release, entered, operation, generation;
-    const held = new Promise(resolve => { release = resolve; });
-    const started = new Promise(resolve => { entered = resolve; });
-    const running = f.window.run(f.A, async () => {
-      operation = f.window.inflight(f.A)[0]; generation = f.window.currentGeneration(f.A);
-      entered(); await held;
-    });
-    try {
-      await started;
-      await f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1", [f.A, require('node:crypto').randomUUID(), 'b'.repeat(64)]);
-      await f.window.drainTenant(f.A);
-      await refuseBody(fn => f.window.run(f.A, fn));
-      const before = (await f.sql('SELECT finished FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND operation_id=$2', [f.A, operation])).rows[0];
-      assert.equal(before.finished, false, 'actual held response remains covered');
-      release(); await running; await f.window.invalidateTenant(f.A);
-      const row = (await f.sql('SELECT generation::text,finished FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND operation_id=$2', [f.A, operation])).rows[0];
-      assert.equal(row.generation, generation); assert.equal(row.finished, true);
-    } finally {
-      release(); await running; await f.window.drainTenant(f.A); await f.window.invalidateTenant(f.A); await resetWindow();
-    }
-    await f.window.run(f.A, async () => assert.notEqual(f.window.currentGeneration(f.A), generation));
-  });
-
-  it('runs warm bodies without lifecycle SQL or additional durable rows', async function () {
-    await active(); await f.operation(f.B);
-    const before = (await f.sql('SELECT operation_id,generation::text,finished,owner_pid,owner_birth::text FROM ' + f.control('tenant_lifecycle_operations') + ' ORDER BY operation_id')).rows;
+  it('takes a fresh generation observation without creating durable response markers', async function () {
+    await active();
+    const pending = async () => (await f.sql('SELECT operation_id FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND NOT finished', [f.A])).rows;
+    const before = await pending();
     await f.counter.phase('warm-bodies-only', async () => {
-      for (let i = 0; i < 20; i++) await f.window.run(i % 2 ? f.A : f.B, () => {});
+      for (let i = 0; i < 4; i++) await f.window.run(f.A, () => f.window.assertCurrent(f.A));
     });
-    assert.deepEqual(f.counter.rows().filter(row => row.phase === 'warm-bodies-only'), [], 'warm outer bodies cannot enqueue hidden lifecycle SQL');
-    const after = (await f.sql('SELECT operation_id,generation::text,finished,owner_pid,owner_birth::text FROM ' + f.control('tenant_lifecycle_operations') + ' ORDER BY operation_id')).rows;
-    assert.deepEqual(after, before);
+    assert.deepEqual(await pending(), before);
+    f.counter.assertHot('warm-bodies-only', 4);
   });
 
   it('re-admits a new physical connection and rejects unsafe structure until restored', async function () {
@@ -182,26 +158,22 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     finally { await fresh.end(); }
   });
 
-  it('retains committed registration on a lost COMMIT reply without entering the body', async function () {
-    const pool = f.freshPool('lifetime_api'); let armed = true;
+  it('refuses the application callback after an unconfirmed observation COMMIT', async function () {
+    const pool = f.freshPool('lifetime_api');
     pool.on('connect', client => {
-      const query = client.query.bind(client); let registering = false;
+      const query = client.query.bind(client);
       client.query = async (...args) => {
-        const text = typeof args[0] === 'string' ? args[0] : args[0].text;
-        if (/^INSERT INTO .*tenant_lifecycle_operations/.test(text)) registering = true;
         const result = await query(...args);
-        if (armed && registering && text === 'COMMIT') {
-          armed = false; throw Object.assign(new Error('synthetic COMMIT reply loss'), { code: 'OWNED_COMMIT_REPLY_LOST' });
-        }
+        if (args[0] === 'COMMIT') throw Object.assign(new Error('synthetic COMMIT reply loss'), { code: 'OWNED_COMMIT_REPLY_LOST' });
         return result;
       };
     });
     const window = windows.create({ namespace: f.ns.control, locks: f.locks, pool, leaseSessionCount: 1 });
-    const pending = () => f.sql('SELECT operation_id FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND finished=false', [f.A]);
-    const before = new Set((await pending()).rows.map(r => r.operation_id));
-    try { await refuseBody(fn => window.run(f.A, fn)); }
-    finally { await assert.rejects(window.close(), { code: 'LIFECYCLE_WINDOW_DRAIN_FAILED' }); await pool.end(); }
-    assert.equal((await pending()).rows.filter(r => !before.has(r.operation_id)).length, 1, 'committed orphan must remain visible to restore');
+    try {
+      await refuseBody(fn => window.run(f.A, fn));
+      await assert.rejects(window.probe(), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+      assert.deepEqual(window.inflight(f.A), []);
+    } finally { await window.close(); await pool.end(); }
   });
 
   it('does no full admission/global digest per warm public operation or unrelated catalogue growth', async function () {

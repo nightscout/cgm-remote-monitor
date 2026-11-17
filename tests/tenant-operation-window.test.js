@@ -7,22 +7,15 @@ const B = '22222222-2222-4222-8222-222222222222';
 const fixture = require('./fixtures/operation-window-runtime-protocol');
 
 describe('Tenant operation window source protocol (not PostgreSQL evidence)', function () {
-  it('registers participation before the first callback and retains it across settled bodies', async function () {
-    const f = fixture(); let end;
-    const barrier = new Promise(resolve => { end = resolve; });
-    const running = f.window.run(A, async () => {
-      assert.deepEqual([...f.pending.values()], [false]);
-      assert.equal(f.log.filter(row => row[0] === 'COMMIT').length, 1);
-      f.window.assertCurrent(A); await barrier; return 7;
-    });
-    await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual([...f.pending.values()], [false]); end();
-    assert.equal(await running, 7);
-    // A request settles locally; only tenant drain or process close finishes participation.
-    assert.deepEqual([...f.pending.values()], [false]);
-    await f.window.close();
-    assert.deepEqual([...f.pending.values()], [true]);
-    assert.equal(f.log.at(-1)[0], 'release');
+  it('binds an active generation before the callback without a durable process marker', async function () {
+    const f = fixture();
+    try {
+      await f.window.run(A, () => {
+        assert.equal(f.window.currentGeneration(A), '1');
+        assert.deepEqual(f.window.inflight(A), []);
+        assert.equal(f.pending.size, 0);
+      });
+    } finally { await f.window.close(); }
   });
   for (const [label, options, code] of [
     ['held exclusive lock', { held: false }, 'LIFECYCLE_WINDOW_SUSPENDED'],
@@ -34,22 +27,22 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     await assert.rejects(f.window.run(A, () => { called = true; }), { code });
     assert.equal(called, false); assert.equal(f.pending.size, 0);
   });
-  it('retains healthy participation after a failed callback and finishes it on close', async function () {
+  it('admits a new body after a failed callback', async function () {
     const f = fixture(); const original = new Error('synthetic body refusal');
     await assert.rejects(f.window.run(A, () => { throw original; }), error => error === original);
-    assert.deepEqual([...f.pending.values()], [false]);
+    assert.equal(f.pending.size, 0);
     await f.window.run(A, () => {});
     await f.window.close();
-    assert.deepEqual([...f.pending.values()], [true]);
+    assert.equal(f.pending.size, 0);
   });
-  it('keeps a durable pending record after lease connection loss and invalidates current scope', async function () {
+  it('invalidates the current scope on control connection loss', async function () {
     const f = fixture(); const original = new Error('synthetic lost lease connection'); let invalidated = 0;
     await assert.rejects(f.window.run(A, async () => {
       f.client.emit('error', original);
       assert.throws(() => f.window.assertCurrent(A), { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' });
     }, { onInvalidated: () => { invalidated++; } }), error => error === original);
     assert.equal(invalidated, 1);
-    assert.deepEqual([...f.pending.values()], [false]);
+    assert.equal(f.pending.size, 0);
     assert.equal(f.log.some(row => typeof row[0] === 'string' && row[0].startsWith('UPDATE')), false);
   });
   it('reuses same-tenant outer lifetime and refuses cross-tenant nesting', async function () {
@@ -58,14 +51,7 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
       await f.window.run(A, async () => f.window.assertCurrent(A));
       await assert.rejects(f.window.run(B, () => {}), { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' });
     });
-    assert.equal(f.pending.size, 1);
-  });
-  it('reports unlock loss instead of returning an ordinary success', async function () {
-    const f = fixture({ unlock: false });
-    await assert.rejects(f.window.run(A, () => 1), { code: 'LIFECYCLE_WINDOW_RELEASE_FAILED' });
-    assert.deepEqual([...f.pending.values()], [false], 'uncertain lock ownership retires the backend conservatively');
-    assert(f.log.some(row => row[0] === 'release' && row[1] === true));
-    await assert.rejects(f.window.close(), {code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
+    assert.equal(f.pending.size, 0);
   });
   it('refuses unknown tenants and closed windows before pool access', async function () {
     const f = fixture();
@@ -86,10 +72,14 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     assert.equal(fullAdmissions(f), base, 'an ended marker owner cannot be silently replaced');
     await f.window.close().catch(() => {});
   });
-  it('reads the live role and window row inside the transaction, after the lock', async function () {
-    const f = fixture(); await f.window.run(A, () => {});
-    const at = text => f.log.findIndex(row => typeof row[0] === 'string' && row[0].includes(text));
-    assert.ok(at('pg_try_advisory_lock_shared') < at('BEGIN') && at('BEGIN') < at('operation-window-current') && at('operation-window-current') < at('INSERT INTO'));
+  it('observes the tenant phase in a transaction before entering an application body', async function () {
+    const f = fixture();
+    await f.window.run(A, () => {
+      const order = f.log.map(([sql]) => sql);
+      assert(order.findIndex(sql => sql.includes('pg_try_advisory_xact_lock_shared')) < order.findIndex(sql => sql.includes('operation-window-current')));
+      assert.equal(order.at(-1), 'COMMIT');
+    });
+    await f.window.close();
   });
 });
 
@@ -111,10 +101,10 @@ describe('Actual consumers use operation-window lifetimes (source protocol)', fu
   it('covers actual tenant HTTP response finish and refuses suspension before the data handler', async function () {
     const f = fixture(); let served = 0;
     await request(app(f.window, (req, res) => {
-      f.window.assertCurrent(A); assert.deepEqual([...f.pending.values()], [false]);
+      f.window.assertCurrent(A); assert.equal(f.pending.size, 0);
       served++; res.json({ synthetic: true });
     })).get('/api/v3/entries').expect(200);
-    await f.window.close(); assert.equal(served, 1); assert.deepEqual([...f.pending.values()], [true]);
+    await f.window.close(); assert.equal(served, 1); assert.equal(f.pending.size, 0);
     const suspended = fixture({ phase: 'suspended' });
     await request(app(suspended.window, (req, res) => { served++; res.json({}); })).get('/api/v3/entries').expect(503);
     assert.equal(served, 1); assert.equal(suspended.pending.size, 0);
@@ -327,7 +317,7 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
     try {
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
       await scope.withTenant(A, () => store.query('SELECT synthetic_actual_body'));
-      assert.ok(f.log.some(row => row[0].includes('pg_try_advisory_lock_shared')));
+      assert.ok(f.log.some(row => row[0].includes('pg_try_advisory_xact_lock_shared')));
       options.phase = 'suspended';
       await assert.rejects(scope.withTenant(A, () => store.query('SELECT forbidden_after_suspension')), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
       assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_after_suspension'), false);
@@ -343,7 +333,7 @@ describe('Selected lower-port window cannot be omitted (source protocol)', funct
       store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
       await store.withTenant(zero, () => store.query('SELECT synthetic_metadata'));
       assert.ok(f.log.some(row => row[0] === 'BEGIN READ ONLY'));
-      assert.equal(f.log.some(row => row[0].includes('pg_try_advisory_lock_shared')), false);
+      assert.equal(f.log.some(row => row[0].includes('pg_try_advisory_xact_lock_shared')), false);
       options.metadataReadOnly = 'off';
       await assert.rejects(scope.withTenant(zero, () => store.snapshotTransaction(() => store.query('SELECT forbidden_metadata_body'))), { code: 'LIFECYCLE_WINDOW_METADATA_READ_ONLY_REQUIRED' });
       assert.ok(f.log.some(row => row[0] === 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'));

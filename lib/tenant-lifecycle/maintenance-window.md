@@ -1,7 +1,7 @@
 # Private A-only restore controller
 
 The controller composes a current private PostgreSQL role, committed tenant
-suspension, durable operation drain, an exact A advisory lock, a same-backend
+suspension, an exclusive tenant advisory lock, a same-backend
 restore transaction, and the source-created co-located role cohort. It does not
 use a global write pause or treat a callback's `quiesced:true` as evidence.
 
@@ -19,8 +19,8 @@ The connection joins the controller's already-bound transaction; it cannot issue
 independent BEGIN/COMMIT/ROLLBACK or retain authority after the callback. The claim
 is a frozen opaque object in a private WeakMap. `assertHeld(claim,{connection,
 tenant,artifactDigest})` rechecks the exact backend PID/birth/role, current operator
-authority, phase/generation/claim/digest, audit state, exact exclusive lock, absence
-of unfinished operations and the real registered cohort census.
+authority, phase/generation/claim/digest, audit state, exact exclusive lock
+and the registered cohort census.
 
 The private DDL operator provisions `tenant_lifecycle_restore_authority` rows for
 current database role OIDs and selected tenants. The controller reads only its own
@@ -36,15 +36,15 @@ never substitute for the provisioned current authority relation.
 
 1. Pin the source-created participant incarnations/schema identities using the held
    private client, then verify the branded complete cohort, exact schema
-   and current role authority. Pre-check, while A is still open and before any
-   write: an unfinished operation record whose owner backend is gone refuses the
-   restore (`LIFECYCLE_RESTORE_PREFLIGHT_ORPHANED_OPERATIONS`) and leaves A
-   serving; its owner can never finish it. Then commit A's suspended phase, new
-   generation, claim and artifact digest with an append-only audit record.
-2. New A ordinary operations refuse. Poll existing durable unfinished markers
-   (their owners are present, or their birth is unreadable) and try only A's
-   exclusive advisory key nonblocking. Deadline or unknown completion refuses
-   with A closed; the controller never clears markers or reactivates A.
+   and current role authority. Try the exclusive generation lock. A transaction
+   already committing under its shared counterpart causes a refusal while A is
+   active. Otherwise commit the new suspended generation, claim, artifact digest
+   and audit record together.
+2. New serving operations on A refuse. Try A's exclusive replacement key until
+   the bounded deadline so a previously admitted transaction can finish rolling
+   back. A timeout leaves A suspended. Responses for writes that committed before
+   suspension can complete while restore proceeds. Queued alarms keep their origin
+   generation through transport acceptance.
 3. Restore on the exact held backend. Lifecycle must assert the claim before
    metadata/effects and before commit. Mark audit state restored in the SAME data
    transaction as restored rows. Independent B's operations/key remain unchanged.
@@ -72,7 +72,7 @@ restore and awaited real invalidation. Do not auto-reissue the restore or report
 an uncertain activation as a confirmed suspension. Cleanup errors remain visible.
 
 The same database/pool remain shared resources. Caller-selected drain timeout
-bounds drain refusal, not restore completion. A hung external dependency or
+bounds acquisition of the replacement key, not restore completion. A hung external dependency or
 transport loss is not made safe by reopening on a watchdog deadline.
 
 ## Resume and operation clearance
@@ -94,8 +94,8 @@ data transaction sets `restored` in the same commit as the replaced rows.
 
 | audit state | case | what resume requires before reopening |
 |---|---|---|
-| `suspended` | closed before the data was replaced | pinned process drain, no unfinished participation, exclusive key, awaited invalidation and fresh participant census. Suspension advanced the generation even though no replaced row is durable |
-| `restored` | data already replaced | pinned process drain, no unfinished participation record, the tenant's exclusive advisory key, awaited invalidation by every participant, then the census again: the order the restore itself uses before activation |
+| `suspended` | closed before the data was replaced | exclusive key, awaited participant invalidation and fresh census. Suspension advanced the generation |
+| `restored` | data already replaced | exclusive key, awaited participant invalidation and fresh census. The resume row records that replacement committed |
 
 It refuses when the restore's owner backend is present or its birth cannot be
 read (`LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT`), when the claim is another
@@ -106,13 +106,8 @@ has at most one resume row, and the row policy accepts only the label that
 matches the audit state. The restore audit row is not rewritten. Publication
 hooks a restore queued with `afterCommit` are not replayed.
 
-Ordinary requests reuse process/tenant-generation participation markers. After
-suspension, the existing pinned `getOperations` RPC closes local admission and
-returns the marker until actual responses, provider callbacks and physical SQL
-children have drained and its completion settles. Restore checks both these
-process replies and the durable unfinished rows. Healthy idle participation also
-closes through this control path. An abrupt owner loss can leave markers for all
-tenants it warmed; reconnect never clears them.
+Restore and resume use tenant transaction fences. The operator can inspect and
+clear legacy marker rows independently of either operation.
 
 `clearOperations(tenant)` records, in `tenant_lifecycle_operation_clearance`,
 that an unfinished operation record has no owner left. It clears a record only
@@ -120,8 +115,8 @@ when no backend can be its owner (the server's session list) and no participant
 process reports it among its unfinished operations (`getOperations`, answered by
 each pinned incarnation). A record with a present backend is retained as
 `OWNER_BACKEND_PRESENT`; one whose process still runs it as
-`OWNER_PROCESS_RUNNING`. The operation record itself is never changed; restore
-and resume stop counting a record once its clearance row exists.
+`OWNER_PROCESS_RUNNING`. The original operation record stays available for audit. Inspection reports
+the remaining uncleared records.
 
 ## Schema and recovery inventory
 

@@ -59,8 +59,8 @@ describe('selected held-owner backend re-observation',function(){
     try{
       await f.verify();
       await f.owner.withTenant(A,async()=>{await f.connection.query('SELECT ordinary_tenant_work');});
-      assert(f.calls.some(c=>c.text.includes('operation-window-current lower')));
-      assert(!f.calls.some(c=>c.text.includes('operation-window-current trusted-lower')));
+      assert(f.calls.some(c=>c.text.includes('/* operation-window-current */')));
+      assert(f.calls.some(c=>c.text.includes('/* operation-window-final */')));
       assert.equal(f.window.trustedWorker,false);assert.equal(f.clients.length,1);
     }finally{await f.close();}
   });
@@ -75,6 +75,18 @@ describe('selected held-owner backend re-observation',function(){
       const checking=f.owner.check();await new Promise(resolve=>setImmediate(resolve));assert.equal(verified,false);
       finish();await owned;await pending;await checking;assert(f.owner.available);assert.equal(f.clients.length,1);
     }finally{finish();await owned.catch(()=>{});await f.close();}
+  });
+  it('retires the owner after an uncertain COMMIT and never replays its body',async()=>{
+    const f=await fixture();
+    let attempts=0;
+    try{
+      f.setAction(async(client,text)=>{if(text==='COMMIT')throw new Error('synthetic lost COMMIT response');});
+      await assert.rejects(f.owner.withTenant(A,async()=>{attempts++;}),/lost COMMIT response/);
+      assert.equal(f.owner.available,false);
+      assert.equal(f.losses,1);
+      await assert.rejects(f.owner.withTenant(A,async()=>{attempts++;}),{code:'POSTGRES_OPERATIONAL_OWNER_LOST'});
+      assert.equal(attempts,1);
+    }finally{await f.close();}
   });
   it('refuses readoption inside its owner transaction instead of waiting on itself',async()=>{
     const f=await fixture();

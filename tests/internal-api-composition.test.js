@@ -342,8 +342,7 @@ describe('Per-module lifetime on a composed listener', function () {
       const release = lab.hold(A);
       const pending = lab.authority.authorizeSocket(authorizeBody(A));
       while (!lab.app.length) await new Promise(resolve => setImmediate(resolve));
-      assert.equal(lab.f.pending.size, 1, 'held A operation is registered in the window');
-      assert.equal([...lab.f.pending.values()][0], false, 'held A operation not yet finished');
+      assert.equal(lab.f.pending.size, 0, 'the held response has no durable restore marker');
       assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).request, REQUEST, 'lifecycle status during a held A response');
       let drained = false; const closing = lab.f.window.close().then(() => { drained = true; });
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -351,16 +350,11 @@ describe('Per-module lifetime on a composed listener', function () {
       release();
       assert.deepEqual(await pending, { denied: true });
       await closing;
-      assert.equal(drained, true); assert.equal([...lab.f.pending.values()][0], true, 'operation marked finished after response completion');
+      assert.equal(drained, true); assert.equal(lab.f.pending.size, 0);
     } finally { await lab.close(); }
   });
-  it('control: omitting the process drain barrier fails suspended application refusal, then the actual barrier restores it', async function () {
-    await assert.rejects(suspendedScenario(transport, 'uds', { drain: false }), error => {
-      assert.equal(error.code, 'ERR_ASSERTION');
-      assert.match(error.message, /Missing expected rejection: A application work must refuse while suspended/);
-      return true;
-    });
-    await suspendedScenario(transport, 'uds');
+  it('refuses suspended application work with the lifecycle control drain omitted', async function () {
+    await suspendedScenario(transport, 'uds', { drain: false });
   });
   it('control: a blanket listener-wide window mutant fails the lifecycle invalidation assertion', async function () {
     const broken = mutated(source => source
@@ -370,7 +364,7 @@ describe('Per-module lifetime on a composed listener', function () {
         "      const lifetime = route.lifetime || (typeof body.tenant === 'string' ? blanket : null);\n      if (lifetime) await lifetime.operationWindow.run(await lifetime.resolveTenant(body)"));
     await assert.rejects(suspendedScenario(broken, 'uds'), error => {
       assert.equal(error.code, 'ERR_ASSERTION');
-      assert.match(error.message, /^lifecycle invalidation of suspended A must stay callable: SOCKET_IPC_UNAVAILABLE$/);
+      assert.match(error.message, /^lifecycle drain of suspended A must stay callable: SOCKET_IPC_UNAVAILABLE$/);
       return true;
     });
     await suspendedScenario(transport, 'uds');

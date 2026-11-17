@@ -157,6 +157,33 @@ describe('evaluator preview owned jobs and lifecycle', function () {
       assert.equal(l.ctx.last(A).eligible,true); assert.deepEqual(l.ctx.last(B),b);
     } finally { await l.ctx.close(); }
   });
+  it('retires an evaluating generation before its held computation returns', async function () {
+    const gate = deferred(), entered = deferred();
+    let hold = false, checkpoint = 0;
+    const l = await lab({ create: async current => ({
+      async evaluate () {
+        const result = { checkpoint: ++checkpoint, properties: { tenant: current.tenant } };
+        if (current.tenant === A && hold) { entered.resolve(); await gate.promise; }
+        return result;
+      }, close () {}
+    }) });
+    let old;
+    try {
+      const b = l.ctx.last(B);
+      hold = true; old = l.ctx.acquire(A);
+      await entered.promise;
+      let invalidated = false;
+      const invalidating = l.ctx.invalidateTenant(A, { restoring: true }).then(() => { invalidated = true; });
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(invalidated, true, 'RESTORE_MUST_NOT_DRAIN_HELD_COMPUTE');
+      assert.equal(l.ctx.last(A), null);
+      hold = false; gate.resolve(); await old; await invalidating;
+      assert.equal(l.ctx.last(A), null, 'STALE_COMPUTE_MUST_NOT_PUBLISH');
+      await l.ctx.acquire(A);
+      assert.equal(l.ctx.last(A).eligible, true);
+      assert.deepEqual(l.ctx.last(B), b);
+    } finally { gate.resolve(); await old; await l.ctx.close(); }
+  });
   it('coalesces concurrent work per tenant while another tenant progresses', async function () {
     let gate, entered, active = 0, maximum = 0, calls = 0;
     const l = await lab({ create: async current => ({ async evaluate () {

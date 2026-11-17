@@ -42,6 +42,50 @@ describe('actual durable producer and outbox recreation protocol', function () {
     const rows=f.snapshot().requests; assert.ok(rows.every(row=>row.state==='accepted'));
     await next.p.select(f.A); await next.n.retry(f.A); assert.equal(f.snapshot().requests.length,rows.length,'PRODUCER_SAME_OUTPUT_ONCE');
   });
+  it('routes queued alarms by their durable producer head with missing or changed audit metadata', async function () {
+    const storeFactory = require('../lib/tenant-notifications/postgres');
+    let generation = '17', audit;
+    // Change only the audit field in this recording store. The original
+    // producer key, request ID, tenant, payload content and timing are intact.
+    const connection = { ...f.connection, query (sql, values) {
+      if (sql.startsWith('INSERT INTO') && sql.includes('.tenant_notification_requests ')) {
+        values = [...values];
+        const payload = JSON.parse(values[6]);
+        if (audit === undefined) delete payload.originGeneration;
+        else payload.originGeneration = audit;
+        values[6] = JSON.stringify(payload);
+      }
+      return f.connection.query(sql, values);
+    } };
+    const options = {connection, namespace: 'notification_test', maxRows: 10, maxBytes: 65536};
+    const store = storeFactory({...options, currentGeneration: () => generation});
+    const legacy = storeFactory(options);
+    const expected = [], consumer = 'realtime-test', policy = 'realtime-cycle';
+    for (const kind of ['C1', 'prior', 'current']) {
+      if (kind === 'current') generation = '18';
+      for (audit of [undefined, '17', '18']) {
+        const origin = kind + '-' + String(audit), writer = kind === 'C1' ? legacy : store;
+        const row = await scope.withTenant(f.A, () => writer.enqueue({tenant: f.A, consumer, normalPolicy: policy,
+          origin, key: policy + ':' + origin, configIdentity: 'fixture', payload: fixture.notification(), at: f.now()}));
+        assert.equal(row.payload.originGeneration, audit);
+        if (kind !== 'current') expected.push(row.request_id);
+      }
+    }
+    const empty = await scope.withTenant(f.A, () => store.consume({tenant:f.A, consumer,
+      transform: async () => ({configIdentity:'restored', producer:{}, retireObsolete:true, intents:[]})}));
+    assert.deepEqual(empty.preserved.sort(), expected.sort(), 'AUDIT_METADATA_MUST_NOT_CONTROL_RETENTION');
+
+    const routed = [];
+    const delivery = notifier({...f.hooks, store, normalPolicy: policy, mayAttempt: async () => false,
+      currentAuthority: async tenant => tenant === f.A,
+      adapter: {id:consumer, send (request, done) {
+        assert.equal(request.tenant, f.A);
+        routed.push(request.id); done(null, {accepted:true});
+      }}});
+    owned.push(delivery);
+    await delivery.retry(f.A);
+    assert.deepEqual(routed.sort(), expected, 'AUDIT_METADATA_MUST_NOT_CONTROL_ROUTING');
+  });
   it('consumes fresh committed control ACK after restart initial acquisition refusal without inventing a clinical result', async function () {
     clinical(50); const first=open((row,callback)=>callback(null,{accepted:true})); await first.p.select(f.A); await first.n.retry(f.A);
     first.p.close(); await first.n.close();

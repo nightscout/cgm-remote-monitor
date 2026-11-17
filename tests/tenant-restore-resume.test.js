@@ -99,7 +99,7 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
       const { m, api } = fixture({ durable: suspended(state), pending: [record('p1', true)] });
       const seen = await api.inspect(A);
       assert.deepEqual(seen, { tenant: A, phase: 'suspended', generation: '2', claimId: CLAIM, artifactDigest: DIGEST, restore: { state, ownerPresent: false }, interrupted,
-        operations: { unfinished: 1, ownerGone: 1 }, resumable: state === 'suspended', reasons: state === 'suspended' ? [] : ['LIFECYCLE_RESUME_PENDING_OPERATIONS'] });
+        operations: { unfinished: 1, ownerGone: 1 }, resumable: true, reasons: [] });
       assert(!wrote(m) && !m.trace.includes('COMMIT') && !m.pinned && m.acknowledged === undefined, 'inspect neither writes nor asks the cohort');
       await api.close();
     }
@@ -119,13 +119,15 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     assert(m.released && m.pinReleased); assert.equal(m.releaseError, true, 'operator backend is destroyed after use'); await api.close();
   });
 
-  // A before-data restore already advanced the generation. Reopening around
-  // old bodies would strand their generation or allow effects across restore.
-  it('keeps a before-data tenant suspended while a process callback is still running', async function () {
-    const { m, api } = fixture({ running: ['held-provider'], pending: [record('held-provider', false)] });
-    await assert.rejects(api.resume(A, { claimId: CLAIM }), { code: 'LIFECYCLE_RESUME_PENDING_OPERATIONS' });
-    assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.invalidated, undefined);
-    await api.close();
+  it('resumes across a held transport callback after both interruption stages', async function () {
+    for (const state of ['suspended', 'restored']) {
+      const { m, api } = fixture({ durable: suspended(state), running: ['held-provider'], pending: [record('old-operation', true)] });
+      assert.equal((await api.resume(A, { claimId: CLAIM })).state, 'active');
+      assert.deepEqual(m.running, ['held-provider']);
+      assert(m.invalidated && m.lockAttempts === 1);
+      assert(!m.trace.some(sql => sql.includes('resume-pending')));
+      await api.close();
+    }
   });
   it('data already replaced: exclusive key, awaited invalidation, then activation in one transaction with its record', async function () {
     const { m, api } = fixture({ durable: suspended('restored') });
@@ -144,7 +146,6 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     ['a revoked operator', { authority: false }, 'LIFECYCLE_RESUME_AUTHORITY_REFUSED'],
     ['a claim made by another database role', { auditVisible: false }, 'LIFECYCLE_RESUME_AUDIT_UNAVAILABLE'],
     ['a competing restore or resume holding the window row', { rowLocked: true }, '55P03'],
-    ['replaced data with an unfinished operation record', { pending: [record('p1', true)] }, 'LIFECYCLE_RESUME_PENDING_OPERATIONS', 'restored'],
     ['replaced data while the tenant key is held', { busy: true }, 'LIFECYCLE_RESUME_LOCK_BUSY', 'restored'],
     ['replaced data when a participant loses the invalidation', { invalidateFails: true }, 'SOCKET_IPC_UNAVAILABLE', 'restored']
   ]) it('refuses ' + label + ' and leaves the tenant closed', async function () {
@@ -216,7 +217,7 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     assert.deepEqual((await api.clearOperations(A)).cleared, ['still-running']); assert.equal(m.durable.clearance.length, 1);
   });
   it('control: without the awaited invalidation the model refuses activation of replaced data', async function () {
-    const { m, api } = fixture({ durable: suspended('restored') }, source => source.replace('        await cohorts.invalidate(cohort, tenant);\n', ''));
+    const { m, api } = fixture({ durable: suspended('restored') }, source => source.replace('      await cohorts.invalidate(cohort, tenant);\n', ''));
     await assert.rejects(api.resume(A, { claimId: CLAIM }), /RESUME_INVALIDATES_BEFORE_ACTIVATION/); assert.equal(m.durable.window.phase, 'suspended');
   });
 });

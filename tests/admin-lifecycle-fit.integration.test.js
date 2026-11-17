@@ -19,6 +19,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const net = require('node:net');
+const { once } = require('node:events');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
@@ -367,6 +368,22 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       " WHERE tenant_id=$1 AND COALESCE(doc->>'isValid','true')<>'false' ORDER BY insertion_ordinal", [tenant])).rows.map(row => ({ _id: row.doc._id, sgv: row.doc.sgv })));
   }
 
+  // Use the deployed lifetime and outbox identities for the actual queued
+  // alarm. Close both before operator census, just like an idle producer.
+  async function withAlarmQueue (locks, fn) {
+    const pool = new Pool({ connectionString: urls.lifetime_evaluator, max: 1 });
+    const window = require('../lib/tenant-lifecycle/operation-window').create({ namespace: ns.control, locks, pool });
+    let connection;
+    try {
+      await window.ready();
+      connection = await require('../lib/storage/postgres-connection')({ connectionString: urls.outbox, operationWindow: window, max: 1 });
+      const store = require('../lib/tenant-notifications/postgres')({ connection, namespace: ns.outbox,
+        maxRows: 16, maxBytes: 65536, currentGeneration: tenant => window.currentGeneration(tenant) });
+      return await window.run(A, () => scope.withTenant(A, () => fn(store, window.currentGeneration(A))));
+    } finally {
+      try { await connection?.end(); } finally { try { await window.close(); } finally { await pool.end(); } }
+    }
+  }
   // BF-230 regression: the clinical logical restore (logical-restore.js) through
   // the pinned nightscout-deploy Compose driver's capture/restore operations,
   // under the deployment plan's grants, with the admin role connected. A carries a
@@ -408,6 +425,15 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     });
     await this.ownership.listOwners({ tenant: A });
     assert.ok(await backendsOf(l.roles.ownership_operator) >= 1, 'admin role connected');
+    const consumer = 'realtime-preview', normalPolicy = 'realtime-cycle';
+    const queued = await withAlarmQueue(this.locks, async (store, generation) => {
+      const row = await store.enqueue({ tenant: A, consumer, normalPolicy, key: normalPolicy + ':pending-synthetic',
+        origin: 'synthetic-captured-output', configIdentity: 'synthetic-config', at: now,
+        payload: { level: 1, plugin: { name: 'synthetic' }, group: 'synthetic', title: 'Synthetic queued alarm', message: 'Pending at restore' } });
+      assert.equal(row.state, 'pending');
+      assert.equal(row.payload.originGeneration, generation);
+      return row;
+    });
     const summaries = [];
     const result = await operator.restore(config, artifact, env, { onCommitted: summary => { summaries.push(summary); } });
     assert.equal(result.state, 'activated');
@@ -415,6 +441,33 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     assert.deepEqual({ created: summaries[0].created, replaced: summaries[0].replaced, deleted: summaries[0].deleted },
       { created: 0, replaced: 1, deleted: 1 }, 'seed-a1 replaced back, seed-a2 marked deleted');
     assert.deepEqual(await observe(A), seeded, 'A as captured');
+    await withAlarmQueue(this.locks, async (store, currentGeneration) => {
+      assert.notEqual(currentGeneration, queued.payload.originGeneration);
+      const due = await store.due({ tenant: A, consumer, normalPolicy, at: Date.now() });
+      assert.deepEqual(due, [queued], 'CURRENT_ALARM_QUEUE_SURVIVES_LOGICAL_RESTORE');
+      assert.equal(store.queuedBeforeRestore(A, due[0]), true);
+      const audience = await require('./fixtures/notification-alarm-subscriber')(A);
+      const alarms = require('../lib/server/realtime/alarm-transport');
+      const endpoint = { socketPath: path.join(socketDir, 'restored-alarm.sock'), timeoutMs: 2000, maxBytes: 65536 };
+      let transport, notifier;
+      try {
+        transport = await ipc.open(endpoint, contracts.alarmDelivery, token => alarms.operations({ token, deliver: audience.deliver }));
+        notifier = require('../lib/tenant-notifications/component')({ store, adapter: alarms.createAdapter(endpoint), normalPolicy,
+          now: Date.now, maxRows: 16, maxPayloadBytes: 65536, maxInflight: 1, attemptTimeoutMs: 2000, retryDelayMs: 100,
+          allows: async ({ tenant }) => tenant === A, currentAuthority: async tenant => tenant === A && await phaseOf(tenant) === 'active',
+          isCurrent: async () => false, selectCycle: async () => { throw new Error('Restored clinical view cannot regenerate this alarm'); } });
+        const [[received], retry] = await Promise.all([
+          once(audience.subscriber, 'alarm', { signal: AbortSignal.timeout(4000) }), notifier.retry(A)
+        ]);
+        assert.deepEqual(received, queued.payload, 'RESTORED_ALARM_AT_SUBSCRIBER');
+        assert.deepEqual(retry.results, [{ id: queued.request_id, state: 'accepted' }]);
+      } finally {
+        try { await notifier?.close(); } finally { try { await transport?.close(); } finally { await audience.close(); } }
+      }
+    });
+    const accepted = await inTenant(A, async client => (await client.query('SELECT state,payload FROM ' +
+      t('outbox', 'tenant_notification_requests') + ' WHERE tenant_id=$1 AND request_id=$2', [A, queued.request_id])).rows[0]);
+    assert.deepEqual(accepted, { state: 'accepted', payload: queued.payload }, 'RESTORED_REQUEST_ACCEPTED_IN_POSTGRES');
     assert.deepEqual(await observe(B), beforeB, 'B unchanged');
     assert.equal(await phaseOf(A), 'active');
     assert.equal(await inTenant(A, async client => (await client.query('SELECT phase FROM ' + t('control', 'tenant_lifecycle_key_retention') + ' WHERE request_id=$1', [request])).rows[0].phase), 'restored');

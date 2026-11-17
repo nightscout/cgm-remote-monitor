@@ -205,17 +205,19 @@ describe('Private IPC lifetime extends through actual response completion', func
     const token = Symbol('owned-synthetic');
     const job = ipc.handler({service,operations:{echo:async () => { f.window.assertCurrent(A); return {ok:true}; }},
       maxBytes:1000,timeoutMs:5000,admitted:() => true,token,operationWindow:f.window,resolveTenant:body => body.tenant})(req,res);
+    let finished = false;
+    job.then(() => { finished = true; });
     try {
       await written; await new Promise(resolve => setImmediate(resolve));
-      assert.equal(res.status,200); assert.deepEqual([...f.pending.values()],[false]);
+      assert.equal(res.status,200); assert.equal(f.pending.size, 0);
       options.phase = 'suspended'; await f.window.drainTenant(A);
       await new Promise(resolve => setImmediate(resolve));
-      assert.deepEqual([...f.pending.values()],[false], 'ACTUAL_RESPONSE_STILL_RUNNING');
+      assert.equal(finished, false, 'ACTUAL_RESPONSE_STILL_RUNNING');
       res.emit('finish'); await job; await f.window.invalidateTenant(A);
-      assert.deepEqual([...f.pending.values()],[true]);
+      assert.equal(finished, true);
     } finally { res.emit('finish'); await job; await f.window.close(); }
   }
-  it('keeps durable unfinished operation until response finish', () => responseCheck());
+  it('keeps the transport callback open until response finish', () => responseCheck());
   it('detects prematurely released IPC lifetime and passes restored source', async function () {
     await assert.rejects(responseCheck(s => s.replace('await finished;','void finished;')),assert.AssertionError);
     await responseCheck();

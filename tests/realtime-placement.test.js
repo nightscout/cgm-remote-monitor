@@ -291,15 +291,15 @@ describe('bounded private realtime tenant readiness observations',function(){
 describe('realtime staged warm metadata boundary', function () {
  const scope=require('../lib/storage/tenant-scope');let previous;
  beforeEach(()=>{previous=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(previous));
- async function staged(change,transform=value=>value,expected='TENANT_ACTIVITY_DEFERRED'){
+ async function staged(change,transform=value=>value,expected='TENANT_ACTIVITY_DEFERRED',{duringWarm,afterWarm}={}){
   const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
   const filename=require.resolve('../lib/server/serve/preview-realtime'),local=createRequire(filename),noop=async()=>{};
   let enter,release,follow,cached,scans=0,activated=0,removed=0,generation=1;
   const entered=new Promise(resolve=>{enter=resolve;}),held=new Promise(resolve=>{release=resolve;});
   const live={paused:false,settings:1,policy:1};const entry={tenant:B};
-  const worker={scan:async()=>{scans++;cached={...live};return new Map();},read:async()=>({...cached}),
+  const worker={scan:async()=>{scans++;cached={...live};return new Map();},read:async()=>({...cached}),remove(){},
    current:()=>cached?{activity:{state:cached.paused?'paused':'active'}}:null,state:()=>({available:true,generation}),close:noop};
-  const registrySet={tenants:new Map(),isActive:()=>true,follow:async value=>{follow=value;},close:noop,stats:()=>({})};
+  const registrySet={tenants:new Map(),isActive:()=>true,follow:async value=>{follow=value;},drained:()=>held,close:noop,stats:()=>({})};
   const overrides={
    './evaluator-config':{registryEntry:tenant=>({tenant}),applySettings:(base,settings)=>({...base,identity:settings.settings+':'+settings.policy})},
    '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
@@ -322,13 +322,28 @@ describe('realtime staged warm metadata boundary', function () {
    tenants:new Map(),operationTimeoutMs:100,placement:selected,consumer:'realtime-test',api:{},admission:{},namespaces:{}});
   try{
    const preparing=follow.prepare(B,entry);preparing.catch(()=>{});
-   await entered;const before=scans;change?.(live,()=>{generation++;});release();
+   await entered;const before=scans;await duringWarm?.(role);await change?.(live,()=>{generation++;},role);release();
    if(change){await assert.rejects(preparing,{code:expected});assert.equal(activated,0);assert.equal(removed,1);}
-   else{await preparing;assert.equal(scans,before+1,'one fresh metadata scan after awaited staged acquisition');await follow.activate(B);assert.equal(activated,1);}
+   else{
+    await preparing;assert.equal(scans,before+1,'one fresh metadata scan after awaited staged acquisition');
+    if(afterWarm){await afterWarm(role);assert.throws(()=>follow.activate(B),{code:'REALTIME_STAGED_TENANT_MISSING'});assert.equal(activated,0);}
+    else{await follow.activate(B);assert.equal(activated,1);}
+   }
   }finally{release();await role.close();}
  }
  it('refuses a pause committed during held acquisition and retains the active staging path',async function(){
   await staged(live=>{live.paused=true;});await staged();
+ });
+ it('acknowledges restore during a staged warm and revokes only the affected projection',async function(){
+  async function invalidateWhileHeld(role,tenant){
+   let ack=false;const invalidated=role.invalidateTenant(tenant).then(()=>{ack=true;});
+   await new Promise(setImmediate);
+   assert.equal(ack,true,'RESTORE_MUST_NOT_DRAIN_REGISTRY_WARM');
+   await invalidated;
+  }
+  await staged(undefined,undefined,undefined,{duringWarm:role=>invalidateWhileHeld(role,A)});
+  await staged((live,bump,role)=>invalidateWhileHeld(role,B),undefined,'REALTIME_CYCLE_CHANGED');
+  await staged(undefined,undefined,undefined,{afterWarm:role=>role.invalidateTenant(B)});
  });
  it('refuses changed settings, policy and worker generation before publishing staged state',async function(){
   for(const change of [live=>{live.settings++;},live=>{live.policy++;}])await staged(change,undefined,'REALTIME_STAGED_CONFIG_CHANGED');

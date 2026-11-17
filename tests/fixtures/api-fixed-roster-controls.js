@@ -10,11 +10,6 @@ const original = http.ServerResponse.prototype.end, held = [];
 http.ServerResponse.prototype.end = function (...args) {
   if (this.req.headers['x-roster-hold'] === 'postcommit' && this.req.method === 'POST' && this.statusCode === 201) {
     held.push({ response: this, args });
-    if (this.req.headers['x-roster-release-lifetime'] === '1') {
-      const listeners = this.listeners('finish').filter(listener => listener.name === 'finished');
-      if (listeners.length !== 1) throw new Error('Actual response-lifetime control must match its owned completion callback');
-      listeners[0](); // Deliberate early lifetime completion; the actual wire response remains held.
-    }
     fs.writeFileSync(path.join(directory, 'held-' + process.env.NS_API_ROSTER_ID), 'postcommit', { mode: 0o600 });
     return this;
   }
@@ -26,4 +21,26 @@ http.ServerResponse.prototype.end = function (...args) {
   }
   return original.apply(this, args);
 };
-process.on('SIGUSR2', () => { for (const { response, args } of held.splice(0)) original.apply(response, args); });
+// Only the suite controller can create this file. Pause after the database
+// accepted a synthetic INSERT, while the real API transaction is still open.
+const { Client } = require('pg');
+const query = Client.prototype.query;
+const arm = path.join(directory, 'arm-write-' + process.env.NS_API_ROSTER_ID);
+let resumeWrite;
+Client.prototype.query = function (...args) {
+  const result = query.apply(this, args);
+  const sql = typeof args[0] === 'string' ? args[0] : args[0]?.text;
+  if (!sql || !/^INSERT INTO "?preview_data"?\."?entries"?\s/i.test(sql) || !fs.existsSync(arm)) return result;
+  fs.unlinkSync(arm);
+  return result.then(async value => {
+    if (value.rowCount !== 1) throw new Error('Expected one uncommitted synthetic entry');
+    const waiting = new Promise(resolve => { resumeWrite = resolve; });
+    fs.writeFileSync(path.join(directory, 'held-write-' + process.env.NS_API_ROSTER_ID), 'inserted', { mode: 0o600 });
+    await waiting;
+    return value;
+  });
+};
+process.on('SIGUSR2', () => {
+  if (resumeWrite) { resumeWrite(); resumeWrite = undefined; }
+  for (const { response, args } of held.splice(0)) original.apply(response, args);
+});
