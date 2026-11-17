@@ -34,7 +34,7 @@ describe('bounded evaluator inspection v2',function(){
  });
  it('refuses the retired feed selector before effects and detects an ablated selector guard',async function(){
   const Module=require('node:module'),filename=require.resolve('../lib/server/serve/evaluator-inspection');
-  const original=fs.readFileSync(filename,'utf8'),guard="if (diagnostics !== undefined && diagnostics !== 'clinical-result-v1') throw new Error('Evaluator diagnostics selector refused');";
+  const original=fs.readFileSync(filename,'utf8'),guard="if (diagnostics !== undefined && !DIAGNOSTICS.includes(diagnostics)) throw new Error('Evaluator diagnostics selector refused');";
   assert.equal(original.split(guard).length,2,'CONTROL_GUARD_SOURCE_EXACT');
   const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));loaded._compile(original.replace(guard,''),filename);
   const criterion=async factory=>{
@@ -57,6 +57,24 @@ describe('bounded evaluator inspection v2',function(){
    assert.equal(invoked,1,'RETIRED_FEED_REQUEST_REFUSED_BEFORE_DISPATCH');
    corrupt=true;await assert.rejects(client.inspectEvaluator({tenants:[]}),/SOCKET_IPC_UNAVAILABLE/,'RETIRED_FEED_RESPONSE_REFUSED');corrupt=false;
    const restored=await client.inspectEvaluator({tenants:[]});assert(!Object.hasOwn(restored,'diagnostics'));
+  }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
+ });
+ it('reports in-memory and durable pending markers side by side only for an explicit bounded selection',async function(){
+  const memory={pendingSince:1700000000000,pendingEpoch:7,marksDuringCycle:1,pendingAgeMs:2500,expired:false};
+  const durable={pendingAt:1700000001000,nextDueAt:null,observed:{clock:'9'},completed:{clock:'8'},observedAt:{clock:'1700000001000'},outputRevision:'4'};
+  let reads=0;
+  const f=fixture(10000,undefined,undefined,options=>inspection({...options,runtime:{...options.runtime,pendingWitness:selected=>selected.map(tenant=>({tenant,memory:{...memory}}))},witness:async selected=>{reads++;return selected.map(tenant=>({tenant,durable:tenant===f.ids[1]?null:JSON.parse(JSON.stringify(durable))}));}}));
+  const ordinary=await f.inspect({tenants:[f.ids[0]]});assert.equal(reads,0,'ORDINARY_INSPECTION_READS_NO_WITNESS');assert(!Object.hasOwn(ordinary,'diagnostics'));
+  for(const tenants of [undefined,[],[f.ids[0],f.ids[0]],f.ids.slice(0,129)])await assert.rejects(f.inspect({tenants,diagnostics:'pending-witness-v1'}),/selector refused/);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-pending-witness-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
+  try{
+   listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{const dto=await f.inspect(body);if(corrupt)corrupt(dto);return dto;}})}]);
+   const client=transport.client(endpoint,service),body={tenants:[f.ids[0],f.ids[1]],diagnostics:'pending-witness-v1'};
+   const dto=await client.inspectEvaluator(body);
+   assert.deepEqual(dto.diagnostics.pendingWitness.tenants,[{tenant:f.ids[0],memory,durable},{tenant:f.ids[1],memory,durable:null}]);
+   assert.deepEqual(dto.tenants,(await f.inspect({tenants:body.tenants})).tenants,'ORDINARY_TENANT_ROWS_UNCHANGED');
+   for(const change of [x=>{x.diagnostics.pendingWitness.tenants[0].durable.observed.unknown='1';},x=>{x.diagnostics.pendingWitness.tenants[0].memory.pendingSince=-1;},x=>{x.diagnostics.clinicalResults={authority:'cached-result-only',tenants:[]};}]){corrupt=change;await assert.rejects(client.inspectEvaluator(body),/SOCKET_IPC_UNAVAILABLE/);}
+   corrupt=null;await client.inspectEvaluator(body);
   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
  });
  it('exposes clinical results only for explicit bounded selection through strict paired private transport',async function(){

@@ -211,6 +211,7 @@
         "tests/pgstream-typed-state.test.js",
         "tests/pgstream-activity-scheduler.test.js",
         "tests/evaluator-pending-isolation.test.js",
+        "tests/evaluator-pending-marker.test.js",
         "tests/pgstream-checkpoint-transfer.test.js",
         "tests/pgstream-source-admission.test.js",
         "tests/pgstream-authority-currentness.test.js",

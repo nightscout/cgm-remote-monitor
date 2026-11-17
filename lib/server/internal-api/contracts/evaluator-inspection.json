@@ -19,7 +19,8 @@
           },
           "diagnostics": {
             "enum": [
-              "clinical-result-v1"
+              "clinical-result-v1",
+              "pending-witness-v1"
             ]
           }
         },
@@ -34,6 +35,21 @@
             "properties": {
               "diagnostics": {
                 "const": "clinical-result-v1"
+              },
+              "tenants": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "required": [
+              "diagnostics",
+              "tenants"
+            ]
+          },
+          {
+            "properties": {
+              "diagnostics": {
+                "const": "pending-witness-v1"
               },
               "tenants": {
                 "type": "array",
@@ -946,12 +962,240 @@
                   "tenants"
                 ],
                 "additionalProperties": false
+              },
+              "pendingWitness": {
+                "type": "object",
+                "properties": {
+                  "tenants": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 128,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tenant": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "memory": {
+                          "type": "object",
+                          "properties": {
+                            "pendingSince": {
+                              "anyOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              ]
+                            },
+                            "pendingEpoch": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "marksDuringCycle": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 64
+                            },
+                            "pendingAgeMs": {
+                              "anyOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              ]
+                            },
+                            "expired": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "pendingSince",
+                            "pendingEpoch",
+                            "marksDuringCycle",
+                            "pendingAgeMs",
+                            "expired"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "durable": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "pendingAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  ]
+                                },
+                                "nextDueAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  ]
+                                },
+                                "observed": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "completed": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "observedAt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "outputRevision": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                }
+                              },
+                              "required": [
+                                "pendingAt",
+                                "nextDueAt",
+                                "observed",
+                                "completed",
+                                "observedAt",
+                                "outputRevision"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "tenant",
+                        "memory",
+                        "durable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "tenants"
+                ],
+                "additionalProperties": false
               }
             },
-            "required": [
-              "clinicalResults"
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "clinicalResults"
+                ]
+              },
+              {
+                "required": [
+                  "pendingWitness"
+                ]
+              }
             ],
-            "additionalProperties": false
+            "minProperties": 1,
+            "maxProperties": 1
           }
         },
         "required": [
