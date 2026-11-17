@@ -337,8 +337,18 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert(BigInt(recovered.done.clock)>=BigInt(activity.after.floor),'M5_EVAL_BACKSTOP_ACTUAL_COMPLETED_CLOCK');
     });
     lifecycle('keeps unchanged timer input and acquires new clock-backed writes from maintained CDC', async function () {
-      await seed(); const worker = await start(), first = await worker.call('last');
-      const before = await lab.previewPhysical(), cyclesBefore = cyclesOf(await worker.call('health'));
+      await seed(); const worker = await start();
+      // The seed is acquired only through maintained CDC. Sample the baseline after that
+      // acquisition is durable and the worker's output covers it, so the timer tick below is
+      // the only thing that could change the checkpoint.
+      const { first, before } = await lab.wait(async () => {
+        const physical = await lab.previewPhysical(), last = await worker.call('last');
+        const landed = physical.A.checkpoint.checkpoint !== '0' &&
+          physical.A.checkpoint.projection.some(row => row.doc?._id === 'preview-reading');
+        return landed && last?.eligible === true && value(last) === 111 &&
+          last.inputCheckpoint === Number(physical.A.checkpoint.checkpoint) ? { first: last, before: physical } : null;
+      });
+      const cyclesBefore = cyclesOf(await worker.call('health'));
       const tick = await worker.call('tick'), afterTick = await lab.previewPhysical();
       assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED current retained clinical value');
       assert.deepEqual(afterTick.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED timer does not advance acquisition');
