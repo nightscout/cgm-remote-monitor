@@ -133,7 +133,9 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         await write(151,'cohort-one',600000);const corrected=await acceptedValue(151,'cohort-one');
         await wait(async()=>completed(await lab.previewCompleted(),corrected),10000,'LATE_CORRECTION_NOT_COMPLETED');
         assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='cohort-one').mgdl,151,'CORRECTED_ENGINE_FRAME');
+        const publicClock=await lab.clock();
         await lab.hardDelete('entries',{_id:'cohort-two'});
+        assert.deepEqual(await lab.clock(),publicClock,'NATIVE_DELETE_PUBLIC_HISTORY_UNCHANGED');
         const removed=await wait(async()=>{const saved=await lab.checkpoint(lab.consumerName),input=saved.projection?.[0];return input?.stream?.accepted_position&&floor(input.floor)>floor(corrected)&&saved.projection[1].events.some(row=>row.event==='delete'&&row.value.identifier==='cohort-two')?String(input.floor):null;},10000,'DELETE_NOT_DURABLY_ACCEPTED');
         await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
         assert(!(await lab.previewCompleted()).projection[0].output.frame.sgvs.some(row=>row._id==='cohort-two'),'DELETED_ENGINE_FRAME_RETAINED');
@@ -143,6 +145,44 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         // their catalogue must still come from the accepted stream.
         assert.deepEqual({snapshots:after.snapshots,catalogue:after.catalogue,exports:after.exports,imports:after.imports},{snapshots:initial.snapshots,catalogue:initial.catalogue,exports:initial.exports,imports:initial.imports},'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
         lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm clinical source snapshot/catalogue reads forbidden; authoritative whole-history accounting may refresh after writes'});
+      }finally{await lab.stopWorker(worker);}
+    });
+    it('accepts and completes unstamped activity after an actual stopped-feed red control without changing public history',async function(){
+      await write(110);
+      const config=lab.configure(),worker=await lab.worker(config,{detached:true});
+      assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      const id='native-unstamped-activity',publicClock=await lab.clock();
+      const raw=async steps=>{
+        const input=await lab.checkpoint(lab.consumerName),state=input.projection?.[0];
+        return input.projection?.[1]?.events.some(event=>event.domain==='activity'&&event.value.doc?.identifier===id&&event.value.doc.steps===steps)
+          ? {input,state}:null;
+      };
+      try{
+        await lab.writeCanonical({logical:'activity',planned:{op:'create',docs:[{_id:id,steps:1,created_at:new Date().toISOString()}]}});
+        const created=await wait(()=>raw(1),10000,'UNSTAMPED_ACTIVITY_CREATE_NOT_ACCEPTED');
+        await wait(async()=>completed(await lab.previewCompleted(),created.state.floor),10000,'UNSTAMPED_ACTIVITY_CREATE_NOT_COMPLETED');
+        const before=await lab.previewCompleted(),foreign=await lab.previewCompleted(lab.B);
+        await lab.stopStream();
+        await lab.writeCanonical({logical:'activity',planned:{op:'update',form:'merge',target:{_id:id},fields:{steps:2}}});
+        const physical=(await lab.physical()).tables.activity;
+        assert.equal(physical.find(row=>row.doc._id===id)?.doc.steps,2,'UNSTAMPED_ACTIVITY_ACTUAL_UPDATE_COMMITTED');
+        assert.equal(Object.hasOwn(physical.find(row=>row.doc._id===id).doc,'srvModified'),false,'UNSTAMPED_ACTIVITY_HAS_NO_HISTORY_STAMP');
+        // The missing event is measured before a restart, without a sleep or
+        // timeout: a stopped producer cannot have accepted this committed row.
+        await assert.rejects(async()=>assert(await raw(2),'UNSTAMPED_ACTIVITY_NATIVE_EVENT_REQUIRED'),/UNSTAMPED_ACTIVITY_NATIVE_EVENT_REQUIRED/);
+        assert.equal((await lab.checkpoint(lab.consumerName)).checkpoint,created.input.checkpoint,'STOPPED_FEED_NO_FABRICATED_INPUT_COVERAGE');
+        assert.deepEqual((await lab.previewCompleted()).work_completed,before.work_completed,'STOPPED_FEED_NO_FALSE_CLINICAL_COMPLETION');
+        await lab.startStream();
+        const updated=await wait(()=>raw(2),10000,'UNSTAMPED_ACTIVITY_UPDATE_NOT_ACCEPTED');
+        assert(floor(updated.state.floor)>floor(created.state.floor),'UNSTAMPED_ACTIVITY_NATIVE_POSITION_ADVANCED');
+        await wait(async()=>completed(await lab.previewCompleted(),updated.state.floor),10000,'UNSTAMPED_ACTIVITY_UPDATE_NOT_COMPLETED');
+        const after=await lab.previewCompleted();
+        assert.deepEqual(await lab.clock(),publicClock,'UNSTAMPED_ACTIVITY_PUBLIC_HISTORY_UNCHANGED');
+        assert.equal(after.output_revision,before.output_revision,'UNCHANGED_CLINICAL_CONTENT_KEEPS_REVISION');
+        assert.deepEqual(after.projection,before.projection,'UNCHANGED_CLINICAL_CONTENT_KEEPS_PAYLOAD');
+        assert.deepEqual(await lab.previewCompleted(lab.B),foreign,'UNSTAMPED_ACTIVITY_FOREIGN_TENANT_UNCHANGED');
+        assert.equal(updated.state.rows,undefined,'UNSTAMPED_ACTIVITY_INPUT_NOT_PERSISTED');
+        lab.tracePreview('native-unstamped-activity-red-restored',{publicClock,created:created.state,updated:updated.state,completed:after.work_completed,revision:after.output_revision,control:'stopped producer leaves committed activity update unaccepted; explicit restart accepts and completes without public history change'});
       }finally{await lab.stopWorker(worker);}
     });
     it('lets an unrelated tenant complete newly arriving input while the first tenant is held',async function(){

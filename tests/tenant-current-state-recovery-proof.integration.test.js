@@ -59,10 +59,10 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.deepEqual(deleted.after.tables.entries.map(row => [row.id_kind, row.doc._id, row.doc.sgv]),
         [['string', older, 111]], 'M5_HARD_DELETE typed survivor is independent of the removed ObjectId');
       assert.ok(deleted.after.tables.entries.every(row => row.doc._id !== newer), 'M5_HARD_DELETE independent physical absence');
-      // Decision write-clock-complete: a hard delete advances the durable floor
-      // and carries its commit stamp (before the decision: unchanged floor, null stamp).
-      assert.ok(deleted.after.floor > deleted.before.floor, 'M5_HARD_DELETE_CLOCK durable floor advances');
-      assert.equal(deleted.events[0].event.stamp, deleted.after.floor, 'M5_HARD_DELETE_CLOCK event carries the commit stamp');
+      // A physical delete has native transaction coverage, not a public history
+      // stamp. A fresh current-state snapshot must still reconcile its absence.
+      assert.equal(deleted.after.floor, deleted.before.floor, 'M5_HARD_DELETE_PUBLIC_HISTORY_UNCHANGED');
+      assert.equal(deleted.events[0].event.stamp, null, 'M5_HARD_DELETE_NO_PUBLIC_HISTORY_STAMP');
       const stale = lab.trace('after-delete-catchup-new-handle', await lab.compare(at));
       assert.equal(stale.clinical.checkpoint, deleted.after.floor);
       const absentKey = JSON.stringify(['entries', 'objectid', newer]);
@@ -119,10 +119,10 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         lab.trace('activity-created-' + source, { created, initial, firstAttempt, physical: await lab.physical(), foreign: await lab.physical(lab.B) });
         committed(created);
         assert.equal(created.after.tables.activity.length, 1, 'M5_ACTIVITY physical create reached');
-        // Decision write-clock-complete: an activity write advances the floor
-        // although the row itself carries no srvModified (dates:none).
-        assert.ok(created.after.floor > before.floor, 'M5_ACTIVITY_CLOCK floor advances');
-        assert.equal(created.events[0].event.stamp, created.after.floor, 'M5_ACTIVITY_CLOCK event carries the commit stamp');
+        // Unstamped activity belongs to native transaction coverage. The dormant
+        // snapshot contract can read it at an unchanged public history floor.
+        assert.equal(created.after.floor, before.floor, 'M5_ACTIVITY_PUBLIC_HISTORY_UNCHANGED');
+        assert.equal(created.events[0].event.stamp, null, 'M5_ACTIVITY_NO_PUBLIC_HISTORY_STAMP');
         assert.equal(Object.hasOwn(created.after.tables.activity[0].doc, 'srvModified'), false);
         assert.equal(firstAttempt.error && firstAttempt.error.name, 'Error', 'M5_ACTIVITY wrong failure layer is invalid');
         assert.equal(firstAttempt.error.message, 'REPLAY_UNSTAMPED_OR_UNFENCED_ROW', 'M5_ACTIVITY_HYPOTHESIS exact replay refusal');
@@ -141,15 +141,15 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         committed(updated);
         assert.equal(final.physical.tables.activity.length, 1);
         assert.equal(final.physical.tables.activity[0].doc.steps, 2, 'M5_ACTIVITY independent physical update reached');
-        assert.ok(final.physical.floor > created.after.floor, 'M5_ACTIVITY_CLOCK update advances the floor');
+        assert.equal(final.physical.floor, created.after.floor, 'M5_ACTIVITY_UPDATE_PUBLIC_HISTORY_UNCHANGED');
         assert.equal(Object.hasOwn(final.physical.tables.activity[0].doc, 'srvModified'), false);
-        assert.equal(updated.events[0].event.stamp, final.physical.floor);
+        assert.equal(updated.events[0].event.stamp, null);
         assert.equal(secondAttempt.error && secondAttempt.error.name, 'Error');
         assert.equal(secondAttempt.error.message, 'REPLAY_UNSTAMPED_OR_UNFENCED_ROW');
         parity(recovered, 'M5_SNAPSHOT_ACTIVITY_UPDATE');
         assert.equal(recovered.recovered.rows.find(row => row.domain === 'activity').doc.steps, 2, 'M5_SNAPSHOT_ACTIVITY_UPDATE actual unstamped update retained');
-        // The update advanced the floor, so the snapshot's checkpoint follows it.
-        assert.equal(recovered.clinical.checkpoint, final.physical.floor, 'M5_ACTIVITY_CLOCK checkpoint follows the advanced floor');
+        // Snapshot coverage is independent of the unchanged public history floor.
+        assert.equal(recovered.clinical.checkpoint, final.physical.floor, 'M5_ACTIVITY_SNAPSHOT_UNCHANGED_FLOOR');
         assert.deepEqual(final.physical.checkpoint, checkpointAfterUpdate);
         assert.deepEqual(final.foreign, foreign);
       });
@@ -272,7 +272,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       const observed=require('../lib/pgstream/work-state').map(row.work_observed),done=require('../lib/pgstream/work-state').map(row.work_completed);
       const raw=tail?.events?.some(event=>event.domain==='activity'&&event.event==='create'&&event.value.doc?.identifier===id&&event.value.doc.steps===steps);
       const accepted=clinical?.floor,native=clinical?.stream,position=require('../lib/storage/clinical-stream-state').position;
-      return clinical?.ready&&clinical.rows.length===0&&raw&&version(accepted)>version(previousFloor)&&row.work_enabled&&
+      return clinical?.rows===undefined&&raw&&version(accepted)>version(previousFloor)&&row.work_enabled&&
         native?.accepted_position&&tail?.last&&position(native.accepted_position)>=position(tail.last)&&
         version(observed.bootstrap)>=version(accepted)&&version(done.bootstrap)>=version(accepted)&&
         version(completed.checkpoint)>=version(accepted)&&completed.projection?.[0]?.output?.frame?.sgvs.length===0&&
@@ -312,11 +312,12 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       const afterRestart = await lab.previewPhysical();
       lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, recovered, logs: cli.logs(), removed, activity });
       assert.equal(afterRestart.A.tables.entries.length, 0);
-      assert.equal(afterRestart.A.checkpoint.projection.length, 0,'M5_EVAL_RESTART_NO_RAW_ACTIVITY_IN_CLINICAL_WINDOW');
+      assert.equal(afterRestart.A.checkpoint.projection[0].rows,undefined,'M5_EVAL_RESTART_NO_PERSISTED_CLINICAL_INPUT');
       assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_RESTART_ACTUAL_CLINICAL_ABSENCE');
       assert.equal(afterRestart.A.tables.activity.find(row=>row.doc._id==='preview-activity').doc.steps,1);
       assert.equal(afterRestart.A.floor, beforeRestart.A.floor);
-      assert.deepEqual(afterRestart.B, beforeRestart.B);
+      assert.deepEqual(afterRestart.B.tables,beforeRestart.B.tables,'M5_EVAL_RESTART_FOREIGN_PHYSICAL_ROWS_UNCHANGED');
+      assert.equal(afterRestart.B.floor,beforeRestart.B.floor,'M5_EVAL_RESTART_FOREIGN_PUBLIC_HISTORY_UNCHANGED');
       assert.match(cli.logs().stdout, /Evaluator preview started/);
       const exit = new Promise(resolve => cli.child.once('exit', (code, signal) => resolve({ code, signal })));
       cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
@@ -334,24 +335,25 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         physical: await lab.previewPhysical(), removed, activity });
       committed(removed); committed(activity);
       assert.equal(observed.physical.A.tables.entries.length, 0);
-      assert.equal(observed.physical.A.checkpoint.projection.length,0,'M5_EVAL_STREAM_RECOVERY clinically bounded absence converges without test wake');
+      assert.equal(observed.physical.A.checkpoint.projection[0].rows,undefined,'M5_EVAL_STREAM_RECOVERY_NO_PERSISTED_CLINICAL_INPUT');
       assert.equal(observed.physical.A.tables.activity.find(row=>row.doc._id==='quiet-activity').doc.steps,2);
       assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_BACKSTOP_ACTUAL_CLINICAL_ABSENCE');
       assert.deepEqual(observed.physical.B,foreignBefore,'M5_EVAL_BACKSTOP_FOREIGN_TENANT_UNCHANGED');
-      assert.ok(observed.physical.A.floor > removed.before.floor, 'M5_EVAL_BACKSTOP the delete and activity advanced the floor');
+      assert.equal(observed.physical.A.floor,removed.before.floor,'M5_EVAL_NATIVE_DELETE_ACTIVITY_PUBLIC_HISTORY_UNCHANGED');
       assert(version(recovered.done.bootstrap)>=version(recovered.input.checkpoint),'M5_EVAL_BACKSTOP_NATIVE_INPUT_COMPLETED');
     });
     lifecycle('keeps unchanged timer input and acquires complete committed writes from maintained CDC', async function () {
       await seed(); const worker = await start();
-      // The seed is acquired only through maintained CDC. Sample the baseline after that
-      // acquisition is durable and the worker's output covers it, so the timer tick below is
-      // the only thing that could change the checkpoint.
+      // The imported snapshot may already include the seed. Sample its native
+      // input after durable completion. Retained output content may carry an
+      // older result checkpoint, so read current coverage from the typed row.
       const { first, before } = await lab.wait(async () => {
         const physical = await lab.previewPhysical(), last = await worker.call('last');
-        const landed = physical.A.checkpoint.checkpoint !== '0' &&
-          physical.A.checkpoint.projection.some(row => row.doc?._id === 'preview-reading');
-        return landed && last?.eligible === true && value(last) === 111 &&
-          last.inputCheckpoint === Number(physical.A.checkpoint.checkpoint) ? { first: last, before: physical } : null;
+        const input=physical.A.checkpoint.projection?.[0],completed=await lab.previewCompleted();
+        const landed = input?.stream?.snapshot_position && completed.projection?.[0]?.output?.frame?.sgvs.some(row=>row._id==='preview-reading'&&row.mgdl===111);
+        const covered=require('../lib/pgstream/work-state').map(completed.work_completed).bootstrap;
+        return landed && version(covered)>=version(physical.A.checkpoint.checkpoint) &&
+          last?.eligible === true && value(last) === 111 ? { first: last, before: physical } : null;
       });
       const cyclesBefore = cyclesOf(await worker.call('health')), queriesBefore=await worker.call('queries');
       const tick = await worker.call('tick'), afterTick = await lab.previewPhysical();
@@ -423,7 +425,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         assert(version(gap.checkpoint)>version(checkpoint.checkpoint),'M5_EVAL_REFUSAL accepted input remains owed');
         assert(version(require('../lib/pgstream/work-state').map(completed.work_completed).bootstrap)<version(gap.checkpoint),'M5_EVAL_REFUSAL no false clinical completion');
         assert.equal(gap.projection[0].ready,false);assert.equal(gap.projection[0].gap,scenario==='row'?'rows':'bytes');
-        assert.deepEqual(gap.projection[0].rows,[],'M5_EVAL_REFUSAL bounded recovery marker replaces input cache');
+        assert.equal(gap.projection[0].rows,undefined,'M5_EVAL_REFUSAL_INPUT_REMAINS_COMPACT');
         assert.equal(b.eligible, true); assert.equal(value(b), 333);
         await lab.stopWorker(worker);
       }

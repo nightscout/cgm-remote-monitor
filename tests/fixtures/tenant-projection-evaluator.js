@@ -53,10 +53,9 @@ module.exports = function evaluatorLab () {
     }
     return modified;
   }));
-  // Supported writes through the storage port, inside the tenant write clock's
-  // transaction (decision write-clock-complete): a hard delete advances
-  // last_stamp and last_delete_stamp; an in-place update advances last_stamp,
-  // stamped domain or not.
+  // Supported storage writes retain their canonical transaction. Physical
+  // deletes and dates:none activity do not allocate public history stamps;
+  // the selected product observes them through native transaction intake.
   const port = logical => collection({ connection: lab.clocks[0], table: lab.tables[logical], logical, env: lab.env, source: 'v1/internal' }).storage;
   lab.hardDelete = (logical, query, tenant = lab.A) => scope.withTenant(tenant, () => lab.clocks[0].transaction(() =>
     port(logical).deleteMany(require('../../lib/storage/filter').fromMongo(query), {})));

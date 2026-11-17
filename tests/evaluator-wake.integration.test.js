@@ -4,11 +4,9 @@
 // runtime and evaluator component over actual PostgreSQL, with the backstop
 // pass and the due timers driven by the test instead of wall-clock timers.
 // The durable-event contract's controls: lost wake, duplicate delivery,
-// restart replay; and the change signature's coverage of hard deletes and
-// writes to unstamped domains. Decision write-clock-complete: both advance the
-// tenant write clock through the supported write path, and the signature is the
-// clock pair (last_stamp, last_delete_stamp), read per component or once per
-// pass for every tenant (readStamps, the change-stamp function's shape).
+// restart replay for public-history-producing writes. Physical deletes and
+// unstamped writes are covered by the native stream suites, independently of
+// this dormant snapshot runtime's public clock hints.
 // covers: lib/server/serve/evaluator-runtime.js, lib/storage/postgres-durable-replay.js, lib/data/tenant-projection-evaluator.js
 const assert = require('node:assert/strict');
 const startRuntime = require('../lib/server/serve/evaluator-runtime');
@@ -103,44 +101,10 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
       });
     });
 
-    for (const batch of [false, true]) {
-      it('a hard delete advances the write clock pair and is re-evaluated by the backstop' + (batch ? ' (one stamp read per pass)' : ''), async function () {
-        await lab.persistDomains({ entries: [reading('one', 111, -10 * 60000), reading('two', 222)] }); await lab.provisionView();
-        await lab.at(at, async () => {
-          const r = await runtime({ batch });
-          try {
-            assert.equal(r.mean(), 222);
-            const before = await lab.clock();
-            await lab.hardDelete('entries', { _id: 'two' });
-            const after = await lab.clock();
-            assert.ok(after.stamp > before.stamp && after.deleted === after.stamp, 'premise: the hard delete advances last_stamp and last_delete_stamp');
-            await r.value.backstop();
-            assert.equal(r.mean(), 111, 'EV_HARD_DELETE_REEVALUATED');
-            if (batch) assert.equal(r.reads.length, 1, 'one stamp read for the pass');
-          } finally { await r.value.close(); }
-        });
-      });
-
-      it('an in-place update to an unstamped domain advances the write clock and is re-evaluated by the backstop' + (batch ? ' (one stamp read per pass)' : ''), async function () {
-        await lab.persistDomains({ entries: [reading('one', 111, -10 * 60000)], activity: [{ _id: 'steps', created_at: new Date(at - 60000).toISOString(), steps: 1 }] });
-        await lab.provisionView();
-        await lab.at(at, async () => {
-          const r = await runtime({ batch });
-          try {
-            const cycles = r.cycles();
-            await r.value.backstop(); assert.equal(r.cycles(), cycles, 'premise: unchanged');
-            const before = await lab.clock();
-            await lab.updateInPlace('activity', { _id: 'steps' }, { steps: 2 });
-            const after = await lab.clock();
-            assert.ok(after.stamp > before.stamp && after.deleted === before.deleted, 'premise: the update advances last_stamp only');
-            await r.value.backstop();
-            assert.equal(r.cycles(), cycles + 1, 'EV_UNSTAMPED_UPDATE_REEVALUATED');
-            const saved = await lab.checkpointView(lab.A);
-            assert.equal(saved.projection.find(row => row.domain === 'activity').doc.steps, 2);
-          } finally { await r.value.close(); }
-        });
-      });
-    }
+    // Physical deletes and unstamped activity no longer advance public history.
+    // Their lost-wake/recovery obligations require native accepted positions and
+    // durable work, exercised by pgstream-recovery and the M5 native lifecycle
+    // suite. A clock-only dormant snapshot runtime cannot measure that intake.
 
     it('eviction releases the retained input and the next cycle reacquires the same output', async function () {
       await lab.persistDomains({ entries: [reading('one', 111, -10 * 60000)] }); await lab.provisionView();

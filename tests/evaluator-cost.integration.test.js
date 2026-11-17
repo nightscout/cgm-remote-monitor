@@ -74,27 +74,24 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
     beforeEach(() => lab.reset());
     after(() => lab.close());
 
-    // Candidate E: an acquisition keeps its retained rows only for the same
-    // change signature, the write clock pair. Decision write-clock-complete: a
-    // hard delete through the supported write path advances last_stamp (the
-    // checkpoint) and last_delete_stamp.
-    it('EV_COST_E_HARD_DELETE an acquisition after a hard delete sees the delete', async function () {
+    // Native deletion coverage is exercised in pgstream-recovery. This dormant
+    // full-snapshot component has no native intake: a new acquisition handle
+    // reads physical absence even when public history has not advanced.
+    it('EV_COST_E_HARD_DELETE a fresh snapshot acquisition sees physical deletion at the same public floor', async function () {
       const reading = (id, value, minutes) => ({ _id: id, type: 'sgv', sgv: value, date: at - minutes * 60000,
         dateString: new Date(at - minutes * 60000).toISOString(), direction: 'Flat' });
       await lab.persistDomains({ entries: [reading('older', 111, 7), reading('newer', 222, 2)] });
       await lab.provisionView();
       await lab.at(at, async () => {
-        const v = lab.evaluator();
-        const first = await v.evaluate({ at });
+        const first = await lab.evaluator().evaluate({ at });
         assert.equal(first.properties.bgnow.last, 222);
-        const unchanged = await v.evaluate({ at: at + 1000 });
-        assert.deepEqual(unchanged.signature, first.signature);
-        assert.equal(unchanged.properties.bgnow.last, 222);
+        const before = await lab.clock();
         await lab.hardDelete('entries', { _id: 'newer' });
-        const after = await v.evaluate({ at: at + 2000 });
-        assert.ok(after.checkpoint > first.checkpoint, 'the delete moved the checkpoint');
-        assert.ok(after.signature.deleted > first.signature.deleted && after.signature.deleted === after.signature.stamp, 'the delete moved the signature\'s delete stamp');
-        assert.equal(after.properties.bgnow.last, 111, 'the evaluation sees the delete');
+        assert.deepEqual(await lab.clock(), before, 'PHYSICAL_DELETE_PUBLIC_HISTORY_UNCHANGED');
+        const after = await lab.evaluator().evaluate({ at: at + 2000 });
+        assert.equal(after.checkpoint, first.checkpoint, 'SNAPSHOT_PUBLIC_FLOOR_UNCHANGED');
+        assert.equal(after.properties.bgnow.last, 111, 'SNAPSHOT_PHYSICAL_DELETE_VISIBLE');
+        assert.deepEqual(after.properties, (await lab.fresh(lab.A, at + 2000)).properties);
       });
     });
 
