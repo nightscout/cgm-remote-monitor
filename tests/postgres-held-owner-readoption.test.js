@@ -34,7 +34,8 @@ async function fixture (oldCheckout = false, trustedWorker = true) {
   }
   await protocol.window.ready();const release=factory.installOperationWindow(protocol.window);
   const connection=await factory({connectionString:'synthetic-held-owner',Client,max:1,idleTimeoutMillis:0,connectionTimeoutMillis:50});
-  const owner=await require('../lib/realtime-placement/owner').acquire({connection,worker:'test-owner',consumer:'realtime-held-owner',onLoss:()=>{losses++;}});
+  const key=require('../lib/realtime-ownership/owner').keys('realtime-held-owner',{count:1,ordinal:0}).owner;
+  const owner=await connection.holdAdvisoryLock(key,()=>{losses++;});
   return {factory,window:protocol.window,connection,owner,clients,calls,get losses(){return losses;},
     setLock:value=>{lock=value;},setAction:fn=>{action=fn;},
     verify:()=>protocol.window.verifyOperational(()=>factory.readopt(protocol.window)),

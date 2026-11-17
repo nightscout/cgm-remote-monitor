@@ -1,12 +1,12 @@
 'use strict';
 
 // Actual local files and actual bounded reader/cache. SQL adapters are explicitly
-// doubled only in the publisher and registry composition discriminators below.
+// doubled only in the registry composition discriminator below.
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const contract = require('../lib/server/realtime/contract');
 const configFile = require('../lib/server/serve/config-file');
-const fixture = require('./fixtures/realtime-placement-map');
+const A='11111111-1111-4111-8111-111111111111';
 const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const registryRefusal = require('../lib/server/serve/registry-config').REFUSAL;
 
@@ -157,25 +157,13 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     } finally { read.close(); observed.restore(); }
   });
 
-  it('PLACEMENT_FAILED_CONFIG: malformed pool credential encodings refuse before acquiring a placement descriptor', function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const config = path.join(dir, 'operation.json'), roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
-    const value = { version: 2, namespace: 'synthetic_window', connectionEnv: 'SYNTHETIC_PG', locks: [{ tenant: fixture.A, key: '17' }], participantId: 'peer_0',
-      participants: roles.map((role, index) => ({ id: 'peer_' + index, roles: [role], namespaces: ['clinical_' + index], maxMessageBytes: 100000, timeoutMs: 1000 })) };
-    fs.writeFileSync(config, JSON.stringify(value));
-    const source = { MULTITENANT_OPERATION_CONFIG: config, MULTITENANT_REALTIME_PLACEMENT: file, NS_SERVE_INTERNAL_SOCKET: '/synthetic/api.sock',
-      ...Object.fromEntries(roles.slice(1).map(role => ['NS_' + role.toUpperCase().replace('-', '_') + '_INTERNAL_SOCKET', '/synthetic/' + role + '.sock'])) };
-    try {
-      // Confirm all other parser inputs actually admit the selected placement.
-      source.SYNTHETIC_PG = 'postgresql://synthetic:synthetic@127.0.0.1/disposable_test';
-      const loaded = require('../lib/server/serve/operation-cohort-config').load(source);
-      assert.equal(observed.fds.size, 1); loaded.placement.close(); assert.equal(observed.fds.size, 0);
-      for (const url of ['postgresql://%ZZ:synthetic@127.0.0.1/disposable_test', 'postgresql://synthetic:%ZZ@127.0.0.1/disposable_test', 'postgresql://synthetic:synthetic@127.0.0.1/%ZZ']) {
-        source.SYNTHETIC_PG = url;
-        assert.throws(() => require('../lib/server/serve/operation-cohort-config').load(source), /invalid explicit tenant operation configuration/);
-        assert.equal(observed.fds.size, 0, 'PLACEMENT_FAILED_CONFIG failed parser must retain no descriptor');
-      }
-    } finally { observed.restore(); }
+  it('CONFIG_FAILED_URL: malformed pool credential encodings refuse before retaining a resource',function(){
+    const config=path.join(dir,'operation.json'),roles=['api','evaluator','realtime','tenant-admin'];
+    const value={version:2,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',locks:[{tenant:A,key:'17'}],participantId:'peer_0',participants:roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],maxMessageBytes:100000,timeoutMs:1000}))};
+    fs.writeFileSync(config,JSON.stringify(value));
+    const source={MULTITENANT_OPERATION_CONFIG:config,NS_SERVE_INTERNAL_SOCKET:'/synthetic/api.sock',...Object.fromEntries(roles.slice(1).map(role=>['NS_'+role.toUpperCase().replace('-','_')+'_INTERNAL_SOCKET','/synthetic/'+role+'.sock']))};
+    source.SYNTHETIC_PG='postgresql://synthetic:synthetic@127.0.0.1/disposable_test';assert.deepEqual(require('../lib/server/serve/operation-cohort-config').load(source).ownership,{count:1,rule:'sha256-modulo-v1'});
+    for(const url of ['postgresql://%ZZ:synthetic@127.0.0.1/disposable_test','postgresql://synthetic:%ZZ@127.0.0.1/disposable_test','postgresql://synthetic:synthetic@127.0.0.1/%ZZ']){source.SYNTHETIC_PG=url;assert.throws(()=>require('../lib/server/serve/operation-cohort-config').load(source),/invalid explicit tenant operation configuration/);}
   });
 
   for (const mode of ['same-stat', 'current-bound']) it('EVALUATOR_HOT_' + mode + ': admitted metadata preserves next-call freshness and current bound', async function () {
@@ -186,10 +174,10 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     const parse = configFile.parse; let parses = 0, version = 0;
     configFile.parse = function (text, options) { if (options?.label === 'MULTITENANT_EVALUATOR_CONFIG') parses++; return parse.call(this, text, options); };
     const settings = { matches: () => true, read: async () => ({ version: ++version, effective: {} }) };
-    const admission = { namespace: value.registry.namespace, allows: async tenant => tenant === fixture.A };
+    const admission = { namespace: value.registry.namespace, allows: async tenant => tenant === A };
     try {
       const loaded = require('../lib/server/serve/evaluator-config').loadMetadata(source);
-      const current = () => loaded.readCurrent(fixture.A, settings, admission);
+      const current = () => loaded.readCurrent(A, settings, admission);
       let prior = (await current()).identity;
       const reads = observed.reads;
       for (let i = 0; i < 50; i++) { const next = await current(); assert.notEqual(next.identity, prior); prior = next.identity; }
@@ -218,7 +206,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => {
       counts.finite++; throw new Error('finite settings fallback must not execute');
     } });
-    const tenants = new Map([[fixture.A, settingsOf.registryEntry(fixture.A)]]); let enumerations = 0;
+    const tenants = new Map([[A, settingsOf.registryEntry(A)]]); let enumerations = 0;
     const keys = tenants.keys.bind(tenants); let testingCurrent = false;
     tenants.keys = () => { if (testingCurrent) { enumerations++; throw new Error('registry roster read on current path'); } return keys(); };
     const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
@@ -229,14 +217,14 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       '../../pool-membership': { member: async () => ({ register: async () => {}, close: async () => {}, configured: { leaseMs: 1000 } }) },
       './evaluator-pool': { create: () => ({ start () {}, refresh: async () => {}, close () {}, admits: () => true }) },
       '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],
-        read: async tenant => { assert.equal(tenant, fixture.A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
+        read: async tenant => { assert.equal(tenant, A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
       '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
       './evaluator-readiness': async () => {},
-      './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === fixture.A, close: async () => {} }) },
+      './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
       '../../pgstream/evaluator': { open: async ({ config: current }) => {
         testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;
         for (let i = 0; i < 200; i++) {
-          const value = await current.readCurrent(fixture.A); assert.equal(value.revision, 'registry');
+          const value = await current.readCurrent(A); assert.equal(value.revision, 'registry');
           if (prior) assert.notEqual(value.identity, prior, 'each call applies freshly read version'); prior = value.identity;
         }
         assert.equal(observed.reads, 0); assert.equal(enumerations, 0); assert.equal(counts.reads, 200); assertionsReached = true;
@@ -279,131 +267,4 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     }
   });
 
-  it('PLACEMENT_EVALUATOR_VALIDATE: pure refusals acquire no handles and repeated hot parses retain only boot transport', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const source = { ...evaluatorSource(), MULTITENANT_REALTIME_PLACEMENT: file, EVAL_PG: 'postgres://eval:synthetic@127.0.0.1/synthetic_test',
-      OUTBOX_PG: 'postgres://outbox:synthetic@127.0.0.1/synthetic_test', ALARM_PG: 'postgres://alarm:synthetic@127.0.0.1/synthetic_test', NS_REALTIME_INTERNAL_SOCKET: '/tmp/realtime-service.sock' };
-    const value = { ...evaluatorConfig(), consumers: { realtime: {
-        outbox: { connectionEnv: 'OUTBOX_PG', namespace: 'cache_outbox', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
-        suppression: { connectionEnv: 'ALARM_PG', namespace: 'cache_alarm', maxRows: 10, maxBytes: 100000, maxConnections: 2 },
-        route: { id: 'realtime-cache', maxMessageBytes: 20000, operationTimeoutMs: 500 }, maxPayloadBytes: 10000, maxInflight: 2, attemptTimeoutMs: 1000, retryDelayMs: 100, pollIntervalMs: 100, retryIntervalMs: 200 } } };
-    try {
-      const parse = require('../lib/server/serve/evaluator-config').parse;
-      const accepted = parse(value, source); assert.equal(observed.fds.size, 1); accepted.consumers.realtime.placement.close();
-      const acquired = observed.handles;
-      for (const change of [v => { v.socketOrderDomains = ['unknown']; }, v => { v.tenantSettings = {}; }, v => { v.activity = {}; }, v => { v.changeFeed = {}; },
-        v => { v.registry = { namespace: 'bad!' }; }, v => { v.tenants = []; }]) {
-        const invalid = structuredClone(value); change(invalid);
-        assert.throws(() => parse(invalid, source), Object.hasOwn(invalid, 'tenants') ? { message: registryRefusal } : /invalid/);
-        assert.equal(observed.fds.size, 0, 'PLACEMENT_EVALUATOR_VALIDATE refused parser leaked descriptor');
-        assert.equal(observed.handles, acquired, 'pure validation must precede resource acquisition');
-      }
-      const config = path.join(dir, 'evaluator.json'); fs.writeFileSync(config, JSON.stringify(value)); source.MULTITENANT_EVALUATOR_CONFIG = config;
-      const loaded = require('../lib/server/serve/evaluator-config').load(source);
-      try {
-        for (let i = 0; i < 20; i++) {
-          const changed = structuredClone(value); fs.writeFileSync(config, JSON.stringify(changed) + ' '.repeat(i));
-          assert.equal(await loaded.readCurrent(fixture.A), null, 'worker loader cannot bypass admitted runtime settings');
-          assert.equal(observed.fds.size, 1, 'PLACEMENT_EVALUATOR_REPARSE only the initial transport owns a descriptor');
-          assert.equal(loaded.consumers.realtime.placement.current().generation, 1, 'boot transport remains usable');
-        }
-        const invalid = structuredClone(value); invalid.consumer = 'evaluator-restart'; replace(config, invalid);
-        await assert.rejects(loaded.readCurrent(fixture.A), /requires restart/);
-        assert.equal(observed.fds.size, 1, 'refused secondary infrastructure parse retains no descriptor');
-      } finally { loaded.consumers.realtime.placement.close(); }
-      assert.equal(observed.fds.size, 0);
-    } finally { observed.restore(); }
-  });
-
-  for (const failure of ['later-role', 'static-mode', 'start']) it('PLACEMENT_CLI_' + failure + ': CLI closes previously parsed placement on later refusal', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const reader = () => fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
-    const overrides = {
-      '../../server/serve/operation-cohort-config': { load: () => ({ placement: reader() }) },
-      '../../server/realtime/config': { load: () => { if (failure === 'later-role') throw new Error('synthetic later-role refusal'); return { placement: reader() }; } },
-      '../../server/serve/static-tenants': { check: () => { if (failure === 'static-mode') throw new Error('synthetic static-mode refusal'); } },
-      '../../server/serve': { ...require('../lib/server/serve'), start: async () => { throw new Error('synthetic start refusal'); } }
-    };
-    const cli = isolatedModule('../lib/cli/commands/multitenant', overrides), errors = [];
-    try {
-      const result = await cli.runRoles(['realtime'], { env: { NS_SERVE_INTERNAL_SOCKET: '/synthetic/cli.sock', NS_API_INTERNAL_SOCKET: '/synthetic/api.sock' }, stderr: { write: value => errors.push(value) } }, 'synthetic-cli', true);
-      assert.equal(result, failure === 'start' ? 1 : 78); assert.equal(errors.length, 1);
-      assert.equal(observed.fds.size, 0, 'PLACEMENT_CLI previously parsed resources must close');
-    } finally { observed.restore(); }
-  });
-
-  for (const failure of ['listener', 'replica', 'checkpoint', 'admin', 'feed']) it('PLACEMENT_PRECHECK_' + failure + ': serve closes supplied readers on pre-boot refusal', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
-    const serve = isolatedModule('../lib/server/serve', { './listeners': { resolve: () => { if (failure === 'listener') throw new Error('synthetic listener refusal'); return []; }, close: async () => {} } });
-    const names = failure === 'replica' ? ['api'] : failure === 'checkpoint' ? ['realtime', 'evaluator'] : failure === 'admin' ? ['admin'] : failure === 'feed' ? ['feed-reader', 'realtime'] : ['realtime'];
-    const options = { realtimePreview: { placement, namespaces: { checkpoint: 'same' } } };
-    if (failure === 'replica') options.operationConfig = { participants: [{ roles: ['api'] }, { roles: ['api'] }] };
-    if (failure === 'checkpoint') options.evaluatorPreview = { namespaces: { checkpoint: 'same' } };
-    if (failure === 'admin') options.operationConfig = {};
-    try { await assert.rejects(serve.start(names, {}, null, {}, options)); assert.equal(observed.fds.size, 0, 'PLACEMENT_PRECHECK supplied reader must close'); }
-    finally { placement.close(); observed.restore(); }
-  });
-
-  it('PLACEMENT_RETIRED_CONTROL: restoring the early retired-role throw leaks the supplied reader; restored cleanup closes it', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const needle = 'async function start (names, env, language, source, options = {}) {';
-    const source = fs.readFileSync(require.resolve('../lib/server/serve'), 'utf8');
-    assert.equal(source.split(needle).length, 2, 'cleanup ablation must land on actual start');
-    try {
-      for (const broken of [true, false]) {
-        const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
-        const serve = isolatedModule('../lib/server/serve', {}, text => broken ? text.replace(needle, needle + '\n  refuseRetiredRoles(names);') : text);
-        try {
-          await assert.rejects(serve.start(['feed-reader'], {}, null, {}, { realtimePreview: { placement } }), { code: 'ROLE_RETIRED' });
-          if (broken) assert.throws(() => assert.equal(observed.fds.size, 0), { code: 'ERR_ASSERTION', actual: 1, expected: 0 });
-          else assert.equal(observed.fds.size, 0, 'restored retired-role refusal releases supplied resources');
-        } finally { placement.close(); }
-      }
-    } finally { observed.restore(); }
-  });
-
-  for (const failure of ['boot', 'shutdown', 'none']) it('PLACEMENT_CLOSE_' + failure + ': actual role composition closes the pinned reader on every exit', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config())); const observed = observe(file);
-    const placement = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
-    const filename = require.resolve('../lib/server/serve'), original = require('node:module').createRequire(filename), output = { exports: {} };
-    const overrides = {
-      './listeners': { resolve: () => [], close: async () => {} }, './internal-listener': { plan: () => [] },
-      './preview-realtime': { boot: async () => { if (failure === 'boot') throw new Error('synthetic boot failure'); return { close: async () => { if (failure === 'shutdown') throw new Error('synthetic shutdown failure'); } }; } }
-    };
-    require('node:vm').runInThisContext('(function(require,module,exports){' + fs.readFileSync(filename, 'utf8') + '\n})', { filename })(
-      id => Object.hasOwn(overrides, id) ? overrides[id] : original(id), output, output.exports);
-    try {
-      const boot = output.exports.start(['realtime'], {}, null, {}, { realtimePreview: { placement } });
-      if (failure === 'boot') await assert.rejects(boot, /synthetic boot failure/);
-      else {
-        const running = await boot;
-        if (failure === 'shutdown') await assert.rejects(running.stop(), /Role shutdown failed/);
-        else await running.stop();
-      }
-      assert.equal(observed.fds.size, 0, 'PLACEMENT_CLOSE descriptor must not survive role exit');
-    } finally { placement.close(); observed.restore(); }
-  });
-
-  it('PLACEMENT_WRITER: actual fenced publisher uses fsync/rename and actual placement reader observes its generation', async function () {
-    fs.writeFileSync(file, JSON.stringify(fixture.config()));
-    const observed = observe(file, true), reader = fixture.placement.load({ MULTITENANT_REALTIME_PLACEMENT: file }, { internal: fixture.internal });
-    const admission = require('../lib/tenant-lifecycle/operation-window-readiness'), original = admission.admit;
-    const calls = [], native = require('node:fs/promises'), rename = native.rename, open = native.open;
-    admission.admit = async () => {}; // SQL admission is covered by native publication integration; not claimed here.
-    native.rename = async (...args) => { calls.push('rename'); return rename(...args); };
-    native.open = async (...args) => {
-      const handle = await open(...args), sync = handle.sync.bind(handle);
-      handle.sync = async () => { calls.push('sync'); return sync(); }; return handle;
-    };
-    try {
-      for (let i = 0; i < 100; i++) assert.equal(reader.current().generation, 1);
-      assert.equal(observed.handles, 1);
-      await require('../lib/realtime-placement/publish').publish({ file, candidate: fixture.move(fixture.config(), 'b'), internal: fixture.internal,
-        client: { query: async sql => ({ rows: sql.includes('pg_try_advisory') ? [{ held: true }] : [] }) },
-        registry: { revision: async () => '1', page: async () => ({ revision: '1', tenants: [] }) }, controlNamespace: 'synthetic_control', confirmStopped: async () => true });
-      assert.deepEqual(calls, ['sync', 'rename', 'sync']);
-      assert.equal(reader.current().generation, 2); assert.equal(observed.fds.size, 1);
-    } finally { reader.close(); assert.equal(observed.fds.size, 0); observed.restore(); admission.admit = original; native.rename = rename; native.open = open; }
-  });
 });

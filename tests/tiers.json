@@ -395,6 +395,7 @@
         "tests/operation-window-pool-profile.test.js",
         "tests/pgstream-pool-checkpoint-provision.test.js",
         "tests/pgstream-pool-worker-grants.test.js",
+        "tests/pgstream-pool-intake-adoption.test.js",
         "tests/pgstream-pool-placement-candidate.test.js",
         "tests/pool-membership-v2.test.js",
         "tests/notification-pool-partition.test.js",

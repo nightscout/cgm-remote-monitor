@@ -9,7 +9,8 @@ const { spawn } = require('node:child_process');
 const { randomUUID, randomBytes, createHash } = require('node:crypto');
 const { run } = require('../../lib/migrations/postgres');
 const scope = require('../../lib/storage/tenant-scope');
-const placements = require('../../lib/realtime-placement');
+const ownership = require('../../lib/realtime-ownership');
+const slice = require('../../lib/pool-membership/slice');
 const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
 const projectionDomains = require('../../lib/data/tenant-projection-evaluator').domains;
 const order = require('../../lib/server/tenant-socket-order-port').catalogues;
@@ -19,12 +20,12 @@ const quote = value => '"' + value + '"';
 const freePort = () => new Promise(resolve => { const server = http.createServer().listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); }); });
 async function until (fn, label, timeout = 20000) { const end = Date.now() + timeout; while (Date.now() < end) { const value = await fn(); if (value) return value; await sleep(25); } throw new Error('SHARD_NATIVE_WAIT: ' + label); }
 module.exports = function fixture () {
-  let lab, provisioner, directory, edge, previousMode, config, map, placementReader, routeReader;
+  let lab, provisioner, directory, edge, previousMode, config, map, slicePeers, routeReader;
   const roles = [], schemas = [], children = new Set(), workers = new Map(), roots = new Map(), credentials = new Map(), hosts = new Map(), edgeSockets = new Set();
   let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig;
   const idlePeers=[];
   const tenants = [];
-  while (tenants.length < 2) { const id = randomUUID(); if (placements.shard(id, 2) === tenants.length) tenants.push(id); }
+  while (tenants.length < 2) { const id = randomUUID(); if (slice.bucket(id, 2) === tenants.length) tenants.push(id); }
   const q = (sql, values) => lab.admin.query(sql, values);
   async function role (suffix) {
     const name = 'sr_' + suffix + '_' + lab.id, password = randomBytes(24).toString('hex');
@@ -58,8 +59,7 @@ module.exports = function fixture () {
   }
   async function startRealtime (id) {
     const row = map.workers.find(worker => worker.id === id);
-    const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), MULTITENANT_REALTIME_PLACEMENT: path.join(directory, 'placement.json'),
-      REALTIME_WORKER_ID: id, REALTIME_WORKER_INCARNATION: row.incarnation, RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
+    const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), NS_REALTIME_SLICE: JSON.stringify({count: 2, ordinal: row.ordinal}), RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
       NS_SHARD_WARM_CONTROL_DIR: directory, NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')+' --require '+path.join(__dirname,'realtime-sharding-controls.cjs'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_SERVE_INTERNAL_SOCKET: row.address.socket, REALTIME_HOSTNAME: '127.0.0.1', REALTIME_PORT: String(new URL(row.consumerOrigin).port), NS_TENANT_READINESS: 'all' };
     if(operationState){
@@ -153,9 +153,8 @@ module.exports = function fixture () {
       socketForwarding: { maxTenants: 100, maxMessageBytes: 1048576, operationTimeoutMs: 5000, alarm: { connectionEnv: 'ALARM_PG', namespace: alarmNamespace } } };
     fs.writeFileSync(path.join(directory, 'api.json'), JSON.stringify(config), { mode: 0o600 });
     if(operation==='sharded'){
-      map={version:1,rule:placements.RULE,shardCount:2,generation:1,owners:['a','b'],workers:[]};
-      for(const id of ['a','b'])map.workers.push({id,incarnation:randomUUID(),address:{socket:path.join(directory,id+'.sock')},consumerOrigin:'http://127.0.0.1:'+await freePort()});
-      fs.writeFileSync(path.join(directory,'placement.json'),JSON.stringify(map));
+      map={count:2,workers:[]};
+      for(const [ordinal,id] of ['a','b'].entries())map.workers.push({id,ordinal,address:{socket:path.join(directory,id+'.sock')},consumerOrigin:'http://127.0.0.1:'+await freePort()});
     }
     const operationEnvironment = {};
     if (operation) {
@@ -180,9 +179,8 @@ module.exports = function fixture () {
         maxMessageBytes: 1048576, timeoutMs: 5000, address: { socket: path.join(directory,role + '.sock') } }));
       if(operation==='sharded'){
         const rtNamespaces=[...new Set([ns.clock,ns.checkpoint,ns.evaluatorCheckpoint,lab.namespaces.settings,lab.namespaces.operatorPolicy])];
-        participants.splice(participants.findIndex(row=>row.id==='realtime'),1,...map.workers.map(worker=>({id:'rt-'+worker.id,roles:['realtime'],worker:worker.id,namespaces:rtNamespaces,maxMessageBytes:1048576,timeoutMs:5000,address:worker.address})));
+        participants.splice(participants.findIndex(row=>row.id==='realtime'),1,...map.workers.map(worker=>({id:'rt-'+worker.id,roles:['realtime'],slice:{count:2,ordinal:worker.ordinal},namespaces:rtNamespaces,maxMessageBytes:1048576,timeoutMs:5000,address:worker.address})));
         operationState={lifetime,base:{version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participants}};
-        operationEnvironment.MULTITENANT_REALTIME_PLACEMENT=path.join(directory,'placement.json');
       }
       const file = path.join(directory,'operation-api.json');
       fs.writeFileSync(file,JSON.stringify({version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participantId:'api',participants}));
@@ -193,14 +191,12 @@ module.exports = function fixture () {
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'api.sock'), API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_TENANT_READINESS: 'all' }), 'api');
     for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
     if (apiOnly) return { ns };
-    if(!map){map = { version: 1, rule: placements.RULE, shardCount: 2, generation: 1, owners: ['a','b'], workers: [] };
-      for (const id of ['a','b']) map.workers.push({ id, incarnation: randomUUID(), address: { socket: path.join(directory, id + '.sock') }, consumerOrigin: 'http://127.0.0.1:' + await freePort() });}
-    fs.writeFileSync(path.join(directory, 'placement.json'), JSON.stringify(map));
+    if(!map){map = {count:2,workers:[]};
+      for (const [ordinal,id] of ['a','b'].entries()) map.workers.push({ id, ordinal, address: { socket: path.join(directory, id + '.sock') }, consumerOrigin: 'http://127.0.0.1:' + await freePort() });}
     fs.writeFileSync(path.join(directory, 'realtime.json'), JSON.stringify(realtimeConfig), {mode:0o600});
     const internal = require('../../lib/server/internal-api/listener-config').resolve(['api'], { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'operator.sock') });
-    placementReader = placements.load({ MULTITENANT_REALTIME_PLACEMENT: path.join(directory, 'placement.json') }, { internal });
-    fs.writeFileSync(path.join(directory,'routes.json'),JSON.stringify(map));
-    routeReader = placements.loadRoutes({MULTITENANT_REALTIME_ROUTES:path.join(directory,'routes.json')},{internal});
+    slicePeers = ownership.peers({NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address))},internal,{maxBytes:1048576,timeoutMs:5000});
+    routeReader = Object.freeze({route:tenant=>({...slicePeers.route(tenant),consumerOrigin:map.workers[slice.bucket(tenant,2)].consumerOrigin})});
     if(operationState){
       apiService=http.createServer((req,res)=>{const upstream=http.request({socketPath:path.join(directory,'api.sock'),method:req.method,path:req.url,headers:req.headers,agent:false},reply=>{res.writeHead(reply.statusCode,reply.headers);reply.pipe(res);});upstream.on('error',()=>{res.writeHead(503);res.end();});req.pipe(upstream);});
       await new Promise(resolve=>apiService.listen(path.join(directory,'api-service.sock'),resolve));
@@ -210,20 +206,13 @@ module.exports = function fixture () {
         const peer=operationState.base.participants.find(row=>row.id===id),incarnation=randomUUID();
         // Explicit idle fixture peers: no clinical role/workload/backend is
         // attributed to them. Actual API+RT actors below remain authoritative.
-        const status=()=>{const current=placementReader.current();return {...template,participant:id,roles:[id],incarnation,namespaces:[...peer.namespaces].sort(),backends:[],placement:{generation:current.generation,digest:current.digest,rule:current.rule,shardCount:current.shardCount,worker:null,incarnation:null,shards:[]}};};
+        const status=()=>({...template,participant:id,roles:[id],incarnation,namespaces:[...peer.namespaces].sort(),backends:[],ownership:null});
         idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant}),getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations:async(ctx,body)=>({request:body.request,tenant:body.tenant,participant:id,incarnation,operations:[]})})));
       }
     }
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
-    // The addressed output hint follows the same placement authority as the
-    // consumer, without touching payloads or manufacturing a durable receipt.
-    idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:path.join(directory,'output.sock'),maxBytes:4096,timeoutMs:1000},
-      require('../../lib/server/internal-api/contracts').completedOutput,()=>({hintCompletedOutput:async(ctx,body)=>{
-        // A wake names a tenant list; forward each owner's share to that owner.
-        const routes=new Map();for(const tenant of body.tenants){const endpoint=placementReader.route(tenant).endpoint,key=JSON.stringify(endpoint);if(!routes.has(key))routes.set(key,{endpoint,tenants:[]});routes.get(key).tenants.push(tenant);}
-        for(const route of routes.values())await require('../../lib/server/internal-api/clients').completedOutput(route.endpoint).hintCompletedOutput({tenants:route.tenants});
-        return {accepted:true};
-      }})));
+    // Evaluator private clients address the exact realtime ordinal directly.
+    // No fixture proxy reports success or manufactures a durable receipt.
     producer=await require('./pgstream-native').setup({admin:lab.admin,adminURI:process.env.NS_TEST_POSTGRES_ADMIN_URI,directory,
       config:{...evaluatorConfig,namespaces:evaluatorConfig.postgres.namespaces},evaluatorRole:evaluator.name,realtimeRole:lab.roles.realtime,
       realtimeConfig:{...realtimeConfig,namespaces:realtimeConfig.postgres.namespaces},source:process.env});
@@ -232,7 +221,7 @@ module.exports = function fixture () {
     fs.writeFileSync(evaluatorOperation,JSON.stringify({...operationState.base,participantId:'evaluator'}));
     const evaluatorWorker=start('evaluator','evaluator',{...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
       EVAL_PG:evaluator.url,DISPLAY_PG:display.url,ACTIVITY_PG:activity.url,LIFETIME_PG:operationState.lifetime.url,
-      MULTITENANT_REALTIME_PLACEMENT:path.join(directory,'placement.json'),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(directory,'output.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'});
+      NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address)),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'});
     // The owned producer is an independent actor; cold role bootstrap alone
     // cannot deliver later activity changes or committed clinical writes.
     await producer.start();
@@ -296,5 +285,5 @@ module.exports = function fixture () {
       finally { await q('REVOKE SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry FROM ' + quote(lab.roles.realtime)); }
       await lastScreen();
     }, tenants, roots, credentials, hosts, workers,
-    get cohortParticipants () { return operationState?.base.participants.map(row=>({id:row.id,roles:row.roles,...(row.worker?{worker:row.worker}:{}),namespaces:row.namespaces,endpoint:{socketPath:row.address.socket,maxBytes:row.maxMessageBytes,timeoutMs:row.timeoutMs}})); }, async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get placement () { return placementReader; }, get routes () { return routeReader; }, publishRoutes () { const temporary=path.join(directory,'routes.next.json');fs.copyFileSync(path.join(directory,'placement.json'),temporary);fs.renameSync(temporary,path.join(directory,'routes.json')); }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
+    get cohortParticipants () { return operationState?.base.participants.map(row=>({id:row.id,roles:row.roles,...(row.slice?{slice:row.slice}:{}),namespaces:row.namespaces,endpoint:{socketPath:row.address.socket,maxBytes:row.maxMessageBytes,timeoutMs:row.timeoutMs}})); }, async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get peers () { return slicePeers; }, get routes () { return routeReader; }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
 };

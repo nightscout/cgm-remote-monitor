@@ -70,7 +70,7 @@ describe('selected actual database consumer readiness protocols', function () {
       './evaluator-consumer-readiness':{suppression:async()=>proof('suppression'),sameDatastore:async()=>{},operational:async()=>proof('operational')},
       '../../tenant-notifications/postgres':()=>({own:async()=>{},close:async()=>{},consume:async()=>{},enqueue:async()=>{},due:async()=>[],begin:async()=>{},dispatch:async()=>{},finish:async()=>{},receipts:async()=>[]}),
       '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>[],allows:async()=>true})},
-      '../realtime/alarm-transport':{createAdapter:()=>({send(){}})}
+      '../realtime/alarm-transport':{createAdapter:()=>({send(){}}),createSliceAdapter:()=>({send(){}})}
     };
     require('node:vm').runInThisContext('(function(require,module,exports){'+fs.readFileSync(filename,'utf8')+'\n})',{filename})(id=>Object.hasOwn(mocks,id)?mocks[id]:local(id),module,module.exports);
     const d=document();d.consumers=selected();const cfg={...parse.parse(d,source),pgstream:{},readCurrent:async()=>null};
@@ -383,12 +383,8 @@ describe('event driven notification recovery without quiet discovery', function 
   });
 });
 
-async function placementReconstructionCriterion (change = text => text) {
-  const map = require('./fixtures/realtime-placement-map');
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'consumer-placement-reconstruction-'));
-  const file = path.join(directory, 'placement.json');
-  fs.writeFileSync(file, JSON.stringify(map.config()), {mode: 0o600});
-  const placement = map.placement.loadRoutes({MULTITENANT_REALTIME_PLACEMENT: file}, {internal: map.internal});
+async function staticReconstructionCriterion (change = text => text) {
+  const slicePeers=require('../lib/realtime-ownership').peers({NS_REALTIME_SLICE_PEERS:JSON.stringify([{socket:'/synthetic/reconstructed-1.sock'},{socket:'/synthetic/reconstructed-2.sock'}])},undefined,{maxBytes:20000,timeoutMs:500});
   const schemaStartup = require('../lib/pgstream/schema-startup').create();
   const filename = require.resolve('../lib/server/serve/evaluator-consumers'), local = require('node:module').createRequire(filename);
   const output = {exports: {}}, jobs = require('../lib/server/serve/evaluator-job-context').create('delivery');
@@ -407,23 +403,23 @@ async function placementReconstructionCriterion (change = text => text) {
   require('node:vm').runInThisContext('(function(require,module,exports){' + change(fs.readFileSync(filename, 'utf8')) + '\n})', {filename})(id => Object.hasOwn(mocks, id) ? mocks[id] : local(id), output, output.exports);
   const d = document(); d.consumers = selected();
   const parsed = parse.parse(d, source);
-  const config = {...parsed, pgstream: {}, tenants: new Map([[A, {}]]), consumers: {realtime: {...parsed.consumers.realtime, placement}}, readCurrent: async () => null};
+  const config = {...parsed, pgstream: {}, tenants: new Map([[A, {}]]), consumers: {realtime: {...parsed.consumers.realtime, slicePeers}}, readCurrent: async () => null};
   const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
   try {
     await window.ready();
     value = await schemaStartup.prepare(() => output.exports.prepare({config, clinicalConnection: {}, current: () => null, isCurrent: () => true,
       operationWindow: window, jobContext: jobs, assertOperational: () => {}}));
     assert.equal(attempt, 2); assert.equal(closed, 1); assert.equal(ended, 2, 'partial construction closes both owned pools');
-    assert.equal(placement.route(A).worker, 'a', 'RECONSTRUCTED_CONSUMER_MUST_RETAIN_CURRENT_PLACEMENT');
+    const ordinal=require('../lib/pool-membership/slice').bucket(A,2);assert.equal(slicePeers.route(A).ordinal,ordinal,'RECONSTRUCTED_CONSUMER_RETAINS_STATIC_ROUTE');
     await value.close(); value = null;
-    assert.equal(placement.route(A).worker, 'a', 'configuration owner retains transport until its own final close');
-    placement.close(); assert.throws(() => placement.route(A), {code: 'REALTIME_CONFIG_REFUSED'});
-  } finally {await value?.close(); placement.close(); await window.close(); jobs.close(); scope.setTenancyMode(previous); fs.rmSync(directory, {recursive: true, force: true});}
+    assert.equal(slicePeers.route(A).ordinal,ordinal,'immutable route survives constructor cleanup without a file reader');
+  } finally {await value?.close();await window.close();jobs.close();scope.setTenancyMode(previous);}
 }
 describe('consumer reconstruction retains configuration-owned transport', () => {
-  it('routes through the actual parsed placement after interrupted preparation and owned-pool cleanup', () => placementReconstructionCriterion());
-  it('control: closing shared placement in partial-construction cleanup goes red; restored source passes', async () => {
-    await assert.rejects(placementReconstructionCriterion(text => text.replace('      // The configuration owner retains placement across partial construction.', '      selected.placement?.close();\n      // The configuration owner retains placement across partial construction.')), {code: 'REALTIME_CONFIG_REFUSED'});
-    await placementReconstructionCriterion();
+  it('routes through parsed static peers after interrupted preparation and owned-pool cleanup', () => staticReconstructionCriterion());
+  it('control: omitting owned-store cleanup is red; restored source closes the aborted construction',async()=>{
+    const needle='      try { await store?.close(); } catch (error) { errors.push(error); }';
+    await assert.rejects(staticReconstructionCriterion(text=>{assert.equal(text.split(needle).length,2,'cleanup mutation reaches actual source');return text.replace(needle,'');}),error=>error.code==='ERR_ASSERTION'&&error.actual===0&&error.expected===1);
+    await staticReconstructionCriterion();
   });
 });
