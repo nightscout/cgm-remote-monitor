@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'tenant-bound read-only native receipt authority, maintenance lock through COMMIT, active/suspended admission and ownership refusal' },
   { file: 'tests/postgres-imported-snapshot.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'exact exported snapshot import, source fencing, bounded exporter/importer loss and verified temporary-slot cleanup' },
   { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
