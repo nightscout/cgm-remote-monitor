@@ -27,7 +27,7 @@ async function create({admin,pool,prefix='synthetic_cohort_'+randomBytes(4).toSt
   }
  }catch(error){for(const schema of created.reverse())await admin.query('DROP SCHEMA '+schema+' CASCADE');throw error;}
  function sqlOptions(expectedSource,{generation='fixture:1',assertFence=async()=>generation,lockKey='124252342164564'}={}){
-  return {pool,observeBackend:async()=>{},table,consumer,snapshotDigest,completedConsumer:consumer+'-completed',completedDigest,routes,expectedSource,assertFence,lockKey,maxRows,maxBytes,maxTransactionRows:1024,maxTransactionBytes:4194304};
+  return {pool,observeBackend:async()=>{},table,consumer,snapshotDigest,completedConsumer:consumer+'-completed',completedDigest,routes,expectedSource,assertFence,assertOwner:()=>{},lockKey,maxRows,maxBytes,maxTransactionRows:1024,maxTransactionBytes:4194304};
  }
  async function seed(client,tenant,boundary,{policy}={}){
   if(!tenants.includes(tenant))throw new TypeError('Unknown fixture tenant');

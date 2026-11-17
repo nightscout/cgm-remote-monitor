@@ -27,6 +27,23 @@ optInSuite(uri,'NS_TEST_POSTGRES_ADMIN_URI')('native intake authority under read
   await reader.query('COMMIT');await admin.query('SELECT pg_advisory_lock($1::bigint)',[rules.lockKey(A)]);
   try{await reader.query('BEGIN');await assert.rejects(fence(reader,A),/MAINTENANCE_FENCE/);await reader.query('ROLLBACK');}finally{await admin.query('SELECT pg_advisory_unlock($1::bigint)',[rules.lockKey(A)]);}
  });
+ it('control: removing the transaction lock permits maintenance to cross a checked receipt',async()=>{
+  const withoutLock=require('./lib/clinical-working-set/control')('../lib/pgstream/receipt-authority',
+   "const lock=(await client.query('SELECT pg_try_advisory_xact_lock_shared($1::bigint) AS held',[key])).rows[0];",
+   "const lock={held:true};").create({namespace,generation,available:()=>available});
+  async function verify(assertFence){
+   await reader.query('BEGIN');
+   try{
+    await assertFence(reader,A);
+    const key=rules.lockKey(A),held=(await admin.query('SELECT pg_try_advisory_lock($1::bigint) AS held',[key])).rows[0].held;
+    if(held)await admin.query('SELECT pg_advisory_unlock($1::bigint)',[key]);
+    assert.equal(held,false,'RESTORE_CROSSED_CHECKED_RECEIPT');
+   }finally{await reader.query('ROLLBACK');}
+  }
+  await verify(fence);
+  await assert.rejects(verify(withoutLock),/RESTORE_CROSSED_CHECKED_RECEIPT/);
+  await verify(fence);
+ });
  it('refuses changed registry lock identity and lost receiver ownership',async()=>{
   await admin.query('UPDATE '+table+' SET lock_key=lock_key+1 WHERE tenant_id=$1',[A]);await reader.query('BEGIN');await assert.rejects(fence(reader,A),/RESTORE_FENCE/);await reader.query('ROLLBACK');
   available=false;await reader.query('BEGIN');await assert.rejects(fence(reader,B),/OWNER_FENCE/);await reader.query('ROLLBACK');
