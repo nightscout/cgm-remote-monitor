@@ -81,11 +81,13 @@ describe('report SGV loading and Daily Stats in a real browser', function () {
       await page.evaluate(({units, day, endDay, timezone, charts, pentagon}) => {
         const $ = window.$, moment = window.moment, Nightscout = window.Nightscout;
         const ctx = {moment, settings: {units}, language: {translate: value => value}};
+        const profile = window.NightscoutTestModules.profilefunctions([{startDate: '1980-01-01',
+          defaultProfile: 'Default', store: {Default: {timezone}}}], ctx);
         const client = {
           ctx, settings: {units, scaleY: 'linear', thresholds: {bgTargetBottom: 80, bgTargetTop: 180}},
           careportal: {events: []}, headers: () => ({}), init: callback => callback(),
           translate: ctx.language.translate, utils: window.NightscoutTestModules.utils(ctx),
-          sbx: {data: {profile: {getTimezone: () => timezone, parseInTimezone: value => moment.tz(value, timezone), applyTimezone: value => value.tz(timezone)}}},
+          sbx: {data: {profile}},
           ddata: {processDurations: treatments => treatments}
         };
         // Preserve the original immutable API-response guarantee, while using
