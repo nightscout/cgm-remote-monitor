@@ -267,7 +267,7 @@ describe('owner configuration serving source composition', function () {
     assert.equal(await observe(false), 1);
   });
 
-  it('lazy display reads screen and resolve values in each real tenant snapshot', async function () {
+  it('lazy display reads screen in the first real tenant snapshot and resolve values in each', async function () {
     const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     const file = path.resolve(__dirname, '../lib/tenant-settings/effective-postgres.js');
     const lazyFile = path.resolve(__dirname, '../lib/tenant-settings/presentation-reader.js');
@@ -297,9 +297,9 @@ describe('owner configuration serving source composition', function () {
       loaded.require = name => name === '../storage/postgres-connection' ? async () => connection
         : name === '../migrations/postgres-check' ? { ...checks, options: opts => opts, inspect: async (_query, opts) => { observed.catalogues.push(opts.namespace); return { current: true }; } } : original(name);
       const binding = 'connection.readOnlySnapshot(tenant, async ({ query }) => {';
-      assert(source.includes(binding)); assert(source.includes('await screen(query);'));
+      assert(source.includes(binding)); assert(source.includes('await screenFor(ticket, query);'));
       let selected = wrongBinding ? source.replace(binding, "connection.readOnlySnapshot('00000000-0000-0000-0000-000000000000', async ({ query }) => {") : source;
-      if (omitScreen) selected = selected.replace('await screen(query);', '');
+      if (omitScreen) selected = selected.replace('await screenFor(ticket, query);', '');
       loaded._compile(selected, file); return { open: loaded.exports, observed };
     }
     function lazy (open) {
@@ -317,8 +317,9 @@ describe('owner configuration serving source composition', function () {
           await reader.close();
         });
         assert.deepEqual(f.observed.snapshots, [tenant, tenant]);
-        assert.equal(f.observed.metadata, 2); assert.equal(f.observed.values, 2); assert.equal(f.observed.ended, 1);
-        assert.deepEqual(f.observed.catalogues, ['settings', 'policy', 'settings', 'policy']);
+        // The warm second read inside the screen interval issues no screen.
+        assert.equal(f.observed.metadata, 1); assert.equal(f.observed.values, 2); assert.equal(f.observed.ended, 1);
+        assert.deepEqual(f.observed.catalogues, ['settings', 'policy']);
       }
       const unbound = factory(), resource = await unbound.open(options);
       assert.deepEqual(unbound.observed.snapshots, [], 'opening the lazy resource invents no metadata tenant');
