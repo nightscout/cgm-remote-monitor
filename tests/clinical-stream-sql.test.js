@@ -19,7 +19,7 @@ function fixture({holdCommit=false,loseReply=false}={}){
   if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('WITH input')){const patches=JSON.parse(values[1]);for(const patch of patches){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(patch.delivery_delta));}return {rowCount:patches.length};}
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision')){const row=current.get(values[0]);row.delivery_revision=String(BigInt(row.delivery_revision)+1n);return {rowCount:1};}
-  if(text.startsWith('UPDATE ')&&text.includes('SET projection=p.projection')){const patches=JSON.parse(values[2]);for(const patch of patches){const row=current.get(patch.tenant);row.projection=patch.projection;row.contract_digest=values[1];row.checkpoint=patch.checkpoint;}return {rowCount:patches.length,rows:[]};}
+  if(text.startsWith('WITH written AS (UPDATE ')&&text.includes('SET projection=p.projection')){const patches=JSON.parse(values[2]);for(const patch of patches){const row=current.get(patch.tenant);row.projection=patch.projection;row.contract_digest=values[1];row.checkpoint=patch.checkpoint;}return {rows:[{written:patches.length}]};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){const row=current.get(values[0]);row.projection=JSON.parse(values[2]);row.contract_digest=values[3];row.checkpoint=values[4];return {rowCount:1};}
   throw new Error('UNEXPECTED_SQL:'+text);
  }};
@@ -47,7 +47,7 @@ describe('atomic native clinical and control SQL receipt',()=>{
   const committed=structuredClone(f.durable),offset=f.calls.length;
   await sql.acceptTransaction({...f.options,initialDigest});assert.deepEqual(f.durable,committed);
   assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.durable.get(A).work_observed[5],'1');
-  assert.equal(f.calls.slice(offset).filter(call=>call.text.startsWith('UPDATE ')||call.text.startsWith('WITH input')).length,0,'FRESH_REPLAY_MUST_NOT_REWRITE');
+  assert.equal(f.calls.slice(offset).filter(call=>call.text.startsWith('UPDATE ')||call.text.startsWith('WITH input')||call.text.startsWith('WITH written')).length,0,'FRESH_REPLAY_MUST_NOT_REWRITE');
  });
  it('refuses foreign or nonempty initial contracts and rolls back a fresh multi-tenant receipt on a failed fence',async()=>{
   const initialDigest='b'.repeat(64);
@@ -116,7 +116,7 @@ describe('atomic native clinical and control SQL receipt',()=>{
  it('replays uncertain committed delivery without rewrites and returns durable lost-wake obligation',async()=>{
   const f=fixture({loseReply:true});await assert.rejects(sql.acceptTransaction(f.options),/LOST_COMMIT_REPLY/);const offset=f.calls.length;
   const receipts=await sql.acceptTransaction(f.options);assert.equal(receipts[0].tenant,A);assert.equal(receipts[0].deliveryPending,false);assert.equal(receipts[0].rawDeliveryPending,false);
-  assert.equal(f.calls.slice(offset).filter(c=>c.text.startsWith('UPDATE ')||c.text.startsWith('WITH input')).length,0,'REPLAY_REWRITES');assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.cache.get(A)?.ready,false,'UNCERTAIN_COMMIT_CACHE_NOT_READY');
+  assert.equal(f.calls.slice(offset).filter(c=>c.text.startsWith('UPDATE ')||c.text.startsWith('WITH input')||c.text.startsWith('WITH written')).length,0,'REPLAY_REWRITES');assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.cache.get(A)?.ready,false,'UNCERTAIN_COMMIT_CACHE_NOT_READY');
  });
  it('keeps delayed raw rows after snapshot coverage and late commits with earlier WAL row positions',async()=>{
   const f=fixture();f.durable.get(A).projection[0].stream.snapshot_position='0/50';f.cache.get(A).stream.snapshot_position='0/50';

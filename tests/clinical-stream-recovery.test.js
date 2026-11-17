@@ -57,7 +57,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
   if(text.includes('information_schema.columns'))return {rows:[{name:'synthetic_entries.entries'}]};
   if(text.startsWith('SELECT domain,id_kind,doc,stamp'))return {rows:args.length>1?[]:structuredClone(canonicalRows)};
   if(text.startsWith('WITH input')){const patch=JSON.parse(args[1])[0];Object.assign(current.output,{work_observed:patch.observed,work_observed_at:patch.observed_at,work_pending_at:patch.pending_at,delivery_revision:String(BigInt(current.output.delivery_revision)+BigInt(patch.delivery_delta))});return {rowCount:1};}
-  if(text.startsWith('UPDATE ')&&text.includes('SET projection=p.projection')){const [patch]=JSON.parse(args[2]);current.input={checkpoint:patch.checkpoint,projection:patch.projection};return {rowCount:1,rows:[]};}
+  if(text.startsWith('WITH written AS (UPDATE ')&&text.includes('SET projection=p.projection')){const [patch]=JSON.parse(args[2]);current.input={checkpoint:patch.checkpoint,projection:patch.projection};return {rows:[{written:1}]};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){current.input={checkpoint:args[4],projection:JSON.parse(args[2])};return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET checkpoint=$3, projection=')){current.input={checkpoint:args[2],projection:[JSON.parse(args[3])[0],args[5]?JSON.parse(args[5]):current.input.projection[1]]};return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision=')){current.output.delivery_revision=String(BigInt(current.output.delivery_revision)+1n);return {rowCount:1};}
