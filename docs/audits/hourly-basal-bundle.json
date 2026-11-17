@@ -111,5 +111,47 @@
     "Other JavaScript artifacts have identical hashes; their limits and the combined application limit are unchanged.",
     "No new dependency or JavaScript chunk is introduced. Table styles are served as static CSS.",
     "These measurements describe emitted JavaScript, excluding static CSS transfers, startup latency and retained heap."
-  ]
+  ],
+  "finalReview": {
+    "purpose": "Format unavailable Day to Day insulin averages without exposing NaN in the report summary.",
+    "parentRevision": "fb053ba76cfe65c6bda8d32014ef723f7e936f40",
+    "measurement": {
+      "runtime": {
+        "node": "24.22.1",
+        "zlib": "1.3.2.1-motley-285e94b"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1101744,
+          "gzipBytes": 321217
+        },
+        "reports": {
+          "bytes": 244718,
+          "gzipBytes": 72721
+        },
+        "admin": {
+          "bytes": 32053,
+          "gzipBytes": 7926
+        },
+        "profile": {
+          "bytes": 19456,
+          "gzipBytes": 7012
+        },
+        "food": {
+          "bytes": 15798,
+          "gzipBytes": 5293
+        },
+        "clock": {
+          "bytes": 155643,
+          "gzipBytes": 63028
+        }
+      },
+      "allApplicationGzipBytes": 414169
+    },
+    "reportsBundleSha256": "f0f0e7964694338f587387a8fe4a52a9bbda6e37bfb9c30176ffe4201dba3ffb",
+    "daytodaySourceSha256": "79049fa96aa0860271ab8cb412e2269c71e95444fe5d5b200cfa406f894e02c6",
+    "reportsGzipDeltaBytes": 28,
+    "remainingHeadroomBytes": 312,
+    "limitsChanged": false
+  }
 }

@@ -98,6 +98,10 @@ report-only modules and unchanged hashes for all other JavaScript artifacts.
 The reports allowance becomes 73,033 bytes with its existing 340-byte margin;
 the 426,000-byte combined limit is unchanged, against 414,141 measured bytes.
 
+The final review's unavailable Day to Day insulin-average formatting adds 28
+reports gzip bytes (72,721 reports / 414,169 combined), using the existing
+allowance. The follow-up measurement is recorded in the same audit.
+
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. The final head subsequently passed both Firefox jobs; no failures were waived.
 

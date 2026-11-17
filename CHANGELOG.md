@@ -17,6 +17,7 @@ All notable changes to cgm-remote-monitor are documented in this file.
   first or hiding the basal chart no longer produces blank or zero totals.
   Explain reduced, additional and net basal units, show unavailable data
   separately from zero adjustments, and account for local hour boundaries.
+  Show unavailable Day to Day insulin averages when profile history is missing.
 - **Calibrations report:** Match raw sensor signals consistently with either
   date order, excluding derived readings and missing or stale signals. Explain
   automatic chart selection, label meter values and missing raw data, and use

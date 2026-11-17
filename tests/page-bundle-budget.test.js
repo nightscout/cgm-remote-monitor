@@ -41,6 +41,8 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // Independent hourly basal calculations and their legend add 1,014 reports gzip
 // bytes (71,679 -> 72,693 on Node 24.22.1), retaining the 340-byte margin.
 // Other artifacts/limits are unchanged; see docs/audits/hourly-basal-bundle.json.
+// Final review: formatting unavailable daily insulin averages adds 28 bytes
+// (72,721 reports / 414,169 combined), within these existing limits.
 const limits = {app: 349000, reports: 73033, admin: 8500, profile: 7100, food: 5700, clock: 63043};
 
 describe('Production page bundle resource budgets', function () {

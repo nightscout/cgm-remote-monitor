@@ -82,7 +82,7 @@ describe('day-to-day report: events with a duration', function () {
       alldays: days.length
       , combobolusTreatments: []
       , devicestatus: []
-      , profiles: [{}]
+      , profiles: options && options.reportProfiles || [{}]
       , profileSwitchTreatments: []
       , tempbasalTreatments: []
       , treatments: treatments.slice().sort((a, b) => a.mills - b.mills)
@@ -239,6 +239,22 @@ describe('day-to-day report: events with a duration', function () {
     for (const basal of [true, false]) {
       render([DAY1], [], {basal, tempBasalRate: 1, insulindistribution: true});
       assert.equal(env.document.querySelector('.daily-insulin-total').textContent, '24.0');
+      assert.match(env.document.querySelector('#daytodaycharts').textContent, /TDD average:\s*24\.0U/);
+      assert.match(env.document.querySelector('#daytodaycharts').textContent, /Basal average:\s*100%/);
+    }
+  });
+
+  it('labels unavailable insulin averages when profile history does not cover the selected days', function () {
+    for (const theme of ['default', 'modern']) {
+      for (const reportProfiles of [[], [{startDate: DAY2 + 'T00:00:00Z'}]]) {
+        render([DAY1, DAY2], [], {theme, reportProfiles, insulindistribution: true});
+        const report = env.document.querySelector('#daytodaycharts');
+        assert.equal(report.querySelector('.daily-insulin-total').textContent, '—');
+        assert.ok(!report.textContent.includes('NaN'), report.textContent);
+        assert.match(report.textContent, /TDD average:\s*—/);
+        assert.match(report.textContent, /Basal average:\s*—/);
+        assert.match(report.textContent, /Carbs average:\s*0g/);
+      }
     }
   });
 
