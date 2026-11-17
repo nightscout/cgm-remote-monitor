@@ -76,6 +76,8 @@ const INVENTORY = [
     note: 'actual preview entries read/write, current-authority and restore refusal on owned pinned PostgreSQL; operation-window adapter is a refusal protocol' },
   { file: 'tests/realtime-placement-owner.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
+  { file: 'tests/settings-screen-cadence.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'display settings screen at backend admission and bounded cadence, fail-closed refusal and ablation controls' },
   { file: 'tests/realtime-placement-publication.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'controlled placement publication and actual maintenance-pin exclusion; fixture-owned Vault' },
   { file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,

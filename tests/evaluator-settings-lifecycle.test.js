@@ -4,7 +4,7 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 const scope = require('../lib/storage/tenant-scope');
 const evaluator = require('../lib/server/serve/evaluator-config');
 const A = '00000000-0000-0000-0000-000000000001', B = '00000000-0000-0000-0000-000000000002';
-const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
+const baseConfiguration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
 function isolated (file, mocks, mutate = source => source) {
   const filename = path.resolve(__dirname, '../lib/' + file), loaded = new Module(filename, module);
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
@@ -12,7 +12,10 @@ function isolated (file, mocks, mutate = source => source) {
   loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : original(name);
   loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, overlap = false, unsafeReplacement = false, data = false } = {}) {
+// Admission and retirement tests gate on the screen itself: interval 0 screens
+// every read. interval: null selects the production default cadence.
+function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, overlap = false, unsafeReplacement = false, data = false, interval = 0 } = {}) {
+  const configuration = { ...baseConfiguration, ...(interval === null ? {} : { screenIntervalMs: interval }) };
   const calls = { factory: 0, readiness: 0, catalogue: 0, pool: 0, screen: 0, read: 0, close: 0 };
   const state = { unsafe: false, readinessFails: false, catalogueFails: false, queryFails: false, hold: null };
   const rows = new Map([[A, { version: 1, values: { SHOW_SECONDS: true }, generation: 1, policy: { deployment: {}, overrides: {} } }],
@@ -30,7 +33,7 @@ function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, o
         return { rows: rows.has(args[0]) ? [structuredClone(rows.get(args[0]))] : [] };
       }, async end () { calls.close++; if (state.beforeClose) await state.beforeClose(); }
     }; }
-  }, source => skipRefresh ? source.replace('await screen(query);', 'void 0;') : source);
+  }, source => skipRefresh ? source.replace('await screenFor(ticket, query);', 'void 0;') : source);
   const open = async options => { calls.factory++; return factory(options); };
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': open }, source => {
     if (unsafeReplacement) source = source.replaceAll('if (revalidate && cleanupErrors.length) throw unavailable();', '');
@@ -41,15 +44,15 @@ function fixture ({ skipRefresh = false, skipDrain = false, unbounded = false, o
   });
   const reader = { ...presentation(configuration, data ? {} : { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 }), matches: current => require('node:util').isDeepStrictEqual(current, configuration) };
   const finite = isolated('server/serve/evaluator-config.js', { '../../tenant-settings/effective-postgres': open });
-  return { calls, state, rows, reader, async readFinite (tenant) { return finite.withSettings({ tenantSettings: configuration }, finite.registryEntry(tenant), tenant); }, async read (tenant) { return evaluator.withSettings({ tenantSettings: configuration }, evaluator.registryEntry(tenant), tenant, reader); } };
+  return { calls, state, rows, reader, configuration, async readFinite (tenant) { return finite.withSettings({ tenantSettings: configuration }, finite.registryEntry(tenant), tenant); }, async read (tenant) { return evaluator.withSettings({ tenantSettings: configuration }, evaluator.registryEntry(tenant), tenant, reader); } };
 }
 
 describe('evaluator retained settings capability', function () {
   let previous;
   beforeEach(() => { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(previous));
-  it('reuses one max4 pool while screening and reading fresh owner and policy state for each tenant', async function () {
-    const f = fixture();
+  it('reuses one max4 pool, screening once at admission and reading fresh owner and policy state for each tenant', async function () {
+    const f = fixture({ interval: null });
     try {
       const first = await f.read(A); assert.equal(first.env.settings.units, 'mg/dl'); assert.equal(first.env.settings.showSeconds, true);
       f.rows.get(A).version++; f.rows.get(A).values.SHOW_SECONDS = false;
@@ -57,22 +60,22 @@ describe('evaluator retained settings capability', function () {
       f.rows.get(A).generation++; f.rows.get(A).policy.overrides.DISPLAY_UNITS = { mode: 'pinned', pin: 'mmol' };
       assert.equal((await f.read(A)).env.settings.units, 'mmol');
       assert.equal((await f.read(B)).env.settings.units, 'mg/dl');
-      assert.deepEqual(f.calls, { factory: 1, readiness: 4, catalogue: 8, pool: 1, screen: 4, read: 4, close: 0 });
+      assert.deepEqual(f.calls, { factory: 1, readiness: 1, catalogue: 2, pool: 1, screen: 1, read: 4, close: 0 });
     } finally { await f.reader.close(); }
     assert.equal(f.calls.close, 1); await f.reader.close(); await assert.rejects(f.read(A), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(f.calls.pool, 1);
   });
-  it('makes the prior finite lifecycle red on pool construction count, with identical per-read screening', async function () {
+  it('makes the prior finite lifecycle red on pool construction count; the retained pool screens once per interval', async function () {
     for (const finite of [true, false]) {
-      const f = fixture(); try {
+      const f = fixture({ interval: null }), screens = finite ? 3 : 1; try {
         for (const tenant of [A, B, A]) await (finite ? f.readFinite(tenant) : f.read(tenant));
-        assert.equal(f.calls.readiness, 3); assert.equal(f.calls.catalogue, 6); assert.equal(f.calls.screen, 3); assert.equal(f.calls.read, 3);
+        assert.equal(f.calls.readiness, screens); assert.equal(f.calls.catalogue, 2 * screens); assert.equal(f.calls.screen, screens); assert.equal(f.calls.read, 3);
         if (finite) { assert.equal(f.calls.pool, 3); assert.throws(() => assert.equal(f.calls.pool, 1), { code: 'ERR_ASSERTION' }); }
         else assert.equal(f.calls.pool, 1);
       } finally { await f.reader.close(); }
       assert.equal(f.calls.close, finite ? 3 : 1);
     }
   });
-  it('retains per-read unsafe-object, readiness, catalogue, missing policy and transport refusal; recovers with a new capability', async function () {
+  it('retains screened unsafe-object, readiness, catalogue, missing policy and transport refusal; recovers with a new capability', async function () {
     for (const [key, pattern] of [['unsafe', /SETTINGS_STORE_UNSAFE/], ['readinessFails', /synthetic readiness/], ['catalogueFails', /synthetic catalogue/], ['queryFails', /synthetic query/]]) {
       const f = fixture(); try {
         await f.read(A); f.state[key] = true; await assert.rejects(f.read(A), pattern); assert.equal(f.calls.close, 1);
@@ -84,13 +87,13 @@ describe('evaluator retained settings capability', function () {
   it('requires restart when the resolved hotfile credential or namespace binding changes', async function () {
     const f = fixture(); try {
       await f.read(A);
-      for (const changed of [{ ...configuration, connectionString: 'synthetic-rotated' }, { ...configuration, namespaces: { settings: 'other', operatorPolicy: 'synthetic_policy' } }]) {
+      for (const changed of [{ ...f.configuration, connectionString: 'synthetic-rotated' }, { ...f.configuration, namespaces: { settings: 'other', operatorPolicy: 'synthetic_policy' } }]) {
         await assert.rejects(evaluator.withSettings({ tenantSettings: changed }, evaluator.registryEntry(A), A, f.reader), /require restart/);
       }
       assert.equal(f.calls.read, 1);
     } finally { await f.reader.close(); }
   });
-  it('detects removed refresh against the changed authority guard and restores green', async function () {
+  it('detects a removed due screen against the changed authority guard and restores green', async function () {
     async function observe (skipRefresh) {
       const f = fixture({ skipRefresh }); try { await f.read(A); f.state.unsafe = true; await assert.rejects(f.read(A), /SETTINGS_STORE_UNSAFE/); } finally { await f.reader.close(); }
     }

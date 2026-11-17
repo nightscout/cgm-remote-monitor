@@ -8,13 +8,15 @@ function isolated (file, mocks, mutate = source => source) {
   const original = loaded.require.bind(loaded); loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : original(name);
   loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture (kind, { broken = false, data = false } = {}) {
+function fixture (kind, { broken = false, data = false, refresh = false } = {}) {
   const state = { fail: false, queryFailure: true, pools: 0, clients: 0, ends: 0 };
   const primary = Error('SYNTHETIC_PRIMARY_' + kind), cleanup = Error('SYNTHETIC_END_' + kind);
   class Pool {
     constructor () { state.pools++; }
     on () {}
     async query () { throw primary; }
+    // Backend admission checks out the startup backend instead of pool.query.
+    async connect () { throw primary; }
     async end () { state.ends++; throw cleanup; }
   }
   const startup = kind === 'startup' ? isolated('storage/postgres-connection.js', { pg: { Pool }, '../diagnostics/m7': { observePool () {} } }) : null;
@@ -38,7 +40,8 @@ function fixture (kind, { broken = false, data = false } = {}) {
   });
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': factory }, source => broken
     ? source.replaceAll('if (revalidate && error instanceof PostgresCleanupError && !cleanupErrors.includes(error)) cleanupErrors.push(error);', '') : source);
-  const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
+  // A refresh screen is a later screened read: interval 0 screens every read.
+  const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' }, ...(refresh ? { screenIntervalMs: 0 } : {}) };
   const reader = presentation(configuration, data ? {} : { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 });
   return { state, reader, primary, cleanup };
 }
@@ -47,7 +50,7 @@ describe('unconfirmed settings PostgreSQL cleanup', function () {
   for (const [kind, refresh] of [['screen', false], ['startup', false], ['readiness', false], ['migration', false], ['readiness', true], ['migration', true]]) {
     it('poisons ' + kind + (refresh ? ' refresh' : ' initialization') + ' end failure, with removed signal handling red and restoration green', async function () {
       async function observe (broken) {
-        const f = fixture(kind, { broken });
+        const f = fixture(kind, { broken, refresh });
         if (refresh) await f.reader.read(tenant);
         f.state.fail = true;
         await assert.rejects(f.reader.read(tenant), error => {
