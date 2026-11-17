@@ -28,15 +28,15 @@ function connection () {
 }
 async function withOrderPort (fn) {
   const migration = require('../lib/migrations/postgres'), old = migration.run, checks = [];
-  migration.run = async (action, options) => { checks.push({ action, options }); };
+  migration.run = async (action, options) => { checks.push({ action, options }); if (checks.refuse === options.namespace) throw new Error('SOURCE_ORDER_REFUSED'); };
   delete require.cache[require.resolve('../lib/server/tenant-socket-order-port')];
   try { return await fn(require('../lib/server/tenant-socket-order-port'), checks); }
   finally { migration.run = old; delete require.cache[require.resolve('../lib/server/tenant-socket-order-port')]; }
 }
 const env = () => ({ extendedSettings: {}, enable: [], settings: {}, serverSettings: {} });
-async function preview (conn, socketForwarding = true) {
+async function preview (conn, socketForwarding = true, verified = false) {
   return require('../lib/server/serve/preview-domains')({ connection: conn, config: {
-    domains: names, bindings: new Map([[A, {}]]), environments: new Map([[A, env()]]),
+    ...(verified ? {platformVerification:{namespace:'synthetic_verification',role:'api'}} : {}), domains: names, bindings: new Map([[A, {}]]), environments: new Map([[A, env()]]),
     namespaces: Object.fromEntries(names.map(name => [name, 'source_' + name])),
     readinessConnectionString: 'postgres://synthetic-source-only', socketForwarding,
     legacyEnabled: false, contextEnabled: false
@@ -110,4 +110,23 @@ describe('actual preview six-domain trusted socket port composition', function (
       assert.equal((await pending)[0].length, 1); assert.equal(replied, true);
     }); } finally { scope.setTenancyMode(old); }
   });
+  it('selected socket context uses the existing async executor boundary and constructs only its addressed domain', async function () {
+    const old=scope.getTenancyMode();scope.setTenancyMode('multi');
+    try { await withOrderPort(async (ordered, checks) => {
+      const conn=connection(),graph=await preview(conn,true,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
+      assert.equal(checks.length,0,'PRIMER_MUST_NOT_CONSTRUCT_UNUSED_SOCKET_PORTS');
+      assert.throws(()=>graph.socketContextFor({...operation('entries'),actor:{tenant:'foreign'}}),/Socket context refused/);assert.equal(checks.length,0);
+      for(const logical of names){const before=conn.events.length,reply=await execute(operation(logical));assert.equal(reply[0][0]._id,'synthetic-'+logical);assert(conn.events.slice(before).includes('INSERT'));assert.equal(conn.events.at(-1),'COMMIT');}
+      assert.equal(checks.length,3);await execute(operation('treatments'));assert.equal(checks.length,3,'SOCKET_DOMAIN_CONSTRUCTOR_MUST_BE_REUSED');
+    }); } finally {scope.setTenancyMode(old);}
+  });
+  it('strict first-use order refusal prevents mutation and restored constructor succeeds without retrying an uncertain write', async function () {
+    const old=scope.getTenancyMode();scope.setTenancyMode('multi');
+    try { await withOrderPort(async (ordered, checks) => {
+      const conn=connection(),graph=await preview(conn,true,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
+      checks.refuse='source_treatments';await assert.rejects(execute(operation('treatments')),/SOURCE_ORDER_REFUSED/);assert.equal(conn.events.includes('INSERT'),false,'REFUSED_ORDER_CONSTRUCTION_MUST_NOT_WRITE');
+      checks.refuse=null;const reply=await execute(operation('treatments'));assert.equal(reply[0][0]._id,'synthetic-treatments');assert.equal(checks.length,2);assert.equal(conn.events.at(-1),'COMMIT');
+    }); } finally {scope.setTenancyMode(old);}
+  });
+
 });
