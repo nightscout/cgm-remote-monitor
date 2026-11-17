@@ -50,7 +50,8 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     async function acceptedValue(value, id='synthetic-recovery', tenant=lab.A) {
       return wait(async()=>{
         const saved=await lab.checkpoint(lab.consumerName,tenant),input=saved.projection?.[0];
-        return input?.ready&&input.rows.some(row=>row.domain==='entries'&&row.doc._id===id&&row.doc.sgv===value)?String(input.floor):null;
+        const event=saved.projection?.[1]?.events.find(row=>row.domain==='entries'&&row.value.doc?.identifier===id&&row.value.doc.sgv===value);
+        return input?.stream?.accepted_position&&event?String(input.floor):null;
       },10000,'NATIVE_COHORT_INPUT_NOT_DURABLY_ACCEPTED');
     }
     async function holdNext(worker,value) {
@@ -99,6 +100,18 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       finally{lab.extraEnvironment=originalEnvironment;}
     });
 
+    it('control: an actual warm source reacquisition turns the source-access witness red',async()=>{
+      await write(117);await lab.provisionPreview();const prior=lab.extraEnvironment;lab.extraEnvironment={...(prior||{})};
+      const criterion=async mutant=>{
+        if(mutant)lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_SOURCE_MUTANT='1';else delete lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_SOURCE_MUTANT;
+        const worker=await lab.worker(lab.configure());
+        try{assert.equal(worker.startup.bootError,undefined);await lab.wait(async()=>!!(await worker.call('last',lab.A)));
+          const before=await worker.call('queries');await worker.call('acquire',lab.A);const after=await worker.call('queries');
+          for(const key of ['snapshots','catalogue','exports','imports'])assert.equal(after[key],before[key],'WARM_SOURCE_REACQUISITION_'+key);
+        }finally{await lab.stopWorker(worker);}
+      };
+      try{await assert.rejects(criterion(true),/WARM_SOURCE_REACQUISITION/);await criterion(false);}finally{lab.extraEnvironment=prior;}
+    });
     it('materializes actual default clinical cohorts, corrections and deletion without warm clinical snapshot or catalogue rediscovery',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       try{
@@ -110,20 +123,19 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         const output=await wait(async()=>{const row=await lab.previewCompleted();return completed(row,cohort)?row:null;},10000,'DEFAULT_ROW_COHORT_NOT_COMPLETED');
         // Raw clinical rows belong to the accepted input; durable output carries
         // the actual engine frame rather than another copy of that projection.
-        const rows=(await lab.previewCheckpoint(lab.A)).projection;
+        const accepted=await lab.checkpoint(lab.consumerName),rows=accepted.projection[1].events;
+        assert.equal(accepted.projection[0].rows,undefined,'CLINICAL_INPUT_IS_NOT_PERSISTED');
         const frame=output.projection[0].output.frame;
         assert(frame.sgvs.some(row=>row._id==='cohort-one'&&row.mgdl===141),'COHORT_ENGINE_FRAME_MISSING');
         assert(frame.sgvs.some(row=>row._id==='cohort-two'&&row.mgdl===142),'COHORT_PARTIAL_ENGINE_FRAME');
-        assert(rows.some(row=>row.doc._id==='cohort-one'&&row.doc.extension.synthetic==='preserved'),'EXTENSION_ROW_MISSING');
-        assert(rows.some(row=>row.doc._id==='cohort-two'),'COHORT_PARTIAL_OUTPUT');
+        assert(rows.some(row=>row.value.doc?.identifier==='cohort-one'&&row.value.doc.extension.synthetic==='preserved'),'EXTENSION_ROW_MISSING');
+        assert(rows.some(row=>row.value.doc?.identifier==='cohort-two'),'COHORT_PARTIAL_OUTPUT');
         await write(151,'cohort-one',600000);const corrected=await acceptedValue(151,'cohort-one');
         await wait(async()=>completed(await lab.previewCompleted(),corrected),10000,'LATE_CORRECTION_NOT_COMPLETED');
-        assert.equal((await lab.previewCheckpoint(lab.A)).projection.find(row=>row.doc._id==='cohort-one').doc.sgv,151);
         assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='cohort-one').mgdl,151,'CORRECTED_ENGINE_FRAME');
         await lab.hardDelete('entries',{_id:'cohort-two'});
-        const removed=await wait(async()=>{const saved=await lab.checkpoint(lab.consumerName),input=saved.projection?.[0];return input?.ready&&floor(input.floor)>floor(corrected)&&!input.rows.some(row=>row.domain==='entries'&&row.doc._id==='cohort-two')?String(input.floor):null;},10000,'DELETE_NOT_DURABLY_ACCEPTED');
+        const removed=await wait(async()=>{const saved=await lab.checkpoint(lab.consumerName),input=saved.projection?.[0];return input?.stream?.accepted_position&&floor(input.floor)>floor(corrected)&&saved.projection[1].events.some(row=>row.event==='delete'&&row.value.identifier==='cohort-two')?String(input.floor):null;},10000,'DELETE_NOT_DURABLY_ACCEPTED');
         await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
-        assert(!(await lab.previewCheckpoint(lab.A)).projection.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
         assert(!(await lab.previewCompleted()).projection[0].output.frame.sgvs.some(row=>row._id==='cohort-two'),'DELETED_ENGINE_FRAME_RETAINED');
         const after=await worker.call('queries');
         // Authoritative whole-history accounting is independent of the bounded
@@ -199,7 +211,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       const death=await killWorker(worker),next=await lab.worker(config,{detached:true});assert.equal(next.startup.ready,true);
       const resumed=await state(),outputResumed=await lab.previewCompleted();
       assert.equal(outputResumed.output_revision,outputBefore.output_revision,'SAME_COMMITTED_CONTENT_MUST_NOT_DUPLICATE_REVISION_AFTER_DEATH');
-      assert.deepEqual(outputResumed.work_completed,outputBefore.work_completed);
+      assert(floor(require('../lib/pgstream/work-state').map(outputResumed.work_completed).bootstrap)>=floor(require('../lib/pgstream/work-state').map(outputBefore.work_completed).bootstrap),'REBOOTSTRAP_COMPLETION_MUST_COVER_PRIOR_WORK');
       await wait(async()=>{const current=await state();return Number(current.completed_at)>Number(resumed.completed_at)&&Number(current.completed_at)>=Number(before.due_at);},25000,'RESTARTED_DUE_MUST_FIRE_WITHOUT_INPUT');
       const after=await state(),outputAfter=await lab.previewCompleted();
       assert.equal((await lab.clock()).stamp,clockBefore,'TIME_WORK_MUST_NOT_REQUIRE_OR_CREATE_INPUT_WRITE');
@@ -219,7 +231,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         await lab.admin.query('REVOKE UPDATE(work_observed) ON '+table+' FROM '+role);assert.equal(await canUpdate(),false);
         await write(149);await new Promise(resolve=>setTimeout(resolve,2000));
         assert.deepEqual((await state()).observed,beforeWork.observed,'FAILED_RECEIPT_MUST_NOT_BE_DURABLY_ACKNOWLEDGED');
-        assert.equal((await lab.previewCheckpoint(lab.A)).projection.find(row=>row.doc._id==='synthetic-recovery').doc.sgv,110,'FAILED_COHORT_MUST_ROLL_BACK_INPUT');producerState=lab.stream().state();
+        assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,110,'FAILED_COHORT_MUST_NOT_CHANGE_COMPLETED_OUTPUT');producerState=lab.stream().state();
       }finally{
         await lab.admin.query('GRANT UPDATE(work_observed) ON '+table+' TO '+role);assert.deepEqual(await grants(),prior,'EXACT_PRIOR_GRANT_RESTORED');assert.equal(await canUpdate(),true);
       }
