@@ -69,6 +69,7 @@ function grants(l) {
   for(const name of ['authorization','access'])grant('SELECT','ALL TABLES IN SCHEMA '+quote(ns[name]),'alarm');
   for(const name of ['tenant_notification_state','schema_migrations'])grant('SELECT',table('outbox',name),'alarm');
   sql.push(...ownerGrants(l));
+  sql.push(...require('../../lib/tenant-activity/postgres').grants({ namespace: ns.control, reader: r.api }));
   // Tenant root (API_SECRET) subject administration on the api role: the owner-aware
   // writer's root plane. Reads owner actor rows for the last-owner guard, never locks
   // or writes them; no access schema, no legacy_credential_config, no audit reads.

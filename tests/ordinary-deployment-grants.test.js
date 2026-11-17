@@ -31,6 +31,12 @@ describe('ordinary deployment shared grant composition (source protocol)', funct
     const l=layout(), statements=fixture.grants(l);
     for(const sql of [...canonical.ownerGrants(l),...canonical.lifetimeGrants(l,Object.keys(l.roles)),...canonical.realtimeGrants(l),...canonical.registryGrants(l)])assert(statements.includes(sql),sql);
   });
+  it('gives the shared fixture API the current activity reader capability', function () {
+    const l = layoutFixture.layout('synthetic_activity'), sql = layoutFixture.grants(l);
+    for (const statement of require('../lib/tenant-activity/postgres').grants({ namespace: l.namespaces.control, reader: l.roles.api })) {
+      assert(sql.includes(statement), statement);
+    }
+  });
   it('keeps realtime/evaluator on registry functions and API/owner on row reads', function () {
     const l=layout(), sql=canonical.registryGrants(l).join('\n');
     for(const name of ['api','owner_reader'])assert(sql.includes('tenant_registry_keys TO "'+l.roles[name]+'"'));
