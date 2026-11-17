@@ -49,8 +49,8 @@ optInSuite(uri,'NS_TEST_POSTGRES_ADMIN_URI')('native intake authority under read
  });
  it('control: removing the transaction lock permits maintenance to cross a checked receipt',async()=>{
   const withoutLock=require('./lib/clinical-working-set/control')('../lib/pgstream/receipt-authority',
-   "const lock=(await client.query('SELECT pg_try_advisory_xact_lock_shared($1::bigint) AS held',[key])).rows[0];",
-   "const lock={held:true};").create({namespace,generation,available:()=>available});
+   ": (await client.query('SELECT pg_try_advisory_xact_lock_shared($1::bigint) AS held',[key])).rows[0]?.held;",
+   ": true;").create({namespace,generation,available:()=>available});
   async function verify(assertFence){
    await reader.query('BEGIN');
    try{
