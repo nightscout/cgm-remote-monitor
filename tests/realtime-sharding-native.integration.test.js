@@ -37,20 +37,25 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       await mutate(true,()=>admin.query('DELETE FROM '+table('food')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,mealId]));await expected('delete',meal,'food');
       const checkpoint='"'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint',consumer='evaluator-sharding-native';
       const input=async()=>(await admin.query('SELECT projection->0 AS state FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer])).rows[0].state;
-      await f.until(async()=>!(await input()).staged.length,'raw cohort seal');
-      assert(!(await input()).rows.some(row=>row.doc._id===oldId),'SHARD_RAW_OLD_ENTRY_OUTSIDE_CLINICAL_WINDOW');
+      // Native acceptance retains compact positions, while completed coverage proves
+      // the clinical frame consumed the old entry without making it clinical data.
+      const completed=async()=>(await admin.query("SELECT work_completed,projection->0->'output' AS output FROM "+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer+'-completed'])).rows[0];
+      const accepted=await input();
+      const outside=await f.until(async()=>{const row=await completed();return Number(row?.work_completed?.[5])>=accepted.floor?row:null;},'raw native input clinically covered');
+      assert(!outside.output.frame.sgvs.some(row=>String(row._id)===oldId),'SHARD_RAW_OLD_ENTRY_OUTSIDE_CLINICAL_WINDOW');
+      assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+table('entries')+" WHERE tenant_id=$1 AND doc->>'_id'=$2",[A,oldId])).rows[0].n,1,'SHARD_RAW_OLD_SOURCE_RETAINED');
       const fresh=await Promise.all(['polling','websocket'].map(t=>client(A,t)));
-      await new Promise(resolve=>setTimeout(resolve,250));for(const c of fresh)assert.deepEqual(c.events,[],'SHARD_RAW_NO_OFFLINE_REPLAY');
       const follow={id_kind:'string',doc:{_id:'follow-'+randomUUID(),name:'Synthetic follow',carbs:4}};
       await write('food',follow);await expected('create',follow,'food',[...clients,...fresh]);
       await mutate(true,()=>admin.query('DELETE FROM '+table('food')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,follow.doc._id]));await expected('delete',follow,'food',[...clients,...fresh]);
-      for(const c of fresh)assert.equal(c.events.length,2,'SHARD_RAW_NEW_LIVE_EVENTS_EXACTLY_ONCE');
+      for(const c of fresh)assert.equal(c.events.length,2,'SHARD_RAW_NO_OFFLINE_REPLAY_AND_NEW_LIVE_EVENTS_EXACTLY_ONCE');
       const edge=Date.now()+5000,expiry={id_kind:'string',doc:{_id:'expiry-'+randomUUID(),type:'sgv',sgv:138,date:edge-2*86400000,dateString:new Date(edge-2*86400000).toISOString()}};
       await write('entries',expiry);await expected('create',expiry,'entries');
       const clock=async()=>String((await admin.query('SELECT last_stamp FROM "'+ns.clock+'".tenant_write_clock WHERE tenant_id=$1',[A])).rows[0].last_stamp),stamp=await clock();
+      const acceptedExpiry=await input();
       const work=async()=>(await admin.query('SELECT work_completed_at::text AS at,work_due_at::text AS due,work_completed FROM '+checkpoint+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer+'-completed'])).rows[0];
-      const entering=await f.until(async()=>{const row=await work();return String(row.work_completed?.[0])===stamp?row:null;},'expiry input completed');
-      assert(Number(entering.at)<edge&&Number(entering.due)<=edge+1,'SHARD_RAW_REAL_FUTURE_EXPIRY_DUE');
+      const entering=await f.until(async()=>{const row=await work();return Number(row.work_completed?.[5])>=acceptedExpiry.floor?row:null;},'expiry input completed');
+      assert(Number(entering.at)<edge&&entering.due!==null&&Number(entering.due)>Number(entering.at)&&Number(entering.due)<=edge+1,'SHARD_RAW_REAL_FUTURE_EXPIRY_DUE');
       const after=await f.until(async()=>{const row=await work();return Number(row.at)>edge&&(row.due===null||Number(row.due)>edge+1)?row:null;},'actual expiry time-only completion');
       assert.equal(await clock(),stamp,'SHARD_RAW_EXPIRY_NO_SOURCE_WRITE');
       assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+table('entries')+' WHERE tenant_id=$1 AND doc->>\'_id\'=$2',[A,expiry.doc._id])).rows[0].n,1,'SHARD_RAW_EXPIRY_SOURCE_RETAINED');
