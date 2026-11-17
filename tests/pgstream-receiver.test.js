@@ -148,6 +148,11 @@ describe('native complete-cohort receiver composition',function(){
   let attempt=0;const f=cohortFixture(async()=>{if(++attempt===1)throw Error('COMMIT_REPLY_LOST');return [{tenant:A,observed:{bootstrap:'11'},completed:{bootstrap:attempt===2?'10':'11'},pendingAt:123,deliveryPending:true,rawDeliveryPending:false}];});
   const event=native.envelope([native.row('a')]);await assert.rejects(f.receive(event),/COMMIT_REPLY_LOST/);assert.equal(f.hints.length,0);await f.receive(event);assert.equal(f.hints.length,1);await f.receive(event);assert.equal(f.hints.length,1);
  });
+ it('refuses old-generation WAL but immediately addresses recovery before the later lifecycle event',async()=>{
+  const f=cohortFixture(async()=>{throw Error('CLINICAL_STREAM_SOURCE_FENCE');});
+  await assert.rejects(f.receive(native.envelope([native.row('old-generation')])),/SOURCE_FENCE/);
+  assert.deepEqual(f.hints,[[A,'recovery']],'OLD_WAL_MUST_NOT_WAIT_FOR_LATER_LIFECYCLE_WAKE');
+ });
  it('preserves exact bigint control lexemes inside a native envelope',async()=>{
   const envelope=native.envelope([{...native.row('control'),schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',type:'int8',value:'9223372036854775807'}]}]);
   const text=JSON.stringify(envelope).replace('"value":"9223372036854775807"','"value":9223372036854775807');let observed;
