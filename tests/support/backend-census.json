@@ -67,6 +67,7 @@
     "tests/api3.history-restart.test.js",
     "tests/api3.identifier-log.test.js",
     "tests/api3.limit.test.js",
+    "tests/api3.meal-treatment-identity.test.js",
     "tests/api3.non-hex-id.test.js",
     "tests/api3.paging.test.js",
     "tests/api3.patch.test.js",
