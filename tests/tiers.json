@@ -210,6 +210,7 @@
         "tests/pgstream-realtime-receipt.test.js",
         "tests/pgstream-typed-state.test.js",
         "tests/pgstream-activity-scheduler.test.js",
+        "tests/pgstream-due-refresh.test.js",
         "tests/evaluator-pending-isolation.test.js",
         "tests/evaluator-pending-marker.test.js",
         "tests/pgstream-checkpoint-transfer.test.js",
