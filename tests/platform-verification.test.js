@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const http = require('node:http');
 const platform = require('../lib/server/serve/platform-verification');
 const api = require('../lib/server/serve/platform-verification-admin').api;
+const diagnostics = require('../lib/server/serve/platform-verification-diagnostic');
 function sourceControl (before, after) {
   const file = require.resolve('../lib/server/serve/platform-verification'), source = require('node:fs').readFileSync(file, 'utf8');
   assert(source.includes(before));
@@ -37,6 +38,17 @@ describe('Internal admin platform verification contract', function () {
       await guard.verify(); at = 1999; assert.equal(guard.ready(), true); at = 2000; assert.equal(guard.ready(), false);
     } finally { release?.(); await guard.close(); }
   });
+  it('retains only fixed target, phase and cause diagnostics', function () {
+    const privateValue = 'PRIVATE_ERROR_PATH_OR_DATABASE_DETAIL';
+    const value = diagnostics.annotate({ code: '42501', message: privateValue, detail: privateValue }, 'evaluator', 'CLINICAL_READINESS');
+    assert.deepEqual(diagnostics.read(value), { targetRole: 'evaluator', checkPhase: 'CLINICAL_READINESS', causeCode: 'PG_PRIVILEGE_REFUSED' });
+    assert(!JSON.stringify(value).includes(privateValue));
+    const hostile = { code: privateValue, message: privateValue, verificationDiagnostic: { targetRole: privateValue, checkPhase: privateValue, causeCode: privateValue } };
+    assert.deepEqual(diagnostics.classify(hostile, 'api', 'LOAD_TARGET'), { targetRole: 'api', checkPhase: 'LOAD_TARGET', causeCode: 'UNCLASSIFIED' });
+    assert.equal(diagnostics.read(hostile), null);
+    assert.deepEqual(diagnostics.classify({ code: '__proto__', message: 'constructor' }, 'api', 'LOAD_TARGET'), { targetRole: 'api', checkPhase: 'LOAD_TARGET', causeCode: 'UNCLASSIFIED' });
+    assert.deepEqual(diagnostics.classify(new TypeError(privateValue), 'realtime', 'OPERATION_READINESS'), { targetRole: 'realtime', checkPhase: 'OPERATION_READINESS', causeCode: 'TYPE_ERROR' });
+  });
   it('requires bounded empty operation bodies and never returns raw errors', async function () {
     const service = { inspect: async () => ({ version: 1, roles: [] }), verify: async () => { throw new Error('PRIVATE_CONNECTION_OR_BODY'); } };
     const server = http.createServer(api({ service, fallback: (_req, res) => { res.writeHead(404); res.end(); } }));
@@ -48,6 +60,10 @@ describe('Internal admin platform verification contract', function () {
         const response = await fetch(origin + '/v1/platform-verification', { method: 'POST', headers: { 'content-type': 'application/json' }, body });
         assert.equal(response.status, status); assert(!((await response.text()).includes('PRIVATE')));
       }
+      service.verify = async () => { throw diagnostics.annotate({ code: '42501', message: 'PRIVATE_CONNECTION_DETAIL' }, 'api', 'AUTHORIZATION'); };
+      const response = await fetch(origin + '/v1/platform-verification', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      assert.equal(response.status, 503);
+      assert.deepEqual(await response.json(), { error: 'PLATFORM_VERIFICATION_FAILED', diagnostic: { targetRole: 'api', checkPhase: 'AUTHORIZATION', causeCode: 'PG_PRIVILEGE_REFUSED' } });
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 });
@@ -88,7 +104,9 @@ native('Native PostgreSQL admin verification state', function () {
     await service.verify(); await platform.admit(config, 'api');
     await admin.query('ALTER TABLE ' + quote(schema) + '.probe DISABLE ROW LEVEL SECURITY');
     await assert.rejects(service.verify(), { code: 'PLATFORM_VERIFICATION_FAILED' });
-    assert.equal((await service.inspect()).roles[0].status, 'revoked');
+    const failed = await service.inspect();
+    assert.equal(failed.roles[0].status, 'revoked');
+    assert.deepEqual(failed.operation.diagnostic, { targetRole: 'api', checkPhase: 'TARGET_CHECK', causeCode: 'UNCLASSIFIED' });
     await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
     await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
     await service.verify(); await platform.admit(config, 'api');
