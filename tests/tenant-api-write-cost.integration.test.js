@@ -7,6 +7,15 @@ const scope=require('../lib/storage/tenant-scope'),dates=require('../lib/server/
 const fixture=require('./fixtures/tenant-commit-clock-port'),{optInSuite}=require('./support/opt-in');
 const BASE='7aab0694470b92bb9a6478dd01fa057ee5fd33ef';
 function isolated(relative,source,mocks={}){const file=path.resolve(__dirname,'../',relative),m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));const original=m.require.bind(m);m.require=name=>Object.hasOwn(mocks,name)?mocks[name]:original(name);m._compile(source,file);return m.exports;}
+function queryKind (sql) {
+  if (sql.startsWith('BEGIN')) return 'begin';
+  if (sql === 'COMMIT') return 'commit';
+  if (/tenant_write_clock.*FOR UPDATE/s.test(sql)) return 'clock-select-lock';
+  if (/^UPDATE .*tenant_write_clock/s.test(sql)) {
+    return sql.endsWith('RETURNING last_stamp') ? 'clock-reserve' : 'clock-update';
+  }
+  return 'other';
+}
 const fromBase=relative=>execFileSync('git',['show',BASE+':'+relative],{cwd:path.resolve(__dirname,'..'),encoding:'utf8'});
 optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable clock fixture')('API history lock cost at one and three pool instances',function(){
  this.timeout(30000);
@@ -24,7 +33,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST==='1'&&!!process.env.NS_TEST_
    pg.Client.prototype.query=function(...args){
     const own=capture&&this.connectionParameters.user===lab.role,started=performance.now(),sql=typeof args[0]==='string'?args[0]:args[0].text;
     const result=original.apply(this,args);
-    if(own&&result?.then)result.then(()=>capture?.push({pid:this.processID,kind:/^BEGIN/.test(sql)?'begin':sql==='COMMIT'?'commit':/tenant_write_clock.*FOR UPDATE/s.test(sql)?'clock-lock':/^UPDATE .*tenant_write_clock/s.test(sql)?'clock-update':'other',started,ended:performance.now()}),()=>{});
+    if(own&&result?.then)result.then(()=>capture?.push({pid:this.processID,kind:queryKind(sql),started,ended:performance.now()}),()=>{});
     return result;
    };
    const reports=[];
@@ -44,11 +53,28 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST==='1'&&!!process.env.NS_TEST_
     })));
     const elapsedMs=performance.now()-start,observed=capture;capture=null;
     assert.equal((await lab.rows()).length,0);assert.equal((await lab.admin.query('SELECT count(*)::int AS n FROM "'+lab.namespaces.activity+'".activity')).rows[0].n,6);
-    const counts=Object.fromEntries(['begin','commit','clock-lock','clock-update','other'].map(kind=>[kind,observed.filter(row=>row.kind===kind).length]));
-    const held=new Map(),holdMs=[],selectMs=[];
-    for(const row of [...observed].sort((a,b)=>a.ended-b.ended)){if(row.kind==='clock-lock'){held.set(row.pid,row.ended);selectMs.push(row.ended-row.started);}if(row.kind==='commit'&&held.has(row.pid)){holdMs.push(row.ended-held.get(row.pid));held.delete(row.pid);}}
-    assert.equal(counts.begin,18);assert.equal(counts.commit,18);assert.equal(counts['clock-lock'],arm==='history-only'?6:18);assert.equal(counts['clock-update'],arm==='history-only'?6:18);
-    reports.push({arm,replicas,workload:{historyCreates:6,activityCreates:6,physicalDeletes:6},counts,elapsedMs,clockSelectElapsedMs:selectMs,lockAcquiredToCommitAckMs:holdMs});
+    const counts = Object.fromEntries(['begin', 'commit', 'clock-select-lock', 'clock-reserve', 'clock-update', 'other']
+      .map(kind => [kind, observed.filter(row => row.kind === kind).length]));
+    const held = new Map(), holdMs = [], acquisitionMs = [];
+    for (const row of observed.sort((a,b) => a.ended - b.ended)) {
+      if (row.kind === 'clock-select-lock' || row.kind === 'clock-reserve') {
+        held.set(row.pid, row.ended);
+        acquisitionMs.push(row.ended - row.started);
+      }
+      if (row.kind === 'commit' && held.has(row.pid)) {
+        holdMs.push(row.ended - held.get(row.pid));
+        held.delete(row.pid);
+      }
+    }
+    assert.equal(counts.begin,18);
+    assert.equal(counts.commit,18);
+    const current = arm === 'history-only';
+    assert.equal(counts['clock-select-lock'], current ? 0 : 18);
+    assert.equal(counts['clock-reserve'], current ? 6 : 0);
+    assert.equal(counts['clock-update'], current ? 0 : 18);
+    assert.equal(holdMs.length, current ? 6 : 18);
+    reports.push({arm,replicas,workload:{historyCreates:6,activityCreates:6,physicalDeletes:6},counts,elapsedMs,
+      clockAcquisitionElapsedMs:acquisitionMs,lockAcquiredToCommitAckMs:holdMs});
    }
    console.log('API_SQL_COST '+JSON.stringify({scope:'same-process independent API storage pools; no capacity claim',baselineModules:BASE,reports}));
   }finally{capture=null;pg.Client.prototype.query=original;await lab.close();}

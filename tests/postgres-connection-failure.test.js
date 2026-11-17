@@ -51,6 +51,9 @@ describe('checked-out PostgreSQL client failure propagation', function () {
           if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
           if (text.includes("current_setting('transaction_read_only')")) return { rows: [{ read_only: 'on', isolation: 'repeatable read' }] };
           if (text.includes('SELECT last_stamp')) return { rows: [{ last_stamp: '100' }] };
+          if (text.startsWith('UPDATE "synthetic_clock".tenant_write_clock') && text.endsWith('RETURNING last_stamp')) {
+            return { command: 'UPDATE', rowCount: 1, rows: [{ last_stamp: String(Math.max(101, values[1])) }] };
+          }
           return { rows: [], command: text.split(' ')[0], rowCount: 1 };
         };
         if (done) { execute().then(result => done(null, result), error => done(error)); return; }
@@ -384,6 +387,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     bus.on(intent.INTENT_EVENT, () => { events++; });
     const failure = new Error('Synthetic socket death between queries');
     const step = withCommitEvents({ write: async () => {
+      require('../lib/server/srv-dates').next();
       await f.store.query('SELECT before_gap');
       const client = f.calls.find(call => call.text === 'SELECT before_gap').client;
       continuation = new Promise(resolve => { resume = resolve; }).then(() =>
