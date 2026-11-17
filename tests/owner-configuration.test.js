@@ -267,7 +267,7 @@ describe('owner configuration serving source composition', function () {
     assert.equal(await observe(false), 1);
   });
 
-  it('lazy display reads screen in the first real tenant snapshot and resolve values in each', async function () {
+  it('lazy display reads screen once at open, outside any tenant, and each tenant snapshot sends only its value', async function () {
     const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     const file = path.resolve(__dirname, '../lib/tenant-settings/effective-postgres.js');
     const lazyFile = path.resolve(__dirname, '../lib/tenant-settings/presentation-reader.js');
@@ -276,17 +276,20 @@ describe('owner configuration serving source composition', function () {
     function factory ({ wrongBinding = false, omitScreen = false, unsafe = false } = {}) {
       const observed = { snapshots: [], metadata: 0, values: 0, ended: 0, catalogues: [] };
       const connection = {
+        async readOnly (sql, params) {
+          assert.equal(scope.currentTenant(), undefined, 'the screen binds no tenant');
+          if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: unsafe, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
+          if (sql.includes(' AS creates,')) return { rows: [{ creates: false, mutates: false }] };
+          assert(sql.includes('FROM pg_class'), 'only screen statements run outside a snapshot');
+          observed.metadata++;
+          assert.deepEqual(params, [['"settings".tenant_settings', '"policy".tenant_operator_policy']]);
+          return { rows: [0, 1].map(() => ({ secured: true, owns: false, reads: true, writes: false })) };
+        },
         readOnlySnapshot (tenant, fn) {
           observed.snapshots.push(tenant);
           return scope.withTenant(tenant, () => fn({ query: async (sql, params) => {
             assert.equal(scope.currentTenant(), tenant);
-            if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: unsafe, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
-            if (sql.includes(' AS creates,')) return { rows: [{ creates: false, mutates: false }] };
-            if (sql.includes('FROM pg_class')) {
-              observed.metadata++;
-              assert.deepEqual(params, [['"settings".tenant_settings', '"policy".tenant_operator_policy']]);
-              return { rows: [0, 1].map(() => ({ secured: true, owns: false, reads: true, writes: false })) };
-            }
+            assert(!/pg_roles|pg_class|pg_namespace/.test(sql), 'no screen statement inside a tenant snapshot');
             observed.values++; assert.equal(params[0], tenant);
             return { rows: [{ version: 1, values: { DISPLAY_UNITS: 'mmol' }, generation: 1, policy: { deployment: {}, overrides: {} } }] };
           } }));
@@ -297,9 +300,10 @@ describe('owner configuration serving source composition', function () {
       loaded.require = name => name === '../storage/postgres-connection' ? async () => connection
         : name === '../migrations/postgres-check' ? { ...checks, options: opts => opts, inspect: async (_query, opts) => { observed.catalogues.push(opts.namespace); return { current: true }; } } : original(name);
       const binding = 'connection.readOnlySnapshot(tenant, async ({ query }) => {';
-      assert(source.includes(binding)); assert(source.includes('await screenFor(ticket, query);'));
+      const startup = 'try { await check(); }';
+      assert(source.includes(binding)); assert(source.includes(startup));
       let selected = wrongBinding ? source.replace(binding, "connection.readOnlySnapshot('00000000-0000-0000-0000-000000000000', async ({ query }) => {") : source;
-      if (omitScreen) selected = selected.replace('await screenFor(ticket, query);', '');
+      if (omitScreen) selected = selected.replace(startup, 'try { void check; }');
       loaded._compile(selected, file); return { open: loaded.exports, observed };
     }
     function lazy (open) {
@@ -317,21 +321,21 @@ describe('owner configuration serving source composition', function () {
           await reader.close();
         });
         assert.deepEqual(f.observed.snapshots, [tenant, tenant]);
-        // The warm second read inside the screen interval issues no screen.
+        // Opening screened once; neither read screens.
         assert.equal(f.observed.metadata, 1); assert.equal(f.observed.values, 2); assert.equal(f.observed.ended, 1);
         assert.deepEqual(f.observed.catalogues, ['settings', 'policy']);
       }
       const unbound = factory(), resource = await unbound.open(options);
       assert.deepEqual(unbound.observed.snapshots, [], 'opening the lazy resource invents no metadata tenant');
       await assert.rejects(resource.read('not-canonical'), /Canonical settings tenant/);
-      assert.equal(unbound.observed.metadata, 0); await resource.close();
+      assert.equal(unbound.observed.metadata, 1, 'the open screen only'); await resource.close();
       assert.throws(() => scope.withTenant(A, () => scope.withTenant(B, () => {})), /cannot rebind/);
       const broken = factory({ wrongBinding: true }), rebound = await broken.open(options);
       await assert.rejects(scope.withTenant(A, () => rebound.read(A)), /cannot rebind/);
-      assert.equal(broken.observed.metadata, 0); assert.equal(broken.observed.values, 0); await rebound.close();
-      const unsafe = factory({ unsafe: true }), denied = await unsafe.open(options);
-      await assert.rejects(scope.withTenant(A, () => denied.read(A)), /unsafe settings identity/);
-      assert.equal(unsafe.observed.values, 0); await denied.close();
+      assert.equal(broken.observed.values, 0); await rebound.close();
+      const unsafe = factory({ unsafe: true });
+      await assert.rejects(unsafe.open(options), /unsafe settings identity/, 'an unsafe store yields no capability');
+      assert.equal(unsafe.observed.values, 0); assert.equal(unsafe.observed.ended, 1);
       const omitted = factory({ unsafe: true, omitScreen: true }), bypassed = await omitted.open(options);
       assert.equal((await scope.withTenant(A, () => bypassed.read(A))).effective.DISPLAY_UNITS.value, 'mmol', 'omitting the actual screen falsifies denied-read protection');
       await bypassed.close();

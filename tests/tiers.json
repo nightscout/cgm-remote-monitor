@@ -654,7 +654,7 @@
         "tests/registry-realtime-settings.integration.test.js",
         "tests/management-sessions.integration.test.js",
         "tests/realtime-placement-owner.integration.test.js",
-        "tests/settings-screen-cadence.integration.test.js",
+        "tests/settings-screen-lifecycle.integration.test.js",
         "tests/realtime-placement-publication.integration.test.js",
         "tests/realtime-sharding-native.integration.test.js",
         "tests/evaluator-job-context.integration.test.js",

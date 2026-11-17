@@ -32,9 +32,10 @@ async function withReadiness (value, fn) {
 // The actual api boot (lib/server/serve/preview-api.js) with recorded storage:
 // BROKEN's root credential metadata is missing, the misconfiguration the api's
 // tenant initializer refuses ("incomplete preview root preparation").
-function apiBoot () {
+function apiBoot ({ display } = {}) {
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
+    ...(display ? { '../../tenant-settings/presentation-reader': () => display } : {}),
     '../../storage/postgres-connection': async () => resource(),
     '../../secrets/legacy-postgres': async () => resource({ read: async tenant => tenant === BROKEN ? null : { reference: { id: 'synthetic' } } }),
     '../../tenant-authorization/postgres': async () => resource({ authorize: async () => {} }),
@@ -45,7 +46,7 @@ function apiBoot () {
     '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
     '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } }
   });
-  const config = { bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: {} };
+  const config = { bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: {}, ...(display ? { tenantSettings: {} } : {}) };
   return { boot: () => boot.boot(config), initialized, calls };
 }
 
@@ -147,5 +148,29 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
       { readiness: 'serve', concurrency: 4, coldAlertMs: undefined });
     try { await s.warm(); await s.drained(); assert.equal(most, 4); assert.equal(s.health().ready, true); assert.equal(s.health().failed, 0); }
     finally { s.close(); }
+  });
+
+  // Decision trusted-worker-performance-boundary: the display settings screen
+  // runs after the listener opens and after a datastore recovery, never inside
+  // a tenant read; a refused or pending screen is the role's not-ready.
+  it('screens display settings after the listener opens and on resume, and reports a refusal as not ready', async function () {
+    let state = { ready: false, state: 'pending' }, checks = 0, reads = 0;
+    const display = { check: async () => { checks++; if (display.refuse) { state = { ready: false, state: 'unavailable', code: 'SETTINGS_STORE_UNSAFE' }; throw Object.assign(new Error('unsafe settings scope'), { code: 'SETTINGS_STORE_UNSAFE' }); } state = { ready: true, state: 'ready' }; return state; },
+      health: () => state, read: async () => { reads++; }, close: async () => {} };
+    const lab = apiBoot({ display });
+    const role = await withReadiness(undefined, lab.boot);
+    const turn = () => new Promise(resolve => setImmediate(resolve));
+    try {
+      await turn();
+      assert.equal(checks, 0, 'no display store probe precedes the DATA listener');
+      assert.equal(role.health().ready, false, 'a pending screen is not ready');
+      await role.attach({}); await turn();
+      assert.equal(checks, 1); assert.equal(role.health().ready, true); assert.equal(role.health().displaySettings.state, 'ready');
+      display.refuse = true; role.resume(); await turn(); await turn();
+      assert.equal(checks, 2, 'a recovery screens again');
+      assert.equal(role.health().ready, false); assert.equal(role.health().displaySettings.code, 'SETTINGS_STORE_UNSAFE');
+      display.refuse = false; role.resume(); await turn(); await turn();
+      assert.equal(role.health().ready, true); assert.equal(reads, 0, 'no screen is driven through a tenant read');
+    } finally { await role.close(); }
   });
 });

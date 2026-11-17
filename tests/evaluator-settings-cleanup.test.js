@@ -8,40 +8,44 @@ function isolated (file, mocks, mutate = source => source) {
   const original = loaded.require.bind(loaded); loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : original(name);
   loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
-function fixture (kind, { broken = false, data = false, refresh = false } = {}) {
+function fixture (kind, { broken = false, data = false } = {}) {
   const state = { fail: false, queryFailure: true, pools: 0, clients: 0, ends: 0 };
   const primary = Error('SYNTHETIC_PRIMARY_' + kind), cleanup = Error('SYNTHETIC_END_' + kind);
   class Pool {
     constructor () { state.pools++; }
     on () {}
     async query () { throw primary; }
-    // Backend admission checks out the startup backend instead of pool.query.
     async connect () { throw primary; }
     async end () { state.ends++; throw cleanup; }
   }
   const startup = kind === 'startup' ? isolated('storage/postgres-connection.js', { pg: { Pool }, '../diagnostics/m7': { observePool () {} } }) : null;
   const factory = isolated('tenant-settings/effective-postgres.js', {
     '../storage/tenant-scope': { getTenancyMode: () => 'multi', currentTenant: () => undefined },
-    './readiness-check': async () => { if (state.fail && kind === 'readiness' && state.queryFailure) throw primary; },
-    '../migrations/postgres-check': { ...require('../lib/migrations/postgres-check'), inspect: async () => {
-      if (state.fail && kind === 'migration') throw primary; return { current: true };
+    // A failing screen statement reports an unconfirmed checkout cleanup.
+    './readiness-check': async query => { if (state.fail && kind === 'readiness' && state.queryFailure) await query('SELECT synthetic_failure'); },
+    '../migrations/postgres-check': { ...require('../lib/migrations/postgres-check'), inspect: async query => {
+      if (state.fail && kind === 'migration') await query('SELECT synthetic_failure'); return { current: true };
     } }, './component': { resolveEffectiveSettings: () => ({}) },
     '../storage/postgres-connection': startup || (async () => { state.pools++; return {
+      async readOnly (sql) {
+        if (sql === 'SELECT synthetic_failure') throw new CleanupError(primary, cleanup);
+        return { rows: sql.includes('pg_class') ? [0, 1].map(() => ({ secured: !(state.fail && kind === 'screen'), owns: false, reads: true, writes: false })) : [{}] };
+      },
       async readOnlySnapshot (tenant, fn) {
         let outcome, error;
-        try { outcome = await fn({ query: async sql => ({ rows: sql.includes('pg_class') ? [0, 1].map(() => ({ secured: !(state.fail && kind === 'screen'), owns: false, reads: true, writes: false })) : [{}] }) }); }
+        try { outcome = await fn({ query: async () => ({ rows: [{}] }) }); }
         catch (failure) { error = failure; }
         if (state.fail) throw new CleanupError(error || cleanup, cleanup);
         if (error) throw error;
         return outcome;
       },
-      async end () { state.ends++; }
+      // A refused open closes its pool; for the store screen that end is unconfirmed.
+      async end () { state.ends++; if (state.fail && kind === 'screen') throw cleanup; }
     }; })
   });
   const presentation = isolated('tenant-settings/presentation-reader.js', { './effective-postgres': factory }, source => broken
     ? source.replaceAll('if (revalidate && error instanceof PostgresCleanupError && !cleanupErrors.includes(error)) cleanupErrors.push(error);', '') : source);
-  // A refresh screen is a later screened read: interval 0 screens every read.
-  const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' }, ...(refresh ? { screenIntervalMs: 0 } : {}) };
+  const configuration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
   const reader = presentation(configuration, data ? {} : { revalidate: true, preserveErrors: true, concurrency: 4, maxPending: 2 });
   return { state, reader, primary, cleanup };
 }
@@ -50,10 +54,11 @@ describe('unconfirmed settings PostgreSQL cleanup', function () {
   for (const [kind, refresh] of [['screen', false], ['startup', false], ['readiness', false], ['migration', false], ['readiness', true], ['migration', true]]) {
     it('poisons ' + kind + (refresh ? ' refresh' : ' initialization') + ' end failure, with removed signal handling red and restoration green', async function () {
       async function observe (broken) {
-        const f = fixture(kind, { broken, refresh });
+        const f = fixture(kind, { broken });
+        // A refresh is the owner's later check() of the held capability.
         if (refresh) await f.reader.read(tenant);
         f.state.fail = true;
-        await assert.rejects(f.reader.read(tenant), error => {
+        await assert.rejects(refresh ? f.reader.check() : f.reader.read(tenant), error => {
           assert(error instanceof CleanupError); assert.equal(error.code, 'POSTGRES_CLEANUP_UNCONFIRMED');
           assert.equal(error.cleanupError, f.cleanup);
           if (kind === 'screen') assert.equal(error.cause.code, 'SETTINGS_STORE_UNSAFE');
