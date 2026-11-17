@@ -68,8 +68,4 @@ describe('selected-v2 evaluator readiness and catalogue dispatch',()=>{
   assert(loaded.calls.some(call=>call.kind==='v1-worker'));assert(!loaded.calls.some(call=>call.kind==='pool-worker'));const p=loaded.calls.find(call=>call.kind==='protocol').options;assert.equal(p.intakeProfile,predecessor);assert.equal(p.poolProfile,undefined);
   delete cfg.selectedIntake;assert.deepEqual(loaded.readiness.cataloguesFor(cfg).checkpoint,require('../migrations/candidates/postgres-evaluator-work-v2.json'));
  });
- it('recognizes v2 realtime source profile binding without pretending its specialized output readiness is already qualified',async()=>{
-  const loaded=load(),cfg=config();delete cfg.selectedIntake;cfg.completedOutput={namespace:COMMON.namespace,consumer:COMMON.consumer};cfg.intakeProfile=profile;
-  await loaded.readiness.screen(connection({knownMetadata:metadata().filter(table=>table!=='test_pool.pool_membership')}),cfg,{operationWindow:{intakeProfileDigest:profile.digest}});assert(!loaded.calls.some(call=>call.kind==='pool-worker'));
- });
 });

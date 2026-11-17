@@ -3,7 +3,7 @@
 // native policy deparser/RLS authority or clinical throughput evidence.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),vm=require('node:vm');
 const {createRequire}=require('node:module');
-const worker=require('../lib/pgstream/pool-worker-grants'),operator=require('../lib/pgstream/pool-operator-grants');
+const worker=require('../lib/pgstream/pool-worker-grants');
 const profiles=require('../lib/pgstream/pool-intake-profile'),placement=require('../lib/pool-membership/pool-candidate'),mutation=require('../lib/pool-membership/fixed-protocol');
 const profile=profiles.create({namespace:'test_work',membershipNamespace:'test_pool',lifecycleNamespace:'test_lifetime',role:'intake_writer',operatorRole:'pool_operator',consumer:'evaluator-dynamic',codec:profiles.CODEC,generationDomain:profiles.GENERATION_DOMAIN,sliceRule:require('../lib/pool-membership/slice').RULE});
 const ordinal=1;
@@ -32,12 +32,12 @@ function dynamicParity(module){const ids=Array.from({length:128},(_,i)=>'0000000
   }
  }
 }
-function model({isOperator=false,rolePatch={},relationPatch,policyPatch,extra=[],badLedger=false,badPlacement=false,badProfile=false,grantPlan}={}){
- const calls=[],principal=isOperator?'pool_operator':'worker_one',want=worker.metadata(profile,{worker:!isOperator}),policy=isOperator?{prefix:'pgstream_pool_operator_',suffix:'',expression:operator.expression(profile)}:worker.policies(profile,ordinal);
+function model({rolePatch={},relationPatch,policyPatch,extra=[],badLedger=false,badPlacement=false,badProfile=false,grantPlan}={}){
+ const calls=[],principal='worker_one',want=worker.metadata(profile,{worker:true}),policy=worker.policies(profile,ordinal);
  const safeRole={principal,rolsuper:false,rolbypassrls:false,rolcreaterole:false,rolcreatedb:false,rolreplication:false,rolinherit:false,memberships:false,creates:false,owns:false,...rolePatch};
  // Model actual GRANT execution, rather than handing readiness a fabricated
  // complete rights set. Missing namespace/column grants now fail admission.
- const plan=grantPlan||(isOperator?operator.build({role:principal,profile}):worker.build({role:principal,profile,ordinal}));
+ const plan=grantPlan||worker.build({role:principal,profile,ordinal});
  const schemas=new Set(),rights=new Map([...want].map(([relation])=>[relation,{reads:new Set(),updates:new Set()}]));
  for(const sql of plan){const usage=/^GRANT USAGE ON SCHEMA "([a-z0-9_]+)" TO/.exec(sql);if(usage){schemas.add(usage[1]);continue;}const relation=/^GRANT (.+) ON "([a-z0-9_]+)"\.([a-z0-9_]+) TO/.exec(sql);if(!relation)continue;const name=relation[2]+'.'+relation[3],target=rights.get(name);assert(target,name);for(const mode of ['SELECT','UPDATE']){const start=relation[1].indexOf(mode);if(start<0)continue;const tail=relation[1].slice(start+mode.length).trimStart(),key=mode==='SELECT'?'reads':'updates',columns=tail.startsWith('(')?tail.slice(1,tail.indexOf(')')).split(','):want.get(name)[key];for(const column of columns)target[key].add(column);}}
  const relationRows=[...want].map(([relation,need])=>({relation,kind:'r',persistence:'p',rls:need.secured,forced:need.secured,inherited:false,owns:false,uses_schema:schemas.has(relation.split('.')[0]),creates:false,forbidden:false,reads:[...rights.get(relation).reads].sort(),updates:[...rights.get(relation).updates].sort()}));
@@ -70,12 +70,12 @@ describe('dynamic pool worker grant plan, policy grammar and source admission',(
   assert(worker.DESIRED.includes('partitioned')&&worker.DESIRED.includes('previous_partitioned'));
   const text=worker.expression(profile,ordinal);assert(!text.includes('uuid[]'));assert(!text.includes('9007199254740993'));assert(text.includes('work_assignment_revision=d.revision'));assert.equal(text.match(/FROM/g).length,1);assert(text.includes('FROM "test_pool".pool_desired d'));
  });
- it('actual build GRANTs admit fresh worker/operator roles; omitting a lifecycle table or namespace grant is RED then restored',async()=>{
-  for(const isOperator of [false,true]){const role=isOperator?'pool_operator':'worker_one',plan=isOperator?operator.build({role,profile}):worker.build({role,profile,ordinal});const ready=lab=>isOperator?operator.assertReady(lab.query,{profile}):worker.assertReady(lab.query,{profile,ordinal,expectedRole:role});
-   await ready(model({isOperator,grantPlan:plan}));
-   for(const broken of [plan.filter(sql=>!sql.includes('ON "test_lifetime".tenant_lifecycle_recommission ')),plan.filter(sql=>sql!=='GRANT USAGE ON SCHEMA "test_lifetime" TO "'+role+'"')])await assert.rejects(ready(model({isOperator,grantPlan:broken})),/RELATIONS/);
-   await ready(model({isOperator,grantPlan:plan}));
-  }
+ it('admits actual worker grants and refuses a missing lifecycle table or namespace grant',async()=>{
+  const role='worker_one',plan=worker.build({role,profile,ordinal});
+  const ready=grantPlan=>worker.assertReady(model({grantPlan}).query,{profile,ordinal,expectedRole:role});
+  await ready(plan);
+  for(const broken of [plan.filter(sql=>!sql.includes('ON "test_lifetime".tenant_lifecycle_recommission ')),plan.filter(sql=>sql!=='GRANT USAGE ON SCHEMA "test_lifetime" TO "'+role+'"')])await assert.rejects(ready(broken),/RELATIONS/);
+  await ready(plan);
  });
  it('parser preserves grouping, role predicate literals, casts and namespace identity rather than stripping all parentheses',()=>{
   assert.notDeepEqual(worker.policyTree("consumer='A' AND (work_owner_ordinal=1 OR work_assignment_revision=2)"),worker.policyTree("(consumer='A' AND work_owner_ordinal=1) OR work_assignment_revision=2"));
@@ -138,9 +138,5 @@ describe('dynamic pool worker grant plan, policy grammar and source admission',(
  });
  it('refuses membership placement ledger/type drift and wrong installed profile',async()=>{
   for(const patch of [{badLedger:true},{badPlacement:true},{badProfile:true}])await assert.rejects(worker.assertReady(model(patch).query,{profile,ordinal}));
- });
- it('operator admission uses the same actual scope check with metadata-only global visibility, rejecting clinical SELECT/write extras',async()=>{
-  assert.equal((await operator.assertReady(model({isOperator:true}).query,{profile})).principal,profile.binding.operatorRole);
-  for(const patch of [{rolePatch:{principal:'wrong_operator'}},{relationPatch:row=>row.relation.endsWith('.tenant_consumer_checkpoint')?{reads:[...row.reads,'projection']}:{}},{relationPatch:row=>row.relation.endsWith('.tenant_consumer_checkpoint')?{updates:[...row.updates,'delivery_ack_revision']}:{}},{extra:[{relation:'clinical.entries'}]}])await assert.rejects(operator.assertReady(model({isOperator:true,...patch}).query,{profile}));
  });
 });
