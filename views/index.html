@@ -256,10 +256,10 @@
         </dl>
         <dl class="radio">
           <dt class="translate">Theme</dt>
-          <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default" checked><label for="theme-default-browser" class="translate">Default</label></dd>
-          <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors"><label for="theme-colors-browser" class="translate">Colors</label></dd>
-          <dd><input type="radio" name="theme-browser" id="theme-modern-browser" value="modern"><label for="theme-modern-browser" class="translate">Modern</label></dd>
-          <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly"><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
+          <dd><input type="radio" name="theme-browser" id="theme-modern-browser" value="modern"<% if (settings.theme === 'modern') { %> checked<% } %>><label for="theme-modern-browser" class="translate">Modern</label></dd>
+          <dd><input type="radio" name="theme-browser" id="theme-default-browser" value="default"<% if (settings.theme === 'default') { %> checked<% } %>><label for="theme-default-browser" class="translate">Classic</label></dd>
+          <dd><input type="radio" name="theme-browser" id="theme-colors-browser" value="colors"<% if (settings.theme === 'colors') { %> checked<% } %>><label for="theme-colors-browser" class="translate">Colors</label></dd>
+          <dd><input type="radio" name="theme-browser" id="theme-colorblindfriendly-browser" value="colorblindfriendly"<% if (settings.theme === 'colorblindfriendly') { %> checked<% } %>><label for="theme-colorblindfriendly-browser" class="translate">Colorblind-friendly colors</label></dd>
         </dl>
         <dl id="show-plugins" class="toggle">
           <dt class="translate">Show Plugins</dt>

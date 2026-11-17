@@ -62,9 +62,10 @@
       "allowedValues": [
         "default",
         "colors",
-        "colorblindfriendly"
+        "colorblindfriendly",
+        "modern"
       ],
-      "defaultValue": "colors"
+      "defaultValue": "modern"
     },
     "time_format": {
       "type": "string",

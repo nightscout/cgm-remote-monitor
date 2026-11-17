@@ -2658,7 +2658,8 @@
           },
           "theme": {
             "type": "string",
-            "description": "Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`, `modern`. Modern opts into the responsive dashboard."
+            "default": "modern",
+            "description": "Default theme to be displayed system wide: `modern` (the default responsive dashboard), `default` (Classic), `colors`, or `colorblindfriendly`. Saved browser preferences take precedence."
           },
           "language": {
             "type": "string",

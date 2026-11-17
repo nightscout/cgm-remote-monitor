@@ -1,0 +1,256 @@
+{
+  "purpose": "Measure chart-independent hourly basal statistics, shared calculations and renamed report presentation for PR #8907.",
+  "parentRevision": "3b707825f742c3af47e87ed25a9b6819fc895538",
+  "gzipLevel": 9,
+  "webpackVersion": "5.110.3",
+  "lockfileSha256": "74c52ff603dc82e45717bd2b8618e515c76486f49ca4373db420911ad0641119",
+  "before": {
+    "runtime": {
+      "node": "24.22.1",
+      "zlib": "1.3.2.1-motley-285e94b"
+    },
+    "bundles": {
+      "app": {
+        "bytes": 1101744,
+        "gzipBytes": 321217
+      },
+      "reports": {
+        "bytes": 240188,
+        "gzipBytes": 71679
+      },
+      "admin": {
+        "bytes": 32053,
+        "gzipBytes": 7926
+      },
+      "profile": {
+        "bytes": 19456,
+        "gzipBytes": 7012
+      },
+      "food": {
+        "bytes": 15798,
+        "gzipBytes": 5293
+      },
+      "clock": {
+        "bytes": 155643,
+        "gzipBytes": 63028
+      }
+    },
+    "allApplicationGzipBytes": 413127,
+    "sha256": {
+      "app": "8ad4d9c5b05fba9850cad91334c19aa2b1d3bc81d9a7305618e1a31dfb6a6ff6",
+      "reports": "c3636e2bfc023e2382ee02684b2bd0e149a501b67715bb2c1350a47d718e8fbc",
+      "admin": "9c0f02e2a64294e81403191933b6954ec97041d98545aef6a10336db9b8d3d0e",
+      "profile": "57e564a7671e53686e07119b627c3b3172ab79e619bf5a3ee5388302d3d99739",
+      "food": "7f05729791002feeefcaf653043d71017e256228ba6d472fe40c7aab0669db67",
+      "clock": "6a14c9ca3b73e41ca73176b58af03eb9135094b51816c6ad0f8e1ff08ae767d0"
+    }
+  },
+  "after": {
+    "runtime": {
+      "node": "24.22.1",
+      "zlib": "1.3.2.1-motley-285e94b"
+    },
+    "bundles": {
+      "app": {
+        "bytes": 1101744,
+        "gzipBytes": 321217
+      },
+      "reports": {
+        "bytes": 244631,
+        "gzipBytes": 72693
+      },
+      "admin": {
+        "bytes": 32053,
+        "gzipBytes": 7926
+      },
+      "profile": {
+        "bytes": 19456,
+        "gzipBytes": 7012
+      },
+      "food": {
+        "bytes": 15798,
+        "gzipBytes": 5293
+      },
+      "clock": {
+        "bytes": 155643,
+        "gzipBytes": 63028
+      }
+    },
+    "allApplicationGzipBytes": 414141,
+    "sha256": {
+      "app": "8ad4d9c5b05fba9850cad91334c19aa2b1d3bc81d9a7305618e1a31dfb6a6ff6",
+      "reports": "6a17b8719f403f6656a81238785320eac821a2ad00c991e50d0d90d41677c642",
+      "admin": "9c0f02e2a64294e81403191933b6954ec97041d98545aef6a10336db9b8d3d0e",
+      "profile": "57e564a7671e53686e07119b627c3b3172ab79e619bf5a3ee5388302d3d99739",
+      "food": "7f05729791002feeefcaf653043d71017e256228ba6d472fe40c7aab0669db67",
+      "clock": "6a14c9ca3b73e41ca73176b58af03eb9135094b51816c6ad0f8e1ff08ae767d0"
+    }
+  },
+  "sourceSha256": {
+    "lib/report/basal-adjustments.js": "078d72f9f46542ef7527759e90d1291c1769c80e229f64337a0151c4273d142d",
+    "lib/report/hourly-basal.js": "70e96bf5fb6c0ccaaf46f11a63678378582fa6315c1df9bc346c4e3fdacbb292",
+    "lib/report_plugins/daytoday.js": "3a8ea0a974366d7c8634243ecc48d94967d658a7ffa314f616f5a575f49d49ab",
+    "lib/report_plugins/hourlystats.js": "36827766f3082956dde616e9de7703f9cdc52b1262b89c2aae5086ec09e8262a",
+    "static/css/report.css": "2279fd74e27a86acc0e6c7a20a6b627e3091fee0d7801a54f5317f8881eb04a7"
+  },
+  "addedReportSources": [
+    "webpack://nightscout/./lib/report/basal-adjustments.js",
+    "webpack://nightscout/./lib/report/hourly-basal.js"
+  ],
+  "reportsGzipDeltaBytes": 1014,
+  "limits": {
+    "reports": {
+      "before": 72019,
+      "after": 73033,
+      "preservedHeadroomBytes": 340
+    },
+    "allApplicationGzipBytes": 426000
+  },
+  "limitsOfEvidence": [
+    "Only the reports allowance increases, by its measured 1014 gzip bytes. Previous 340-byte headroom is retained.",
+    "Other JavaScript artifacts have identical hashes; their limits and the combined application limit are unchanged.",
+    "No new dependency or JavaScript chunk is introduced. Table styles are served as static CSS.",
+    "These measurements describe emitted JavaScript, excluding static CSS transfers, startup latency and retained heap."
+  ],
+  "finalReview": {
+    "purpose": "Format unavailable Day to Day insulin averages without exposing NaN in the report summary.",
+    "parentRevision": "fb053ba76cfe65c6bda8d32014ef723f7e936f40",
+    "measurement": {
+      "runtime": {
+        "node": "24.22.1",
+        "zlib": "1.3.2.1-motley-285e94b"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1101744,
+          "gzipBytes": 321217
+        },
+        "reports": {
+          "bytes": 244718,
+          "gzipBytes": 72721
+        },
+        "admin": {
+          "bytes": 32053,
+          "gzipBytes": 7926
+        },
+        "profile": {
+          "bytes": 19456,
+          "gzipBytes": 7012
+        },
+        "food": {
+          "bytes": 15798,
+          "gzipBytes": 5293
+        },
+        "clock": {
+          "bytes": 155643,
+          "gzipBytes": 63028
+        }
+      },
+      "allApplicationGzipBytes": 414169
+    },
+    "reportsBundleSha256": "f0f0e7964694338f587387a8fe4a52a9bbda6e37bfb9c30176ffe4201dba3ffb",
+    "daytodaySourceSha256": "79049fa96aa0860271ab8cb412e2269c71e95444fe5d5b200cfa406f894e02c6",
+    "reportsGzipDeltaBytes": 28,
+    "remainingHeadroomBytes": 312,
+    "limitsChanged": false
+  },
+  "isolationReview": {
+    "purpose": "Keep historical calculations from modifying shared profile definitions, uploaded treatments or the report timezone.",
+    "parentRevision": "d154a5409e56e095e2d30274abe7b08c456dab9b",
+    "measurement": {
+      "runtime": {
+        "node": "24.22.1",
+        "zlib": "1.3.2.1-motley-285e94b"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1101792,
+          "gzipBytes": 321226
+        },
+        "reports": {
+          "bytes": 244883,
+          "gzipBytes": 72778
+        },
+        "admin": {
+          "bytes": 32053,
+          "gzipBytes": 7926
+        },
+        "profile": {
+          "bytes": 19456,
+          "gzipBytes": 7012
+        },
+        "food": {
+          "bytes": 15798,
+          "gzipBytes": 5293
+        },
+        "clock": {
+          "bytes": 155643,
+          "gzipBytes": 63028
+        }
+      },
+      "allApplicationGzipBytes": 414235
+    },
+    "bundleSha256": {
+      "app": "a0b0c670c0915f60db9610d0b840c120d91b6b954862bde83c0d442648a2814b",
+      "reports": "9c038ee50bb4cd55011e04fddd7a32e2256156ea470501c4ce924ded15ddcb48"
+    },
+    "sourceSha256": {
+      "lib/profilefunctions.js": "2d2afa7753966c056331d4d3fc0c0eb97bd75c948c1e1f8c2042abb674c7bf14",
+      "lib/report/basal-adjustments.js": "e925ea49c5ec87a7ecbf69ed8346b765291a16ee573fd562e2266d74ab46afab",
+      "lib/report/hourly-basal.js": "d7dbd0352a8380ef30c250cfee8d6d73cd5b3fa7e28bdb8d08ad6ac903d18242",
+      "lib/report_plugins/daytoday.js": "e8e90fb09be6bf359424e15bb14f394f07e200d831275fb91507801fb7780395",
+      "lib/report_plugins/hourlystats.js": "0d50d9d75324113f4be8abef6e2032d5fa1aa8fbe910484a194bd2eba0ed58e0"
+    },
+    "appGzipDeltaBytes": 9,
+    "reportsGzipDeltaBytes": 57,
+    "remainingReportsHeadroomBytes": 255,
+    "limitsChanged": false
+  },
+  "loopalyzerReview": {
+    "purpose": "Preserve historical Loopalyzer rates and isolate its profile-switch sampling after removing shared report profile mutations.",
+    "parentRevision": "80fa86760c5e2ba5bfc1815812ae8aec1af2bc8b",
+    "measurement": {
+      "runtime": {
+        "node": "24.22.1",
+        "zlib": "1.3.2.1-motley-285e94b"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1101792,
+          "gzipBytes": 321226
+        },
+        "reports": {
+          "bytes": 245081,
+          "gzipBytes": 72792
+        },
+        "admin": {
+          "bytes": 32053,
+          "gzipBytes": 7926
+        },
+        "profile": {
+          "bytes": 19456,
+          "gzipBytes": 7012
+        },
+        "food": {
+          "bytes": 15798,
+          "gzipBytes": 5293
+        },
+        "clock": {
+          "bytes": 155643,
+          "gzipBytes": 63028
+        }
+      },
+      "allApplicationGzipBytes": 414249
+    },
+    "bundleSha256": {
+      "app": "a0b0c670c0915f60db9610d0b840c120d91b6b954862bde83c0d442648a2814b",
+      "reports": "87dab2040d361af2968b24471403e3e9407744a029cd532c893280cfd2aedc99"
+    },
+    "sourceSha256": {
+      "lib/report_plugins/loopalyzer.js": "fd951016cbe1cb9d55f944f23b041f81aa855d8d07d98fcf15e9903ead665c87"
+    },
+    "reportsGzipDeltaBytes": 14,
+    "remainingReportsHeadroomBytes": 241,
+    "limitsChanged": false
+  }
+}

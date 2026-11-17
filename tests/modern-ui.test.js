@@ -12,7 +12,7 @@ class NoResources extends ResourceLoader {
   fetch () { return null; }
 }
 
-describe('opt-in modern dashboard', function () {
+describe('modern dashboard', function () {
   it('adds one settings header while preserving settings values and Save handlers', function () {
     const env = createSecureDOM('<button id="drawerToggle">Settings</button><div id="drawer"><form id="settings-form"><input id="customTitle" value="Original title"><div class="actions"><button id="save">Save</button></div><div class="authentication-status">Existing status</div></form></div>');
     const state = domGlobals.installDomGlobals(env);
@@ -223,8 +223,12 @@ describe('opt-in modern dashboard', function () {
     return settings;
   }
 
-  it('keeps the default theme and layout unchanged', function () {
-    assert.strictEqual(settingsFor(undefined).theme, 'default');
+  it('defaults to modern consistently in the application and deployment templates', function () {
+    assert.strictEqual(settingsFor(undefined).theme, 'modern');
+    assert.strictEqual(require('../app.json').env.THEME.value, 'modern');
+    const theme = require('../azuredeploy.json').parameters.theme;
+    assert.strictEqual(theme.defaultValue, 'modern');
+    assert.ok(theme.allowedValues.includes('modern'));
   });
 
   it('accepts THEME=modern without changing thresholds or alarm settings', function () {
@@ -235,7 +239,7 @@ describe('opt-in modern dashboard', function () {
     assert.ok(!Object.hasOwn(settings, 'uiStyle'));
   });
 
-  ['default', 'modern'].forEach(style => {
+  ['default', 'colors', 'colorblindfriendly', 'modern'].forEach(style => {
     it('renders the ' + style + ' main screen with one copy of every existing control', async function () {
       const output = await ejs.renderFile(path.join(__dirname, '../views/index.html'), {
         settings: settingsFor(style), locals: {bundle: '/bundle', cachebuster: 'test'}, type: 'index', title: ''
@@ -249,6 +253,7 @@ describe('opt-in modern dashboard', function () {
         assert.strictEqual(document.querySelectorAll(selector).length, 1, selector);
       });
       assert.strictEqual(document.documentElement.classList.contains('modern-ui'), style === 'modern');
+      assert.strictEqual(document.querySelector('input[name="theme-browser"]:checked').value, style);
       if (style === 'modern') {
         assert.ok(!document.querySelector('meta[name="viewport"]').content.includes('user-scalable=0'));
       }
@@ -264,7 +269,12 @@ describe('opt-in modern dashboard', function () {
       const storage = require('../lib/client/storage').localStorage;
       const browserSettings = require('../lib/client/browser-settings');
       const client = { browserUtils: {}, translate: value => value };
-      ['modern', 'colors'].forEach(style => {
+      [undefined, 'default', 'colors', 'colorblindfriendly', 'modern'].forEach(style => {
+        storage.remove('theme');
+        const settings = browserSettings(client, {settings: settingsFor(style), extendedSettings: {}}, env.window.$);
+        assert.strictEqual(settings.theme, style || 'modern');
+      });
+      ['default', 'colors', 'colorblindfriendly', 'modern'].forEach(style => {
         storage.set('theme', style);
         const settings = browserSettings(client, {settings: {theme: style === 'modern' ? 'colors' : 'modern', enable: 'ar2'}, extendedSettings: {}}, env.window.$);
         assert.strictEqual(settings.theme, style);

@@ -19,7 +19,7 @@ function queryKey(value) {
 }
 
 describe('legacy reports in a real browser', function () {
-  let server, origin, markup, requests;
+  let server, origin, markup, requests, responses, reportProfile;
   before(async function () {
     const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/reportindex.html');
@@ -32,7 +32,10 @@ describe('legacy reports in a real browser', function () {
         '@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");'
       ].includes(line)).join('\n')]));
     const html = '<!doctype html><html><head><meta charset="utf-8">' + cssNames.map(name => '<link rel="stylesheet" href="/css/' + name + '.css">').join('') + '</head><body></body></html>';
-    const responses = new Map(Object.entries(fixtures.someData).map(([url, data]) => [queryKey(url), data]));
+    responses = new Map(Object.entries(fixtures.someData).map(([url, data]) => [queryKey(url), data]));
+    const reportSettings = structuredClone(fixtures.exampleProfile[0]);
+    delete reportSettings.startDate;
+    reportProfile = {startDate: '2015-01-01T00:00:00.000Z', defaultProfile: 'Default', store: {Default: reportSettings}};
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     const app = express();
     app.use(express.json()); app.use(express.urlencoded({extended: true}));
@@ -49,7 +52,17 @@ describe('legacy reports in a real browser', function () {
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
     app.get('/translations/{*path}', (request, response) => response.json({}));
-    app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/profiles', '/api/v1/devicestatus.json'],
+    app.get('/api/v1/profiles', (request, response) => {
+      const params = new URL(request.originalUrl, 'http://127.0.0.1').searchParams;
+      const at = Date.parse(reportProfile.startDate);
+      const matches = [['$gt', (a, b) => a > b], ['$gte', (a, b) => a >= b],
+        ['$lt', (a, b) => a < b], ['$lte', (a, b) => a <= b]].every(([operator, compare]) => {
+        const value = params.get('find[startDate][' + operator + ']');
+        return value === null || compare(at, Date.parse(value));
+      });
+      response.json(matches ? [reportProfile] : []);
+    });
+    app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/devicestatus.json'],
       (request, response) => response.json(responses.get(queryKey(request.originalUrl)) || []));
     app.delete('/api/v1/treatments/:id', (request, response) => response.json({message: 'OK'}));
     app.put('/api/v1/treatments/', (request, response) => response.json({message: 'OK'}));
@@ -302,10 +315,332 @@ describe('legacy reports in a real browser', function () {
       const hourly = await page.locator('#hourlystats-report td').allTextContents();
       assert.ok(hourly.includes('16 (100%)'));
       assert.equal(await page.locator('#success-grid').count(), 1);
-      assert.ok((await page.locator('#calibrations-placeholder').textContent()).includes('CAL:  Scale: 1.10 Intercept: 31102 Slope: 776.91'));
+      assert.ok((await page.locator('#calibrations-placeholder').textContent()).includes('Calibration: Scale: 1.10 Intercept: 31102 Slope: 776.91'));
 
     });
   });
+
+  for (const theme of ['default', 'modern']) {
+    it('switches and remembers independent report chart styles in ' + theme, async function () {
+      await withReports(async page => {
+        await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+        async function renderCharts () {
+          await page.evaluate(theme => {
+            const client = window.Nightscout.client;
+            client.settings.theme = theme;
+            document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+            document.body.classList.add('report-page');
+            const start = client.sbx.data.profile.parseInTimezone('2015-08-08').valueOf();
+            const records = [60, 120, 120, 240].map((value, i) => ({
+              sgv: value, bgValue: value, displayTime: new Date(start + i * 1800000)
+            }));
+            const data = {alldays: 2, allstatsrecords: records,
+              '2015-08-08': {statsrecords: records}, '2015-08-09': {statsrecords: []}};
+            for (const name of ['glucosedistribution', 'dailystats']) {
+              const plugin = window.Nightscout.report_plugins(name);
+              document.getElementById(name + '-placeholder').innerHTML = plugin.html(client);
+              plugin.report(data, ['2015-08-09', '2015-08-08'], {targetLow: 70, targetHigh: 180});
+            }
+          }, theme);
+        }
+        await renderCharts();
+        const requestCount = requests.length;
+        const distributionStats = await page.locator('#glucosedistribution-report').textContent();
+        const dailyStats = await page.locator('#dailystats-report tr').evaluateAll(rows =>
+          rows.map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent)));
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-bar').isChecked(), true);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        await page.locator('#glucosedistribution').click();
+        await page.locator('#glucosedistribution-chartstyle-bar').focus();
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        const overview = page.locator('#glucosedistribution-overviewchart');
+        assert.equal(await overview.locator('svg path').count(), 3);
+        assert.equal(await overview.locator('.gd-vbar').count(), 0);
+        assert.deepEqual(await overview.locator('path title').allTextContents(),
+          ['Low (54–69): 25.0%', 'In Range (70–180): 50.0%', 'High (181–250): 25.0%']);
+        assert.equal(await page.locator('#glucosedistribution-report').textContent(), distributionStats);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        await page.locator('#glucosedistribution-rangemode-tight').check();
+        assert.ok((await overview.locator('svg').getAttribute('aria-label')).includes('In Tight Range'));
+        await page.locator('#glucosedistribution-0').uncheck();
+        assert.equal(await overview.locator('svg path').count(), 2);
+        const filteredStats = await page.locator('#glucosedistribution-report').textContent();
+        await page.locator('#glucosedistribution-chartstyle-bar').check();
+        assert.equal(await overview.locator('.gd-vbar').count(), 1);
+        assert.equal(await page.locator('#glucosedistribution-report').textContent(), filteredStats);
+        await page.locator('#glucosedistribution-chartstyle-pie').check();
+        await page.locator('#glucosedistribution-1').uncheck();
+        assert.equal(await overview.locator('svg, .gd-vbar').count(), 0, 'empty hour selections clear the chart');
+        assert.equal(await page.locator('#glucosedistribution-days').textContent(), 'Result is empty');
+        await page.locator('#glucosedistribution-chartstyle-bar').check();
+        await page.locator('#glucosedistribution-chartstyle-pie').check();
+        assert.equal(await overview.locator('svg, .gd-vbar').count(), 0);
+        await page.locator('#glucosedistribution-0').check();
+        await page.locator('#glucosedistribution-1').check();
+
+        await page.locator('#dailystats').click();
+        await page.locator('#dailystats-chartstyle-pie').check();
+        assert.equal(await page.locator('.daily-stats-chart svg').count(), 1, 'empty days have no chart');
+        assert.deepEqual(await page.locator('.daily-stats-chart path title').allTextContents(),
+          ['Low: 25%', 'In Range: 50%', 'High: 25%']);
+        assert.deepEqual(await page.locator('#dailystats-report tr').evaluateAll(rows =>
+          rows.map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent))), dailyStats);
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#dailystats-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-daily.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#dailystats-placeholder .report-chart-style').isVisible(), false);
+        assert.equal(await page.locator('.daily-stats-chart svg').isVisible(), true);
+        await page.emulateMedia({media: 'screen'});
+        await page.locator('#dailystats-chartstyle-bar').check();
+        assert.equal(await page.locator('.daily-stats-chart .tir-bar').count(), 1);
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        assert.equal(requests.length, requestCount, 'chart switches use already loaded data');
+
+        // Recreate report controls as on a fresh visit, reading browser preferences.
+        await renderCharts();
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        assert.equal(await overview.locator('svg path').count(), 3);
+        await page.locator('#glucosedistribution').click();
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-distribution.png'});
+        }
+        await page.setViewportSize({width: 375, height: 812});
+        await page.locator('#glucosedistribution-chartstyle-pie').scrollIntoViewIfNeeded();
+        const controls = await page.locator('#glucosedistribution-placeholder .report-chart-style').boundingBox();
+        assert.ok(controls.width <= 375, 'chart controls fit a phone viewport');
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-phone.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#glucosedistribution-placeholder .report-chart-style').isVisible(), false);
+        assert.equal(await overview.locator('svg').isVisible(), true);
+        await page.emulateMedia({media: 'screen'});
+        await page.reload();
+        assert.deepEqual(await page.evaluate(() => [localStorage.getItem('reportChartStyle_glucosedistribution'),
+          localStorage.getItem('reportChartStyle_dailystats')]), ['pie', 'bar']);
+      });
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('explains Calibrations, matches either date order and fits narrow screens in ' + theme, async function () {
+      await withReports(async page => {
+        await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+        await page.locator('#calibrations').click();
+        await page.evaluate(theme => {
+          const client = window.Nightscout.client;
+          client.settings.theme = theme;
+          document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+          document.body.classList.add('report-page');
+          const start = Date.parse('2015-08-08T10:00:00Z');
+          const meter = (minutes, y) => ({mills: start + minutes * 60000, y, device: 'synthetic'});
+          const sensor = (minutes, filtered, type = 'sgv') => ({mills: start + minutes * 60000, filtered, type});
+          const data = {
+            '2015-08-08': {sgv: [sensor(3, 60000), sensor(0, 58000), sensor(0, 99999, 'rawbg')],
+              mbg: [meter(1, 108), meter(4, 110)], cal: [{mills: start + 60001, scale: 1, intercept: 0, slope: 1000}],
+              treatments: [{mills: start + 120000, eventType: 'Sensor Start'}]},
+            '2015-08-09': {sgv: [sensor(1443, 62000), sensor(1440, 59000)],
+              mbg: [meter(1441, 112), meter(1444, 114), meter(1455, 116)],
+              cal: [{mills: start + 1441 * 60000 + 1, scale: 1, intercept: 0, slope: 1000}], treatments: []}
+          };
+          const plugin = window.Nightscout.report_plugins('calibrations');
+          document.getElementById('calibrations-placeholder').innerHTML = plugin.html(client);
+          window.renderCalibrationFixture = newestFirst => plugin.report(data,
+            newestFirst ? ['2015-08-09', '2015-08-08'] : ['2015-08-08', '2015-08-09']);
+          window.calibrationDataUnchanged = () => JSON.stringify(data) === original;
+          const original = JSON.stringify(data);
+          window.renderCalibrationFixture(true);
+        }, theme);
+        const requestCount = requests.length;
+        const expectedRaw = ['58000', '60000', '59000', '62000', 'Not available'];
+        const raw = () => page.locator('.calibrations-mbg td:last-child').allTextContents();
+        assert.deepEqual(await raw(), expectedRaw);
+        assert.equal(await page.locator('.calibrations-checkbox:checked').count(), 3);
+        assert.equal(await page.locator('.calibrations-point').count(), 2);
+        assert.equal(await page.locator('.calibrations-curve').count(), 1);
+        assert.ok((await page.locator('.calibrations-help').allTextContents()).join(' ').includes('selected automatically'));
+        assert.ok((await page.locator('.calibrations-help').allTextContents()).join(' ').includes('only change this display'));
+        assert.deepEqual(await page.locator('.calibrations-table th').allTextContents(),
+          ['Show in chart', 'Date / time', 'Meter glucose (mg/dL)', 'Raw signal']);
+        assert.ok((await page.locator('.calibrations-event').textContent()).includes('Sensor Start'));
+        const checks = page.locator('.calibrations-checkbox');
+        for (let i = 0; i < 5; i++) await checks.nth(i).uncheck();
+        assert.equal(await page.locator('.calibrations-point, .calibrations-curve').count(), 0);
+        assert.match(await page.locator('#calibrations-status').textContent(), /Select a meter reading/);
+        await checks.first().focus();
+        await page.keyboard.press('Space');
+        assert.equal(await page.locator('.calibrations-point').count(), 1);
+        assert.equal(await page.locator('.calibrations-curve').count(), 1);
+        await checks.first().uncheck();
+        await checks.last().check();
+        assert.match(await page.locator('#calibrations-status').textContent(), /No matching raw sensor data/);
+        await page.evaluate(() => window.renderCalibrationFixture(false));
+        assert.deepEqual(await raw(), expectedRaw);
+        assert.equal(await page.evaluate(() => window.calibrationDataUnchanged()), true);
+        assert.equal(requests.length, requestCount, 'selection changes only the display');
+        if (process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS) {
+          await page.locator('#calibrations-placeholder').screenshot({path: process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS + '/' + theme + '-desktop.png'});
+        }
+        for (const width of [375, 320]) {
+          await page.setViewportSize({width, height: 812});
+          const layout = await page.locator('.calibrations-layout').evaluate(node => {
+            const list = node.querySelector('#calibrations-list').getBoundingClientRect();
+            const chart = node.querySelector('#calibrations-chart-panel').getBoundingClientRect();
+            return {width: node.clientWidth, scroll: node.scrollWidth, listBottom: list.bottom, chartTop: chart.top};
+          });
+          assert.ok(layout.chartTop >= layout.listBottom, JSON.stringify(layout));
+          assert.ok(layout.scroll <= layout.width + 1, JSON.stringify(layout));
+          assert.equal(await checks.first().isVisible(), true);
+        }
+        if (process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS) {
+          await page.locator('#calibrations-placeholder').screenshot({path: process.env.NIGHTSCOUT_CALIBRATION_SCREENSHOTS + '/' + theme + '-phone.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#calibrations-chart svg').isVisible(), true);
+        assert.equal(await page.locator('#calibrations-list').evaluate(node => getComputedStyle(node).maxHeight), 'none');
+      });
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('opens hourly basal adjustments directly and preserves them across tab and range changes in ' + theme, async function () {
+      const key = queryKey('/api/v1/treatments.json?find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-08-09T00:00:00.000Z&count=1000');
+      const previous = responses.get(key);
+      responses.set(key, previous.concat([
+        {eventType: 'Temp Basal', created_at: '2015-08-08T00:00:00.000Z', duration: 30, absolute: 0},
+        {eventType: 'Temp Basal', created_at: '2015-08-08T01:00:00.000Z', duration: 30, absolute: 1.1}
+      ]));
+      try {
+        await withReports(async page => {
+          await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+          await page.evaluate(theme => {
+            window.Nightscout.client.settings.theme = theme;
+            document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+            document.body.classList.add('report-page');
+            document.getElementById('rp_optionsbasal').checked = false;
+          }, theme);
+          await page.locator('#rp_to').fill('2015-08-09');
+          await page.locator('#hourlystats').click();
+          await show(page);
+          assert.equal(await page.locator('#daytodaycharts svg').count(), 0, 'Day to Day has never been drawn');
+          const section = page.locator('#hourly-basal-adjustments');
+          assert.equal(await section.locator('h2').textContent(), 'Hourly basal adjustments (U)');
+          const row = section.locator('tbody tr').filter({hasText: '08/08/2015'});
+          assert.equal(await row.locator('td').nth(0).locator('.basal-net').textContent(), '-0.05');
+          assert.equal(await row.locator('td').nth(1).locator('.basal-net').textContent(), '0.50');
+          const baseline = await row.locator('td').allTextContents();
+          const requestCount = requests.length;
+          await page.locator('#daytoday').click();
+          await page.locator('#daytodaycharts svg').first().waitFor();
+          await page.locator('#hourlystats').click();
+          assert.deepEqual(await row.locator('td').allTextContents(), baseline);
+          assert.equal(requests.length, requestCount, 'Tab changes use the loaded data');
+          await page.locator('#daytoday').click();
+          await page.locator('#rp_optionsbasal').check();
+          await show(page);
+          await page.locator('#hourlystats').click();
+          assert.deepEqual(await row.locator('td').allTextContents(), baseline, 'Drawing basal charts leaves statistics unchanged');
+          if (process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS) {
+            await section.screenshot({path: process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS + '/' + theme + '-desktop.png'});
+          }
+          await page.setViewportSize({width: 375, height: 812});
+          const scroll = section.locator('.hourly-basal-scroll');
+          assert.equal(await scroll.evaluate(node => node.scrollWidth > node.clientWidth), true);
+          await scroll.focus(); await page.keyboard.press('ArrowRight');
+          await page.waitForFunction(() => document.querySelector('.hourly-basal-scroll').scrollLeft > 0);
+          if (process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS) {
+            await section.screenshot({path: process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS + '/' + theme + '-phone.png'});
+          }
+          await page.locator('#rp_from').fill('2015-08-09');
+          await show(page);
+          assert.equal(await section.locator('tbody tr').count(), 1);
+          assert.equal(await section.locator('tbody .basal-net').first().textContent(), '0.00');
+          assert.equal(await section.locator('.hourly-basal-unavailable').count(), 0);
+        });
+      } finally {responses.set(key, previous);}
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('preserves profile switches through report tabs and a note-only edit in ' + theme, async function () {
+      const key = queryKey('/api/v1/treatments.json?find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-08-09T00:00:00.000Z&count=1000');
+      const previous = responses.get(key);
+      const embedded = {timezone: 'UTC', units: 'mg/dl', basal: [{time: '00:00', value: 0.05}]};
+      const treatment = {_id: 'report-switch', eventType: 'Profile Switch', created_at: '2015-08-08T06:00:00.000Z',
+        duration: 60, profile: 'Exercise', profileJson: JSON.stringify(embedded), notes: 'Original note'};
+      responses.set(key, [treatment]);
+      try {
+        await withReports(async page => {
+          await page.evaluate(({theme, embedded}) => {
+            const client = window.Nightscout.client;
+            client.settings.theme = theme;
+            client.sbx.data.profile.data[0].store.Exercise = embedded;
+          }, {theme, embedded});
+          await page.locator('#rp_to').fill('2015-08-08');
+          await page.locator('#treatments').click(); await show(page);
+          const edit = page.locator('.editTreatment[data*="report-switch"]');
+          assert.equal(JSON.parse(await edit.getAttribute('data')).profile, 'Exercise');
+          await page.locator('#daytoday').click();
+          await page.locator('#rp_optionsbasal').check(); await show(page);
+          await page.locator('#hourlystats').click();
+          const hour = page.locator('#hourly-basal-adjustments tbody tr td').nth(6);
+          assert.equal(await hour.locator('.basal-net').textContent(), '0.00');
+          await page.locator('#loopalyzer').click(); await show(page);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.profiletreatments.length), 0);
+          await page.locator('#treatments').click();
+          assert.equal(JSON.parse(await edit.getAttribute('data')).profile, 'Exercise');
+          await edit.click();
+          assert.equal(await page.locator('#rped_profile').inputValue(), 'Exercise');
+          await page.locator('#rped_adnotes').fill('Changed note only');
+          await page.locator('.ui-dialog-buttonpane button').filter({hasText: 'Save'}).click();
+          await idle(page);
+          const saved = requests.find(request => request.method === 'PUT').body;
+          assert.equal(saved.profile, 'Exercise');
+          assert.equal(saved.profileJson, treatment.profileJson);
+          assert.equal(saved.notes, 'Changed note only');
+          assert.equal(saved.eventTime, treatment.created_at);
+        });
+      } finally {responses.set(key, previous);}
+    });
+
+    it('keeps report timezones and filtered results stable across refreshes in ' + theme, async function () {
+      const start = Date.parse('2015-08-08T00:00:00Z');
+      const key = queryKey('/api/v1/entries.json?find[date][$gte]=' + start + '&find[date][$lt]=' + (start + 86400000) + '&count=10000');
+      const previous = responses.get(key), previousZone = reportProfile.store.Default.timezone;
+      reportProfile.store.Default.timezone = 'America/New_York';
+      responses.set(key, [0, 5, 10, 720, 725, 730].map((minute, index) => ({type: 'sgv',
+        date: start + minute * 60000, sgv: index < 3 ? 60 : 200, dateString: new Date(start + minute * 60000).toISOString()})));
+      try {
+        await withReports(async page => {
+          await page.evaluate(theme => {window.Nightscout.client.settings.theme = theme;}, theme);
+          await page.locator('#rp_to').fill('2015-08-08');
+          await page.locator('#glucosedistribution').click();
+          await page.locator('#glucosedistribution-0').uncheck(); await show(page);
+          const distribution = page.locator('#glucosedistribution-report');
+          const first = await distribution.textContent();
+          assert.ok(first.includes('100.0%3'), first);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.getTimezone()), 'UTC');
+          await show(page);
+          assert.equal(await distribution.textContent(), first);
+          await page.locator('#daytoday').click(); await show(page);
+          await page.locator('#loopalyzer').click(); await idle(page);
+          await page.locator('#glucosedistribution').click();
+          assert.equal(await distribution.textContent(), first);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.getTimezone()), 'UTC');
+          // Fetch another day after the historical calculation: query boundaries
+          // must still use the timezone that loaded the original report period.
+          await page.locator('#rp_to').fill('2015-08-09'); await show(page);
+          const queries = requests.filter(request => request.url.startsWith('/api/v1/entries.json'))
+            .map(request => new URL(request.url, origin).searchParams.get('find[date][$gte]'));
+          assert.ok(queries.includes(String(start + 86400000)));
+          assert.ok(!queries.includes(String(start + 86400000 + 4 * 3600000)));
+        });
+      } finally {responses.set(key, previous); reportProfile.store.Default.timezone = previousZone;}
+    });
+  }
 
   async function renderPentagonFixture(page) {
     await page.locator('#glucosedistribution').click();

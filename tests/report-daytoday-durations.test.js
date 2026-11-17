@@ -36,6 +36,8 @@ describe('day-to-day report: events with a duration', function () {
     env = createSecureDOM('<!DOCTYPE html><html><body><div id="daytodaycharts"></div></body></html>');
     state = domGlobals.installDomGlobals(env);
     env.window.moment = moment;
+    // jsdom has no SVG layout; the empty temp-basal label measures zero.
+    env.window.SVGElement.prototype.getBBox = () => ({x: 0, y: 0, width: 0, height: 0});
   });
 
   afterEach(function () {
@@ -49,18 +51,15 @@ describe('day-to-day report: events with a duration', function () {
   // datastorage.treatments holds every loaded day, including the day before the first.
   function render (days, treatments, options, readings) {
     const mmol = options && options.units === 'mmol';
-    const profile = {
-      applyTimezone: value => moment.utc(value)
-      , loadData: function () {}
-      , parseInTimezone: value => moment.utc(value)
-      , updateTreatments: function () {}
-      , getBasalRenderTimes: start => [start, start + 12 * HOUR]
-      , getTempBasal: date => { const rate = options && options.basalRate !== undefined ? options.basalRate : moment.utc(Number(date)).hour() < 12 ? .5 : .8; return {basal: rate, tempbasal: rate, totalbasal: rate}; }
-    };
+    const createProfile = require('../lib/profilefunctions');
+    const basal = options && options.basalRate !== undefined ? [{time: '00:00', value: options.basalRate}] :
+      [{time: '00:00', value: .5}, {time: '12:00', value: .8}];
+    const record = {startDate: '2020-01-01T00:00:00Z', defaultProfile: 'Default', store: {Default: {timezone: 'UTC', basal}}};
+    const profile = createProfile(structuredClone([record]), {moment});
     env.window.Nightscout = {
       client: {
         plugins: () => ({ isDeviceStatusAvailable: () => false })
-        , profilefunctions: { activeProfileToTime: () => 'Default', profileSwitchName: name => name }
+        , profilefunctions: profile
         , sbx: { data: { profile: profile } }
         , settings: { timeFormat: 24, units: mmol ? 'mmol' : 'mg/dl', theme: options && options.theme }
         , ticks: () => []
@@ -78,9 +77,9 @@ describe('day-to-day report: events with a duration', function () {
       alldays: days.length
       , combobolusTreatments: []
       , devicestatus: []
-      , profiles: []
+      , profiles: (options && options.reportProfiles || [{}]).map(fields => Object.assign(structuredClone(record), fields))
       , profileSwitchTreatments: []
-      , tempbasalTreatments: []
+      , tempbasalTreatments: options && options.tempBasalRate !== undefined ? days.map(day => ({mills: START[day], duration: 1440, absolute: options.tempBasalRate})) : []
       , treatments: treatments.slice().sort((a, b) => a.mills - b.mills)
     };
     days.forEach(function (day) {
@@ -138,6 +137,56 @@ describe('day-to-day report: events with a duration', function () {
     });
   }
 
+  for (const theme of ['default', 'modern']) {
+    for (const openAps of [false, true]) {
+      it('keeps connected reading targets invisible before and after hover in ' + theme + ' with OpenAPS ' + openAps, function () {
+        const openaps = {suggested: {reason: 'Synthetic OpenAPS reason', mealAssist: 'Synthetic meal assist'}};
+        const readings = [sensor(0), sensor(5, 121, {openaps}), sensor(10)];
+        const options = {theme, openAps};
+        render([DAY1], [], options, readings);
+        const samples = Array.from(env.document.querySelectorAll('.daytoday-glucose-sample'));
+        function assertInvisible (sample) {
+          assert.equal(sample.getAttribute('fill'), 'transparent');
+          assert.equal(Number(sample.getAttribute('stroke-width')), 0);
+          assert.equal(Number(sample.getAttribute('r')), 6, 'retains the larger hover target');
+        }
+        samples.forEach(assertInvisible);
+
+        const sample = samples[1];
+        sample.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 200, clientY: 100}));
+        assert.equal(sample.getAttribute('fill'), '#fff');
+        assert.ok(Number(sample.getAttribute('stroke-width')) > 0, 'the selected reading remains highlighted');
+        const tooltip = env.document.querySelector('.daytoday-reading-tooltip');
+        assert.equal(tooltip.style.display, 'block');
+        assert.equal(tooltip.querySelector('.daily-tooltip-glucose strong').textContent, '121 mg/dL');
+        assert.equal(tooltip.textContent.includes(openaps.suggested.reason), openAps);
+        assert.equal(tooltip.textContent.includes(openaps.suggested.mealAssist), openAps);
+        sample.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
+        assert.equal(tooltip.style.display, 'none');
+        samples.forEach(assertInvisible);
+
+        render([DAY1], [], options, readings);
+        Array.from(env.document.querySelectorAll('.daytoday-glucose-sample')).forEach(assertInvisible);
+      });
+    }
+
+    it('retains visible isolated, raw and fingerstick markers with OpenAPS in ' + theme, function () {
+      const openaps = {suggested: {reason: 'Synthetic OpenAPS reason'}};
+      render([DAY1], [], {theme, openAps: true, raw: true}, [
+        sensor(0), sensor(5), sensor(30, 140, {openaps}),
+        sensor(15, 130, {type: 'rawbg', color: 'gray'}), sensor(20, 125, {type: 'mbg', color: 'red'})
+      ]);
+      const markers = Array.from(env.document.querySelectorAll('#daytodaychart-' + DAY1 + ' circle'));
+      for (const [type, fill, strokeWidth] of [['sgv', 'green', 1], ['rawbg', 'gray', 0], ['mbg', 'red', 2]]) {
+        const marker = markers.find(node => node.__data__ && node.__data__.type === type &&
+          (type !== 'sgv' || node.__data__.openaps));
+        assert.ok(marker, type + ' marker exists');
+        assert.equal(marker.getAttribute('fill'), fill);
+        assert.equal(Number(marker.getAttribute('stroke-width')), strokeWidth);
+      }
+    });
+  }
+
   for (const units of ['mg/dl', 'mmol']) {
     it('tracks the nearest reading from empty plot space in ' + units, function () {
       const values = units === 'mmol' ? [5.5, 6.7, 7.8] : [100, 121, 140];
@@ -179,6 +228,34 @@ describe('day-to-day report: events with a duration', function () {
     // Axis fixture supplies no glucose ticks; the basal track still starts below the 260px glucose plot.
     assert.ok(basalTicks.every(y => y > 260));
     assert.equal(glucoseTicks.length, 0);
+  });
+
+  it('keeps basal totals independent of whether the basal chart is shown', function () {
+    for (const basal of [true, false]) {
+      render([DAY1], [], {basal, tempBasalRate: 1, insulindistribution: true});
+      assert.equal(env.document.querySelector('.daily-insulin-total').textContent, '24.0');
+      assert.match(env.document.querySelector('#daytodaycharts').textContent, /TDD average:\s*24\.0U/);
+      assert.match(env.document.querySelector('#daytodaycharts').textContent, /Basal average:\s*100%/);
+    }
+  });
+
+  it('renders profile-switch boundaries when historical profile records are unavailable', function () {
+    render([DAY1], [event('Profile Switch', DAY1, 6, 60, {profile: 'Exercise'})], {reportProfiles: []});
+    assert.ok(env.document.querySelector('#daytodaycharts').textContent.includes('Not available'));
+  });
+
+  it('labels unavailable insulin averages when profile history does not cover the selected days', function () {
+    for (const theme of ['default', 'modern']) {
+      for (const reportProfiles of [[], [{startDate: DAY2 + 'T00:00:00Z'}]]) {
+        render([DAY1, DAY2], [], {theme, reportProfiles, insulindistribution: true});
+        const report = env.document.querySelector('#daytodaycharts');
+        assert.equal(report.querySelector('.daily-insulin-total').textContent, '—');
+        assert.ok(!report.textContent.includes('NaN'), report.textContent);
+        assert.match(report.textContent, /TDD average:\s*—/);
+        assert.match(report.textContent, /Basal average:\s*—/);
+        assert.match(report.textContent, /Carbs average:\s*0g/);
+      }
+    }
   });
 
   for (const units of ['mg/dl', 'mmol']) {

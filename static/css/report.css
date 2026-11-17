@@ -26,6 +26,85 @@ body {
   text-align:center;
 }
 
+#hourly-basal-adjustments { margin-top: 28px; }
+#hourly-basal-adjustments p { max-width: 95ch; line-height: 1.5; }
+.hourly-basal-unavailable, .hourly-basal-empty { padding: 12px; background: #f3f6fa; color: #435b75; border-radius: 7px; }
+.hourly-basal-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+#hourly-basal-adjustments .hourly-basal-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; }
+#hourly-basal-adjustments :is(th, td) { padding: 10px 12px; border: 1px solid #dce4ed; text-align: center; white-space: nowrap; }
+#hourly-basal-adjustments th { background: #edf2f7; color: #435b75; }
+#hourly-basal-adjustments th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 120px; white-space: normal; text-align: left; }
+.hourly-basal-table td span { display: block; line-height: 1.6; }
+.hourly-basal-table .basal-net { font-weight: 700; }
+.hourly-basal-table .is-negative .basal-net { color: #a92d3b; }
+.hourly-basal-table .is-positive .basal-net { color: #217344; }
+.hourly-basal-average .is-negative { background: #fcebed; }
+.hourly-basal-average .is-positive { background: #e8f5ec; }
+.hourly-basal-average .is-neutral { background: #f3f6fa; }
+@media print {
+  .hourly-basal-scroll { overflow: visible; }
+  #hourly-basal-adjustments th[scope="row"] { position: static; }
+  #hourly-basal-adjustments :is(th, td) { padding: 4px; font-size: 9px; }
+}
+
+#calibrations-placeholder { box-sizing: border-box; min-width: 0; }
+.calibrations-help { max-width: 85ch; line-height: 1.5; }
+.calibrations-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+#calibrations-list, #calibrations-chart-panel { min-width: 0; font-family: inherit; }
+#calibrations-list { max-height: 540px; overflow: auto; }
+#calibrations-list .calibrations-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#calibrations-list th, #calibrations-list td { padding: 9px 8px; border-bottom: 1px solid #dce4ed; text-align: left; }
+#calibrations-list th { background: #edf2f7; color: #435b75; font-weight: 600; }
+#calibrations-list .calibrations-select { min-width: 48px; white-space: nowrap; }
+.calibrations-checkbox { width: 18px; height: 18px; margin: 0; vertical-align: middle; cursor: pointer; }
+.calibrations-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 7px; border: 1px solid #0002; border-radius: 50%; vertical-align: middle; print-color-adjust: exact; }
+.calibrations-details { color: #52657b; overflow-wrap: anywhere; }
+#calibrations-chart svg { display: block; box-sizing: border-box; width: 100%; max-width: 600px; height: auto; margin: 0 auto; background: #fff; border: 1px solid #e4e7eb; border-radius: 12px; }
+#calibrations-chart svg text { fill: #52657b; font-family: inherit; }
+#calibrations-chart .calibrations-axis-label { font-size: 16px; }
+#calibrations-status { line-height: 1.5; color: #52657b; }
+#calibrations-status:empty { display: none; }
+#calibrations-chart :is(rect, circle, line) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media (max-width: 1000px) {
+  .calibrations-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  #calibrations-list thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #calibrations-list tbody tr { display: grid; grid-template-columns: 48px minmax(0, 1fr); padding: 8px 0; border-bottom: 1px solid #dce4ed; }
+  #calibrations-list td { grid-column: 2; min-width: 0; padding: 4px; border: 0; }
+  #calibrations-list .calibrations-select { grid-column: 1; grid-row: 1 / 4; display: flex; flex-direction: column; align-items: center; gap: 9px; min-width: 0; }
+  .calibrations-select .calibrations-swatch { margin: 0; }
+  #calibrations-list td[data-label] { display: flex; justify-content: space-between; gap: 10px; }
+  #calibrations-list td[data-label]::before { content: attr(data-label); color: #52657b; }
+  #calibrations-chart .axis text, #calibrations-chart .calibrations-axis-label { font-size: 22px; }
+}
+@media print {
+  .calibrations-layout { display: block; }
+  #calibrations-list { max-height: none; overflow: visible; }
+  #calibrations-chart-panel { break-inside: avoid; margin-top: 16px; }
+}
+
+.report-chart-style {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 8px 0 16px;
+}
+.report-chart-style legend { float: left; padding: 0; margin-right: 12px; font-size: inherit; font-weight: 600; text-shadow: none; }
+.report-chart-style label { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; cursor: pointer; }
+.report-chart-style input { margin: 0; }
+.report-distribution-pie { display: block; flex: 0 0 auto; align-self: center; max-width: 100%; }
+.report-distribution-pie text { fill: #263238; font-size: 13px; font-weight: bold; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
+.daily-stats-chart { min-width: 140px; }
+.daily-stats-chart .report-distribution-pie { margin: 0 auto; }
+.report-distribution-pie path { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media print {
+  .report-chart-style { display: none; }
+}
+
 #explanation {
   font: 11px verdana, arial, sans-serif;
 }

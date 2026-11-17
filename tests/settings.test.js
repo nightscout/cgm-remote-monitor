@@ -12,7 +12,7 @@ describe('settings', function ( ) {
     settings.showSeconds.should.equal(false);
     settings.showRawbg.should.equal('never');
     settings.customTitle.should.equal('Nightscout');
-    settings.theme.should.equal('default');
+    settings.theme.should.equal('modern');
     settings.alarmUrgentHigh.should.equal(true);
     settings.alarmUrgentHighMins.should.eql([30, 60, 90, 120]);
     settings.alarmHigh.should.equal(true);

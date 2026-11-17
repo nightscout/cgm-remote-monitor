@@ -8,12 +8,35 @@ describe('Dashboard seconds clock', function () {
   const now = Date.parse('2026-01-01T14:05:06.250Z');
   let fixture;
   before(async function () {
-    fixture = await createPageFixture({payload: {
+    fixture = await createPageFixture({theme: require('../../lib/settings')().theme, payload: {
       sgvs: [{mgdl: 123, mills: now, direction: 'Flat', type: 'sgv'}],
       treatments: [], profiles: [], devicestatus: []
     }});
   });
   after(async function () {if (fixture) await new Promise(resolve => fixture.io.close(resolve));});
+
+  it('opens modern by default, preserves a saved classic choice, and resets to the server default', async function () {
+    await withPage(fixture.origin, async ({page}) => {
+      await page.clock.setFixedTime(new Date(now));
+      await page.addInitScript(hash => localStorage.setItem('apisecrethash', hash), hash);
+      async function ready(theme) {
+        await page.waitForFunction(theme => window.Nightscout?.client?.settings?.theme === theme &&
+          document.querySelector('.currentBG')?.textContent.trim() === '123', theme);
+        assert.equal(await page.locator('html').evaluate(html => html.classList.contains('modern-ui')), theme === 'modern');
+        await page.locator('#drawerToggle').click();
+        assert.equal(await page.locator('#theme-' + theme + '-browser').isChecked(), true);
+      }
+      await page.goto(fixture.origin);
+      await ready('modern');
+      await page.locator('#theme-default-browser').check();
+      await Promise.all([page.waitForEvent('load'), page.locator('#save').click()]);
+      await ready('default');
+      await page.reload();
+      await ready('default');
+      await Promise.all([page.waitForEvent('load'), page.locator('#useDefaults').click()]);
+      await ready('modern');
+    });
+  });
 
   for (const theme of ['default', 'modern']) {
     for (const timeFormat of [12, 24]) {

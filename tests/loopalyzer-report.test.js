@@ -216,12 +216,38 @@ describe('Loopalyzer report glucose chart', function () {
         charts[selector] = { series: series, options: options };
       };
       const datastorage = Object.assign({
-        allstatsrecords: [], alldays: days.length, profiles: [], treatments: []
+        allstatsrecords: [], alldays: days.length, profiles: structuredClone(profile.data), treatments: []
         , devicestatus: [], profileSwitchTreatments: [], tempbasalTreatments: [], combobolusTreatments: []
       }, overrides);
       report.report(datastorage, days, { units: 'mg/dl', targetLow: 80, targetHigh: 180 });
       return charts;
     }
+
+    it('uses isolated historical rates while retaining the report calendar and original profile switches', function () {
+      const day = '2026-10-21', start = Date.parse(day + 'T00:00:00Z');
+      const data = {
+        profiles: [{startDate: '1980-01-01', defaultProfile: 'Default', store: {Default: {
+          timezone: 'America/New_York', basal: [{time: '00:00', value: .5}, {time: '12:00', value: 1.5}]
+        }}}],
+        profileSwitchTreatments: [{mills: start + 6 * 3600000, profile: 'Exercise', duration: 60,
+          profileJson: JSON.stringify({timezone: 'UTC', basal: [{time: '00:00', value: .25}]})}],
+        tempbasalTreatments: [{mills: start + 6.5 * 3600000, duration: 30, absolute: 1.75}]
+      };
+      const original = structuredClone(data);
+      const charts = renderAllCharts(data, [day], false, {timezone: 'UTC'});
+      const basals = charts['#loopalyzer-basal'].series.find(series => series.id === 'basals').data;
+      const temps = charts['#loopalyzer-tempbasal'].series.find(series => series.id === 'tempBasals').data;
+      assert.equal(basals[0][1], 1.5);
+      assert.equal(basals[5 * 12][1], .5);
+      assert.equal(basals[6 * 12][1], .25);
+      assert.equal(basals[16 * 12][1], 1.5);
+      assert.equal(temps[6.5 * 12][1], 1.5);
+      assert.deepEqual(data, original);
+      const clientProfile = env.window.Nightscout.client.sbx.data.profile;
+      assert.equal(clientProfile.getTimezone(), 'UTC');
+      assert.equal(clientProfile.getBasal(start + 6 * 3600000), 1);
+      assert.equal(clientProfile.profiletreatments.length, 0);
+    });
 
     it('renders all charts when viewed on 23-hour and 25-hour DST days', function () {
       const bolusAt = moment.tz(DAY + 'T08:00:00', TIMEZONE).valueOf();
