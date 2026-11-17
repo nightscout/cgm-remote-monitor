@@ -335,7 +335,7 @@ describe('Production public API and internal listener isolation', function () {
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
       // The maintained evaluator input hint is private too; include its actual
       // contract in the same public-listener refusal checks as every other RPC.
-      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
         '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
@@ -357,14 +357,18 @@ describe('Production public API and internal listener isolation', function () {
     await checkPublicIsolation();
   });
   it('detects accidental mounting of an internal operation on the public production app', async function () {
-    await assert.rejects(checkPublicIsolation(source => {
-      const mount = 'app.use(createTenantApp({';
-      assert.equal(source.split(mount).length, 2, 'Actual production tenant-app mount must exist exactly once');
-      return source.replace(mount, "app.post('/authorize', (req, res) => res.json({ denied: true }));\n    " + mount);
-    }), error => {
-      assert.equal(error.code, 'ERR_ASSERTION'); assert.equal(error.actual, 200); assert.equal(error.expected, 404); return true;
-    });
-    await checkPublicIsolation();
+    // Include the private API health selector in the same real public-mount
+    // control as authorization. Neither may become a public route.
+    for (const internalPath of ['/authorize', '/cohort/api-health']) {
+      await assert.rejects(checkPublicIsolation(source => {
+        const mount = 'app.use(createTenantApp({';
+        assert.equal(source.split(mount).length, 2, 'Actual production tenant-app mount must exist exactly once');
+        return source.replace(mount, "app.post('" + internalPath + "', (req, res) => res.json({ denied: true }));\n    " + mount);
+      }), error => {
+        assert.equal(error.code, 'ERR_ASSERTION'); assert.equal(error.actual, 200); assert.equal(error.expected, 404); return true;
+      });
+      await checkPublicIsolation();
+    }
   });
 });
 

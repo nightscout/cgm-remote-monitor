@@ -151,7 +151,7 @@ function documents ({selected,layout: l,paths}) {
     postgres:{connectionEnv:'RT_BOOTSTRAP_API_PG',readinessConnectionEnv:'RT_BOOTSTRAP_READINESS_PG',
       namespaces:{...clinical,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
     vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
-    registry,tenantSettings,activity:{connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG',namespace:ns.control},
+    registry,tenantSettings,activity:{namespace:ns.control},
     accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},
     socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};

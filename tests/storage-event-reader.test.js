@@ -27,23 +27,56 @@ describe('addressed raw journal reader and current-worker fence',()=>{
   assert.equal(checks,1,'ONE_ADDRESSED_CONTROL_CHECK');assert.equal(outcomes.get(A),false);assert.equal(outcomes.get(B),true);assert.deepEqual(delivered,[B]);
   const before=f.queries.length;protocol.storageWatched=()=>false;await f.reader.check([A,B],{runtime,protocol,concurrency:2});assert.equal(f.queries.length,before,'NO_UNWATCHED_RAW_TAIL_READ');
  });
- it('default boot uses the same receipt drain and wakes the accepted tenant after raw receipt commit',async()=>{
+ it('default boot drains raw receipts and wakes only addressed owed delivery after transaction acceptance',async()=>{
   const text=require('node:fs').readFileSync(require.resolve('../lib/server/serve/preview-realtime'),'utf8');
   assert.match(text,/check:tenants=>storageEvents.check\(tenants,\{runtime,protocol,concurrency:REFRESH_CONCURRENCY\}\)/,'DEFAULT_MUST_DRAIN_RAW_EVENTS');
   const evaluate=require('node:fs').readFileSync(require.resolve('../lib/server/serve/evaluator-preview'),'utf8');
-  assert.match(evaluate,/receipt\?\.rawDeliveryPending\)outputWake\.wake\(tenant\)/,'RAW_COMMIT_MUST_WAKE_ADDRESSED_DELIVERY');
-  // Execute the maintained callback, retaining the real await and addressed wake.
-  // Its replay port resolves only after the durable receipt commits.
-  const callback=evaluate.match(/accept:(async\(tenant,data,domain,store\)=>\{[\s\S]*?)\n        \}\},/);assert(callback,'MAINTAINED_CLINICAL_ACCEPT_CALLBACK_REQUIRED');
-  async function criterion(body){
-   let committed;const receipt={rawDeliveryPending:true},wakes=[];
-   const replay={acceptClinical:async tenant=>{assert.equal(tenant,A);return new Promise(resolve=>{committed=resolve;});}};
-   const accept=new Function('replay','outputWake','config','return '+body+'}')(replay,{wake:tenant=>wakes.push(tenant)},{maxBytes:10000});
-   const accepting=accept(A,{synthetic:true},'entries',{consumer:'synthetic',digest:'synthetic'});
-   assert.deepEqual(wakes,[],'RAW_DELIVERY_MUST_WAIT_FOR_COMMITTED_RECEIPT');committed(receipt);
-   assert.equal(await accepting,receipt);assert.deepEqual(wakes,[A],'RAW_RECEIPT_MUST_WAKE_ITS_TENANT');
+  const anchor='acceptTransaction:async(envelope,options)=>{';
+  assert.equal(evaluate.split(anchor).length,2,'ONE_ACTUAL_TRANSACTION_ACCEPT_CALLBACK_REQUIRED');
+  // Extract the actual selected source function with its syntax tree. Nothing
+  // here copies the private implementation or loads a substitute application.
+  // Durable acceptance is a faithful deferred port; no SQL is run by this test.
+  const tree=require('@babel/parser').parse(evaluate,{sourceType:'script'}),callbacks=[];
+  function visit(node){
+   if(!node||typeof node!=='object')return;
+   if(node.type==='ObjectProperty'&&node.key?.name==='acceptTransaction'&&node.value?.type==='ArrowFunctionExpression')callbacks.push(node.value);
+   for(const value of Object.values(node))if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value);
   }
-  await assert.rejects(criterion(callback[1].replace('outputWake.wake(tenant)','outputWake.wake()')),/RAW_RECEIPT_MUST_WAKE_ITS_TENANT/);await criterion(callback[1]);
+  visit(tree);assert.equal(callbacks.length,1);assert.equal(callbacks[0].async,true);
+  const body=evaluate.slice(callbacks[0].start,callbacks[0].end);
+  const B='22222222-2222-4222-8222-222222222222',C='33333333-3333-4333-8333-333333333333',D='44444444-4444-4444-8444-444444444444',E='55555555-5555-4555-8555-555555555555';
+  async function criterion(callback,{reject=false}={}){
+   let committed,refused,calls=0;const wakes=[];
+   const receipts=[{tenant:A,rawDeliveryPending:true,deliveryPending:false},{tenant:B,rawDeliveryPending:false,deliveryPending:true},
+    {tenant:C,rawDeliveryPending:false,deliveryPending:false},{tenant:D},{tenant:E,rawDeliveryPending:true,deliveryPending:true}];
+   const envelope={kind:'synthetic-complete-native-transaction'},options={source:'synthetic-source',maxTransactionRows:999,maxTransactionBytes:999};
+   const replay={acceptTransaction:async(actual,selected)=>{
+    calls++;assert.equal(actual,envelope);assert.deepEqual(selected,{...options,maxTransactionRows:123,maxTransactionBytes:10000});
+    return new Promise((resolve,rejection)=>{committed=resolve;refused=rejection;});
+   }};
+   const accept=new Function('replay','outputWake','config','return '+callback)(replay,{wake:tenant=>wakes.push(tenant)},{pgstream:{transactionRows:123,receiver:{maxBytes:10000}}});
+   const accepting=accept(envelope,options);
+   try{
+    await Promise.resolve();assert.equal(calls,1);
+    assert.deepEqual(wakes,[],'RAW_DELIVERY_MUST_WAIT_FOR_COMMITTED_TRANSACTION');
+    if(reject){const error=new Error('SYNTHETIC_DURABLE_ACCEPTANCE_REFUSED');refused(error);await assert.rejects(accepting,actual=>actual===error);assert.deepEqual(wakes,[],'REFUSED_TRANSACTION_MUST_NOT_WAKE');}
+    else{committed(receipts);assert.equal(await accepting,receipts,'RETURN_EXACT_DURABLE_RECEIPTS');assert.deepEqual(wakes,[A,B,E],'ONLY_OWED_RECEIPT_TENANTS_MUST_WAKE');}
+   }finally{if(committed)committed(receipts);await accepting.catch(()=>{});}
+  }
+  await criterion(body);await criterion(body,{reject:true});
+  const mutations=[
+   ['suppressed wake','outputWake.wake(receipt.tenant)','void receipt'],
+   ['global wake','outputWake.wake(receipt.tenant)','outputWake.wake()'],
+   ['wrong tenant','outputWake.wake(receipt.tenant)',"outputWake.wake('"+C+"')"],
+   ['raw-only wake','receipt.rawDeliveryPending||receipt.deliveryPending','receipt.rawDeliveryPending'],
+   ['unconditional wake','receipt.rawDeliveryPending||receipt.deliveryPending','true'],
+   ['early wake','async(envelope,options)=>{',"async(envelope,options)=>{outputWake.wake('"+A+"');"]
+  ];
+  for(const [label,needle,replacement]of mutations){
+   assert.equal(body.split(needle).length,2,'CONTROL_APPLIES_EXACTLY_ONCE_'+label);
+   await assert.rejects(criterion(body.replace(needle,replacement)),error=>error.code==='ERR_ASSERTION',label+' must violate the semantic criterion');
+   await criterion(body);
+  }
  });
 
  it('retained tails cannot cross an operation-window restore generation',async()=>{

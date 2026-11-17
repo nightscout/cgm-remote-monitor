@@ -40,6 +40,12 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
     const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
     const accepted=require('../lib/server/serve/preview-config').load(api);
+    assert.deepEqual(docs.api.activity,{namespace:layout.namespaces.control},'API_ACTIVITY_USES_SHARED_SERVING_CONNECTION');
+    assert.deepEqual(accepted.activity,docs.api.activity);
+    const obsoleteActivity=path.join(dir,'obsolete-api-activity.json');
+    fs.writeFileSync(obsoleteActivity,JSON.stringify({...docs.api,activity:{...docs.api.activity,connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG'}}));
+    assert.throws(()=>require('../lib/server/serve/preview-config').load({...api,MULTITENANT_PREVIEW_CONFIG:obsoleteActivity}),/invalid preview configuration fields/,'OBSOLETE_API_ACTIVITY_CONNECTION_REFUSED');
+    assert.deepEqual(require('../lib/server/serve/preview-config').load(api).activity,accepted.activity,'RESTORED_SHARED_ACTIVITY_PARSER');
     const evaluated=require('../lib/server/serve/evaluator-config').load(worker);
     const delivered=require('../lib/server/realtime/config').load(realtime);
     assert.equal(accepted.socketForwarding.consumerState.consumer,evaluated.consumers.realtime.route.id,'BOOTSTRAP_SAME_CONSUMER_LOCK_BINDING');

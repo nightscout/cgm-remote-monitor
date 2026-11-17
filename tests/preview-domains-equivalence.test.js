@@ -9,6 +9,9 @@
 // enablement), collections and storage ports must equal the golden fingerprint
 // captured from the construction at 540d3998 (base code plus a read-only
 // describeTenant accessor; tests/fixtures/preview-domains-equivalence.golden.json).
+// The unset display theme now follows the adopted shipping Modern default
+// (bfe46155b); only those four display values changed. Saved choices and the
+// complete clinical/settings/storage fingerprint remain asserted.
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const { createRequire } = require('node:module');
@@ -38,6 +41,7 @@ describe('per-tenant domain construction is clinically equivalent (decision read
     const mutated = loadMutated(s => s.replace('const env = config.environments.get(tenant);', 'const env = config.environments.get([...config.bindings.keys()][0]);'));
     const actual = await quiet(() => fingerprints(mutated));
     assert.notDeepEqual(actual[TENANTS[2][0]], golden[TENANTS[2][0]]);
+    assert.deepEqual(await quiet(() => fingerprints(require('../lib/server/serve/preview-domains'))), golden, 'restored tenant construction matches every fingerprint field');
   });
   it('control: a construction that drops the per-domain collection names is caught', async function () {
     const mutated = loadMutated(s => s.replace("env[logical + '_collection'] = logical;", ''));

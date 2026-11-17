@@ -23,6 +23,16 @@ describe('multitenant inventory executable environment consumption', function ()
     const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
     const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
   });
+  it('registers API history cost with its actual clock flag and catches omission before any allocation', function () {
+    const file='tests/tenant-api-write-cost.integration.test.js';
+    const selected=inventory.select([file]);assert.equal(selected.length,1);
+    assert.deepEqual(selected[0].flags,{NS_TENANT_COMMIT_CLOCK_TEST:'1'});
+    assert.deepEqual(selected[0].shared,['postgres']);assert.deepEqual(selected[0].own,[]);
+    assert(inventory.classifyOptInSource(readSource(file)).optIn,'ACTUAL_API_COST_SUITE_IS_OPT_IN');
+    const omitted=inventory.checkInventory({inventory:inventory.INVENTORY.filter(row=>row.file!==file)});
+    assert.deepEqual(omitted,[file+': opt-in test file missing from scripts/test-multitenant.js INVENTORY'],'OMITTED_API_COST_SUITE_MUST_REFUSE');
+    assert.deepEqual(inventory.checkInventory(),[],'RESTORED_COMPLETE_CORPUS');
+  });
   it('requires maintained producer capabilities before a product fixture can allocate resources', function () {
     const selected = [{ flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' } }];
     const source = { NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE: 'sha256:' + 'a'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pgstream', NS_RT_BOOTSTRAP_PGSTREAM_SHA256: 'b'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT: '19042', NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT: '19043', NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON: '{}' };
@@ -51,7 +61,7 @@ describe('multitenant inventory executable environment consumption', function ()
     const config = inventory.producerSelection(selected, source);
     assert.equal(config.requiresProducer, false);assert(config.command.includes('wal_level=logical'));assert(config.command.includes('output_plugin_libraries=wal2json'));
     const omitted = inventory.checkInventory({ inventory: inventory.INVENTORY.filter(suite => !files.includes(suite.file)) });
-    assert.equal(omitted.length, 2);assert(omitted.every(problem => problem.includes('opt-in test file missing')), 'UNREGISTERED_NATIVE_SUITES_MUST_REFUSE');
+    assert.deepEqual(omitted,files.map(file=>file+': opt-in test file missing from scripts/test-multitenant.js INVENTORY'),'ONLY_THE_TWO_REMOVED_BOUNDED_STATE_SUITES_ARE_MISSING');
     const withProduct = [...selected, ...inventory.select(['pgstream-recovery.integration'])];
     assert.throws(() => inventory.producerSelection(withProduct, source), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/, 'SQL_ONLY_GUARD_MUST_NOT_WEAKEN_PRODUCT_REQUIREMENTS');
   });
