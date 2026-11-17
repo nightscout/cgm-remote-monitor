@@ -37,7 +37,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
     const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_API_PG:url('api'),
       RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role'};
-    const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression')};
+    const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
     const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
     const accepted=require('../lib/server/serve/preview-config').load(api);
     const evaluated=require('../lib/server/serve/evaluator-config').load(worker);
@@ -48,9 +48,20 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.equal(delivered.completedOutput.consumer,evaluated.consumer);
     assert.deepEqual(Object.keys(delivered.namespaces).sort(),['checkpoint','clock']);
     assert.equal(evaluated.tenants.size,0,'registry parser does not fabricate tenant work');
+    const recoveryReference=docs.evaluator.pgstream.recovery.connectionEnv;
+    assert.equal(evaluated.pgstream.recovery.connectionString,worker[recoveryReference],'EVALUATOR_RESOLVES_DECLARED_RECOVERY_IDENTITY');
+    assert.equal(evaluated.pgstream.transactionRows,10000,'TRANSPORT_ROWS_INDEPENDENT_OF_CLINICAL_CACHE');
+    const metadataSource=new Proxy(api,{get(target,key){if(key===recoveryReference)throw Error('API_MUST_NOT_READ_RECOVERY_CREDENTIAL');return Reflect.get(target,key);}});
+    const metadata=require('../lib/server/serve/evaluator-config').loadMetadata(metadataSource);
+    assert.equal(metadata.pgstream.recovery.connectionEnv,recoveryReference);
+    assert.equal(metadata.pgstream.recovery.connectionString,undefined,'METADATA_RETAINS_REFERENCE_ONLY');
+    assert.doesNotThrow(()=>require('../lib/server/serve/preview-config').load(metadataSource));
+    for(const changed of [undefined,url('evaluator'),(()=>{const u=new URL(worker[recoveryReference]);u.port='15433';return u.href;})()]){
+      assert.throws(()=>require('../lib/server/serve/evaluator-config').load({...worker,[recoveryReference]:changed}),/invalid explicit evaluator preview configuration/,'RECOVERY_REQUIRES_EXACT_ROLE_AND_ENDPOINT');
+    }
     for(const key of ['changeFeed','recoveryIntervalMs','settingsRefreshMs','tenants'])assert.equal(Object.hasOwn(docs.evaluator,key),false);
     assert.notEqual(evaluated.namespaces.checkpoint,delivered.namespaces.checkpoint);
-    assert.equal(Object.keys(api).some(key=>/EVAL_PG|OUTBOX_PG|SUPPRESSION_PG/.test(key)),false,'BOOTSTRAP_API_NO_WORKER_CREDENTIALS');
+    assert.equal(Object.keys(api).some(key=>/EVAL_PG|OUTBOX_PG|SUPPRESSION_PG|STREAM_RECOVERY_PG/.test(key)),false,'BOOTSTRAP_API_NO_WORKER_CREDENTIALS');
     assert.equal(Object.keys(realtime).some(key=>/VAULT|SIGN|DECRYPT|SECRET/.test(key)),false);
     assert.deepEqual(Object.keys(require('./fixtures/realtime-preview/bootstrap-grants').catalogues()).sort(),Object.keys(layout.namespaces).sort());
     const ownerSource={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_TENANT_ADMIN_INTERNAL_SOCKET,MULTITENANT_OWNER_PREVIEW_CONFIG:paths['tenant-admin'],NS_OWNER_WRITER_PG:url('owner-writer'),NS_OWNER_READER_PG:url('owner-reader')};
@@ -74,7 +85,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const docs=plan.documents({selected,layout,publicKeys:[],paths});fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const env={RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),
-      RT_BOOTSTRAP_RT_PG:url('realtime'),NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
+      [docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})(),RT_BOOTSTRAP_RT_PG:url('realtime'),NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
     const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_EVALUATOR_INTERNAL_SOCKET});
     const delivered=require('../lib/server/realtime/config').parse(docs.realtime,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_REALTIME_INTERNAL_SOCKET});
     assert.equal(evaluated.maxRows,3,'BOOTSTRAP_COLD_EVALUATOR_BOUND');assert.equal(delivered.maxRows,100,'BOOTSTRAP_REALTIME_REMAINS_ADMITTED');

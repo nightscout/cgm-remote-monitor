@@ -30,7 +30,7 @@ const CONFIG_ENV = { api: 'MULTITENANT_PREVIEW_CONFIG', realtime: 'MULTITENANT_R
 // Identities a registry-mode deployment adds to the layout's; a suite that only
 // needs the participant manifest passes no connection address for them.
 const REGISTRY_IDENTITIES = ['display_reader', 'activity_reader', 'provisioner', 'management_issuer', 'connector_writer',
-  'owner_settings', 'owner_activity', 'owner_credentials', 'pool_operator'];
+  'owner_settings', 'owner_activity', 'owner_credentials', 'pool_operator', 'stream_reader'];
 
 function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.example.test:8200', variant = 'default' }) {
   if (!['default', 'full', 'full-token-files', 'selected-pool'].includes(variant)) throw new TypeError('Unknown test plan variant');
@@ -46,7 +46,8 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   const domainNamespaces = Object.fromEntries(clinical.map(name => [name, ns[name]]));
   const limits = { maxRows: 10000, maxBytes: 8388608, maxTenants: 10000 };
   const trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
-  const pgstream = { receiver:{url:'http://127.0.0.1:'+19042+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: named('stream'), streamRole: named('stream_reader'),
+  const pgstream = { receiver:{url:'http://127.0.0.1:'+19042+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: named('stream'), streamRole: named('stream_reader'), transactionRows:10000, generation:'a'.repeat(32),
+    recovery:{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32},
     bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } };
   const datastore = urls.evaluator ? (address => ({ hostname: address.hostname, port: Number(address.port || 5432), database: decodeURIComponent(address.pathname.slice(1)) }))(new URL(urls.evaluator)) : undefined;
   const evaluator = { version: 1, ...(datastore ? { datastore } : {}),
@@ -89,7 +90,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     realtime: { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('realtime'), REALTIME_HOSTNAME: '0.0.0.0', REALTIME_PORT: '1339', MULTITENANT_REALTIME_CONFIG: file('config.json'),
       NS_REALTIME_PG: urls.realtime, ...readers },
     evaluator: { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('evaluator'), MULTITENANT_EVALUATOR_CONFIG: file('config.json'), NS_EVALUATOR_PG: urls.evaluator,
-      NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_PLAN_PGSTREAM_BINARY: '/usr/local/bin/pgstream', NS_PLAN_PGSTREAM_CONFIG: '/run/synthetic/pgstream.yaml', ...readers },
+      NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_STREAM_RECOVERY_PG: urls.stream_reader, NS_PLAN_PGSTREAM_BINARY: '/usr/local/bin/pgstream', NS_PLAN_PGSTREAM_CONFIG: '/run/synthetic/pgstream.yaml', ...readers },
     'tenant-admin': { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('tenant-admin'), TENANT_ADMIN_HOSTNAME: '0.0.0.0', TENANT_ADMIN_PORT: '1341',
       MULTITENANT_OWNER_PREVIEW_CONFIG: file('config.json'), NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader } };
   // The participant manifest: each role's protected namespaces as the role
