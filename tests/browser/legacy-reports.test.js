@@ -307,6 +307,111 @@ describe('legacy reports in a real browser', function () {
     });
   });
 
+  for (const theme of ['default', 'modern']) {
+    it('switches and remembers independent report chart styles in ' + theme, async function () {
+      await withReports(async page => {
+        await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+        async function renderCharts () {
+          await page.evaluate(theme => {
+            const client = window.Nightscout.client;
+            client.settings.theme = theme;
+            document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+            document.body.classList.add('report-page');
+            const start = client.sbx.data.profile.parseInTimezone('2015-08-08').valueOf();
+            const records = [60, 120, 120, 240].map((value, i) => ({
+              sgv: value, bgValue: value, displayTime: new Date(start + i * 1800000)
+            }));
+            const data = {alldays: 2, allstatsrecords: records,
+              '2015-08-08': {statsrecords: records}, '2015-08-09': {statsrecords: []}};
+            for (const name of ['glucosedistribution', 'dailystats']) {
+              const plugin = window.Nightscout.report_plugins(name);
+              document.getElementById(name + '-placeholder').innerHTML = plugin.html(client);
+              plugin.report(data, ['2015-08-09', '2015-08-08'], {targetLow: 70, targetHigh: 180});
+            }
+          }, theme);
+        }
+        await renderCharts();
+        const requestCount = requests.length;
+        const distributionStats = await page.locator('#glucosedistribution-report').textContent();
+        const dailyStats = await page.locator('#dailystats-report tr').evaluateAll(rows =>
+          rows.map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent)));
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-bar').isChecked(), true);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        await page.locator('#glucosedistribution').click();
+        await page.locator('#glucosedistribution-chartstyle-bar').focus();
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        const overview = page.locator('#glucosedistribution-overviewchart');
+        assert.equal(await overview.locator('svg path').count(), 3);
+        assert.equal(await overview.locator('.gd-vbar').count(), 0);
+        assert.deepEqual(await overview.locator('path title').allTextContents(),
+          ['Low (54–69): 25.0%', 'In Range (70–180): 50.0%', 'High (181–250): 25.0%']);
+        assert.equal(await page.locator('#glucosedistribution-report').textContent(), distributionStats);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        await page.locator('#glucosedistribution-rangemode-tight').check();
+        assert.ok((await overview.locator('svg').getAttribute('aria-label')).includes('In Tight Range'));
+        await page.locator('#glucosedistribution-0').uncheck();
+        assert.equal(await overview.locator('svg path').count(), 2);
+        const filteredStats = await page.locator('#glucosedistribution-report').textContent();
+        await page.locator('#glucosedistribution-chartstyle-bar').check();
+        assert.equal(await overview.locator('.gd-vbar').count(), 1);
+        assert.equal(await page.locator('#glucosedistribution-report').textContent(), filteredStats);
+        await page.locator('#glucosedistribution-chartstyle-pie').check();
+        await page.locator('#glucosedistribution-1').uncheck();
+        assert.equal(await overview.locator('svg, .gd-vbar').count(), 0, 'empty hour selections clear the chart');
+        assert.equal(await page.locator('#glucosedistribution-days').textContent(), 'Result is empty');
+        await page.locator('#glucosedistribution-chartstyle-bar').check();
+        await page.locator('#glucosedistribution-chartstyle-pie').check();
+        assert.equal(await overview.locator('svg, .gd-vbar').count(), 0);
+        await page.locator('#glucosedistribution-0').check();
+        await page.locator('#glucosedistribution-1').check();
+
+        await page.locator('#dailystats').click();
+        await page.locator('#dailystats-chartstyle-pie').check();
+        assert.equal(await page.locator('.daily-stats-chart svg').count(), 1, 'empty days have no chart');
+        assert.deepEqual(await page.locator('.daily-stats-chart path title').allTextContents(),
+          ['Low: 25%', 'In Range: 50%', 'High: 25%']);
+        assert.deepEqual(await page.locator('#dailystats-report tr').evaluateAll(rows =>
+          rows.map(row => Array.from(row.cells).slice(1).map(cell => cell.textContent))), dailyStats);
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#dailystats-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-daily.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#dailystats-placeholder .report-chart-style').isVisible(), false);
+        assert.equal(await page.locator('.daily-stats-chart svg').isVisible(), true);
+        await page.emulateMedia({media: 'screen'});
+        await page.locator('#dailystats-chartstyle-bar').check();
+        assert.equal(await page.locator('.daily-stats-chart .tir-bar').count(), 1);
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        assert.equal(requests.length, requestCount, 'chart switches use already loaded data');
+
+        // Recreate report controls as on a fresh visit, reading browser preferences.
+        await renderCharts();
+        assert.equal(await page.locator('#glucosedistribution-chartstyle-pie').isChecked(), true);
+        assert.equal(await page.locator('#dailystats-chartstyle-bar').isChecked(), true);
+        assert.equal(await overview.locator('svg path').count(), 3);
+        await page.locator('#glucosedistribution').click();
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-distribution.png'});
+        }
+        await page.setViewportSize({width: 375, height: 812});
+        await page.locator('#glucosedistribution-chartstyle-pie').scrollIntoViewIfNeeded();
+        const controls = await page.locator('#glucosedistribution-placeholder .report-chart-style').boundingBox();
+        assert.ok(controls.width <= 375, 'chart controls fit a phone viewport');
+        if (process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS) {
+          await page.locator('#glucosedistribution-placeholder').screenshot({path: process.env.NIGHTSCOUT_REPORT_STYLE_SCREENSHOTS + '/' + theme + '-phone.png'});
+        }
+        await page.emulateMedia({media: 'print'});
+        assert.equal(await page.locator('#glucosedistribution-placeholder .report-chart-style').isVisible(), false);
+        assert.equal(await overview.locator('svg').isVisible(), true);
+        await page.emulateMedia({media: 'screen'});
+        await page.reload();
+        assert.deepEqual(await page.evaluate(() => [localStorage.getItem('reportChartStyle_glucosedistribution'),
+          localStorage.getItem('reportChartStyle_dailystats')]), ['pie', 'bar']);
+      });
+    });
+  }
+
   async function renderPentagonFixture(page) {
     await page.locator('#glucosedistribution').click();
     await page.evaluate(() => {

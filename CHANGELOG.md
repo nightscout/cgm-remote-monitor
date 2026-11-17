@@ -4,6 +4,12 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Report chart styles:** Choose Bar or Pie on Distribution and Daily Stats.
+  Each report remembers its own choice in the browser and switches immediately
+  using the loaded report data. Printed reports use the selected chart style.
+
 ### Fixed
 
 - **Day to Day OpenAPS markers:** Keep the connected glucose line's hover

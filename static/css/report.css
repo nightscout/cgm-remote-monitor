@@ -26,6 +26,27 @@ body {
   text-align:center;
 }
 
+.report-chart-style {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  padding: 0;
+  margin: 8px 0 16px;
+}
+.report-chart-style legend { float: left; padding: 0; margin-right: 12px; font-size: inherit; font-weight: 600; text-shadow: none; }
+.report-chart-style label { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; cursor: pointer; }
+.report-chart-style input { margin: 0; }
+.report-distribution-pie { display: block; flex: 0 0 auto; align-self: center; max-width: 100%; }
+.report-distribution-pie text { fill: #263238; font-size: 13px; font-weight: bold; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
+.daily-stats-chart { min-width: 140px; }
+.daily-stats-chart .report-distribution-pie { margin: 0 auto; }
+.report-distribution-pie path { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@media print {
+  .report-chart-style { display: none; }
+}
+
 #explanation {
   font: 11px verdana, arial, sans-serif;
 }
