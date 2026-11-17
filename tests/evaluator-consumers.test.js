@@ -6,6 +6,7 @@ const scope = require('../lib/storage/tenant-scope');
 const parse = require('../lib/server/serve/evaluator-config');
 const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
 const protocol = require('./fixtures/evaluator-consumers-protocol');
+const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
 const plan=require('./fixtures/multitenant-plan'),layout=plan.layout('consumer_cfg');
 const urls=Object.fromEntries(Object.entries(plan.syntheticUrls(layout)).map(([role,url])=>[role,url.replace('postgres.example.test','127.0.0.1').replace('nightscout_test_plan','composition_test')]));
@@ -190,10 +191,10 @@ describe('actual runtime alarm outbox consumer source composition', function () 
 });
 
 describe('selected evaluator role consumes notification composition', function () {
-  it('boots starts and wakes the actual selected composition without awaiting handoff latency and closes all owned resources', async function () {
+  async function criterion(change=source=>source) {
     const vm = require('node:vm'), { createRequire } = require('node:module');
     const filename = path.resolve(__dirname, '../lib/server/serve/evaluator-preview.js'), local = createRequire(filename);
-    const calls = []; let release;
+    const calls = [],nativeEvents=[],nativePorts=nativeBoot.mocks({events:nativeEvents}); let release;
     const held = new Promise(resolve => { release = resolve; });
     const clinical = { end: async () => { calls.push('clinical-end'); } };
     const consumer = { start () { calls.push('consumer-start'); }, wake () { calls.push('consumer-wake'); return held; },
@@ -201,7 +202,8 @@ describe('selected evaluator role consumes notification composition', function (
     const runtime = { acquire: async () => { calls.push('clinical-acquire'); }, tick: async () => {},
       last: () => null, isCurrent: async () => true, health: () => ({ tenants: [] }), close: async () => { calls.push('clinical-close'); } };
     const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
-      if (name === '../../storage/postgres-durable-replay') return () => ({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_COMPOSITION_FIXTURE');}});
+      if(Object.hasOwn(nativePorts,name))return nativePorts[name];
+      if (name === '../../storage/postgres-durable-replay') return () => nativeBoot.replay({events:nativeEvents});
       if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
       if (name === './registry-tenant-set') return {open:async()=>({tenants:new Map([[A,parse.registryEntry(A)]]),isActive:()=>true,revision:()=>1,stats:()=>({}),follow:async()=>{},close:async()=>{}})};
       if (name === '../../pool-membership') return {member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})};
@@ -218,9 +220,9 @@ describe('selected evaluator role consumes notification composition', function (
       } };
       return local(name);
     } };
-    vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });
+    vm.runInNewContext(change(fs.readFileSync(filename, 'utf8')), sandbox, { filename });
     const previous = scope.getTenancyMode();
-    const d=document();d.consumers=selected();const cfg=parse.parse(d,source);
+    const d=document();d.consumers=selected();const parsed=parse.parse(d,source),cfg={...parsed,pgstream:nativeBoot.config(parsed.pgstream)};
     const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;await window.ready();
     let role;
     try {
@@ -234,7 +236,13 @@ describe('selected evaluator role consumes notification composition', function (
       assert.equal(calls.filter(name => name === 'consumer-close').length, 1);
       assert.equal(calls.filter(name => name === 'clinical-end').length, 1);
       assert.ok(calls.indexOf('consumer-close') < calls.indexOf('clinical-close'));
+      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,1,'NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:'+event);
     } finally { release(); if (role) await role.close(); await window.close();scope.setTenancyMode(previous); }
+  }
+  it('boots starts and wakes the actual selected composition without awaiting handoff latency and closes all owned resources',()=>criterion());
+  it('control: dropping the owned native recovery close is red and restored composition drains it',async()=>{
+    await assert.rejects(criterion(source=>{const needle='await snapshotRecovery?.close();';assert.equal(source.split(needle).length,2,'NATIVE_CLOSE_CONTROL_MUST_LAND');return source.replace(needle,'');}),/NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:native-recovery-closed/);
+    await criterion();
   });
 });
 
