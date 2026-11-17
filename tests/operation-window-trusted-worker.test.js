@@ -15,9 +15,10 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
     assert.equal(full(f).length, baseline, 'no per-tenant full admission');
     const current = f.log.filter(row => row[0].includes('/* operation-window-current'));
     assert.equal(current.length, 2, 'each registration checks current tenant state');
+    assert.deepEqual(current.map(([,values]) => values), [[A, '17'], [B, '19']]);
     for (const [sql] of current) {
       assert(!sql.includes('pg_auth_members') && !sql.includes('string_agg') && !sql.includes('sha256'));
-      assert(sql.includes('w.tenant_id=$1') && !sql.includes('r.rolsuper') && !sql.includes('pg_backend_pid()'));
+      assert(sql.includes('w.tenant_id=b.tenant') && !sql.includes('r.rolsuper') && !sql.includes('pg_backend_pid()'));
     }
     await f.window.verifyClient(f.client);
     await f.window.verifyOperational();
@@ -170,7 +171,12 @@ describe('Generation scope and physical lower exclusion (source protocol)', func
         for (let i = 0; i < 3; i++) {
           const lease = await f.window.acquireClient(f.client, A);
           try {
+            const start = f.log.length;
             assert.equal(await f.window.assertClient(f.client, A, lease), '1');
+            const physical = f.log.slice(start).map(([sql]) => sql);
+            const lock = physical.findIndex(sql => sql.includes('pg_try_advisory_xact_lock_shared'));
+            const current = physical.findIndex(sql => sql.includes('/* operation-window-current */'));
+            assert(lock >= 0 && current > lock, 'writable admission must read the generation in a fresh statement after its lock');
             await f.window.assertCommit(f.client, A, lease);
           } finally { await lease.close(); }
         }

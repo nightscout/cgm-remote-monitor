@@ -14,6 +14,14 @@ module.exports = function fixture (options = {}, createWindow = create) {
   client.query = async (text, values) => {
     if (text && typeof text === 'object') ({ text, values } = text);
     log.push([text, values]);
+    // A fresh read snapshot returns the replacement-lock outcome with its
+    // lifecycle row. A failed lock leaves the lifecycle columns NULL.
+    if (text.includes('/* operation-window-snapshot */')) {
+      const held = options.held !== false;
+      return { rows: [held
+        ? { held, lock_key: options.key || (values[0] === B ? '19' : '17'), phase: options.phases?.[values[0]] || options.phase || 'active', generation: options.generation || '1' }
+        : { held, lock_key: null, phase: null, generation: null }] };
+    }
     // Live principal, datastore and typed window in one bounded statement.
     if ((text.includes('/* operation-window-epoch') || text.includes('/* operation-window-current') || text.includes('/* operation-window-final'))) {
       const window = text.includes('-metadata') ? { read_only: options.metadataReadOnly || 'on' }

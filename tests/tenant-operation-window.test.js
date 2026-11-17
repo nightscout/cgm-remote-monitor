@@ -72,12 +72,16 @@ describe('Tenant operation window source protocol (not PostgreSQL evidence)', fu
     assert.equal(fullAdmissions(f), base, 'an ended marker owner cannot be silently replaced');
     await f.window.close().catch(() => {});
   });
-  it('observes the tenant phase in a transaction before entering an application body', async function () {
+  it('observes the tenant phase and replacement lock in one read-only statement before entering an application body', async function () {
     const f = fixture();
     await f.window.run(A, () => {
-      const order = f.log.map(([sql]) => sql);
-      assert(order.findIndex(sql => sql.includes('pg_try_advisory_xact_lock_shared')) < order.findIndex(sql => sql.includes('operation-window-current')));
-      assert.equal(order.at(-1), 'COMMIT');
+      const [begin, admission, commit] = f.log.slice(-3);
+      assert.equal(begin[0], 'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');
+      assert.match(admission[0], /operation-window-current/);
+      assert.match(admission[0], /set_config\('app\.current_tenant_id'/);
+      assert.match(admission[0], /pg_try_advisory_xact_lock_shared/);
+      assert.deepEqual(admission[1], [A, '17']);
+      assert.equal(commit[0], 'COMMIT');
     });
     await f.window.close();
   });

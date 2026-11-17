@@ -173,6 +173,92 @@ module.exports = function register (fixture) {
       });
     }
 
+    function readonly (connection, body) {
+      return scope.withTenant(fixture.A, () => connection.readOnlyTransaction(body));
+    }
+
+    it('enforces read-only SQL on the explicit port and keeps the general entry writable', async function () {
+      let mode;
+      await assert.rejects(readonly(lower, async () => {
+        mode = (await lower.query('SHOW transaction_read_only')).rows[0].transaction_read_only;
+        await marker('explicit-read-must-rollback');
+      }), { code: '25006' }, 'POSTGRES_MUST_REFUSE_READ_ONLY_WRITE');
+      assert.equal(mode, 'on');
+      assert.equal(await stored('explicit-read-must-rollback'), 0);
+      await lower.withTenant(fixture.A, async () => {
+        assert.equal((await lower.query('SHOW transaction_read_only')).rows[0].transaction_read_only, 'off');
+        await marker('general-write-succeeds');
+      });
+      assert.equal(await stored('general-write-succeeds'), 1);
+    });
+
+    it('returns one read-only view across suspension and sees replacement on the next read', async function () {
+      const first = gate(), again = gate(), attempt = gate(), deliver = gate();
+      const value = async () => (await lower.query('SELECT value FROM ' + data)).rows[0].value;
+      await fixture.sql('UPDATE ' + data + ' SET value=$2 WHERE tenant_id=$1', [fixture.A, 'before-read']);
+      const reading = fixture.window.run(fixture.A, () => readonly(lower, async () => {
+        const old = await value();
+        first.resolve(old);
+        await again.promise;
+        return [old, await value()];
+      }));
+      // A completed read may be delivered after the maintenance task activates.
+      const delivery = reading.then(async rows => { await deliver.promise; return rows; });
+      delivery.catch(() => {});
+      let restoring;
+      try {
+        assert.equal(await reached(first, reading, 'first read in the snapshot'), 'before-read');
+        // A different committed change can overlap a read even though the
+        // tenant-wide shared lock defers the later DATA replacement.
+        await fixture.sql('UPDATE ' + data + ' SET value=$2 WHERE tenant_id=$1', [fixture.A, 'concurrent-edit']);
+        firstExclusiveAttempt = attempt;
+        restoring = restore('read-replacement');
+        assert.equal(await reached(attempt, restoring, 'replacement waits for read'), false);
+        const state = await fixture.sql('SELECT phase FROM ' + fixture.control('tenant_lifecycle_windows') + ' WHERE tenant_id=$1', [fixture.A]);
+        assert.equal(state.rows[0].phase, 'suspended');
+        let entered = false;
+        await assert.rejects(readonly(independent, () => { entered = true; }), retryable);
+        assert.equal(entered, false);
+        again.resolve();
+        await reading;
+        await restoring;
+        deliver.resolve();
+        assert.deepEqual(await delivery, ['before-read', 'before-read'], 'READ_ONLY_VIEW_MUST_STAY_CONSISTENT');
+        assert.equal(await readonly(lower, value), 'read-replacement');
+      } finally {
+        firstExclusiveAttempt = null; again.resolve(); deliver.resolve();
+        await Promise.allSettled([reading, delivery, restoring]);
+      }
+    });
+
+    it('joins an existing writable transaction and still refuses its crossing commit', async function () {
+      const selected = gate(), finish = gate(), attempt = gate();
+      const identity = async () => (await lower.query("SELECT pg_backend_pid() AS pid,pg_current_xact_id()::text AS xid,current_setting('transaction_read_only') AS mode")).rows[0];
+      const write = lower.withTenant(fixture.A, async () => {
+        const initial = await identity();
+        const nested = await lower.readOnlyTransaction(identity);
+        assert.deepEqual(nested, initial, 'NESTED_READ_MUST_JOIN_WRITABLE_TRANSACTION');
+        assert.equal(nested.mode, 'off');
+        await marker('write-after-joined-read');
+        selected.resolve();
+        await finish.promise;
+      });
+      let restoring;
+      try {
+        await reached(selected, write, 'writable transaction after nested read');
+        firstExclusiveAttempt = attempt;
+        restoring = restore('after-joined-read');
+        assert.equal(await reached(attempt, restoring, 'replacement waits for joined write'), false);
+        finish.resolve();
+        await assert.rejects(write, retryable, 'JOINED_WRITE_GENERATION_CHANGE_MUST_REFUSE');
+        await restoring;
+        assert.equal(await stored('write-after-joined-read'), 0);
+      } finally {
+        firstExclusiveAttempt = null; finish.resolve();
+        await Promise.allSettled([write, restoring]);
+      }
+    });
+
     it('holds the final current-generation observation stable until its physical COMMIT', async function () {
       const entered = gate(), release = gate(), barrier = { entered, release };
       const before = (await fixture.sql('SELECT generation::text FROM ' + fixture.control('tenant_lifecycle_windows') +

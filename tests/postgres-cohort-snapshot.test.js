@@ -28,9 +28,28 @@ async function fixture({failBaseline=false}={}){
  const close=async()=>{try{for(const store of stores.reverse())await store.end();}finally{release();await f.window.close();}};
  let baseline;
  try{baseline=await open();}catch(error){await close();throw error;}
- return {window:f.window,open,baseline,setAction:fn=>{action=fn;},setUnsafeColdSchema:value=>{unsafeColdSchema=value;},close};
+ return {window:f.window,open,baseline,setAction:fn=>{action=fn;},setUnsafeColdSchema:value=>{unsafeColdSchema=value;},endControl:()=>f.client.emit('end'),close};
 }
 describe('Cohort snapshots wait for actual connection admission',function(){
+ it('commits a healthy explicit read directly and rolls it back after an independent control-session loss',async function(){
+  const f=await fixture(), tenant='11111111-1111-4111-8111-111111111111';
+  const scope=require('../lib/storage/tenant-scope');
+  const previousMode=scope.getTenancyMode();scope.setTenancyMode('multi');
+  try{
+   await f.window.run(tenant,()=>{});
+   const statements=[];
+   f.setAction(async(client,sql)=>{statements.push(sql);});
+   const read=lose=>scope.withTenant(tenant,()=>f.baseline.readOnlyTransaction(async()=>{
+    await f.baseline.query('SELECT 1 AS sample');
+    if(lose)f.endControl();
+   }));
+   await read(false);
+   assert.deepEqual(statements.slice(statements.lastIndexOf('SELECT 1 AS sample')+1),['COMMIT']);
+   statements.length=0;
+   await assert.rejects(read(true),{code:'LIFECYCLE_WINDOW_SESSION_LOST'});
+   assert.deepEqual(statements.slice(statements.lastIndexOf('SELECT 1 AS sample')+1),['ROLLBACK']);
+  }finally{try{await f.close();}finally{scope.setTenancyMode(previousMode);}}
+ });
  it('releases the selected window when baseline construction fails, so a fresh fixture can initialize',async function(){
   await assert.rejects(fixture({failBaseline:true}),/synthetic constructor failure/);
   const f=await fixture();try{assert.deepEqual((await connect.cohortSnapshot(f.window)).datastore,DATA);}finally{await f.close();}

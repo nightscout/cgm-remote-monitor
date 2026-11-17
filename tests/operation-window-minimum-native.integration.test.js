@@ -176,6 +176,27 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     } finally { await window.close(); await pool.end(); }
   });
 
+  it('counts the same warm SELECT through explicit read-only and unchanged writable public entries', async function () {
+    const scope = require('../lib/storage/tenant-scope');
+    const read = tenant => f.window.run(tenant, () => scope.withTenant(tenant,
+      () => f.lower.readOnlyTransaction(() => f.lower.query('SELECT 1 AS x'))));
+    const n = 4;
+    async function measure (phase, operation) {
+      await operation(f.A); await operation(f.B);
+      await f.counter.phase(phase, async () => {
+        for (let i = 0; i < n; i++) await operation(i % 2 ? f.A : f.B);
+      });
+      return f.counter.assertHot(phase, n);
+    }
+    const writable = await measure('same-writable-select', f.operation);
+    const readonly = await measure('same-read-only-select', read);
+    const directory = process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY;
+    if (directory) require('node:fs').writeFileSync(directory + '/counter-read-only.json',
+      JSON.stringify({ readonly, writable, phases: f.counter.rows().filter(row =>
+        ['same-writable-select', 'same-read-only-select'].includes(row.phase)) }), { flag: 'wx', mode: 0o600 });
+    assert.ok(readonly.statementsPerOperation <= 7, 'EXPLICIT_PUBLIC_READ_SQL_BUDGET');
+  });
+
   it('does no full admission/global digest per warm public operation or unrelated catalogue growth', async function () {
     await active(); await f.operation(f.B);
     const n = 4;

@@ -18,8 +18,26 @@ describe('selected lifecycle generation domain source capability',function(){
  it('preserves exact int8 bounds and separates active max from next-suspension headroom',()=>{assert.equal(domain.assertGeneration('9007199254740994'),'9007199254740994');assert.equal(domain.assertGeneration(profiles.DOMAIN.completeMaximum),profiles.DOMAIN.completeMaximum);assert.throws(()=>domain.assertGeneration(profiles.DOMAIN.completeMaximum,{next:true}),{code:'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED'});for(const value of ['0','4611686018427387903',9007199254740994])assert.throws(()=>domain.assertGeneration(value));});
  it('bounded bigint parser support fails red when removed and still rejects changed literal bounds',()=>{const file=require.resolve('../lib/tenant-lifecycle/catalogue-structure'),current=require(file),broken=compile(file,s=>{assert(s.includes("'oid','bigint'"));return s.replace("'oid','bigint'","'oid'");}),expected=domain.constraint();assert.throws(()=>broken(expected,'synthetic_window'),{code:bad});assert.equal(typeof current(expected,'synthetic_window'),'string');assert.notEqual(current(expected,'synthetic_window'),current(expected.replace('7902','7903'),'synthetic_window'));});
  it('loads profile and readiness safely in both isolated fresh module-cache orders',()=>{const saved=Module._cache;try{for(const order of [['intake-profile','operation-window-readiness'],['operation-window-readiness','intake-profile']]){Module._cache=Object.create(null);for(const name of order)require(path.resolve(__dirname,'../lib',name==='intake-profile'?'pgstream':'tenant-lifecycle',name));const fresh=require('./fixtures/lifecycle-domain-profile').profile();assert.equal(require('../lib/tenant-lifecycle/generation-domain').catalogue(fresh).migrations.length,10);}}finally{Module._cache=saved;}});
- it('actual selected registry window retains registry key rule and rejects unknown fixed-roster tenant',async()=>{const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules'),p=helper.profile(),forged={...p,assignment:{owner:()=>0}},f=fixture({intakeProfile:forged,lockRule:'tenant-id-sha256-v1',key:rule.lockKey(A)});await f.window.run(A,()=>{});await f.window.verifyOperational();await assert.rejects(f.window.run(C,()=>assert.fail('UNKNOWN_BODY')),{code:'LIFECYCLE_WINDOW_TENANT_UNKNOWN'});assert.equal(f.pending.size,1);await f.window.close();});
- it('unselected registry retains existing unknown-roster lookup behavior',async()=>{const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules'),f=fixture({lockRule:'tenant-id-sha256-v1',key:rule.lockKey(C)});await f.window.run(C,()=>{});assert.equal(f.pending.size,1);await f.window.close();});
+ it('actual selected registry window retains registry key rule and rejects unknown fixed-roster tenant',async()=>{
+  const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules');
+  const p=helper.profile(), forged={...p,assignment:{owner:()=>0}};
+  const f=fixture({intakeProfile:forged,lockRule:'tenant-id-sha256-v1',key:rule.lockKey(A)});
+  try {
+   await f.window.run(A,()=>{});await f.window.verifyOperational();
+   await assert.rejects(f.window.run(C,()=>assert.fail('UNKNOWN_BODY')),{code:'LIFECYCLE_WINDOW_TENANT_UNKNOWN'});
+   const admissions=f.log.filter(([sql])=>sql.includes('/* operation-window-snapshot */'));
+   assert.deepEqual(admissions.map(([,values])=>values),[[A,rule.lockKey(A)]]);
+  } finally {await f.window.close();}
+ });
+ it('unselected registry retains existing unknown-roster lookup behavior',async()=>{
+  const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules');
+  const f=fixture({lockRule:'tenant-id-sha256-v1',key:rule.lockKey(C)});
+  try {
+   await f.window.run(C,()=>{});
+   const admissions=f.log.filter(([sql])=>sql.includes('/* operation-window-snapshot */'));
+   assert.deepEqual(admissions.map(([,values])=>values),[[C,rule.lockKey(C)]]);
+  } finally {await f.window.close();}
+ });
  it('actual operation config loader preserves registry manifest and returns regenerated profile',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lifecycle-domain-config-')),file=path.join(dir,'config.json'),config=require('../lib/server/serve/operation-cohort-config'),p=helper.profile(),value={version:1,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',registry:{namespace:'synthetic_registry'},intakeProfile:copy(p)};try{fs.writeFileSync(file,JSON.stringify(value));const selected=config.load({MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test'});assert.equal(selected.lockRule,'tenant-id-sha256-v1');assert.deepEqual(selected.tenantIds,['registry:synthetic_registry']);assert.equal(selected.intakeProfile.digest,p.digest);assert.throws(()=>selected.intakeProfile.assignment.owner(C));assert(Object.isFrozen(selected.intakeProfile));}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 
 });
