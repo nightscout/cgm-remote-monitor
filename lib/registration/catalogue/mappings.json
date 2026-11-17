@@ -1,0 +1,30 @@
+{
+  "$comment": "Catalogue mappings (registration section 16, Q2) from the alignment repository's specs/quirks/*.yaml entries with applies_to: declarations, by tools/nsschema/vendor_catalogue.py. Do not edit; regenerate.",
+  "vendoredFrom": [
+    {
+      "repository": "bewest/rag-nightscout-ecosystem-alignment",
+      "path": "specs/quirks/devicestatus.yaml",
+      "commit": "8bcc373d61ef807319770e2ce0afcbdc2e459aec",
+      "generator": "tools/nsschema/vendor_catalogue.py"
+    },
+    {
+      "repository": "bewest/rag-nightscout-ecosystem-alignment",
+      "path": "specs/quirks/entries.yaml",
+      "commit": "a046470cf1ad6d8b4b47d2ad5199fe0488f74d63",
+      "generator": "tools/nsschema/vendor_catalogue.py"
+    },
+    {
+      "repository": "bewest/rag-nightscout-ecosystem-alignment",
+      "path": "specs/quirks/profile.yaml",
+      "commit": "8bcc373d61ef807319770e2ce0afcbdc2e459aec",
+      "generator": "tools/nsschema/vendor_catalogue.py"
+    },
+    {
+      "repository": "bewest/rag-nightscout-ecosystem-alignment",
+      "path": "specs/quirks/treatments.yaml",
+      "commit": "dd02d8ed2b5e2fa22165f332b0d6b0ca48595435",
+      "generator": "tools/nsschema/vendor_catalogue.py"
+    }
+  ],
+  "mappings": []
+}

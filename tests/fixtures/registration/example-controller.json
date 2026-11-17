@@ -1,0 +1,79 @@
+{
+  "$comment": "A synthetic registration from the registration specification conformance case accepted-api-secret-single (alignment repository specs/sync/conformance/); describes no real controller. definitionId and etag (bound to api-secret, state active) are the values the case states, computed by the reference canonicaliser.",
+  "registration": {
+    "apiVersion": "nightscout.dev/sync/v1",
+    "kind": "ControllerStateModel",
+    "metadata": {
+      "vendor": "Example",
+      "product": "NegotiationController",
+      "algorithmFamily": "other",
+      "tier": "controller-owned",
+      "versionRange": "1.0.0-test"
+    },
+    "spec": {
+      "cadence": {
+        "nominalSeconds": 300
+      },
+      "documents": [
+        {
+          "collection": "devicestatus",
+          "discriminator": {
+            "path": "example",
+            "test": "is-object"
+          },
+          "decomposesTo": [
+            "ApsSnapshot"
+          ]
+        }
+      ],
+      "stateSpans": [
+        {
+          "category": "Override",
+          "kind": "ExampleOverride",
+          "slot": "override",
+          "states": [
+            "scheduled",
+            "active",
+            "ended"
+          ],
+          "version": "1",
+          "wire": {
+            "collection": "treatments",
+            "eventType": "Temporary Override",
+            "durationField": "duration",
+            "durationUnit": "minutes"
+          }
+        }
+      ],
+      "extensions": {
+        "com.example.negotiation.targets": {
+          "version": "1",
+          "carrier": {
+            "collection": "settings",
+            "documentIdentifier": "example-targets"
+          },
+          "fields": [
+            {
+              "name": "target",
+              "type": {
+                "type": "number",
+                "minimum": 70,
+                "maximum": 180
+              },
+              "unit": "mg/dL",
+              "sensitivity": {
+                "level": "descriptive",
+                "category": "therapy-setting"
+              }
+            }
+          ]
+        }
+      },
+      "sensitivity": {
+        "unlabelledPolicy": "withhold"
+      }
+    }
+  },
+  "definitionId": "sha256:a72ab7f1cf322ebd8b226ce78a030d86865a1c1b8c5b647e670c9ac17b0f064d",
+  "etagActiveApiSecret": "sha256:3cb3e986379ef72aa7f3c3d8511c0b17e4723b73ef8be59e45f83c9a818319ad"
+}
