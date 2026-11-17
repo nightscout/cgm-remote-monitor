@@ -9,7 +9,7 @@ describe('complete native clinical cohorts',()=>{
   const envelope=native.envelope([native.row('a'),native.row('b')]);
   const check=module=>{const partial=structuredClone(envelope);partial.Transaction.splice(1,1);assert.throws(()=>module.validateTransaction(partial,limits),/COVERAGE/,'PARTIAL_NATIVE_COHORT_ACCEPTED');};
   check(stream);
-  const broken=control('../lib/storage/clinical-stream-state','commit.transaction_count!==frames.length-2','false');
+  const broken=control('../lib/storage/clinical-stream-state','(!projected||shape.count===1?commit.transaction_count!==frames.length-2:commit.transaction_count<frames.length-2)','false');
   const partial=structuredClone(envelope);partial.Transaction.splice(1,1);partial.Transaction[1].transaction_index=1;partial.Transaction[2].transaction_index=2;
   assert.doesNotThrow(()=>broken.validateTransaction(partial,limits));
   assert.throws(()=>stream.validateTransaction(partial,limits),/COVERAGE/);

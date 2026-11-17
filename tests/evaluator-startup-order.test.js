@@ -9,7 +9,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
- const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let placementClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+ const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
@@ -67,7 +67,7 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
    '../../tenant-notifications/postgres':()=>notificationStore,
    '../../tenant-alarms/postgres':{createReader:()=>require('./fixtures/tenant-alarm-protocol')().reader},
    './evaluator-consumer-readiness':{sameDatastore:async()=>{},suppression:async()=>{},operational:async()=>{}},
-   '../realtime/alarm-transport':{createAdapter:()=>({send:(request,callback)=>{assert(trace.includes('notification-owner-ready'),'NOTIFICATION_OWNER_MUST_BE_READY_BEFORE_SEND');notificationFiles.hooks.adapter.send(request,callback);}})}
+   '../realtime/alarm-transport':{createSliceAdapter:()=>({send:(request,callback)=>{assert(trace.includes('notification-owner-ready'),'NOTIFICATION_OWNER_MUST_BE_READY_BEFORE_SEND');notificationFiles.hooks.adapter.send(request,callback);}})}
   };
   consumerModule.require=name=>Object.hasOwn(overrides,name)?overrides[name]:Module.prototype.require.call(consumerModule,name);
   // Existing cadences may be installed; none is fired by this startup witness.
@@ -79,10 +79,10 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
  loaded.require=name=>Object.hasOwn(mocks,name)?mocks[name]:Module.prototype.require.call(loaded,name);
  loaded._compile(sourceTransform(fs.readFileSync(filename,'utf8')),filename);
  const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
- const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{placement:{close(){placementClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
+ const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,placementClosed})};
+ return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
@@ -222,11 +222,11 @@ describe('actual preview startup schema boundary',()=>{
  });
 });
 
-async function previewPlacementOwnerCriterion(sourceTransform=text=>text){
- const f=fixture({sourceTransform});let service;try{f.prepare.resolve();service=await f.boot();await service.close();await service.close();assert.equal(f.state().placementClosed,1,'PREVIEW_MUST_CLOSE_CONFIGURATION_PLACEMENT_ONCE');}finally{await service?.close();await f.window.close();}
+async function previewPeerOwnerCriterion(sourceTransform=text=>text){
+ const f=fixture({sourceTransform});let service;try{f.prepare.resolve();service=await f.boot();await service.close();await service.close();assert.equal(f.state().peerClosed,1,'PREVIEW_MUST_CLOSE_CONFIGURATION_PEER_ONCE');}finally{await service?.close();await f.window.close();}
 }
 describe('preview configuration transport ownership',()=>{
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
- it('closes shared placement exactly once after consumer drain',()=>previewPlacementOwnerCriterion());
- it('control: omitted final placement close goes red; restored source passes',async()=>{await assert.rejects(previewPlacementOwnerCriterion(text=>text.replace('config.consumers?.realtime?.placement?.close();','')),/PREVIEW_MUST_CLOSE_CONFIGURATION_PLACEMENT_ONCE/);await previewPlacementOwnerCriterion();});
+ it('closes an optional shared private peer resource exactly once after consumer drain',()=>previewPeerOwnerCriterion());
+ it('control: omitted final private peer close goes red; restored source passes',async()=>{await assert.rejects(previewPeerOwnerCriterion(text=>text.replace('config.consumers?.realtime?.slicePeers?.close?.();','')),/PREVIEW_MUST_CLOSE_CONFIGURATION_PEER_ONCE/);await previewPeerOwnerCriterion();});
 });

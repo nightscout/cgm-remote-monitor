@@ -106,9 +106,25 @@
             "maxProperties": 1,
             "description": "This instance's own serve.internal address, {url} or {socket}; required on every row of a role that more than one row names."
           },
-          "worker": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
+          "slice": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1023
+              }
+            },
+            "required": [
+              "count",
+              "ordinal"
+            ],
+            "additionalProperties": false
           }
         }
       },

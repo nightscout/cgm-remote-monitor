@@ -1,6 +1,6 @@
 {
   "id": "lifecycle-participant",
-  "version": 4,
+  "version": 5,
   "operations": {
     "getStatus": {
       "path": "/cohort/status",
@@ -23,11 +23,7 @@
         "type": "object",
         "properties": {
           "version": {
-            "enum": [
-              1,
-              2,
-              3
-            ]
+            "const": 4
           },
           "participant": {
             "type": "string",
@@ -218,76 +214,40 @@
             "type": "string",
             "pattern": "^[0-9a-f-]{36}$"
           },
-          "placement": {
-            "type": "object",
-            "properties": {
-              "generation": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
-              },
-              "digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{64}$"
-              },
-              "rule": {
-                "const": "sha256-u32be-v1"
-              },
-              "shardCount": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 65536
-              },
-              "worker": {
-                "anyOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string",
-                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-                  }
-                ]
-              },
-              "incarnation": {
-                "anyOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string",
-                    "pattern": "^[0-9a-f-]{36}$"
-                  }
-                ]
-              },
-              "shards": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 65535
-                },
-                "uniqueItems": true,
-                "maxItems": 65536
-              },
-              "ownershipVersion": {
-                "const": 2
-              }
-            },
-            "required": [
-              "generation",
-              "digest",
-              "rule",
-              "shardCount",
-              "worker",
-              "incarnation",
-              "shards"
-            ],
-            "additionalProperties": false
-          },
           "intakeProfileDigest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  },
+                  "ordinal": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1023
+                  },
+                  "rule": {
+                    "const": "sha256-modulo-v1"
+                  }
+                },
+                "required": [
+                  "count",
+                  "ordinal",
+                  "rule"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -301,54 +261,10 @@
           "identity",
           "datastore",
           "backends",
-          "request"
+          "request",
+          "ownership"
         ],
-        "additionalProperties": false,
-        "anyOf": [
-          {
-            "properties": {
-              "version": {
-                "const": 1
-              },
-              "placement": false
-            }
-          },
-          {
-            "properties": {
-              "version": {
-                "const": 2
-              },
-              "placement": {
-                "properties": {
-                  "ownershipVersion": false
-                }
-              }
-            },
-            "required": [
-              "placement"
-            ]
-          },
-          {
-            "properties": {
-              "version": {
-                "const": 3
-              },
-              "placement": {
-                "properties": {
-                  "ownershipVersion": {
-                    "const": 2
-                  }
-                },
-                "required": [
-                  "ownershipVersion"
-                ]
-              }
-            },
-            "required": [
-              "placement"
-            ]
-          }
-        ]
+        "additionalProperties": false
       }
     },
     "invalidateTenant": {
@@ -451,11 +367,7 @@
         "type": "object",
         "properties": {
           "version": {
-            "enum": [
-              1,
-              2,
-              3
-            ]
+            "const": 4
           },
           "participant": {
             "type": "string",
@@ -650,76 +562,40 @@
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
           },
-          "placement": {
-            "type": "object",
-            "properties": {
-              "generation": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
-              },
-              "digest": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{64}$"
-              },
-              "rule": {
-                "const": "sha256-u32be-v1"
-              },
-              "shardCount": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 65536
-              },
-              "worker": {
-                "anyOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string",
-                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-                  }
-                ]
-              },
-              "incarnation": {
-                "anyOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "type": "string",
-                    "pattern": "^[0-9a-f-]{36}$"
-                  }
-                ]
-              },
-              "shards": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 65535
-                },
-                "uniqueItems": true,
-                "maxItems": 65536
-              },
-              "ownershipVersion": {
-                "const": 2
-              }
-            },
-            "required": [
-              "generation",
-              "digest",
-              "rule",
-              "shardCount",
-              "worker",
-              "incarnation",
-              "shards"
-            ],
-            "additionalProperties": false
-          },
           "intakeProfileDigest": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  },
+                  "ordinal": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1023
+                  },
+                  "rule": {
+                    "const": "sha256-modulo-v1"
+                  }
+                },
+                "required": [
+                  "count",
+                  "ordinal",
+                  "rule"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -734,54 +610,10 @@
           "datastore",
           "backends",
           "request",
-          "tenant"
+          "tenant",
+          "ownership"
         ],
-        "additionalProperties": false,
-        "anyOf": [
-          {
-            "properties": {
-              "version": {
-                "const": 1
-              },
-              "placement": false
-            }
-          },
-          {
-            "properties": {
-              "version": {
-                "const": 2
-              },
-              "placement": {
-                "properties": {
-                  "ownershipVersion": false
-                }
-              }
-            },
-            "required": [
-              "placement"
-            ]
-          },
-          {
-            "properties": {
-              "version": {
-                "const": 3
-              },
-              "placement": {
-                "properties": {
-                  "ownershipVersion": {
-                    "const": 2
-                  }
-                },
-                "required": [
-                  "ownershipVersion"
-                ]
-              }
-            },
-            "required": [
-              "placement"
-            ]
-          }
-        ]
+        "additionalProperties": false
       }
     },
     "getOperations": {

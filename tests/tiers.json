@@ -195,6 +195,7 @@
         "tests/pgstream-fixed-assignment.test.js",
         "tests/pgstream-fixed-protocol.test.js",
         "tests/pgstream-held-owner.test.js",
+        "tests/pgstream-static-slice.test.js",
         "tests/pgstream-input-hints.test.js",
         "tests/pgstream-membership-writers.test.js",
         "tests/postgres-relation-inventory.test.js",

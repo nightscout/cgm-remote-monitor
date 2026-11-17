@@ -52,4 +52,23 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable NS_TEST_POSTGRES
   await assert.rejects(criterion(true),error=>error.code==='ERR_ASSERTION'&&error.message.includes('MIXED_OWNERS_MUST_REFUSE'));await criterion(false);
  });
 
+ it('static slices: one held owner excludes duplicate and mixed K, and a lost backend cannot overwrite its same-ordinal replacement',async()=>{
+  const left=actor(),right=actor(),mixed=actor(),duplicate=actor();
+  const shape={count:2,ordinal:0};
+  try{
+   const l=await left.call('open',{namespace,tenants:[A],slice:shape});assert.deepEqual(l.assignment.slice,shape);await right.call('open',{namespace,tenants:[B],slice:{count:2,ordinal:1}});
+   await assert.rejects(duplicate.call('open',{namespace,tenants:[A],slice:shape}),/OWNER_CONFLICT/,'STATIC_DUPLICATE_MUST_REFUSE');
+   await assert.rejects(mixed.call('open',{namespace,tenants:[B],slice:{count:3,ordinal:0}}),/MIXED_LAYOUT_REFUSED/,'MIXED_K_MUST_REFUSE');
+   await admin.query('UPDATE '+table+' SET work_observed=ARRAY[NULL,NULL,NULL,NULL,NULL,1]::bigint[],work_observed_at=ARRAY[NULL,NULL,NULL,NULL,NULL,1]::bigint[],work_completed=ARRAY[NULL,NULL,NULL,NULL,NULL,NULL]::bigint[],work_pending_at=1');
+   const stale=left.call('complete',{tenant:A,marker:'static-stale',hold:true});stale.catch(()=>{});await left.held();
+   await right.call('complete',{tenant:B,marker:'static-healthy'});
+   const backends=(await admin.query("SELECT pid FROM pg_stat_activity WHERE application_name=$1 AND state='idle in transaction'",['assigned-worker-'+l.pid])).rows;assert.equal(backends.length,1);await admin.query('SELECT pg_terminate_backend($1)',[backends[0].pid]);
+   const replacement=actor();try{await replacement.call('open',{namespace,tenants:[A],slice:shape});await replacement.call('complete',{tenant:A,marker:'static-replacement'});await left.call('release');await assert.rejects(stale,error=>error.code==='POSTGRES_OPERATIONAL_OWNER_LOST'||error.causeCode==='POSTGRES_OPERATIONAL_OWNER_LOST'||error.message==='EVALUATOR_OWNER_UNAVAILABLE'||error.causeMessage==='EVALUATOR_OWNER_UNAVAILABLE','STATIC_STALE_OWNER_MUST_REFUSE');const output=(await admin.query("SELECT projection->0->'output'->'result'->'properties' AS value FROM "+table+' WHERE tenant_id=$1',[A])).rows[0].value;assert.equal(output.synthetic,'static-replacement','STATIC_REPLACEMENT_OUTPUT_PRESERVED');}finally{await replacement.close();}
+  }finally{await Promise.allSettled([left.close(),right.close(),mixed.close(),duplicate.close()]);}
+ });
+ it('control: process-specific static resource identities permit overlapping owners; exact duplicate criterion turns red and restores',async()=>{
+  async function criterion(brokenStaticKeys){const first=actor(),second=actor();try{const args={namespace,tenants:[A],slice:{count:2,ordinal:0},brokenStaticKeys};await first.call('open',args);await assert.rejects(second.call('open',args),/OWNER_CONFLICT/,'STATIC_OVERLAP_MUST_REFUSE');}finally{await Promise.allSettled([first.close(),second.close()]);}}
+  await assert.rejects(criterion(true),e=>e.code==='ERR_ASSERTION'&&e.message.includes('STATIC_OVERLAP_MUST_REFUSE'));await criterion(false);
+ });
+
 });

@@ -1,6 +1,6 @@
 {
   "id": "realtime-inspection",
-  "version": 4,
+  "version": 5,
   "operations": {
     "inspectRealtime": {
       "path": "/realtime/inspect",
@@ -27,70 +27,6 @@
             "enum": [
               "booted",
               "quiescing"
-            ]
-          },
-          "placement": {
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "generation": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 9007199254740991
-                  },
-                  "digest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                  },
-                  "rule": {
-                    "const": "sha256-u32be-v1"
-                  },
-                  "shardCount": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65536
-                  },
-                  "worker": {
-                    "type": "string",
-                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-                  },
-                  "assignmentIncarnation": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
-                  },
-                  "shards": {
-                    "type": "array",
-                    "maxItems": 65536,
-                    "uniqueItems": true,
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 65535
-                    }
-                  },
-                  "ownershipVersion": {
-                    "enum": [
-                      1,
-                      2
-                    ]
-                  }
-                },
-                "required": [
-                  "generation",
-                  "digest",
-                  "rule",
-                  "shardCount",
-                  "worker",
-                  "assignmentIncarnation",
-                  "shards",
-                  "ownershipVersion"
-                ],
-                "additionalProperties": false
-              }
             ]
           },
           "ownerAvailable": {
@@ -265,6 +201,37 @@
               "watchedCount"
             ],
             "additionalProperties": false
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  },
+                  "ordinal": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1023
+                  },
+                  "rule": {
+                    "const": "sha256-modulo-v1"
+                  }
+                },
+                "required": [
+                  "count",
+                  "ordinal",
+                  "rule"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -272,9 +239,9 @@
           "observation",
           "processIncarnation",
           "phase",
-          "placement",
           "ownerAvailable",
-          "stats"
+          "stats",
+          "ownership"
         ],
         "additionalProperties": false
       }
@@ -316,70 +283,6 @@
             "enum": [
               "booted",
               "quiescing"
-            ]
-          },
-          "placement": {
-            "anyOf": [
-              {
-                "type": "null"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "generation": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 9007199254740991
-                  },
-                  "digest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                  },
-                  "rule": {
-                    "const": "sha256-u32be-v1"
-                  },
-                  "shardCount": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65536
-                  },
-                  "worker": {
-                    "type": "string",
-                    "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-                  },
-                  "assignmentIncarnation": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$"
-                  },
-                  "shards": {
-                    "type": "array",
-                    "maxItems": 65536,
-                    "uniqueItems": true,
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 65535
-                    }
-                  },
-                  "ownershipVersion": {
-                    "enum": [
-                      1,
-                      2
-                    ]
-                  }
-                },
-                "required": [
-                  "generation",
-                  "digest",
-                  "rule",
-                  "shardCount",
-                  "worker",
-                  "assignmentIncarnation",
-                  "shards",
-                  "ownershipVersion"
-                ],
-                "additionalProperties": false
-              }
             ]
           },
           "ownerAvailable": {
@@ -626,6 +529,37 @@
               "watchedCount"
             ],
             "additionalProperties": false
+          },
+          "ownership": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  },
+                  "ordinal": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1023
+                  },
+                  "rule": {
+                    "const": "sha256-modulo-v1"
+                  }
+                },
+                "required": [
+                  "count",
+                  "ordinal",
+                  "rule"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -633,10 +567,10 @@
           "observation",
           "processIncarnation",
           "phase",
-          "placement",
           "ownerAvailable",
           "tenants",
-          "stats"
+          "stats",
+          "ownership"
         ],
         "additionalProperties": false,
         "anyOf": [

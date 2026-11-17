@@ -174,7 +174,7 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   const original = docs.operations.api.participants.find(row => row.id === 'api');
   const participants = [1, 2].map(n => ({ ...original, id: 'api-' + n, address: { url: instance(n) } }))
     .concat(docs.operations.api.participants.filter(row => row.id !== 'api').map(row => ({ ...row, namespaces: protects(row.id),
-      ...(row.id === 'realtime' ? { worker: 'realtime-1' } : {}), address: { socket: socketOf(row.id + '-1') } })));
+      ...(row.id === 'realtime' ? { slice: {count:1,ordinal:0} } : {}), address: { socket: socketOf(row.id + '-1') } })));
   for (const [role, environment] of Object.entries(env)) {
     delete environment.NS_API_INTERNAL_SOCKET; environment.NS_API_INTERNAL_URL = service;
     // A process that listens on its instance address does not also name its own role's service address.
@@ -188,7 +188,7 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
     docs.operations[name] = { ...docs.operations.api, participantId: name };
   }
   delete docs.configs.api; delete env.api; delete docs.operations.api;
-  docs.remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces, ...(peer.worker ? { worker: peer.worker } : {}),
+  docs.remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces, ...(peer.slice ? { slice: peer.slice } : {}),
     endpoint: { ...(peer.address.url ? { url: peer.address.url + '/', trust: 'network' } : { socketPath: peer.address.socket }), maxBytes: peer.maxMessageBytes, timeoutMs: peer.timeoutMs } }));
   return docs;
 }

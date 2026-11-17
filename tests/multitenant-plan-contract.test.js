@@ -101,8 +101,12 @@ function objects (schema, value, pointer = '', steps = []) {
       if (Object.hasOwn(value, key)) rows.push(...objects(child, value[key], pointer + '/' + key, [...steps, key]));
     }
   }
-  if (schema.type === 'array' && Array.isArray(value) && value.length && schema.items) rows.push(...objects(schema.items, value[0], pointer + '/*', [...steps, 0]));
-  return rows;
+  if (schema.type === 'array' && Array.isArray(value) && schema.items) {
+    // Role-specific nested fields (such as a realtime slice) need not occur
+    // on the first participant. Probe each distinct carried object shape.
+    value.forEach((item, index) => rows.push(...objects(schema.items, item, pointer + '/*', [...steps, index])));
+  }
+  return [...new Map(rows.map(row => [row.pointer, row])).values()];
 }
 const PROFILE_POINTERS = ['/intakeProfile'];
 const opaqueProfile = pointer => PROFILE_POINTERS.includes(pointer);
