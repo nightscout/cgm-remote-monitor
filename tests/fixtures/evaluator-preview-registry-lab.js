@@ -21,7 +21,7 @@ const stream = require('./pgstream-native');
 module.exports = function evaluatorPreviewRegistryLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
   const children = new Set(), addedRoles = new Set();
-  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, operationFile, registryReady = false;
+  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, operationFile, registryReady = false, verificationNamespace;
   lab.consumerName = 'evaluator-native-proof';
   lab.previewRole = lab.name + '_evaluator';
   lab.open = async () => {
@@ -154,6 +154,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     // supported by the strict clinical routing contract. Within-test process
     // restarts do not enter this reset and keep their original source/coverage.
     if(producer){await producer.close();producer=null;producerIdentity=null;}
+    if(verificationNamespace){await lab.admin.query('DROP SCHEMA "'+verificationNamespace+'" CASCADE');verificationNamespace=undefined;}
     lab.document.pgstream.generation=crypto.randomBytes(16).toString('hex');
     for (const domain of lab.domains) await lab.admin.query('TRUNCATE "' + lab.namespaces[domain] + '"."' + domain + '"');
     lab.initial = Date.now() + 100000;
@@ -178,6 +179,55 @@ module.exports = function evaluatorPreviewRegistryLab () {
       const parsed = configParser.parse(document, env(configured));
       return (await configParser.withSettings(parsed, configParser.registryEntry(tenant), tenant)).identity;
     } };
+    return configured;
+  };
+  // Explicit selected-startup variant: the real admin verification service
+  // screens this exact role/config/operation plane before publishing admission.
+  // Elevated credentials stay in this parent fixture, never in the worker.
+  lab.verifyPlatform = async (configured, action = 'verify') => {
+    assert(configured.document.platformVerification, 'SELECTED_STARTUP_CONFIG_REQUIRED');
+    await lab.prepareProduct(configured);
+    const selected = configured.document.platformVerification;
+    if (!verificationNamespace) {
+      const writer = (await lab.admin.query('SELECT current_user AS name')).rows[0].name;
+      await require('../../lib/server/serve/platform-verification').install(lab.admin,
+        { namespace: selected.namespace, writer, readers: [lab.previewRole] });
+      verificationNamespace = selected.namespace;
+    }
+    assert.equal(verificationNamespace, selected.namespace);
+    const service = require('../../lib/server/serve/platform-verification-admin').create({
+      namespace: selected.namespace, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      maxAgeMs: 300000, refreshMs: 0,
+      targets: [{ role: 'evaluator', configFile: configured.file, operationConfigFile: operationFile }]
+    }, env(configured));
+    try {
+      let result;
+      try { result = await service[action](); }
+      catch (error) {
+        if (action === 'verify') {
+          try {
+            const api = require('../../lib/server/serve/platform-verification-admin');
+            await api.checkTarget(api.loadTarget({role:'evaluator',configFile:configured.file,operationConfigFile:operationFile},env(configured)));
+            lab.tracePreview('selected-startup-strict-target-diagnostic',{status:'TARGET_CHECK_PASSED_RECORD_PUBLICATION_REFUSED'});
+          } catch (cause) {
+            lab.tracePreview('selected-startup-strict-target-diagnostic',{status:'STRICT_TARGET_REFUSED',name:cause.name,code:cause.code||null,message:cause.message});
+            try { configParser.parse(configured.document,env(configured)); } catch(parseError) { lab.tracePreview('selected-startup-direct-parse-diagnostic',{mode:scope.getTenancyMode(),message:parseError.message,stack:parseError.stack}); }
+          }
+        }
+        throw error;
+      }
+      lab.tracePreview('selected-startup-admin-' + action, result);
+      return result;
+    } finally { await service.close(); }
+  };
+  lab.configureSelectedStartup = async (change = () => {}) => {
+    const configured = lab.configure(document => {
+      change(document);
+      document.platformVerification = { namespace: lab.name + '_verification', role: 'evaluator' };
+    });
+    configured.tenantReadiness = 'serve';
+    const result = await lab.verifyPlatform(configured);
+    assert.equal(result.status, 'verified', 'ACTUAL_ADMIN_VERIFICATION_REQUIRED');
     return configured;
   };
   lab.provisionPreview = async () => {
@@ -217,7 +267,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       ...producer?.environment,
       ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
-      NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };
+      NS_TENANT_READINESS: config.tenantReadiness || process.env.NS_TENANT_READINESS || 'all' };
   }
   lab.worker = async (config, { detached = false } = {}) => {
     if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
@@ -246,14 +296,23 @@ module.exports = function evaluatorPreviewRegistryLab () {
     child.on('message', message => {
       if(message.clinicalFailure)lab.tracePreview('clinical-refusal',message.clinicalFailure);
       if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; clearTimeout(timeout); resolve({ ...handle, startup: message }); }
-      else if (message.held) { if (heldResolve) heldResolve(); }
+      else if (message.held) { if (heldResolve) heldResolve(message); }
       else if (pending.has(message.id)) {
         const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
         if (message.error) { lab.tracePreview('preview-command-error', message.error); p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); } else p.done(message.value);
       }
     });
     child.once('error', error => { clearTimeout(timeout); reject(error); });
-    Promise.resolve().then(() => lab.startStream()).catch(error => { clearTimeout(timeout); child.kill('SIGTERM'); reject(error); });
+    Promise.resolve().then(() => lab.startStream()).catch(error => {
+      // A boot refusal closes its own process. Stopping its still-waiting
+      // paired producer cancels receiver discovery; that cancellation must
+      // not race the refused process's natural nonzero exit with SIGTERM.
+      if (child.fixtureBootRefused && error.code === 'PGSTREAM_NATIVE_PRODUCER_START_CANCELLED') {
+        lab.tracePreview('boot-refused-producer-start-cancelled', { code: error.code, bootRefused: true });
+        return;
+      }
+      clearTimeout(timeout); child.kill('SIGTERM'); reject(error);
+    });
     child.on('exit', (code, signal) => {
       console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'worker', pid: child.pid, code, signal, bootRefused: child.fixtureBootRefused }));
       children.delete(child);
@@ -264,6 +323,20 @@ module.exports = function evaluatorPreviewRegistryLab () {
   };
   lab.stopWorker = async worker => {
     await lab.stopStream();
+    if (worker.child.fixtureBootRefused) {
+      // Refused startup has no running role command surface. The bootError IPC
+      // precedes process exit, so drain that actual exit without sending close.
+      const result = worker.child.exitCode !== null || worker.child.signalCode !== null
+        ? { code: worker.child.exitCode, signal: worker.child.signalCode }
+        : await new Promise((resolve, reject) => {
+          const stopped = (code, signal) => { clearTimeout(timer); resolve({ code, signal }); };
+          const timer = setTimeout(() => { worker.child.off('exit', stopped); reject(new Error('Evaluator refused worker exit watchdog')); }, 5000);
+          worker.child.once('exit', stopped);
+        });
+      assert.equal(result.code, 1, 'BOOT_REFUSED_WORKER_MUST_EXIT_NONZERO');
+      assert.equal(result.signal, null, 'BOOT_REFUSED_WORKER_MUST_EXIT_WITHOUT_FORCED_SIGNAL');
+      return result;
+    }
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('release'); await worker.call('close');
     const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
@@ -307,6 +380,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     await attempt(() => lab.stopChildren());
     if (producer) await attempt(() => producer.close());
     if (provisioned) await attempt(() => provisioned.close());
+    if (verificationNamespace) await attempt(() => lab.admin.query('DROP SCHEMA "' + verificationNamespace + '" CASCADE'));
     if (lab.admin) for (const role of [...addedRoles].reverse()) await attempt(async () => {
       await lab.admin.query('DROP OWNED BY "' + role + '"');
       await lab.admin.query('DROP ROLE "' + role + '"'); addedRoles.delete(role);
