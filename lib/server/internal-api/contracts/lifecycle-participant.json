@@ -918,6 +918,67 @@
         ],
         "additionalProperties": false
       }
+    },
+    "getApiHealth": {
+      "path": "/cohort/api-health",
+      "request": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "request": {
+            "type": "string",
+            "pattern": "^[0-9a-f-]{36}$"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "displaySettings": {
+            "type": "object",
+            "properties": {
+              "ready": {
+                "type": "boolean"
+              },
+              "state": {
+                "enum": [
+                  "pending",
+                  "ready",
+                  "unavailable"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "pattern": "^[A-Z0-9_]{1,64}$"
+              }
+            },
+            "required": [
+              "ready",
+              "state"
+            ],
+            "additionalProperties": false
+          },
+          "storageReady": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "request",
+          "ready",
+          "storageReady"
+        ],
+        "additionalProperties": false
+      }
     }
   }
 }

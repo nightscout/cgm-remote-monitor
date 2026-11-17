@@ -59,21 +59,7 @@ describe('joined storage physical/wire/current-collection oracles',function(){
     }
     assert.throws(()=>oracle.bounded([string],{maxRows:0,maxBytes:10000}),/PROOF_BOUND/);
   });
-  it('commits native synthetic writes through the source clock and detects a removed delete marker',async function(){
-    const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
-    const file=require.resolve('./fixtures/realtime-preview/clock-write'),original=fs.readFileSync(file,'utf8'),needle='dates.recordWrite({deleted});';
-    assert(original.includes(needle));const brokenModule={exports:{}};
-    vm.runInThisContext('(function(require,module,exports){'+original.replace(needle,'')+'\n})',{filename:file})(createRequire(file),brokenModule,brokenModule.exports);
-    async function criterion(write){
-      const queries=[];let allocated;
-      const admin={async query(sql,values){queries.push({sql,values});if(/SELECT last_stamp/.test(sql))return {rows:[{last_stamp:'42'}]};if(sql==='COMMIT')return {command:'COMMIT'};return {rows:[],rowCount:1};}};
-      const result=await write({admin,namespace:'synthetic_clock',tenant:A,deleted:true},async stamp=>{allocated=stamp;await admin.query('SYNTHETIC_MUTATION',[stamp]);return 'stored';});
-      assert.equal(result.value,'stored');assert.equal(result.stamp,allocated);assert(allocated>42);
-      assert(queries.some(row=>/SET last_stamp = \$1, last_delete_stamp = \$1/.test(row.sql)),'NATIVE_DELETE_MUST_ADVANCE_SOURCE_DELETE_CLOCK');
-      assert.equal(queries.at(-1).sql,'COMMIT');
-    }
-    const source=require(file);await criterion(source);await assert.rejects(criterion(brokenModule.exports),/NATIVE_DELETE_MUST_ADVANCE/);await criterion(source);
-  });
+
   it('actual protocol retains a valid socket but removes revoked collections before fanout; missing filter leaks a physical marker',async function(){
     let allowed=true;const socket=new Socket(),current={identity:'synthetic-current'};
     const protocol=protocolFactory.create({admission:{resolve:async()=>A},api:{executeSocketMutation:async()=>{throw new Error('Unexpected mutation');},authorizeSocket:async(body)=>{

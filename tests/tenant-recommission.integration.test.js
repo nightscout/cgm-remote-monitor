@@ -294,7 +294,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           namespaces: [...entry.namespaces], identity, intakeProfileDigest: profile.digest, datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
         peers.push(await transport.open(entry.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (_ctx, body) => status(body.request),
           invalidateTenant: async (_ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
-          getOperations: async (_ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] }) })));
+          getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (_ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] }) })));
       }
       cohort = await cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: entries, intakeProfile: profile });
       pool = new Pool({ connectionString: roleURI, max: 1 });

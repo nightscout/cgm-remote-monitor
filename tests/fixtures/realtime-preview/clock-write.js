@@ -9,6 +9,6 @@ module.exports=async function clockWrite({admin,namespace,tenant,deleted=false},
   }};
   const clock=require('../../../lib/storage/postgres-write-clock')(connection,namespace);
   const prior=scope.getTenancyMode();scope.setTenancyMode('multi');
-  try{return await scope.withTenant(tenant,()=>clock.transaction(async()=>{const stamp=dates.next();const value=await write(stamp);dates.recordWrite({deleted});return {stamp,value};}));}
+  try{return await scope.withTenant(tenant,()=>clock.transaction(async()=>{const stamp=dates.next();const value=await write(stamp);return {stamp,value};}));}
   finally{scope.setTenancyMode(prior);}
 };

@@ -186,7 +186,7 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
       peers.push(await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
         getStatus: async (ctx, body) => status(body.request),
         invalidateTenant: async (ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
-        getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
+        getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
       })));
     }
     this.entries = entries;

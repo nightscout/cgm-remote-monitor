@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const express = require('express'), request = require('supertest');
 const pg = require('pg');
+const scope = require('../lib/storage/tenant-scope');
 const { optInSuite } = require('./support/opt-in');
 const fixture = require('./fixtures/operation-window-minimum-native');
 
@@ -22,7 +23,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
   this.timeout(180000);
   const f = fixture.create({ receiptPrefix: 'rest-fused-' });
   const tokens = {}, secrets = {};
-  let legacy, authority, verifiers, graph, original, sent = null;
+  let legacy, authority, verifiers, graph, activity, admission, gate, original, sent = null;
   // Driver-level statement tap for this process: every pool and client, counted
   // only while a request runs. Restored in after().
   function tap (fn) {
@@ -34,6 +35,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     const { prepare } = require('../lib/secrets/legacy-verifiers');
     await f.admin(async admin => {
       for (const tenant of [f.A, f.B]) {
+        await admin.query('INSERT INTO \"'+f.ns.control+'\".tenant_activity (tenant_id,version,paused,suspended) VALUES ($1,1,false,false)',[tenant]);
         const root = Buffer.from('synthetic-root-' + tenant), prepared = prepare(root, [{ subjectId: 'writer', tokenPrefix: 'writer' }]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_config (tenant_id,root_reference_id,root_verifiers,verifier_root_reference_id,root_version) VALUES ($1,'root',$2,'root',1)`, [tenant, prepared.rootVerifiers]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_subjects (tenant_id,subject_id,token_prefix,verifiers,verifier_token_prefix,credential_version) VALUES ($1,'writer','writer',$2,'writer',1)`, [tenant, prepared.subjects[0].verifiers]);
@@ -47,13 +49,14 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       }
     });
   }
-  function application ({ authorityStore = authority, credentials = verifiers } = {}) {
+  function application ({ authorityStore = authority, credentials = verifiers, separateAdmission = false } = {}) {
     const access = require('../lib/server/tenant-app/data-access')({ authority: authorityStore, readConnection: f.lower, secrets: credentials,
       verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: DOMAINS, legacyCollections: DOMAINS });
     const unavailable = async () => { throw new Error('outside fixture'); };
     return require('../lib/server/tenant-app').createTenantApp({ resolver: { resolve: async req => req.hostname === 'a.example.test' ? f.A : f.B },
       verifyCredential: unavailable, authorizeRequest: unavailable, tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
       subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter: express.Router(), legacyRouter: graph.legacyRouter, dataAccess: access,
+      requestContext: admission.context, admitRequest: separateAdmission ? async (tenant,req,fn) => { await gate(tenant,req); return fn(); } : admission.request,
       operationWindow: f.window });
   }
   const host = tenant => tenant === f.A ? 'a.example.test' : 'b.example.test';
@@ -70,10 +73,10 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     return carrier === 'token' ? call : call.set('api-secret', secrets[tenant]);
   };
   const count = (seen, pattern) => seen.filter(text => pattern.test(text)).length;
-  function oneAuthorityTransaction (seen, expectedTransactions) {
+  function oneAuthorityTransaction (seen, expectedTransactions, expectedChecks = 1) {
     assert.equal(count(seen, /^BEGIN/), expectedTransactions, 'ONE_TRANSACTION_FOR_VERIFIER_AND_AUTHORITY');
-    assert.equal(count(seen, VERIFIER), 1, 'CURRENT_VERIFIER_READ_EVERY_REQUEST');
-    assert.equal(count(seen, AUTHORITY), 1, 'CURRENT_AUTHORITY_READ_EVERY_REQUEST');
+    assert.equal(count(seen, VERIFIER), expectedChecks, 'CURRENT_VERIFIER_READ_EVERY_REQUEST');
+    assert.equal(count(seen, AUTHORITY), expectedChecks, 'CURRENT_AUTHORITY_READ_EVERY_REQUEST');
     const begin = seen.findIndex(text => /^BEGIN/.test(text)), commit = seen.indexOf('COMMIT');
     assert(begin < seen.findIndex(text => VERIFIER.test(text)) && seen.findIndex(text => AUTHORITY.test(text)) < commit,
       'VERIFIER_AND_AUTHORITY_INSIDE_FIRST_TRANSACTION');
@@ -93,15 +96,19 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       return original.apply(this, args);
     };
     await seed();
-    legacy = await require('../lib/secrets/legacy-postgres')({ connectionString: f.urls.api, namespace: f.ns.legacy,
+    legacy = await require('../lib/secrets/legacy-postgres')({ connectionString: f.urls.api, connection:f.lower, namespace: f.ns.legacy,
       localVerification: true, verificationConnection: f.lower });
     authority = await require('../lib/tenant-authorization/postgres')({ connectionString: f.urls.api, namespace: f.ns.authorization, connection: f.lower });
     verifiers = require('../lib/secrets/legacy-verifiers').create({ read: legacy.readVerification, usesConnection: legacy.usesConnection,
       verifyToken: () => { throw Object.assign(new Error('SECRETS_TOKEN_INVALID'), { code: 'SECRETS_TOKEN_INVALID' }); } });
+    await f.admin(async admin => { for(const sql of require('../lib/tenant-activity/postgres').grants({namespace:f.ns.control,reader:f.l.roles.api})) await admin.query(sql); });
+    activity = await require('../lib/tenant-activity/postgres').create({connection:f.lower,namespace:f.ns.control,capability:'reader'});
+    gate = require('../lib/tenant-activity/serving').createServingGate(require('../lib/tenant-activity/eligibility').create({read:activity.read}));
+    admission = require('../lib/server/serve/api-admission')(f.lower,gate);
     const environment = require('../lib/server/tenant-app/environment');
     graph = await require('../lib/server/serve/preview-domains')({ config: { domains: DOMAINS, legacyEnabled: true, contextEnabled: true,
       bindings: new Map([[f.A, {}], [f.B, {}]]), environments: new Map([f.A, f.B].map(t => [t, environment()])),
-      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: f.lower, exchange: async () => null });
+      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: admission.writes, exchange: async () => null });
   });
   after(async () => {
     try { if (original) pg.Client.prototype.query = original; }
@@ -120,18 +127,14 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       oneAuthorityTransaction(read.seen, 1);
       assert.equal(count(read.seen, /FROM "[a-z_]+"\."entries"/), 1, 'JOINED_CLINICAL_READ');
       const write = await tap(() => post(app, f.B, carrier).expect(200));
-      oneAuthorityTransaction(write.seen, 2);
+      oneAuthorityTransaction(write.seen, 2, 2);
       report[carrier] = { get: read.seen.length, post: write.seen.length };
     }
     console.log('REST_FUSED_STATEMENTS ' + JSON.stringify(report));
   });
 
-  it('control: separate verifier transaction restores a second acquisition and fails the budget', async function () {
-    // The verifier store no longer declares the request connection: data access
-    // keeps the prior separate verifier transaction on the same pool.
-    const { usesConnection, ...separate } = verifiers;
-    assert.equal(typeof usesConnection, 'function');
-    const app = application({ credentials: separate });
+  it('control: separate activity admission restores a second transaction and fails the budget', async function () {
+    const app = application({ separateAdmission: true });
     const { seen } = await tap(() => get(app, f.A).expect(200));
     assert.equal(count(seen, /^BEGIN/), 2, 'BROKEN_FUSION_WAS_EXERCISED');
     assert.throws(() => oneAuthorityTransaction(seen, 1), /ONE_TRANSACTION_FOR_VERIFIER_AND_AUTHORITY/);
@@ -181,6 +184,35 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       await f.sql(`UPDATE "${f.ns.legacy}".legacy_credential_config SET root_verifiers=$2, root_version=1 WHERE tenant_id=$1`, [f.A, config.root_verifiers]);
     }
     await get(app, f.A, 'token').expect(200); await get(app, f.A, 'secret').expect(200);
+  });
+
+  it('refuses current-effect revocation after request admission without writing, then regrant restores the effect',async()=>{
+    const principal={kind:'subject',subjectId:'writer'},permission='api:entries:create';
+    await admission.context(f.A,undefined,async()=>{
+      await admission.request(f.A,{method:'POST'},()=>authority.authorize({tenant:f.A,principal,permission}));
+      await f.sql('DELETE FROM "'+f.ns.authorization+'".tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=\'writer\'',[f.A]);
+      try {
+        await assert.rejects(scope.withTenant(f.A,()=>admission.writes.transaction(()=>{assert.fail('REVOKED_EFFECT_MUST_NOT_RUN');})),{code:'TENANT_DATA_FORBIDDEN'});
+      }finally{await f.sql('INSERT INTO "'+f.ns.authorization+'".tenant_authorization_subject_roles(tenant_id,subject_id,role_name) VALUES($1,\'writer\',\'writer\')',[f.A]);}
+      assert.equal(await scope.withTenant(f.A,()=>admission.writes.transaction(async()=>true)),true);
+    });
+  });
+
+  it('joins activity with authority, preserves paused uploads, refuses suspended effects and keeps API activity read-only',async()=>{
+    const app=application();
+    const before=await tap(()=>get(app).expect(200));
+    assert.equal(count(before.seen,/FROM "[a-z_]+".tenant_activity/),1); oneAuthorityTransaction(before.seen,1);
+    await f.sql('UPDATE "'+f.ns.control+'".tenant_activity SET paused=true WHERE tenant_id=$1',[f.A]);
+    try {await get(app).expect(423);await post(app).expect(200);await get(app,f.B).expect(200);
+      await f.sql('UPDATE "'+f.ns.control+'".tenant_activity SET suspended=true WHERE tenant_id=$1',[f.A]);
+      await get(app).expect(423);await post(app).expect(423);
+      await scope.withTenant(f.A,async()=>{
+        await assert.rejects(admission.writes.transaction(()=>f.lower.query('SELECT 1')),{code:'TENANT_SUSPENDED'});
+        await assert.rejects(f.lower.query('UPDATE "'+f.ns.control+'".tenant_activity SET paused=false WHERE tenant_id=$1',[f.A]),error=>error.code==='42501');
+      });
+    }finally{await f.sql('UPDATE "'+f.ns.control+'".tenant_activity SET paused=false,suspended=false WHERE tenant_id=$1',[f.A]);}
+    await get(app).expect(200);
+    await request(app).get('/api/v1/entries/sgv.json?count=1&token='+tokens[f.A]).set('Host',host(f.B)).expect(401);
   });
 
   it('refuses a maintenance-locked, suspended or regenerated tenant before any fused read while the other tenant continues', async function () {

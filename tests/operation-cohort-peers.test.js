@@ -38,7 +38,7 @@ async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localM
     const entry=entries[index], options={intakeProfile}, f=fixture(options);
     const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
-    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
+    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({health:()=>flags.apiHealth||{ready:true,storageReady:true},close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:registryLabel?[registryLabel]:[A,B],namespaces:entry.namespaces,participant:entry});
     await cohort.boot(roles[index],{...(registryLabel?{registry:{namespace:registryLabel.slice(9)}}:{}),tenantIds:registryLabel?[registryLabel]:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
     // serve.internal binds the lifecycle handlers; the recording transport stands in for it.
@@ -336,5 +336,20 @@ describe('selected fixed registry roster control',()=>{
  it('control: restoring label-only local state breaks actual UUID restore-peer admission with unchanged OIDs; exact source restoration admits',async()=>{
   const p=require('./fixtures/lifecycle-domain-profile').profile();const change=source=>{const needle='tenants:new Set(selectedRoster||tenants)';assert.equal(source.split(needle).length,2);return source.replace(needle,'tenants:new Set(tenants)');};
   await assert.rejects(lab(undefined,1000,p,'registry:synthetic_registry',change),{code:'RESTORE_COHORT_PROTOCOL'});const restored=await lab(undefined,1000,p,'registry:synthetic_registry');try{const pin=await restored.coordinator.pin(restored.remote,A,{client:restored.operator});await restored.coordinator.releasePin(pin);}finally{await restored.close();}
+ });
+});
+
+
+describe('private API health on the actual cohort control surface',function(){
+ it('reports display refusal separately from raw storage readiness and refuses non-API roles',async()=>{
+  const f=await lab();try{
+   const request='00000000-0000-4000-8000-000000000001';
+   f.flags.apiHealth={ready:false,storageReady:true,displaySettings:{ready:false,state:'unavailable',code:'SETTINGS_STORE_UNSAFE'}};
+   const health=await f.locals.get(0).operations.getApiHealth({}, {request});
+   assert.deepEqual(health,{request,...f.flags.apiHealth});
+   await assert.rejects(f.locals.get(1).operations.getApiHealth({}, {request}),{code:'RESTORE_COHORT_COMPONENT_UNSELECTED'});
+   f.flags.apiHealth={ready:true,storageReady:true,displaySettings:{ready:true,state:'ready'}};
+   assert.equal((await f.locals.get(0).operations.getApiHealth({}, {request})).ready,true);
+  }finally{await f.close();}
  });
 });

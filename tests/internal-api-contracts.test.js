@@ -21,7 +21,7 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
     assert.deepEqual(Object.keys(contracts.completedOutput.operations), ['hintCompletedOutput']);
     assert.equal(Object.hasOwn(contracts, 'intakeState'), false, 'SYNTHETIC_INTAKE_STATE_CONTRACT_RETIRED');
-    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations']);
+    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations', 'getApiHealth']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
@@ -34,7 +34,7 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);

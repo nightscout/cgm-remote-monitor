@@ -8,7 +8,7 @@ const connect = require('../../lib/storage/postgres-connection');
 const decorate = require('../../lib/storage/postgres-write-clock');
 const scope = require('../../lib/storage/tenant-scope');
 
-module.exports = function clockPortLab () {
+module.exports = function clockPortLab ({ replicas = 2 } = {}) {
   const name = 'clock_test_' + crypto.randomBytes(8).toString('hex');
   const role = name + '_app';
   const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
@@ -49,7 +49,7 @@ module.exports = function clockPortLab () {
       await admin.query(`GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;
       url.password = password;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < replicas; i++) {
         const connection = await connect({ connectionString: url.toString(), max: 4,
           application_name: name + '_' + i, statement_timeout: 10000, connectionTimeoutMillis: 5000 });
         raw.push(connection);

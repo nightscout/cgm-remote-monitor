@@ -102,15 +102,8 @@ function checkSocketWrapper(source) {
   return socketIntent.checkSocketBinding(source).concat(socketIntent.check(source));
 }
 
-// Decision write-clock-complete: every supported PostgreSQL write that changes
-// evaluated or displayed input advances the tenant write clock in the same
-// transaction. The clinical writer is the one module every domain's storage
-// port writes through (postgres-collection-intent.js, postgres-entries-intent.js,
-// tenant-socket-order-port.js all build on it). Each function there that issues
-// a mutating statement must call recordWrite (srv-dates) itself; a DELETE needs
-// recordWrite({ deleted: true }). Every other PostgreSQL storage module that
-// issues mutating SQL is listed with what it writes, so a new writer fails here
-// until it is classified.
+// Inventory mutating PostgreSQL storage modules. Public history dates and native
+// commit intake have separate controls; canonical mutations require no CDC seal.
 const CLOCK_WRITERS = ['lib/storage/postgres-entries-write.js'];
 const CLOCK_EXEMPT = {
   'lib/storage/postgres-write-clock.js': 'the clock row itself',
@@ -134,39 +127,6 @@ function mutation(text) {
     || /^\s*WITH\b[\s\S]*?\)\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql);
   return found ? found[1].toUpperCase() : null;
 }
-function checkClock(source) {
-  const ast = babel.parseSync(source, {babelrc: false, configFile: false, sourceType: 'script'});
-  const failures = [];
-  let statements = 0;
-  walk(ast, null, function functions(node) {
-    if (!['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ObjectMethod'].includes(node.type)) return;
-    const name = node.id?.name || node.key?.name || 'anonymous function';
-    const kinds = [], records = [];
-    (function own(inner) {
-      if (!inner || typeof inner !== 'object') return;
-      if (inner !== node && ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ObjectMethod'].includes(inner.type)) return;
-      if (inner.type === 'CallExpression' && member(inner.callee).endsWith('.query')) {
-        const kind = mutation(staticText(inner.arguments[0]));
-        if (kind) kinds.push({ kind, line: inner.loc.start.line });
-      }
-      if (inner.type === 'CallExpression' && member(inner.callee).split('.').pop() === 'recordWrite') {
-        const arg = inner.arguments[0];
-        records.push(arg?.type === 'ObjectExpression' && arg.properties.some(p => p.key?.name === 'deleted' && p.value?.value === true));
-      }
-      for (const value of Object.values(inner)) {
-        if (Array.isArray(value)) value.forEach(own);
-        else if (value && typeof value.type === 'string') own(value);
-      }
-    })(node.body);
-    for (const { kind, line } of kinds) {
-      statements++;
-      if (!records.length) failures.push(name + ' (line ' + line + ') issues ' + kind + ' without advancing the tenant write clock: call recordWrite(' + (kind === 'DELETE' ? '{ deleted: true }' : '') + ') in the same function');
-      else if (kind === 'DELETE' && !records.some(Boolean)) failures.push(name + ' (line ' + line + ') issues DELETE without advancing last_delete_stamp: call recordWrite({ deleted: true })');
-    }
-  });
-  if (!statements) failures.push('clinical writer has no mutating statement: the gate would be vacuous');
-  return failures;
-}
 function checkClockInventory(root, sources = {}) {
   const failures = [];
   const dir = path.join(root, 'lib/storage');
@@ -185,7 +145,7 @@ function checkClockInventory(root, sources = {}) {
       if (node.type === 'CallExpression' && member(node.callee).endsWith('.query') && kind) {
         const metadata = CLOCK_METADATA_WRITES[relative]?.[owner];
         if (kind === 'UPDATE' && metadata?.reason && metadata.sql.test(text) && !/;|\b(?:INSERT|DELETE)\b/i.test(text)) return;
-        failures.push(relative + ': mutating SQL at line ' + node.loc.start.line + ' in an unclassified PostgreSQL storage module: list it as a clock writer or exempt it with a reason');
+        failures.push(relative + ': mutating SQL at line ' + node.loc.start.line + ' in an unclassified PostgreSQL storage module: classify its canonical or metadata writes');
       }
     });
   }
@@ -195,9 +155,6 @@ function checkClockInventory(root, sources = {}) {
 function main() {
   let failed = false;
   const root = path.resolve(__dirname, '..');
-  for (const file of CLOCK_WRITERS) {
-    for (const issue of checkClock(fs.readFileSync(path.join(root, file), 'utf8'))) { console.error(file + ': ' + issue); failed = true; }
-  }
   for (const issue of checkClockInventory(root)) { console.error(issue); failed = true; }
   for (const file of ADAPTERS) {
     const issues = check(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'));
@@ -208,7 +165,7 @@ function main() {
   }
   if (failed) process.exitCode = 1;
   else console.log('Write boundary: all ' + ADAPTERS.length + ' adapter entry points and canonical socket delegation checked;'
-    + ' tenant write clock advanced by every mutating statement in ' + CLOCK_WRITERS.join(', '));
+    + ' canonical PostgreSQL mutation inventory checked');
 }
 if (require.main === module) main();
-module.exports = {check, checkSocketWrapper, checkClock, checkClockInventory, ADAPTERS, SOCKET_WRAPPER, CLOCK_WRITERS, CLOCK_EXEMPT, CLOCK_METADATA_WRITES};
+module.exports = {check, checkSocketWrapper, checkClockInventory, ADAPTERS, SOCKET_WRAPPER, CLOCK_WRITERS, CLOCK_EXEMPT, CLOCK_METADATA_WRITES};

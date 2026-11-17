@@ -68,7 +68,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     subjectAdmin: { writerConnectionEnv: 'NS_API_ROOT_WRITER_PG', ownerPolicy: { catalogue: ['*'] } },
     postgres: { connectionEnv: 'NS_API_PG', readinessConnectionEnv: 'NS_READINESS_PG',
       namespaces: { ...domainNamespaces, settings: ns.settings, authorization: ns.authorization, secrets: ns.secrets, legacy: ns.legacy, access: ns.access, clock: ns.clock } },
-    vault: vault('vault-token'), resolution: { mode: 'direct-alias' }, registry: { ...registry }, tenantSettings, activity,
+    vault: vault('vault-token'), resolution: { mode: 'direct-alias' }, registry: { ...registry }, tenantSettings, activity: { namespace: ns.control },
     accessTokens: { issuer: 'nightscout-test-plan', audience: 'nightscout-data' },
     socketForwarding: { maxTenants: 10000, maxMessageBytes: 1048576, operationTimeoutMs: 5000,
       alarm: { connectionEnv: 'NS_ALARM_PG', namespace: ns.alarm }, consumerState: { evaluatorConfigEnv: 'MULTITENANT_EVALUATOR_CONFIG' } } };

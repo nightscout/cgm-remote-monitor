@@ -65,7 +65,7 @@ optInSuite(process.env.NS_API_ROSTER_DOCKER_TEST === '1',
     peers[entry.id] = await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
       getStatus: async (ctx, body) => { calls[entry.id].getStatus++; return status(body.request); },
       invalidateTenant: async (ctx, body) => { calls[entry.id].invalidateTenant++; return { ...status(body.request), tenant: body.tenant }; },
-      getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
+      getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] })
     }));
   }
   async function restore (participants, body = async () => 'restored') {

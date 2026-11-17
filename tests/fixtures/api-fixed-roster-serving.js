@@ -103,7 +103,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       const response = request => ({ ...status, participant: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces], incarnation, backends: [], request });
       peers.push(await transport.open(peer.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (ctx, body) => response(body.request),
         invalidateTenant: async (ctx, body) => ({ ...response(body.request), tenant: body.tenant }),
-        getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: peer.id, incarnation, operations: [] }) })));
+        getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: peer.id, incarnation, operations: [] }) })));
     }
     privateProxy = serviceProxy(true); await new Promise(resolve => privateProxy.listen(port, '127.0.0.4', resolve));
     publicProxy = serviceProxy(false); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));

@@ -105,7 +105,7 @@ module.exports = function fixture () {
     const apiNamespaces = { ...Object.fromEntries(domains.map(domain => [domain, ns[domain]])), clock: ns.clock, authorization: lab.namespaces.authorization, legacy: lab.namespaces.legacy, secrets: lab.namespaces.secrets };
     for (const name of Object.values(apiNamespaces)) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(check.name)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(check.name)); }
     await readerGrants(display, [lab.namespaces.settings, lab.namespaces.operatorPolicy]);
-    for (const sql of require('../../lib/tenant-activity/postgres').grants({ namespace: lab.namespaces.control, reader: activity.name })) await q(sql);
+    for (const reader of [activity.name, lab.roles?.api].filter(Boolean)) for (const sql of require('../../lib/tenant-activity/postgres').grants({ namespace: lab.namespaces.control, reader })) await q(sql);
     const activityOperator = await role('activity_operator');
     for (const sql of require('../../lib/tenant-activity/postgres').grants({ namespace: lab.namespaces.control, operator: activityOperator.name })) await q(sql);
     activityWriter = await require('../../lib/tenant-activity/postgres').create({ connectionString: activityOperator.url, namespace: lab.namespaces.control, capability: 'operator' });
@@ -149,7 +149,7 @@ module.exports = function fixture () {
     config = { version: 1, domains, legacy: true, context: true, writeClock: true, postgres: { connectionEnv: 'API_PG', readinessConnectionEnv: 'CHECK_PG', namespaces: apiNamespaces },
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'VAULT_TOKEN', allowInsecureLoopback: true }, resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 250 }, tenantSettings: presentation,
-      activity: { connectionEnv: 'ACTIVITY_PG', namespace: lab.namespaces.control },
+      activity: { namespace: lab.namespaces.control },
       socketForwarding: { maxTenants: 100, maxMessageBytes: 1048576, operationTimeoutMs: 5000, alarm: { connectionEnv: 'ALARM_PG', namespace: alarmNamespace } } };
     fs.writeFileSync(path.join(directory, 'api.json'), JSON.stringify(config), { mode: 0o600 });
     if(operation==='sharded'){
@@ -211,7 +211,7 @@ module.exports = function fixture () {
         // Explicit idle fixture peers: no clinical role/workload/backend is
         // attributed to them. Actual API+RT actors below remain authoritative.
         const status=()=>{const current=placementReader.current();return {...template,participant:id,roles:[id],incarnation,namespaces:[...peer.namespaces].sort(),backends:[],placement:{generation:current.generation,digest:current.digest,rule:current.rule,shardCount:current.shardCount,worker:null,incarnation:null,shards:[]}};};
-        idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant}),getOperations:async(ctx,body)=>({request:body.request,tenant:body.tenant,participant:id,incarnation,operations:[]})})));
+        idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant}),getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations:async(ctx,body)=>({request:body.request,tenant:body.tenant,participant:id,incarnation,operations:[]})})));
       }
     }
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');

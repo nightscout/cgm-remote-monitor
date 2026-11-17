@@ -136,7 +136,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       await writer.get(A, 'isolated'); // hold its real pool/backend open throughout preflight
       server = await ipc.open(endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (context, body) => status(body.request),
         invalidateTenant: async (context, body) => ({ ...await status(body.request), tenant: body.tenant }),
-        getOperations: async (context, body) => { const current = await status(body.request); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }));
+        getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (context, body) => { const current = await status(body.request); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }));
       cohort = await cohorts.createRemote({ namespace: ns.control, tenants: [A, B], participants: [{ id: 'serving-reference', roles, namespaces, endpoint }] });
       pin = await cohorts.pin(cohort, A, { client: lab.admin });
       const before = await cohorts.assertComplete(cohort, A, { client: lab.admin }); assert.ok(before.exempt >= 1);
