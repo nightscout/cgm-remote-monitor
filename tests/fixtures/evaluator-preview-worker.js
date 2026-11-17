@@ -5,16 +5,22 @@
 let held, release, armed = false, running, context, starting;
 // Count actual role queries without changing their result or timing contract.
 const clinicalReads={snapshots:0,statistics:0,catalogue:0,exports:0,imports:0};
+for(const key of Object.keys(clinicalReads))clinicalReads[key+'Completed']=0;
 const pg=require('pg'),query=pg.Client.prototype.query;
-pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text;
+pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text,access=[];
   if(typeof sql==='string'){
-    if(sql.startsWith('CREATE_REPLICATION_SLOT ')&&sql.includes(' TEMPORARY '))clinicalReads.exports++;
-    if(sql.startsWith('SET TRANSACTION SNAPSHOT '))clinicalReads.imports++;
-    if(sql.includes('snapshot_source'))clinicalReads.snapshots++;
-    if(sql.includes('pg_column_size(doc)'))clinicalReads.statistics++;
-    if(sql.includes('information_schema.columns'))clinicalReads.catalogue++;
+    if(sql.startsWith('CREATE_REPLICATION_SLOT ')&&sql.includes(' TEMPORARY '))access.push('exports');
+    if(sql.startsWith('SET TRANSACTION SNAPSHOT '))access.push('imports');
+    if(sql.includes('snapshot_source'))access.push('snapshots');
+    if(sql.includes('pg_column_size(doc)'))access.push('statistics');
+    if(sql.includes('information_schema.columns'))access.push('catalogue');
   }
-  return query.apply(this,args);
+  for(const key of access)clinicalReads[key]++;
+  const completed=()=>{for(const key of access)clinicalReads[key+'Completed']++;};
+  const callback=args[args.length-1];
+  if(access.length&&typeof callback==='function')args[args.length-1]=function(error,...values){if(!error)completed();return callback.call(this,error,...values);};
+  const result=query.apply(this,args);
+  return access.length&&typeof callback!=='function'&&result?.then?result.then(value=>{completed();return value;}):result;
 };
 const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item === undefined
   ? { probeType: 'undefined' } : typeof item === 'number' && (!Number.isFinite(item) || Object.is(item, -0))
@@ -30,6 +36,16 @@ if(process.env.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT==='1'){
   if(!source.includes(needle))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
   require(file);const module={exports:{}};
   require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'")+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
+  require.cache[file].exports=module.exports;
+}
+// Native source-access control: force an actual imported source snapshot on
+// every reconcile. The timer witness must turn red even if coverage is unchanged.
+if(process.env.NS_EVALUATOR_FIXTURE_WARM_SOURCE_MUTANT==='1'){
+  const file=require.resolve('../../lib/storage/postgres-durable-replay'),source=require('node:fs').readFileSync(file,'utf8');
+  const needle='if (stream && cached && streamState?.ready && saved.contract_digest === snapshotDigest &&';
+  if(!source.includes(needle))throw Error('WARM_SOURCE_CONTROL_SEAM_MISSING');
+  require(file);const module={exports:{}};
+  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,'if (false &&')+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
   require.cache[file].exports=module.exports;
 }
 const evaluatorPath = require.resolve('../../lib/data/tenant-projection-evaluator');

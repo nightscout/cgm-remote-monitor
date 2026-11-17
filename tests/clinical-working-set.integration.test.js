@@ -18,6 +18,11 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
   this.timeout(20000);
   let db, connection, handle, previous, recovery, source, config, queries = [], domains, oldRows, sourceCount;
   const checkpoint = 'synthetic_window_work.tenant_consumer_checkpoint';
+  function newHandle(factory=replayFactory){
+    const result=factory({connection,checkpointTable:checkpoint,clockTable:'synthetic_window_clock.tenant_write_clock',domains,consumer:'evaluator-synthetic',projectionVersion:'clinical-current-rows-v1',pageSize:5,maxRows:limits.maxRows,stream:true});
+    result.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
+    return result;
+  }
   before(async () => {
     previous = scope.getTenancyMode();scope.setTenancyMode('multi');
     config=process.env.CLINICAL_WINDOW_PG_SOCKET?{host:process.env.CLINICAL_WINDOW_PG_SOCKET,user:'postgres',database:'postgres'}:{connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI};
@@ -52,10 +57,9 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
       },
       async snapshotTransaction(fn) { await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try { const result = await fn();await db.query('COMMIT');return result; } catch (error) { await db.query('ROLLBACK');throw error; } }
     };
-    handle = replayFactory({ connection, checkpointTable: checkpoint, clockTable: 'synthetic_window_clock.tenant_write_clock', domains, consumer: 'evaluator-synthetic', projectionVersion: 'clinical-current-rows-v1', pageSize: 5, maxRows: limits.maxRows, stream: true });
     await db.query("SELECT * FROM pg_create_logical_replication_slot('synthetic_window_main','wal2json')");
     recovery=recoveryFactory.create({connection,createReplicationClient:()=>new Client({...config,replication:'database'}),createLockClient:()=>new Client(config),namespace:'synthetic_window_work',consumer:'evaluator-synthetic',mainSource:source,generation:async()=> 'fixture:1',timeoutMs:5000,maxQueued:4});
-    handle.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
+    handle=newHandle();
     sourceCount = (await db.query('SELECT count(*)::text AS n FROM ' + domains.entries)).rows[0].n;
     await db.query('SET ROLE synthetic_window_reader');
   });
@@ -67,6 +71,9 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     const stats = await scope.withTenant(A, () => tenantStats({ connection, tables: domains }).read(A));assert(stats.dataSize > 100000, 'WHOLE_HISTORY_BYTES_PRESERVED');assert.equal(result.stats, undefined);
     assert(!queries.some(q => /^DELETE|^INSERT INTO synthetic_window_entries/.test(q)), 'NO_SOURCE_MUTATION_FROM_CACHE');
     const b = await reconcile(B);assert.equal(b.rows.find(r => r.domain === 'entries').document.sgv, 399);
+    const durable=await scope.withTenant(A,()=>connection.query('SELECT projection FROM '+checkpoint+' WHERE tenant_id=$1',[A]));
+    assert.equal(durable.rows[0].projection[0].rows,undefined,'SQL_INPUT_MUST_NOT_RETAIN_CLINICAL_ROWS');
+    assert.equal(durable.rows[0].projection[0].ready,false,'SQL_METADATA_ALONE_CANNOT_EVALUATE');
   });
   it('warm/default engine answers match unbounded-source engine and expiry performs no source range/census reacquisition', async () => {
     const safeEnv = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
@@ -96,6 +103,17 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     queries = [];const restored = await reconcile();assert.equal(restored.rows.find(r => r.domain === 'entries').document.sgv, 123);assert(queries.some(q => q.includes('snapshot_source')), 'EXPLICIT_REBUILD_AFTER_CACHE_LOSS');
     const stats = await scope.withTenant(A, () => tenantStats({ connection, tables: domains }).read(A));assert(stats.dataSize > 100000);
     await db.query('RESET ROLE');assert.equal((await db.query('SELECT count(*)::text AS n FROM ' + domains.entries)).rows[0].n, sourceCount);await db.query('SET ROLE synthetic_window_reader');
+  });
+  it('a replacement handle rebuilds bounded input from the source while a warm handle does no source acquisition',async()=>{
+    const before=await reconcile();handle=newHandle();queries=[];
+    const cold=await reconcile();assert.deepEqual(cold.rows,before.rows);assert(queries.some(q=>q.includes('snapshot_source')),'REPLACEMENT_MUST_REBUILD_PRIVATE_CACHE');
+    queries=[];await reconcile();assert(!queries.some(q=>q.includes('snapshot_source')||q.includes('information_schema')),'WARM_REPLACEMENT_MUST_NOT_REACQUIRE');
+  });
+  it('control: forced warm reacquisition fails the native source-access witness; restored RAM path passes',async()=>{
+    const needle='if (stream && cached && streamState?.ready && saved.contract_digest === snapshotDigest &&';
+    const broken=brokenModule('../lib/storage/postgres-durable-replay',needle,'if (false &&');
+    const criterion=async factory=>{const candidate=newHandle(factory);const read=()=>scope.withTenant(A,()=>candidate.reconcile({...limits,signature:true,policy:policy.create(env,at)}));await read();queries=[];await read();assert(!queries.some(q=>q.includes('snapshot_source')||q.includes('information_schema')),'WARM_SOURCE_REACQUISITION');};
+    await assert.rejects(criterion(broken),/WARM_SOURCE_REACQUISITION/);await criterion(replayFactory);
   });
   it('control: losing the window predicate fails old-history admission; restored SQL passes', async () => {
     const broken = brokenModule('../lib/storage/postgres-durable-replay', 'const boundedSource = policy ? await windowSourceSql(policy) : null;', 'const boundedSource = null;');

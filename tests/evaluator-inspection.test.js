@@ -32,6 +32,16 @@ describe('bounded evaluator inspection v2',function(){
   await assert.rejects(f.inspect({tenants:f.ids.slice(0,129)}),/selector refused/);
   await assert.rejects(f.inspect({}),/BOUNDED_RUNTIME_SELECTOR_REQUIRED|FULL_REGISTRY/,'CONTROL_UNSELECTED_VIEW_IS_DISTINCT');
  });
+ it('exports actual source-access counters only on explicit private inspection',async function(){
+  const counts={snapshotAttempts:2,snapshotCompleted:1,catalogueAttempts:1,catalogueCompleted:1,dataAttempts:4,dataCompleted:4,residentTenants:1,residentEncodedBytes:123,evictions:0};let reads=0;
+  const f=fixture(1,undefined,undefined,options=>inspection({...options,sourceAccess:()=>{reads++;return {...counts};}}));
+  await f.inspect({tenants:[]});assert.equal(reads,0);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'source-access-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener;
+  try{listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>f.inspect(body)})}]);
+   const observed=await transport.client(endpoint,service).inspectEvaluator({tenants:[],diagnostics:'source-access-v1'});
+   assert.deepEqual(observed.diagnostics.sourceAccess,counts);assert.equal(observed.runtimeId,A);assert.equal(reads,1);
+  }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
+ });
  it('refuses the retired feed selector before effects and detects an ablated selector guard',async function(){
   const Module=require('node:module'),filename=require.resolve('../lib/server/serve/evaluator-inspection');
   const original=fs.readFileSync(filename,'utf8'),guard="if (diagnostics !== undefined && !DIAGNOSTICS.includes(diagnostics)) throw new Error('Evaluator diagnostics selector refused');";

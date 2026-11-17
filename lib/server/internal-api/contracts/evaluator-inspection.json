@@ -20,7 +20,8 @@
           "diagnostics": {
             "enum": [
               "clinical-result-v1",
-              "pending-witness-v1"
+              "pending-witness-v1",
+              "source-access-v1"
             ]
           }
         },
@@ -59,6 +60,16 @@
             "required": [
               "diagnostics",
               "tenants"
+            ]
+          },
+          {
+            "properties": {
+              "diagnostics": {
+                "const": "source-access-v1"
+              }
+            },
+            "required": [
+              "diagnostics"
             ]
           }
         ]
@@ -1179,6 +1190,68 @@
                   "tenants"
                 ],
                 "additionalProperties": false
+              },
+              "sourceAccess": {
+                "type": "object",
+                "properties": {
+                  "snapshotAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "snapshotCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "catalogueAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "catalogueCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dataAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dataCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "residentTenants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "residentEncodedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "evictions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "snapshotAttempts",
+                  "snapshotCompleted",
+                  "catalogueAttempts",
+                  "catalogueCompleted",
+                  "dataAttempts",
+                  "dataCompleted",
+                  "residentTenants",
+                  "residentEncodedBytes",
+                  "evictions"
+                ],
+                "additionalProperties": false
               }
             },
             "additionalProperties": false,
@@ -1191,6 +1264,11 @@
               {
                 "required": [
                   "pendingWitness"
+                ]
+              },
+              {
+                "required": [
+                  "sourceAccess"
                 ]
               }
             ],
