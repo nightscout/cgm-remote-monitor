@@ -348,3 +348,35 @@ describe('deployment plan contract', function () {
     });
   });
 });
+
+
+describe('API activity uses its role-owned serving connection in the published plan', function () {
+  function accepted (checker = contract) {
+    const report = checker.check(documentSet());
+    assert.equal(report.ok, true, JSON.stringify(report.processes.map(row => ({name:row.name,findings:row.findings}))));
+  }
+  it('accepts the namespace-only API activity document through schema and actual loaders', function () {
+    accepted();
+    const set = documentSet(), api = set.processes.find(row => row.roles.includes('api'));
+    const config = api.files[api.environment.MULTITENANT_PREVIEW_CONFIG];
+    assert.deepEqual(Object.keys(config.activity), ['namespace']);
+    config.activity.connectionEnv = 'NS_ACTIVITY_PG';
+    const old = contract.check(set); assert.equal(old.ok, false);
+    assert(old.processes.find(row=>row.name===api.name).findings.some(row=>row.code==='PLAN_DOCUMENT_SHAPE'));
+    delete config.activity.connectionEnv; delete config.activity.namespace;
+    assert.equal(contract.check(set).ok, false, 'the serving namespace remains mandatory');
+  });
+  it('red/restored: requiring the removed activity connection refuses the actual generated plan', function () {
+    const Module = require('node:module'), file = require.resolve('../lib/server/serve/plan-contract');
+    const broken = clone(require('../lib/server/serve/plan-contract/schema/api.schema.json'));
+    broken.properties.activity.required.unshift('connectionEnv');
+    broken.properties.activity.properties.connectionEnv = clone(require('../lib/server/serve/plan-contract/schema/evaluator.schema.json').properties.activity.properties.connectionEnv);
+    const loaded = new Module(file, module); loaded.filename=file; loaded.paths=Module._nodeModulePaths(path.dirname(file));
+    const original=loaded.require.bind(loaded); loaded.require=name=>name==='./schema/api.schema.json'?broken:original(name);
+    loaded._compile(fs.readFileSync(file,'utf8'),file);
+    assert.throws(()=>accepted(loaded.exports),assert.AssertionError);
+    const report=loaded.exports.check(documentSet());
+    assert(report.processes.find(row=>row.roles.includes('api')).findings.some(row=>row.code==='PLAN_DOCUMENT_SHAPE'&&row.path==='/activity'&&row.message==='missing required field connectionEnv'));
+    accepted();
+  });
+});

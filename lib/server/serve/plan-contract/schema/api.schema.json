@@ -362,22 +362,17 @@
     "activity": {
       "type": "object",
       "required": [
-        "connectionEnv",
         "namespace"
       ],
       "additionalProperties": false,
       "properties": {
-        "connectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
-          "description": "The name of an environment variable in the process environment; the value is never written in a document."
-        },
         "namespace": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,62}$",
           "description": "A PostgreSQL schema name."
         }
-      }
+      },
+      "description": "Activity reads use the API's tenant-bound serving connection."
     },
     "localDataAuthentication": {
       "const": "node",
