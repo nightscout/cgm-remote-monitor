@@ -59,6 +59,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
   if(text.startsWith('WITH input')){const patch=JSON.parse(args[1])[0];Object.assign(current.output,{work_observed:patch.observed,work_observed_at:patch.observed_at,work_pending_at:patch.pending_at,delivery_revision:String(BigInt(current.output.delivery_revision)+BigInt(patch.delivery_delta))});return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){current.input={checkpoint:args[4],projection:JSON.parse(args[2])};return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET checkpoint=$3, projection=')){current.input={checkpoint:args[2],projection:[JSON.parse(args[3])[0],args[5]?JSON.parse(args[5]):current.input.projection[1]]};return {rowCount:1};}
+  if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision=')){current.output.delivery_revision=String(BigInt(current.output.delivery_revision)+1n);return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET checkpoint=$3,work_completed=')){Object.assign(current.output,{work_completed:args[3],work_due_at:args[4],work_pending_at:args[5],work_completed_at:args[6],output_identity:args[7],output_digest:args[8],output_revision:String(args[9]),output_restore_generation:args[10]});if(args[12])current.output.projection=JSON.parse(args[12]);return {rowCount:1};}
   throw new Error('UNEXPECTED_RECOVERY_PROTOCOL_SQL:'+text);
  },async readOnly(text,args){return connection.query(text,args);},async acceptClinicalTransaction(options){return require('../lib/storage/clinical-stream-sql').acceptTransaction({...options,pool:{connect:async()=>({...connection,release(){}})},observeBackend:async()=>{}});},async snapshotTransaction(fn){assert.equal(active,null);active=structuredClone(durable);try{const value=await fn();durable=active;active=null;return value;}catch(error){active=null;throw error;}},async holdAdvisoryLock(){return {available:true,withTenant:(tenant,fn)=>connection.snapshotTransaction(fn),close:async()=>{}};}};
@@ -89,7 +90,7 @@ describe('durable generation recovery bootstrap obligation',()=>{
  });
  it('control: whole-projection warm read fails the metadata-only query criterion',async()=>{
   const control=require('./lib/clinical-working-set/control');
-  const broad=control('../lib/storage/postgres-durable-replay','stream && !boundary ? warmInput','stream && !boundary ? \'jsonb_build_array(projection->0) AS projection\'');
+  const broad=control('../lib/storage/postgres-durable-replay','stream && !boundary ? warmInput',"stream && !boundary ? 'jsonb_build_array(projection->0) AS projection'");
   const check=async factory=>{
    const f=recoveryFixture({factory,sameGeneration:true}),warm=await f.reconcile(),offset=f.queries.length;
    assert.deepEqual(await f.reconcile(),warm);

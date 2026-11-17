@@ -18,11 +18,12 @@ function fixture({holdCommit=false,loseReply=false}={}){
   if(text.startsWith('SELECT c.tenant_id'))return {rows:values[0].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('WITH input')){const patches=JSON.parse(values[1]);for(const patch of patches){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(patch.delivery_delta));}return {rowCount:patches.length};}
+  if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision')){const row=current.get(values[0]);row.delivery_revision=String(BigInt(row.delivery_revision)+1n);return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){const row=current.get(values[0]);row.projection=JSON.parse(values[2]);row.contract_digest=values[3];row.checkpoint=values[4];return {rowCount:1};}
   throw new Error('UNEXPECTED_SQL:'+text);
  }};
  const cache=new Map([...durable].map(([tenant,row])=>[tenant,structuredClone(row.projection[0])]));
- const options={cache,pool:{connect:async()=>{connected++;return client;}},observeBackend:async()=>{},table:'synthetic_work.tenant_consumer_checkpoint',consumer:'evaluator-synthetic',snapshotDigest:digest,completedConsumer:'evaluator-synthetic-completed',completedDigest:digest,expectedSource:native.source,lockKey:'123',assertFence:async()=> '1',assertOwner:()=>{},routes:[{schema:'synthetic_entries',table:'entries',domain:'entries'}],...limits,maxTransactionRows:100,maxTransactionBytes:100000,envelope:native.envelope([native.row('a')])};
+ const options={cache,pool:{connect:async()=>{connected++;return client;}},observeBackend:async()=>{},table:'synthetic_work.tenant_consumer_checkpoint',consumer:'evaluator-synthetic',snapshotDigest:digest,completedConsumer:'evaluator-synthetic-completed',completedDigest:digest,expectedSource:native.source,lockKey:'123',assertFence:async()=> '1',routes:[{schema:'synthetic_entries',table:'entries',domain:'entries'}],...limits,maxTransactionRows:100,maxTransactionBytes:100000,envelope:native.envelope([native.row('a')])};
  return {options,calls,durable,cache,get connected(){return connected;},commit:()=>commit()};
 }
 describe('atomic native clinical and control SQL receipt',()=>{
@@ -55,8 +56,8 @@ describe('atomic native clinical and control SQL receipt',()=>{
    await assert.rejects(sql.acceptTransaction({...f.options,initialDigest}),/CLINICAL_STREAM_CONTRACT/);assert.deepEqual(f.durable,before);
   }
   const f=fixture();for(const tenant of [A,B]){Object.assign(f.durable.get(tenant),{projection:null,checkpoint:0,contract_digest:initialDigest});f.cache.delete(tenant);}
-  const before=structuredClone(f.durable);
-  await assert.rejects(sql.acceptTransaction({...f.options,initialDigest,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),assertOwner:()=>{throw new Error('FRESH_OWNER_CHANGED');}}),/FRESH_OWNER_CHANGED/);
+  const before=structuredClone(f.durable);let fences=0;
+  await assert.rejects(sql.acceptTransaction({...f.options,initialDigest,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),assertFence:async()=>{if(++fences===4)throw new Error('FRESH_OWNER_CHANGED');return '1';}}),/FRESH_OWNER_CHANGED/);
   assert.deepEqual(f.durable,before,'FRESH_RECEIPT_MUST_ROLL_BACK_INPUT_RAW_AND_PENDING');
  });
  it('holds transport ACK until complete SQL COMMIT and does no source/window acquisition',async()=>{
@@ -70,35 +71,35 @@ describe('atomic native clinical and control SQL receipt',()=>{
   await assert.rejects(check(broken),/EARLY_COHORT_ACK/);await check(sql);
  });
  it('commits all clinical tenants and control observations together, rolling back every row on a failed fence',async()=>{
-  const f=fixture();await assert.rejects(sql.acceptTransaction({...f.options,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),observations:[{tenant:A,observed:{settings:'4'}}],assertOwner:()=>{throw new Error('OWNER_CHANGED');}}),/OWNER_CHANGED/);
+  const f=fixture();let fences=0;await assert.rejects(sql.acceptTransaction({...f.options,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),observations:[{tenant:A,observed:{settings:'4'}}],assertFence:async()=>{if(++fences===4)throw new Error('OWNER_CHANGED');return '1';}}),/OWNER_CHANGED/);
   assert.equal(f.durable.get(A).projection[0].rows.length,0);assert.equal(f.durable.get(B).projection[0].rows.length,0);assert.deepEqual(f.durable.get(A).work_observed,[]);
   for(const tenant of [A,B])f.cache.set(tenant,structuredClone(f.durable.get(tenant).projection[0]));
   await sql.acceptTransaction({...f.options,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)]),observations:[{tenant:A,observed:{settings:'4'}}]});
   assert.equal(f.durable.get(A).projection[0].rows,undefined);assert.equal(f.cache.get(A).rows.length,1);assert.equal(f.durable.get(B).projection[0].rows,undefined);assert.equal(f.durable.get(A).work_observed[1],'4');
  });
- it('writes one completed row for both raw and control delivery, preserving both revision increments',async()=>{
-  const f=fixture();let fences=0;
-  const [receipt]=await sql.acceptTransaction({...f.options,assertFence:async()=>{fences++;return '1';},
-    observations:[{tenant:A,observed:{policy:'4'}}]});
-  assert.equal(fences,1);
+ it('writes one completed row for both raw and control delivery and preserves both revision increments',async()=>{
+  const f=fixture();
+  const [receipt]=await sql.acceptTransaction({...f.options,observations:[{tenant:A,observed:{policy:'4'}}]});
   assert.equal(receipt.deliveryPending,true);
   assert.equal(receipt.rawDeliveryPending,true);
   assert.equal(f.durable.get(A).delivery_revision,'2');
   assert.equal(f.durable.get(A).work_observed[2],'4');
   assert.equal(f.durable.get(A).work_observed[5],'11');
-  const completedWrites=f.calls.filter(({text})=>text.startsWith('WITH input')||text.includes('SET delivery_revision='));
-  assert.equal(completedWrites.length,1,'COMPLETED_ROW_WRITE_REPEATED');
+  const writes=f.calls.filter(({text})=>text.startsWith('WITH input')||text.includes('SET delivery_revision='));
+  assert.equal(writes.length,1,'COMPLETED_ROW_WRITE_REPEATED');
  });
- it('control: removing the final owner guard commits work after ownership is withdrawn',async()=>{
+ it('control: removing the final generation check accepts a cohort across suspension',async()=>{
   const control=require('./lib/clinical-working-set/control');
-  const broken=control('../lib/storage/clinical-stream-sql','  assertOwner();','  // owner check removed');
+  const broken=control('../lib/storage/clinical-stream-sql',
+   "if(generation!==generations.get(tenant))throw new Error('CLINICAL_STREAM_SOURCE_FENCE');",
+   '');
   const check=async module=>{
-   const f=fixture(),before=structuredClone(f.durable);
-   await assert.rejects(module.acceptTransaction({...f.options,assertOwner(){throw new Error('OWNER_LOST_BEFORE_COMMIT');}}),/OWNER_LOST_BEFORE_COMMIT/,'OWNER_LOSS_MUST_REFUSE');
+   const f=fixture(),before=structuredClone(f.durable);let checks=0;
+   await assert.rejects(module.acceptTransaction({...f.options,assertFence:async()=>String(++checks)}),/CLINICAL_STREAM_SOURCE_FENCE/,'GENERATION_CHANGE_MUST_REFUSE');
    assert.deepEqual(f.durable,before);
   };
   await check(sql);
-  await assert.rejects(check(broken),/OWNER_LOSS_MUST_REFUSE/);
+  await assert.rejects(check(broken),/GENERATION_CHANGE_MUST_REFUSE/);
   await check(sql);
  });
  it('replays uncertain committed delivery without rewrites and returns durable lost-wake obligation',async()=>{

@@ -27,6 +27,21 @@ optInSuite(uri,'NS_TEST_POSTGRES_ADMIN_URI')('native intake authority under read
   await reader.query('COMMIT');await admin.query('SELECT pg_advisory_lock($1::bigint)',[rules.lockKey(A)]);
   try{await reader.query('BEGIN');await assert.rejects(fence(reader,A),/MAINTENANCE_FENCE/);await reader.query('ROLLBACK');}finally{await admin.query('SELECT pg_advisory_unlock($1::bigint)',[rules.lockKey(A)]);}
  });
+ it('observes suspension committed before the exclusive lock while intake holds its shared lock',async()=>{
+  await reader.query('BEGIN');
+  try{
+   assert.equal(await fence(reader,A),generation+':1');
+   await admin.query("UPDATE "+table+" SET generation=2,phase='suspended' WHERE tenant_id=$1",[A]);
+   const key=rules.lockKey(A);
+   const held=(await admin.query('SELECT pg_try_advisory_lock($1::bigint) AS held',[key])).rows[0].held;
+   if(held)await admin.query('SELECT pg_advisory_unlock($1::bigint)',[key]);
+   assert.equal(held,false);
+   assert.equal(await fence(reader,A),generation+':2','SUSPENSION_MUST_BE_VISIBLE_TO_FINAL_CHECK');
+  }finally{
+   await reader.query('ROLLBACK');
+   await admin.query("UPDATE "+table+" SET generation=1,phase='active' WHERE tenant_id=$1",[A]);
+  }
+ });
  it('control: removing the transaction lock permits maintenance to cross a checked receipt',async()=>{
   const withoutLock=require('./lib/clinical-working-set/control')('../lib/pgstream/receipt-authority',
    "const lock=(await client.query('SELECT pg_try_advisory_xact_lock_shared($1::bigint) AS held',[key])).rows[0];",
