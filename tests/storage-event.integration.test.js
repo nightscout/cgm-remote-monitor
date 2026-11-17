@@ -149,4 +149,18 @@ optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with 
   }catch(error){await db.query('ROLLBACK');throw error;}
  });
 
+ it('replays an actual committed receipt after its COMMIT reply is lost without duplicating raw work',async()=>{
+  await db.query('INSERT INTO synthetic_raw.activity VALUES($1,\'string\',$2,$3)',[A,'unknown-commit',{_id:'unknown-commit',identifier:'unknown-commit',date:1}]);
+  const event=(await wal()).find(row=>row.columns?.some(column=>column.name==='_id'&&column.value==='unknown-commit'));assert(event);
+  const currentDigest=(await db.query('SELECT contract_digest FROM '+table+' WHERE tenant_id=$1 AND consumer=$2',[A,consumer+'-completed'])).rows[0].contract_digest;
+  const receiptOptions={...options(event.cohort),completedDigest:currentDigest};
+  const before=await tail(),cache=new Map([[A,{ready:false}]]);let lost=true;
+  const uncertainPool={async connect(){const client=await pool.connect();return {async query(text,values){const result=await client.query(text,values);if(text==='COMMIT'&&lost){lost=false;throw new Error('SYNTHETIC_COMMIT_REPLY_LOST');}return result;},release:error=>client.release(error)};}};
+  await assert.rejects(sql.acceptTransaction({...receiptOptions,pool:uncertainPool,cache}),/SYNTHETIC_COMMIT_REPLY_LOST/);
+  assert.equal(cache.has(A),false,'UNCERTAIN_COMMIT_MUST_EVICT_RAM');
+  const committed=await tail();assert.equal(committed.head,before.head+1);assert.equal(committed.events.at(-1).value.doc.identifier,'unknown-commit');
+  const receipt=await sql.acceptTransaction(receiptOptions);assert.deepEqual(await tail(),committed,'COMPLETE_REPLAY_MUST_NOT_DUPLICATE_RAW_DELIVERY');
+  assert(receipt.some(row=>row.tenant===A&&row.pendingAt!==null),'COMMITTED_ACCEPTANCE_MUST_REMAIN_RECOVERABLE');
+ });
+
 });
