@@ -153,8 +153,8 @@
       "required": false 
     },
     "THEME": {
-      "description": "Default theme for new browser views. 'modern' enables the responsive dark dashboard; 'default', 'colors', and 'colorblindfriendly' retain the classic layout.",
-      "value": "colors",
+      "description": "Default theme for new browser views. Defaults to 'modern', the responsive dark dashboard; 'default', 'colors', and 'colorblindfriendly' use the classic layout. Saved browser preferences take precedence.",
+      "value": "modern",
       "required": false 
     },
     "TIME_FORMAT": {

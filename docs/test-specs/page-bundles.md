@@ -164,3 +164,7 @@ copied calculation inputs; no dependency or duplicate profile module is added.
 Extending that isolation to Loopalyzer adds 14 reports gzip bytes (72,792 reports
 / 414,249 combined). The `loopalyzerReview` entry records this follow-up; the
 73,033-byte reports limit and all other limits remain unchanged.
+
+Making Modern the default changes the app bundle by 6 gzip bytes (321,232 app
+/ 72,792 reports / 414,255 combined on Node 24.22.1). Clock gzip size remains
+63,028 bytes, and the existing resource limits all hold.

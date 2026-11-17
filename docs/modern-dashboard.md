@@ -1,12 +1,12 @@
-# Modern dashboard (opt in)
+# Modern dashboard
 
-The modern dashboard is an optional presentation of the existing Nightscout main screen, built from master 15.0.9. Enable it on your server with:
+Modern is Nightscout's default theme when no `THEME` setting or saved browser theme is present. The deployment templates also default to Modern. Existing explicit server settings and browser choices are preserved. To select Modern explicitly on your server, set:
 
 ```sh
 THEME=modern
 ```
 
-Restart Nightscout and reload the page. Remove this variable or select an existing theme (`default`, `colors`, or `colorblindfriendly`) and restart to return to the established interface. The default theme remains unchanged. There is no database migration.
+Restart Nightscout after changing server settings, then reload the page. Set `THEME=default`, `THEME=colors`, or `THEME=colorblindfriendly` to use the classic interface as the server default. The `default` theme is labelled **Classic** in Settings. Removing `THEME` now selects Modern. There is no database migration.
 
 The existing browser theme preference takes precedence over the server default, just as it does for the other themes. Select **Modern** in Settings or **Reset, and use defaults** if this browser has a saved preference. Switching back to another theme in Settings restores the classic layout on reload. Both layouts and their chart rendering always follow the same effective theme.
 

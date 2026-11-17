@@ -10,6 +10,13 @@ All notable changes to cgm-remote-monitor are documented in this file.
   Each report remembers its own choice in the browser and switches immediately
   using the loaded report data. Printed reports use the selected chart style.
 
+### Changed
+
+- **Default theme:** Use Modern for new browser views when no theme is configured,
+  including new deployments from the application templates. Preserve explicit
+  server settings and saved browser preferences. Keep the previous `default`
+  theme available as Classic in Settings.
+
 ### Fixed
 
 - **Hourly basal adjustments:** Calculate the section formerly called netIOB

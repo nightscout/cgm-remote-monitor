@@ -344,7 +344,7 @@ For contributors: `npm run headless-test-server` (`scripts/headless-test-server.
   * `NIGHT_MODE` (`off`) - possible values `on` or `off`
   * `SHOW_RAWBG` (`never`) - possible values `always`, `never` or `noise`
   * `CUSTOM_TITLE` (`Nightscout`) - Title for the main view
-  * `THEME` (`colors`) - possible values `default`, `colors`, `colorblindfriendly`, or `modern`. Set `THEME=modern` to opt into the responsive dark dashboard, refined data pills, and connected glucose trace with dashed forecasts. Existing themes retain their existing layout. As with other themes, a saved browser theme preference takes precedence; select Modern in Settings or reset browser preferences to use the server default. See [Modern dashboard](docs/modern-dashboard.md).
+  * `THEME` (`modern`) - possible values `modern`, `default`, `colors`, or `colorblindfriendly`. Modern is the default responsive dark dashboard, with refined data pills and a connected glucose trace with dashed forecasts. The other themes use the classic layout (`default` is labelled Classic in Settings). An explicit `THEME` setting and saved browser preferences are preserved; a saved browser theme takes precedence over the server setting. Select Modern in Settings or reset browser preferences to use the server default. See [Modern dashboard](docs/modern-dashboard.md).
   * `ALARM_TIMEAGO_WARN` (`on`) - possible values `on` or `off`
   * `ALARM_TIMEAGO_WARN_MINS` (`15`) - minutes since the last reading to trigger a warning
   * `ALARM_TIMEAGO_URGENT` (`on`) - possible values `on` or `off`
