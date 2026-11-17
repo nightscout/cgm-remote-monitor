@@ -99,12 +99,13 @@ describe('addressed realtime output demand',function(){
      fanout:async()=>{},schedule:()=>1,cancel(){}});
    const timers=[];let rows=[{tenant,received:'2'}],completed=0;
    f.states.get(tenant).revision=2;
-   const drain=require('../lib/pgstream/realtime-receipt').start({jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),
-     store:{work:async()=>rows,nextDue:async()=>null,complete:async(t,revision)=>{assert.equal(t,tenant);assert.equal(revision,'2');completed++;rows=[];},retry:async()=>assert.fail('RECOVERED_OUTPUT_MUST_NOT_RETRY')},
-     check:tenants=>service.check(tenants),setTimer:fn=>{timers.push(fn);return 1;},clearTimer(){}});
+   // Startup reconciliation reads the committed obligation; no hint is needed.
+   const drain=require('../lib/pgstream/realtime-receipt').start({jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),roster:()=>[tenant],
+     store:{work:async ids=>{assert.deepEqual(ids,[tenant]);return rows;},finish:async(page,outcomes)=>{assert.deepEqual(page,[{tenant,received:'2'}]);assert.equal(outcomes.get(tenant),true,'RECOVERED_OUTPUT_MUST_NOT_RETRY');completed++;rows=[];}},
+     check:tenants=>service.check(tenants),setTimer:(fn,ms)=>{timers.push({fn,ms});return 1;},clearTimer(){}});
    try{
-     assert.equal(timers.length,1);await timers.shift()();await new Promise(resolve=>setImmediate(resolve));
-     assert.equal(service.last(tenant).checkpoint,2,'STARTUP_RECOVERS_WITHOUT_RECEIVE_HINT');assert.equal(completed,1);assert.equal(timers.length,0);
+     assert.deepEqual(timers.map(timer=>timer.ms),[0,30000],'STARTUP_RECONCILIATION_AND_BOUNDED_RECOVERY');await timers.shift().fn();await new Promise(resolve=>setImmediate(resolve));
+     assert.equal(service.last(tenant).checkpoint,2,'STARTUP_RECOVERS_WITHOUT_RECEIVE_HINT');assert.equal(completed,1);assert.deepEqual(timers.map(timer=>timer.ms),[30000],'ONLY_THE_BOUNDED_RECOVERY_TIMER');
    }finally{await drain.close();await service.close();}
  });
  it('rejects foreign interest before any metadata or output read',async()=>{

@@ -29,7 +29,6 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
   async holdAdvisoryLock(key){keys.push(key);let available=true;return {async withTenantTransaction(tenant,fn){assert(!active,'no ambient selected transaction');events.push('EXPLICIT_BOUNDARY');return this.withTenant(tenant,fn);},get available(){return available;},get backendPid(){assert(available);return 41;},async close(){available=false;},async withTenant(tenant,fn){assert(!active);active={tenant,rows:new Map([...rows].map(([id,row])=>[id,copy(row)])),context:null,effects:new Set()};xid++;events.push('BEGIN');try{const result=await fn();await beforeCommit();for(const id of active.effects)trigger(active.rows.get(id));if(failCommit)throw Error('COMMIT_UNCONFIRMED');for(const [id,row]of active.rows)rows.set(id,copy(row));events.push('COMMIT');return result;}catch(error){events.push('ROLLBACK');throw error;}finally{active=null;}}};},
   async observeEvaluatorTyped(options){calls.push({observation:options});return options.observations.map(()=>({deliveryPending:false}));},
   async admitEvaluatorTyped(options){calls.push({admission:options});},
-  async acknowledgeEvaluatorTyped(){throw Error('PARTITION_ACK_MUST_USE_OWNER_BACKEND');},
   async query(sql,values){calls.push({sql,values,transaction:active?String(xid):null});assert(active,'effect queries require owner transaction');
    const identity={backend_pid:41,transaction_id:String(xid)};
    if(sql.includes('pg_advisory_xact_lock'))return {rows:[identity]};
@@ -40,7 +39,7 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
    if(sql.startsWith("SELECT projection->0->'output'"))return {rows:[{output:copy(selectedRows().get(values[0]).projection[0].output)}]};
    if(sql.startsWith('UPDATE')){const row=selectedRows().get(values[0]);trigger(row);
     if(sql.includes('SET checkpoint=')){Object.assign(row,{checkpoint:values[2],work_completed:values[3],work_due_at:values[4]===null?null:String(values[4]),work_pending_at:values[5]===null?null:String(values[5]),work_completed_at:String(values[6]),output_identity:values[7],output_digest:values[8],output_revision:String(values[9]),output_restore_generation:values[10],delivery_revision:String(BigInt(row.delivery_revision)+BigInt(values[11]))});if(sql.includes('projection=$13'))row.projection=JSON.parse(values[12]);}
-    else if(sql.includes('SET delivery_ack_revision='))row.delivery_ack_revision=values[2];else assert.fail(sql);
+    else assert.fail(sql);
     active.effects.add(row.tenant);events.push('UPDATE');await afterUpdate();return {rows:[],rowCount:1};
    }
    assert.fail(sql);
@@ -55,7 +54,6 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
    if(sql.includes('work_owner_ordinal=$')){const ordinalIndex=Number(sql.match(/work_owner_ordinal=\$(\d+)/)[1])-1,revisionIndex=Number(sql.match(/work_assignment_revision=\$(\d+)/)[1])-1;found=found.filter(row=>row.work_owner_ordinal===values[ordinalIndex]&&row.work_assignment_revision===values[revisionIndex]);}
    if(sql.startsWith('SELECT min(work_due_at)')){const due=found.map(row=>row.work_due_at).filter(value=>value!==null).map(Number);return {rows:[{due:due.length?String(Math.min(...due)):null}]};}
    if(sql.startsWith('SELECT min(work_pending_at)'))return {rows:[{oldest:found.find(row=>row.work_pending_at!==null)?.work_pending_at??null}]};
-   if(sql.includes('delivery_revision>delivery_ack_revision'))return {rows:found.filter(row=>BigInt(row.delivery_revision)>BigInt(row.delivery_ack_revision)).sort((a,b)=>a.tenant.localeCompare(b.tenant)).slice(0,values[1]).map(row=>({tenant:row.tenant,revision:row.delivery_revision}))};
    if(sql.includes('tenant_id=ANY($2::uuid[])'))return {rows:found.filter(row=>values[1].includes(row.tenant)).map(metadata)};
    if(sql.startsWith('SELECT tenant_id'))return {rows:found.filter(row=>row.work_enabled&&(row.work_pending_at!==null||row.work_due_at!==null&&Number(row.work_due_at)<=100)).sort((a,b)=>a.tenant.localeCompare(b.tenant)).slice(0,values[2]).map(metadata)};
    assert.fail(sql);
@@ -71,19 +69,19 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
   result:()=>({checkpoint:1,trigger:'acquisition',properties:{synthetic:true},emitted:[],requested:[],encodedRows:[],frame:{sgvs:[],lastUpdated:10},due:{dueAt:200,slow:[]}}),
   complete:(value={})=>store.complete(owned,{observed:{clock:'1'},identity:'a'.repeat(64),result:{checkpoint:1,trigger:'acquisition',properties:{synthetic:true},emitted:[],requested:[],encodedRows:[],frame:{sgvs:[],lastUpdated:10},due:{dueAt:200,slow:[]}},restoreGeneration:'7',...value})};
 }
-it('optional partition forwarding keeps stable consumer, distinct ordinal keys, exact revision and filters before bounded work/delivery pages',async()=>{
+it('optional partition forwarding keeps stable consumer, distinct ordinal keys, exact revision and filters before bounded work pages',async()=>{
  const a=fixture(),b=fixture({ordinal:1});await a.store.own(()=>{});await b.store.own(()=>{});assert.equal(a.store.consumer,b.store.consumer);assert.notEqual(a.keys[0],b.keys[0]);
  const rows=await a.store.work(64);assert(rows.length&&rows.every(row=>a.assignment.owner(row.tenant)===0));assert.equal(rows.length,Math.min(64,ids.filter(id=>a.assignment.owner(id)===0).length));
  a.rows.get(a.owned).work_due_at='200';a.rows.get(a.foreign).work_due_at='100';assert.equal(await a.store.nextDue(),200);
- a.rows.get(a.owned).delivery_revision='1';a.rows.get(a.foreign).delivery_revision='1';assert.deepEqual(await a.store.deliveries(),[{tenant:a.owned,revision:'1'}]);
+ for(const retired of ['deliveries','acknowledge'])assert.equal(a.store[retired],undefined,'EVALUATOR_DELIVERY_LISTING_AND_ACK_RETIRED '+retired);
  for(const call of a.calls.filter(call=>call.sql&&(/SELECT tenant_id|SELECT min\(work_/.test(call.sql)))){assert(call.sql.includes('work_owner_ordinal=$')&&call.sql.includes('work_assignment_revision=$'));assert(call.values.includes(REV));}
- await assert.rejects(a.store.work(65),/Bounded/);await assert.rejects(a.store.deliveries(65),/Bounded/);
+ await assert.rejects(a.store.work(65),/Bounded/);
  await a.store.admit([a.owned].values());assert(!a.calls.some(call=>call.admission));await a.store.close();await b.store.close();
 });
-it('owner completion retains newer input and due work, commits before hint, and ACK uses same guarded backend transaction',async()=>{
+it('owner completion retains newer input and due work, commits before hint, and writes no delivery ACK',async()=>{
  const f=fixture();await f.store.own(()=>{});f.rows.get(f.owned).work_observed=work.array({clock:'2'});
  const completed=await f.complete();assert.equal(completed.pendingAt,10);assert.deepEqual(work.map(f.rows.get(f.owned).work_completed),{clock:'1'});assert.equal(f.rows.get(f.owned).work_due_at,'200');assert.deepEqual(f.hints,['COMMIT']);
- await f.store.acknowledge(f.owned,'1');assert.equal(f.rows.get(f.owned).delivery_ack_revision,'1');assert(f.calls.filter(call=>call.sql?.startsWith('UPDATE')).every(call=>call.transaction));await f.store.close();
+ assert.equal(f.rows.get(f.owned).delivery_revision,'1');assert.equal(f.rows.get(f.owned).delivery_ack_revision,'0','REALTIME_OWNS_DELIVERY_PROGRESS');assert(f.calls.filter(call=>call.sql?.startsWith('UPDATE')).every(call=>call.transaction&&!call.sql.includes('delivery_ack_revision')));await f.store.close();
 });
 it('unassigned/wrong revision rows, foreign tenant, changed restore, final lease loss and unconfirmed COMMIT refuse with no hint or durable progress',async()=>{
  for(const phase of ['unassigned','revision','foreign','restore','final-lease','deferred-expiry','deferred-restore','deferred-owner-resource','commit']){
@@ -124,7 +122,7 @@ it('per-ordinal owner resource is stable when fixed revision changes; namespace/
 
 it('selected effects require the explicit owner COMMIT capability and cannot silently fall back to ordinary withTenant',async()=>{
  const missing=fixture({boundary:false});await assert.rejects(missing.store.own(()=>{}),/OWNER_BOUNDARY_REQUIRED/);assert.equal(missing.store.available,false);assert.equal(missing.calls.length,0);
- const f=fixture();await f.store.own(()=>{});await f.complete();await f.store.acknowledge(f.owned,'1');assert.equal(f.events.filter(event=>event==='EXPLICIT_BOUNDARY').length,2);await f.store.close();
+ const f=fixture();await f.store.own(()=>{});await f.complete();assert.equal(f.events.filter(event=>event==='EXPLICIT_BOUNDARY').length,1);await f.store.close();
 });
 
 it('selected worker refuses input APIs before any SQL; standalone observation remains available',async()=>{
@@ -137,8 +135,8 @@ it('selected admission validates existing assignment without conversion; missing
 it('selected completion cannot erase an already completed source omitted by its caller',async()=>{
  const f=fixture();f.rows.get(f.owned).work_completed=work.array({clock:'1'});await f.store.own(()=>{});await assert.rejects(f.complete({observed:{}}),/COMPLETION_VERSION_REFUSED/);assert(!f.calls.some(call=>call.sql?.startsWith('UPDATE')));assert.deepEqual(f.hints,[]);await f.store.close();
 });
-it('completion and ACK select distinct guarded operation transitions on their held transaction',async()=>{
- const f=fixture();await f.store.own(()=>{});await f.complete();await f.store.acknowledge(f.owned,'1');assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete','ack']);await f.store.close();
+it('completion is the only guarded operation transition on its held transaction',async()=>{
+ const f=fixture();await f.store.own(()=>{});await f.complete();assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete']);await f.store.close();
 });
 it('control: removing selected observation refusal exposes input writes; restored actual module refuses',async()=>{
  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module'),file=require.resolve('../lib/pgstream/typed-checkpoint'),source=fs.readFileSync(file,'utf8'),needle="if(selected||profile)throw new Error('EVALUATOR_WORKER_OBSERVATION_REFUSED');",broken={exports:{}};assert.equal(source.split(needle).length,3);vm.runInThisContext('(function(require,module,exports){'+source.replaceAll(needle,'')+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
@@ -150,12 +148,12 @@ it('selected readiness refuses observation grants and missing/foreign policies; 
 });
 
 it('selected TIME-only completion advances due without inventing input or a new output delivery',async()=>{
- const f=fixture();await f.store.own(()=>{});await f.complete();await f.store.acknowledge(f.owned,'1');const before=copy(f.rows.get(f.owned));const result={...f.result(),trigger:'time-only',due:{dueAt:300,slow:[]}};const next=await f.complete({result});const after=f.rows.get(f.owned);assert.equal(next.changed,false);assert.deepEqual(after.work_observed,before.work_observed);assert.deepEqual(after.work_observed_at,before.work_observed_at);assert.deepEqual(after.work_completed,before.work_completed);assert.equal(after.work_pending_at,null);assert.equal(after.work_due_at,'300');assert.equal(after.delivery_revision,before.delivery_revision);assert.equal(after.delivery_ack_revision,'1');assert(!f.calls.some(call=>call.observation));assert.equal(f.events.filter(event=>event==='EXPLICIT_BOUNDARY').length,3);await f.store.close();
+ const f=fixture();await f.store.own(()=>{});await f.complete();const before=copy(f.rows.get(f.owned));const result={...f.result(),trigger:'time-only',due:{dueAt:300,slow:[]}};const next=await f.complete({result});const after=f.rows.get(f.owned);assert.equal(next.changed,false);assert.deepEqual(after.work_observed,before.work_observed);assert.deepEqual(after.work_observed_at,before.work_observed_at);assert.deepEqual(after.work_completed,before.work_completed);assert.equal(after.work_pending_at,null);assert.equal(after.work_due_at,'300');assert.equal(after.delivery_revision,before.delivery_revision);assert.equal(after.delivery_ack_revision,'0');assert.equal(next.deliveryPending,false,'NO_NEW_OBLIGATION_NO_WAKE');assert(!f.calls.some(call=>call.observation));assert.equal(f.events.filter(event=>event==='EXPLICIT_BOUNDARY').length,2);await f.store.close();
 });
 
 it('cold worker admission refuses the older NULL-skipping aggregate body; exact restored protocol admits',async()=>{
  const f=fixture(),old='bool_and(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule)',current='bool_and(coalesce(ordinal>=0 AND ordinal<desired.members AND applied_members=desired.members AND slice_rule=desired.slice_rule,false))';const body=f.instruments.assignment[1].source;assert(body.includes(current));f.instruments.assignment[1].source=body.replace(current,old);await assert.rejects(f.store.own(()=>{}),/PROTOCOL_UNQUALIFIED/);assert.equal(f.store.available,false);f.instruments.assignment[1].source=body;await f.store.own(()=>{});await f.store.close();
 });
-it('profile-selected workers normalize the validated fixed assignment and retain guarded complete/ACK, input refusal and BASE replay grant',async()=>{
- for(const ordinal of [0,1]){const f=fixture({ordinal,profileSelected:true,forgedSelection:true});try{await f.store.own(()=>{});await f.store.admit([f.owned]);assert.equal(f.store.digest,f.intakeProfile.contractDigest);await f.complete();await f.store.acknowledge(f.owned,'1');assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete','ack']);await assert.rejects(f.store.observe(f.owned,'clock','2'),/WORKER_OBSERVATION_REFUSED/);assert(require('../lib/pgstream/worker-grants').UPDATES.includes('contract_digest'));}finally{await f.store.close();}}
+it('profile-selected workers normalize the validated fixed assignment and retain guarded completion, input refusal and BASE replay grant',async()=>{
+ for(const ordinal of [0,1]){const f=fixture({ordinal,profileSelected:true,forgedSelection:true});try{await f.store.own(()=>{});await f.store.admit([f.owned]);assert.equal(f.store.digest,f.intakeProfile.contractDigest);await f.complete();assert.deepEqual(f.calls.filter(call=>call.sql?.includes("set_config('app.pgstream_partition_effect'")).map(call=>JSON.parse(call.values[0]).operation),['complete']);await assert.rejects(f.store.observe(f.owned,'clock','2'),/WORKER_OBSERVATION_REFUSED/);assert(require('../lib/pgstream/worker-grants').UPDATES.includes('contract_digest'));}finally{await f.store.close();}}
 });

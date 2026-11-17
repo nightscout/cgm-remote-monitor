@@ -82,7 +82,7 @@ function fixture({holdAdmission=false,pgstreamEnabled=true,partitioned=false,sou
   timeIntervalMs:60000,readCurrent:async()=>current};
  return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive({Data:{action:'U',schema:'synthetic_clock',table:'tenant_write_clock',columns:[{name:'tenant_id',value:A},{name:'last_stamp',value:version}]}});},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window});},state:()=>({output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,placementClosed})};
 }
-function delayScheduler(source){const a=source.indexOf('    {\n      const hint='),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
+function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('refuses evaluator pool max one before constructing a zero-slot scheduler',async()=>{

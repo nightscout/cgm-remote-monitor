@@ -25,8 +25,9 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
-      // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2.
-      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 4 : service.id==='alarm-delivery' ? 3 : ['connector-inspection', 'evaluator-inspection', 'completed-output'].includes(service.id) ? 2 : 1);
+      // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2;
+      // completed-output v3 carries a bounded tenant wake list (realtime owns delivery progress).
+      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 4 : ['alarm-delivery','completed-output'].includes(service.id) ? 3 : ['connector-inspection', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -38,10 +39,10 @@ describe('Internal service API contracts', function () {
         '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
-  it('requires exact durable delivery revisions and refuses invented completion authority', function () {
-    const operation=contracts.completedOutput.operations.hintCompletedOutput;
-    validate(operation.request,{tenant:A,revision:'1'});validate(operation.response,{accepted:true});
-    for(const body of [{},{tenant:'invalid'},{tenant:A,frame:{}},{tenant:A,completed:true},{tenant:A,transport:'invented'}])refused(()=>validate(operation.request,body));
+  it('carries only a bounded distinct tenant wake list and refuses invented revision or completion authority', function () {
+    const operation=contracts.completedOutput.operations.hintCompletedOutput,ids=Array.from({length:65},(_,i)=>'00000000-0000-4000-8000-'+String(i).padStart(12,'0'));
+    validate(operation.request,{tenants:[A]});validate(operation.request,{tenants:ids.slice(0,64)});validate(operation.response,{accepted:true});
+    for(const body of [{},{tenants:[]},{tenants:ids},{tenants:[A,A]},{tenants:['invalid']},{tenant:A,revision:'1'},{tenants:[A],revision:'1'},{tenants:[A],frame:{}},{tenants:[A],completed:true},{tenants:[A],transport:'invented'}])refused(()=>validate(operation.request,body));
     for(const body of [{accepted:false},{accepted:true,completed:true}])refused(()=>validate(operation.response,body));
   });
   it('accepts socket authority wire values and refuses unknown envelope, credential and permission fields', function () {

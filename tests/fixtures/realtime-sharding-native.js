@@ -219,7 +219,10 @@ module.exports = function fixture () {
     // consumer, without touching payloads or manufacturing a durable receipt.
     idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:path.join(directory,'output.sock'),maxBytes:4096,timeoutMs:1000},
       require('../../lib/server/internal-api/contracts').completedOutput,()=>({hintCompletedOutput:async(ctx,body)=>{
-        return require('../../lib/server/internal-api/clients').completedOutput(placementReader.route(body.tenant).endpoint).hintCompletedOutput(body);
+        // A wake names a tenant list; forward each owner's share to that owner.
+        const routes=new Map();for(const tenant of body.tenants){const endpoint=placementReader.route(tenant).endpoint,key=JSON.stringify(endpoint);if(!routes.has(key))routes.set(key,{endpoint,tenants:[]});routes.get(key).tenants.push(tenant);}
+        for(const route of routes.values())await require('../../lib/server/internal-api/clients').completedOutput(route.endpoint).hintCompletedOutput({tenants:route.tenants});
+        return {accepted:true};
       }})));
     producer=await require('./pgstream-native').setup({admin:lab.admin,adminURI:process.env.NS_TEST_POSTGRES_ADMIN_URI,directory,
       config:{...evaluatorConfig,namespaces:evaluatorConfig.postgres.namespaces},evaluatorRole:evaluator.name,realtimeRole:lab.roles.realtime,

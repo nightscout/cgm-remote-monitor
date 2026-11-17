@@ -162,7 +162,7 @@ describe('actual realtime boot observation wiring', function () {
         '../../trusted-worker/postgres':{create:()=>({scan:async()=>new Map(),read:noop,current:()=>null,state:()=>({available:true,generation:1}),close:noop})},
         '../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
         '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({polls:0,failures:0})}),projection:()=>({})},
-        '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop})},
+        '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop,wake(){},reconcile(){}})},
         '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},warm:tenant=>tenant===A,close:noop})};
       const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
       vm.runInNewContext(transform(source),sandbox,{filename});
@@ -312,7 +312,7 @@ describe('realtime staged warm metadata boundary', function () {
    '../../trusted-worker/postgres':{create:()=>worker},'../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
    '../../realtime-placement/owner':{acquire:async()=>({available:true,check:noop,close:noop})},
    '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({})}),projection:()=>({acquire:async()=>{enter();await held;return {rows:[],frame:{sgvs:[]}};}})},
-   '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop})},
+   '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop,wake(){},reconcile(){}})},
    '../realtime/runtime':async()=>({health:()=>({}),stats:()=>({}),warm:()=>true,check:noop,close:noop,wake(){},removeTenant:async()=>{removed++;},addTenant:()=>{activated++;}})
   };
   const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
