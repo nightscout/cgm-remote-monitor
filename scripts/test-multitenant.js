@@ -86,8 +86,6 @@ const INVENTORY = [
     note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
   { file: 'tests/settings-screen-lifecycle.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'display settings screen at open and owner check only: no catalogue statement in any read, unsafe-grant refusal and not-ready health, ablation controls' },
-  { file: 'tests/realtime-placement-publication.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
-    note: 'controlled placement publication and actual maintenance-pin exclusion; fixture-owned Vault' },
   { file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'actual API/realtime roles, assigned live-add, polling/WebSocket/API3 move, alarm routing, deferred warm and observed cohort census; fixture-owned Vault' },
   { file: 'tests/connector-sources.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,

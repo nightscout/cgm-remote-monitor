@@ -30,7 +30,7 @@ async function setup ({ mutate, boot } = {}) {
   }, mutate);
   const cohort = await module.create({window:f.window,names:roles,tenants:[A,B],namespaces:['clinical','outbox','suppression']});
   return {f,module,cohort,invalidations,observed,get released () { return released; }, async complete () {
-    for (const role of roles) await cohort.boot(role,{tenantIds:[A,B]}); cohort.complete();
+    for (const role of roles) await cohort.boot(role,{tenantIds:[A,B],...(role === 'realtime' ? {ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0})} : {})}); cohort.complete();
   }};
 }
 describe('Actual operation cohort composition source protocol', function () {

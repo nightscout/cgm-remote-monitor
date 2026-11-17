@@ -223,9 +223,11 @@ D6 and joined capability inventory additions:
 | `tests/registry-human-session.integration.test.js` | disposable `NS_TEST_POSTGRES_ADMIN_URI`, `NS_VAULT_DOCKER_TEST=1` | shared disposable PostgreSQL, fixture-owned Vault | registry human-only signing purposes, revocation and wrong-tenant refusal |
 
 Realtime sharding focused native suites are registered in the enabled corpus:
-`realtime-placement-owner.integration.test.js`,
-`realtime-placement-publication.integration.test.js`, and
+`realtime-placement-owner.integration.test.js` and
 `realtime-sharding-native.integration.test.js`. They use disposable PostgreSQL;
-the latter two own synthetic Vault fixtures. The actual cohort check runs real
-API and realtime participants with explicitly idle evaluator/admin fixture peers.
+the sharding suite owns synthetic Vault fixtures. The checks cover exact static
+ordinal census, duplicate and mixed-K refusal, owner loss and same-ordinal
+replacement, registry live-add/revocation, clinical/raw delivery and alarm origin.
+The actual cohort check runs real API, evaluator and realtime participants; the
+tenant-admin fixture peer is explicitly idle.
 It does not claim a full restore campaign or horizontal capacity measurement.
