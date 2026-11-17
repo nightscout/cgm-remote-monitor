@@ -8,6 +8,7 @@ function fixture(factory=replay){
  let handle;
  const connection={snapshotTransaction:fn=>fn(),query:async(text)=>{queries.push(text);if(text.includes('FROM "synthetic_work"."tenant_consumer_checkpoint"'))return {rows:[{checkpoint:10,projection:[JSON.parse(JSON.stringify(state))],contract_digest:handle.snapshotDigest}]};throw new Error('WARM_CLINICAL_SOURCE_READ:'+text);}};
  handle=factory({connection,checkpointTable:'synthetic_work.tenant_consumer_checkpoint',clockTable:'synthetic_clock.tenant_write_clock',domains:{entries:'synthetic_entries.entries'},consumer:'evaluator-synthetic',projectionVersion:'clinical-current-rows-v1',pageSize:3,maxRows:10,stream:true});
+ handle.configureStream({expectedSource:require('./lib/clinical-stream-native').source,generation:()=> '1',assertFence:async()=> '1',lockKey:'123',maxBytes:limits.maxBytes,recovery:{withSnapshot:({fn})=>fn(require('./lib/clinical-stream-native').boundary)}});
  return {handle,queries};
 }
 describe('streamed clinical input recovery through actual replay module',()=>{

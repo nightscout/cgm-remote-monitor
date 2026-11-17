@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/postgres-imported-snapshot.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'exact exported snapshot import, source fencing, bounded exporter/importer loss and verified temporary-slot cleanup' },
   { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
   { file: 'tests/storage-event.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
