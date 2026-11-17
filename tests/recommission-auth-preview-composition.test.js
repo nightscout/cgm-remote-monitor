@@ -33,7 +33,7 @@ describe('selected recommission authentication preview composition', function ()
           './registry-tenants': { create: async () => ({ bindings: new Map(), providers: new Map(), environments: new Map(), close: async () => {} }) },
           '../../secrets/legacy-postgres': async options => { legacyOptions = options; return legacy(options); },
           '../../secrets/postgres': { createPostgresSecrets: async () => ({ store: { get: noIO, insert: noIO }, audit: async () => {}, close: async () => {} }) },
-          '../../storage/postgres-connection': async () => ({ end: async () => {} }),
+          '../../storage/postgres-connection': async () => ({ end: async () => {}, query: noIO, withTenant: noIO }),
           '../../tenant-authorization/postgres': async () => ({ close: async () => {} }),
           '../../secrets/component': { createSecrets: options => {
             require('../lib/secrets/component').createSecrets(options); constructed++;

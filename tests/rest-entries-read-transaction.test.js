@@ -225,8 +225,8 @@ describe('private current-authority and raw entries read transaction', function 
   });
 
   it('control: early publication is caught at the physical COMMIT boundary', async function () {
-    const f = await fixture(s => s.replace('return { binding: allowed, frame };',
-      'registered.publish(frame); authentication.bind(request, Object.freeze(allowed)); return { binding: allowed, frame };'));
+    const f = await fixture(s => s.replace('return { binding: allowed, frame, joined: true };',
+      'registered.publish(frame); authentication.bind(request, Object.freeze(allowed)); return { binding: allowed, frame, joined: true };'));
     const req = f.request();
     try {
       f.action(async (client, text) => {

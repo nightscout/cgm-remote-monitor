@@ -198,8 +198,8 @@ function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = 
     }
   };
   const factory = implementation(oldExchange ? source => {
-    const start = source.indexOf('      // DATA authenticates credentials;');
-    const end = source.indexOf('\n    }\n    if (!principal', start);
+    const start = source.indexOf('        // DATA authenticates credentials;');
+    const end = source.indexOf('\n      }\n      return !(!principal', start);
     assert(start > 0 && end > start);
     return source.slice(0, start) + `      if (credentials.tokenCarrier === 'legacy') {
         const issued = await secrets.exchangeLegacyCredential(context, token,
@@ -243,5 +243,88 @@ describe('real component mixed-credential cost', function () {
       assert.deepEqual(baseline.counts, oldCounts, 'OLD_EXCHANGE_EFFECTS_EXERCISED');
       assert.deepEqual(candidate.counts, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority }, 'DATA_AUTHENTICATES_WITHOUT_ISSUANCE');
     }
+  });
+});
+
+// Local verifier store and current authority on the request connection: one
+// tenant transaction, current reads only, and the prior per-reader error codes.
+function fusedFixture (mutate) {
+  const events = [], state = { allowed: true, commit: true, refuse: false, known: true };
+  let active;
+  const connection = {
+    async withTenant (tenant, operation) {
+      if (active) { assert.equal(active, tenant, 'NO_FOREIGN_NESTED_TENANT'); return operation(); }
+      events.push('acquire');
+      if (state.refuse) throw Object.assign(Error('LIFECYCLE_WINDOW_SUSPENDED'), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      events.push('BEGIN'); active = tenant;
+      try {
+        const result = await operation();
+        if (!state.commit) throw Error('synthetic COMMIT refused');
+        events.push('COMMIT'); return result;
+      } catch (error) { events.push('ROLLBACK'); throw error; }
+      finally { active = undefined; events.push('release'); }
+    },
+    async query (name) { assert(active, 'SQL_MUST_BE_TENANT_BOUND'); events.push(name); return { rows: [] }; }
+  };
+  const snapshot = () => ({ subject: { sub: 'current-name' }, allows: () => state.allowed });
+  const authority = {
+    usesConnection: candidate => candidate === connection,
+    authorize: async () => { throw Error('snapshot expected'); },
+    subjectSnapshot: async () => { throw Error('snapshot expected'); },
+    subjectAuthorizationSnapshot: async ({ tenant }) => connection.withTenant(tenant, async () => { await connection.query('authority'); return snapshot(); }),
+    permissionSnapshot: async ({ tenant }) => connection.withTenant(tenant, async () => { await connection.query('authority'); return snapshot(); })
+  };
+  const secrets = {
+    usesConnection: candidate => candidate === connection,
+    async verifyLegacyCredential (context, input) {
+      await connection.withTenant(context.tenant, () => connection.query('verifier'));
+      if (!state.known) throw Object.assign(Error('SECRETS_LEGACY_AUTHORITY_UNKNOWN'), { code: 'SECRETS_LEGACY_AUTHORITY_UNKNOWN' });
+      return input.apiSecret === 'synthetic-root' ? { kind: 'root' } : { kind: 'subject', subjectId: 'subject' };
+    }
+  };
+  const factory = implementation(mutate);
+  const access = factory({ authority, readConnection: connection, secrets, verifierContext: async tenant => ({ tenant, consumer: 'api' }),
+    legacyCollections: ['entries'] });
+  function request (method = 'GET', carrier = 'token') {
+    const req = { method, path: '/entries', query: carrier === 'token' ? { token: 'subject-0123456789abcdef' } : {},
+      rawHeaders: carrier === 'token' ? [] : ['api-secret', 'synthetic-root'] };
+    if (method === 'GET') factory.registerRawRead(req, { logical: 'entries', tenant: A, connection,
+      load: async () => { await connection.query('clinical'); return { logical: 'entries' }; },
+      publish: frame => { events.push('publish'); req.frame = frame; } });
+    return req;
+  }
+  return { access: req => access({ tenant: A, request: req, version: 1 }), request, state, events };
+}
+describe('fused verifier and authority transaction', function () {
+  it('reads verifier, current authority and the joined clinical read in one transaction, publishing after COMMIT', async function () {
+    for (const carrier of ['token', 'secret']) {
+      const f = fusedFixture(), get = f.request('GET', carrier);
+      assert(await f.access(get));
+      assert.deepEqual(f.events, ['acquire', 'BEGIN', 'verifier', 'authority', 'clinical', 'COMMIT', 'release', 'publish']);
+      f.events.length = 0; const write = f.request('POST', carrier);
+      assert(await f.access(write)); assert(authentication.get(write));
+      assert.deepEqual(f.events, ['acquire', 'BEGIN', 'verifier', 'authority', 'COMMIT', 'release']);
+    }
+  });
+  it('honours a revocation on the next request and keeps every refusal code', async function () {
+    const f = fusedFixture(); assert(await f.access(f.request('POST')));
+    f.state.allowed = false; f.events.length = 0; const denied = f.request('POST');
+    await assert.rejects(f.access(denied), { code: 'TENANT_LEGACY_FORBIDDEN' });
+    assert.equal(authentication.get(denied), undefined); assert.deepEqual(f.events.filter(x => x === 'authority'), ['authority']);
+    f.state.allowed = true; f.state.refuse = true; f.events.length = 0;
+    await assert.rejects(f.access(f.request('GET')), { code: 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' });
+    assert.deepEqual(f.events, ['acquire'], 'REFUSED_BEFORE_ANY_READ');
+    f.state.refuse = false; f.state.commit = false;
+    await assert.rejects(f.access(f.request('POST')), { code: 'TENANT_AUTHORITY_UNAVAILABLE' });
+    const joined = f.request('GET');
+    await assert.rejects(f.access(joined), /COMMIT refused/);
+    assert.equal(joined.frame, undefined); assert.equal(authentication.get(joined), undefined);
+    f.state.commit = true; f.state.known = false;
+    await assert.rejects(f.access(f.request('GET')), { code: 'SECRETS_LEGACY_AUTHORITY_UNKNOWN' });
+  });
+  it('control: surfacing the raw window refusal changes the prior verifier code and fails the code control', async function () {
+    const f = fusedFixture(source => source.replace("const reported = failure(entered ? reader : 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE');", 'const reported = error;'));
+    f.state.refuse = true;
+    await assert.rejects(f.access(f.request('GET')), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
   });
 });
