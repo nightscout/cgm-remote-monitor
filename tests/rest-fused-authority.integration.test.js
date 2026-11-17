@@ -20,7 +20,7 @@ const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
 
 optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AUTHORITY_NATIVE=1')('fused credential and authority transaction (native)', function () {
   this.timeout(180000);
-  const f = fixture.create();
+  const f = fixture.create({ receiptPrefix: 'rest-fused-' });
   const tokens = {}, secrets = {};
   let legacy, authority, verifiers, graph, original, sent = null;
   // Driver-level statement tap for this process: every pool and client, counted

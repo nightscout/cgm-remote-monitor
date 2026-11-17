@@ -18,7 +18,10 @@ const IMAGE = process.env.NS_OPERATION_WINDOW_PG_IMAGE || 'postgres@sha256:9e2cf
 const { A, B } = plan;
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-function create () {
+// receiptPrefix keeps receipts of different suites that share this fixture
+// distinct inside one NS_OPERATION_WINDOW_RECEIPT_DIRECTORY (exclusive create).
+function create ({ receiptPrefix = '' } = {}) {
+  if (!/^[a-z0-9-]{0,32}$/.test(receiptPrefix)) throw new TypeError('Receipt prefix must be a short lowercase name');
   const counter = counterFactory.create(), Client = counter.Client;
   const container = 'ns-window-minimum-' + crypto.randomBytes(6).toString('hex');
   const l = plan.layout('nswmin'), ns = l.namespaces, q = plan.quote;
@@ -41,7 +44,7 @@ function create () {
     owned = true;
     spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), containerID],
       { detached: true, stdio: 'ignore' }).unref();
-    if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/custody.json', JSON.stringify({ pid: process.pid, container, containerID, image: IMAGE, boundSeconds: 180, tmpfs: true }), { flag: 'wx', mode: 0o600 });
+    if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/' + receiptPrefix + 'custody.json', JSON.stringify({ pid: process.pid, container, containerID, image: IMAGE, boundSeconds: 180, tmpfs: true }), { flag: 'wx', mode: 0o600 });
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
     bootstrapURI = 'postgres://bootstrap:' + password + '@127.0.0.1:' + port + '/nightscout_minimum_test';
     const deadline = Date.now() + 30000;
@@ -100,7 +103,7 @@ function create () {
         docker(['rm', '-f', '-v', containerID]); owned = false;
         const absent = require('node:child_process').spawnSync('docker', ['inspect', containerID], { stdio: 'ignore', timeout: 10000 }).status !== 0;
         assert.equal(absent, true);
-        if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/cleanup.json', JSON.stringify({ pid: process.pid, container, containerID, absent, tmpfs: true }), { flag: 'wx', mode: 0o600 });
+        if (process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY) fs.writeFileSync(process.env.NS_OPERATION_WINDOW_RECEIPT_DIRECTORY + '/' + receiptPrefix + 'cleanup.json', JSON.stringify({ pid: process.pid, container, containerID, absent, tmpfs: true }), { flag: 'wx', mode: 0o600 });
       }
     }
   }

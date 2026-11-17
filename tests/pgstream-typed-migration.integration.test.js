@@ -40,7 +40,8 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  it('admits legacy exact versions and fractional due once, then makes the old reader refuse',async()=>{
   const checkpoint=require('../lib/pgstream/checkpoint');
   admissionPool=new Pool({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,max:1});
-  const port={query:(...args)=>admin.query(...args),withTenant:async(_tenant,fn)=>{await admin.query('BEGIN');try{const value=await fn();await admin.query('COMMIT');return value;}catch(e){await admin.query('ROLLBACK');throw e;}}};
+  // readOnly mirrors the production metadata read: one SELECT in a READ ONLY transaction.
+  const port={query:(...args)=>admin.query(...args),readOnly:async(text,values)=>{await admin.query('BEGIN READ ONLY');try{const result=await admin.query(text,values);await admin.query('COMMIT');return result;}catch(e){await admin.query('ROLLBACK');throw e;}},withTenant:async(_tenant,fn)=>{await admin.query('BEGIN');try{const value=await fn();await admin.query('COMMIT');return value;}catch(e){await admin.query('ROLLBACK');throw e;}}};
   // This suite isolates physical migration/admission SQL; native backend authority has separate gates.
   port.admitEvaluatorTyped=options=>require('../lib/pgstream/work-state').admit({pool:admissionPool,observeBackend:async()=>{},...options});
   const options={connection:port,namespace,consumer:'evaluator-admit',maxBytes:1048576,timeIntervalMs:60000};
