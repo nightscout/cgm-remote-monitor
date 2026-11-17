@@ -82,6 +82,7 @@ function args () {
     else if (k === '--profiles-at-start') out.profilesAtStart = true;
     else if (k === '--view') out.view = a[++i];
     else if (k === '--port') out.port = Number(a[++i]);
+    else if (k === '--profile') out.profile = true;
     else if (k === '--max-steps') out.maxSteps = Number(a[++i]);
     else throw new Error('unknown argument ' + k);
   }
@@ -203,6 +204,11 @@ function main () {
     CUSTOMCONNSTR_mongo: 'mongodb://127.0.0.1:' + opt.port + '/' + opt.db
   });
   if (opt.mode.startsWith('shrink:')) process.env.VIEWS_SHRINK = opt.mode.slice(7);
+  if (opt.mode.startsWith('dsnewest:')) {
+    if (!opt.profile) throw new Error('--mode ' + opt.mode + ' needs --profile');
+    process.env.VIEWS_PROFILE_DS_NEWEST = opt.mode.slice(9);
+  }
+  if ((opt.mode === 'notick' || opt.mode === 'propsonrequest') && !opt.profile) throw new Error('--mode ' + opt.mode + ' needs --profile');
 
   const clock = require('./clock');
   const createDData = require(path.join(ROOT, 'lib/data/ddata'));
@@ -236,7 +242,8 @@ function main () {
     }
     ctx.bus.removeAllListeners('tick');
     ctx.bus.removeAllListeners('data-received');
-    run(ctx).then(function () {
+    const booting = opt.profile ? bootProfile() : Promise.resolve(null);
+    booting.then(pctx => run(ctx, pctx)).then(function () {
       process.exit(0);
     }, function (err) {
       unsilence();
@@ -245,7 +252,63 @@ function main () {
     });
   });
 
-  async function run (ctx) {
+  // --profile: the view arm is the views profile (research prototype,
+  // lib/server/serve/views.js, lib/server/nonresident.js), booted on the same
+  // database. Every record is uploaded through the profile's own storage
+  // modules, so its trigger is the write step's storage-write-committed on
+  // its own bus; the data-update events the same writes emit are forwarded to
+  // the server's bus, as the r2 arm's are. The profile's scheduler is driven
+  // by the replay (settleMs Infinity): the minute's writes and the minute's
+  // heartbeat tick (60 s, one per minute) mark it dirty, and flush() runs the
+  // one evaluation they coalesce into, at the pinned minute. Its reads are
+  // counted under the view arm's counter. Modes for it: notick (the heartbeat
+  // is ignored, control b), dsnewest:<n> (control c), propsonrequest (the
+  // properties computed per request on the alarm evaluation's plugin set,
+  // the shape before option A), and tamper / shrink as for the view arm.
+  // --view properties reads the properties the profile kept from the
+  // minute's cycle (GET /api/v2/properties's source).
+  const profileShared = { cnt: null, stats: () => null, countDocs: null };
+  function bootProfile () {
+    const arms = require(path.join(ROOT, 'tests/lib/views-profile/arms'));
+    function countedCtx (c) {
+      const counted = Object.create(c);
+      ['entries', 'treatments', 'devicestatus', 'activity', 'food'].forEach(function (k) {
+        const real = c[k];
+        counted[k] = Object.create(real);
+        counted[k].list = function () {
+          const a = Array.from(arguments);
+          const cb = a.pop();
+          const cnt = profileShared.cnt;
+          if (cnt && cnt.on) cnt.reads++;
+          return real.list.apply(real, a.concat([function (err, docs) { if (cnt && cnt.on) profileShared.countDocs(cnt, docs); cb(err, docs); }]));
+        };
+      });
+      counted.profile = Object.create(c.profile);
+      counted.profile.last = function (cb) {
+        const cnt = profileShared.cnt;
+        if (cnt && cnt.on) cnt.reads++;
+        return c.profile.last(function (err, docs) { if (cnt && cnt.on) profileShared.countDocs(cnt, docs); cb(err, docs); });
+      };
+      counted.store = { db: { stats: function () { const cnt = profileShared.cnt; if (cnt && cnt.on) cnt.reads++; return Promise.resolve(profileShared.stats()); } } };
+      return arms.viewsContext(counted, opt.mode === 'tamper' ? opt.view : null) || counted;
+    }
+    // The replay emits the profile's heartbeat tick itself, once per pinned
+    // minute; the bus's own real-time interval (60 s of wall time) would add
+    // an evaluation at whatever replayed minute it fell on (a first run
+    // showed it: one extra, repeated evaluation in two timelines).
+    env.settings.heartbeat = 20 * 24 * 3600;
+    return require(path.join(ROOT, 'lib/server/serve/views')).boot(env, language, {
+      settleMs: Infinity
+      , tick: opt.mode !== 'notick'
+      , propertiesOnRequest: opt.mode === 'propsonrequest'
+      , viewsCtx: countedCtx
+    }).then(function (pctx) {
+      if (pctx.bootErrors && pctx.bootErrors.length) throw new Error('the views profile did not boot: ' + JSON.stringify(pctx.bootErrors).slice(0, 400));
+      return pctx;
+    });
+  }
+
+  async function run (ctx, pctx) {
     const cols = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'].map(k => env[k + '_collection']);
     await Promise.all(cols.map(c => ctx.store.collection(c).deleteMany({})));
     const serverVersion = (await ctx.store.db.admin().serverInfo()).version;
@@ -338,6 +401,37 @@ function main () {
     const vNotif = createNotifications(env, { levels: ctx.levels, bus: vBus, ddata: vDdata });
     vBus.on('notification', n => cur.view.push(n));
     let viewRequested = [];
+    const profileMinutes = { evaluated: 0, notEvaluated: 0, withWrites: 0, withUploads: 0, uploadsWithoutWriteEvent: 0, ticks: 0 };
+    let uploadedThisMinute = 0;
+    let evaluatedThisMinute = true;
+    if (pctx) {
+      profileShared.cnt = cnt.view;
+      profileShared.countDocs = countDocs;
+      profileShared.stats = () => currentStats;
+      pctx.bus.on('data-update', op => ctx.bus.emit('data-update', op));
+      pctx.bus.on('notification', n => cur.view.push(n));
+      wrapRequests(pctx.notifications, () => viewRequested);
+    }
+    async function profileMinute (t, writesBefore) {
+      const ev = pctx.evaluator;
+      const before = ev.stats.evaluations;
+      viewRequested = [];
+      // the heartbeat (lib/bus.js), once a minute at the default 60 s
+      if (opt.mode !== 'notick') { pctx.bus.emit('tick', { now: new Date(), type: 'heartbeat' }); profileMinutes.ticks++; }
+      await new Promise(resolve => ev.flush(resolve));
+      if (ev.stats.writes > writesBefore) profileMinutes.withWrites++;
+      // a minute that uploaded records but whose writes emitted no event:
+      // every record a duplicate the store left unchanged, or a missed write
+      if (uploadedThisMinute > 0) profileMinutes.withUploads++;
+      if (uploadedThisMinute > 0 && ev.stats.writes === writesBefore) profileMinutes.uploadsWithoutWriteEvent++;
+      evaluatedThisMinute = ev.stats.evaluations > before;
+      if (evaluatedThisMinute) profileMinutes.evaluated++; else profileMinutes.notEvaluated++;
+      if (ev.stats.errors) throw new Error('the profile evaluation failed');
+      if (PROPS) {
+        const props = await new Promise((resolve, reject) => ev.properties((e, p) => e ? reject(e) : resolve(p)));
+        viewProps = harness.normalise(props);
+      }
+    }
 
     // ---- uploads
     const queue = [];
@@ -361,7 +455,7 @@ function main () {
     function create (c, docs) {
       return new Promise(function (resolve) {
         if (!docs.length) return resolve();
-        const store = REAL[c].obj;
+        const store = pctx ? pctx[c] : REAL[c].obj;
         store.create(docs, function (err, res) {
           if (err) refused[c] += docs.length;
           else {
@@ -374,7 +468,7 @@ function main () {
     }
     async function uploadUntil (t) {
       const batch = { entries: [], treatments: [], devicestatus: [], profile: [] };
-      while (qi < queue.length && queue[qi].t <= t) { batch[queue[qi].c].push(queue[qi].doc); qi++; }
+      while (qi < queue.length && queue[qi].t <= t) { batch[queue[qi].c].push(queue[qi].doc); uploadedThisMinute++; qi++; }
       for (const c of ['profile', 'entries', 'treatments', 'devicestatus']) {
         if (c === 'profile') { for (const p of batch.profile) await create('profile', [p]); continue; }
         for (let i = 0; i < batch[c].length; i += 1000) await create(c, batch[c].slice(i, i + 1000));
@@ -504,7 +598,7 @@ function main () {
         const ms = a.mins * MIN;
         ctx.notifications.ack(level, group, ms, true);
         if (r2) r2.notifications.ack(level, group, ms, true);
-        vNotif.ack(level, group, ms, true);
+        if (pctx) pctx.notifications.ack(level, group, ms, true); else vNotif.ack(level, group, ms, true);
         ackLog.push({ minute: (t - dataset.start) / MIN, mode: a.mode, level, group, mins: a.mins, applied: true });
       });
     }
@@ -562,7 +656,7 @@ function main () {
       const plugins = [...new Set(e.onlyA.concat(e.onlyB).map(s => 'emit:' + pluginOf(s) + '@' + levelOf(s)).concat(r.onlyA.concat(r.onlyB).map(s => 'req:' + pluginOf(s) + '@' + levelOf(s))))];
       plugins.forEach(p => { bucket.plugins[p] = (bucket.plugins[p] || 0) + 1; });
       episode(bucket, step, plugins);
-      if (details) fs.writeSync(details, JSON.stringify({ pair: label, step, minute: (t - dataset.start) / MIN, emitted: { onlyServer: e.onlyA, onlyOther: e.onlyB }, requested: { onlyServer: r.onlyA, onlyOther: r.onlyB } }) + '\n');
+      if (details) fs.writeSync(details, JSON.stringify({ pair: label, step, minute: (t - dataset.start) / MIN, evaluated: pctx && label === 'server-view' ? evaluatedThisMinute : undefined, emitted: { onlyServer: e.onlyA, onlyOther: e.onlyB }, requested: { onlyServer: r.onlyA, onlyOther: r.onlyB } }) + '\n');
     }
 
     clock.install();
@@ -576,13 +670,20 @@ function main () {
       clock.pin(t);
       cur.server = []; cur.r2 = []; cur.view = [];
       req.server = []; req.r2 = [];
+      const writesAtMinuteStart = pctx ? pctx.evaluator.stats.writes : 0;
+      uploadedThisMinute = 0;
       await uploadUntil(t);
       applyAcks(t);
       currentStats = await realStats();
       await timed('server', serverMinute);
       if (r2) await timed('r2', r2Minute);
-      await timed('view', () => viewMinute(t));
-      countKinds(lastViewSet);
+      if (pctx) {
+        const writesBefore = writesAtMinuteStart;
+        await timed('view', () => profileMinute(t, writesBefore));
+      } else {
+        await timed('view', () => viewMinute(t));
+        countKinds(lastViewSet);
+      }
       lastViewSet = null;
       if (PROBE.has(step)) await probe(step, t);
 
@@ -595,7 +696,13 @@ function main () {
         if (r2) compareProps(res.r2, 'server-r2', step, t, sP, harness.normalise(r2.sbx && r2.sbx.properties));
         viewProps = null;
       } else {
+        const anyBefore = res.view.any;
         compare(res.view, 'server-view', step, t, sS, cur.view.map(sigNotify), rS, viewRequested.map(sigRequest));
+        // the profile arm: was a differing minute one the profile evaluated?
+        if (pctx && res.view.any > anyBefore) {
+          const k = evaluatedThisMinute ? 'differsEvaluated' : 'differsNotEvaluated';
+          res.view[k] = (res.view[k] || 0) + 1;
+        }
         if (r2) compare(res.r2, 'server-r2', step, t, sS, cur.r2.map(sigNotify), rS, req.r2.map(sigRequest));
       }
 
@@ -627,6 +734,10 @@ function main () {
     res.acks = ackLog;
     res.viewKindMinutes = viewKindMinutes;
     res.view.name = opt.view;
+    if (pctx) {
+      res.view.arm = 'profile';
+      res.profile = { minutes: profileMinutes, evaluator: Object.assign({}, pctx.evaluator.stats), mode: opt.mode };
+    }
     if (PROPS) res.propertiesPresent = propsPresent;
     if (probes.length) res.probes = probes;
     res.errors = errors.length;
