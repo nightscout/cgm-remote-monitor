@@ -37,7 +37,7 @@ ownership, the reference deployment and separate traffic-plane diagrams.
 | [Lifecycle participant](../lib/server/internal-api/contracts/lifecycle-participant.json) | `operations.getStatus.{request,response}` and `operations.invalidateTenant.{request,response}` | Participant census, pinned incarnation/schema/datastore/backend identities, nonce, drain and suspension rules. |
 | [Connector inspection](../lib/server/internal-api/contracts/connector-inspection.json) | `operations.inspectConnectors.{request,response}` | None: a read of the vcpool member's pool state and per-tenant status, counts and upstream refusals. It carries no endpoint, credential or row. |
 | [Evaluator inspection](../lib/server/internal-api/contracts/evaluator-inspection.json) | `operations.inspectEvaluator.{request,response}` | None: a read of the evaluator's configured pool values (mode, ordinal, rule, lease), observed membership (desired and effective count, live rows, heartbeat ages, conflicts), its gate, and per configured tenant the assigned ordinal, admission and progress. It never schedules work, renews a lease or changes eligibility. |
-| [Realtime inspection](../lib/server/internal-api/contracts/realtime-inspection.json) | `operations.{inspectRealtime,inspectRealtimeTenants}.{request,response}` | Sharded realtime only: bounded cached assignment/shards, process identity and local owner/quiescing observations; the selected-tenant operation reads at most128 exact startup/model cells. No tenant-roster scan, SQL, warm trigger, lock/data-freshness certificate or credit retirement. Existing UDS/explicit HTTP network trust applies. |
+| [Realtime inspection](../lib/server/internal-api/contracts/realtime-inspection.json) | `operations.{inspectRealtime,inspectRealtimeTenants}.{request,response}` | Realtime: bounded cached static count/ordinal, process identity and local owner/quiescing observations; the selected-tenant operation reads at most128 exact startup/model cells. No tenant-roster scan, SQL, warm trigger, lock/data-freshness certificate or credit retirement. Existing UDS/explicit HTTP network trust applies. |
 | [Pool operations](../lib/server/internal-api/contracts/pool-operations.json) | `operations.getPool.{request,response}` and `operations.setPoolMembers.{request,response}` | The admin role's configured pool kinds only; the operator's pool identity can write only the desired-count row. |
 
 Each nested `request` and `response` is a JSON Schema 2020-12 document. The
@@ -69,7 +69,7 @@ these optional fields, so their behaviour is unchanged.
 | `ownership-operations` | Private operator plane | `listOwners(body, signal)` | `/ownership/list` | Current owners, or `denied` without an owner list. |
 | `ownership-operations` | Private operator plane | `addOwner`, `transferOwner`, `recoverOwner` | `/ownership/add`, `/ownership/transfer`, `/ownership/recover` | `applied` or audited `refused` with the owner set, or `denied` with no effect. See [operator-assisted ownership](../lib/tenant-ownership/README.md). |
 | `connector-inspection` (v2) | vcpool role | `inspectConnectors({}, signal)` | `/vcpool/inspect` | The member's pool mode, eligibility and refusal counts, the egress proxy flag, and per tenant: status (`polling`, `skipped` with the activity code, `refused`, `not-in-slice`, `member-refused`, `idle`), rows pulled, refusal counts keyed `phase:status` and the last refusal. |
-| `evaluator-inspection` | evaluator role: every partitioned member; a standalone evaluator only when serve.internal is configured explicitly | `inspectEvaluator({tenants?: UUID[]}, signal)` | `/evaluator/inspect` | Version 2: configured pool values beside observed membership, the gate, runtimeId and per-tenant progress. Optional unique tenants selects at most 128 current tenants; [] returns summary only. Selected reads avoid the full runtime, delivery, registry and startup roster. {} retains the whole view and existing byte caps. Progress generation identifies a never-reused runtime ownership/config/lifecycle epoch; data/time revisions preserve it. completedAcquisitions/completedTimeCycles count only successful still-current jobs after their fresh owned window fully resolves; without a selected window these strict counters remain zero. lastCompletedAgeMs is null before success; failedCompletions counts failed attempted jobs, excluding expected inactive/withdrawn/disabled no-ops. Legacy cycles and evaluation age remain unchanged. |
+| `evaluator-inspection` | evaluator role: each static slice; a standalone evaluator when serve.internal is configured explicitly | `inspectEvaluator({tenants?: UUID[]}, signal)` | `/evaluator/inspect` | Version 3: configured static shape beside unknown remote liveness, actual local ownership, runtimeId and per-tenant progress. Optional unique tenants selects at most 128 current tenants; [] returns summary only. Selected reads avoid the full runtime, delivery, registry and startup roster. {} retains the whole view and existing byte caps. Progress generation identifies a never-reused runtime ownership/config/lifecycle epoch; data/time revisions preserve it. completedAcquisitions/completedTimeCycles count only successful still-current jobs after their fresh owned window fully resolves; without a selected window these strict counters remain zero. lastCompletedAgeMs is null before success; failedCompletions counts failed attempted jobs, excluding expected inactive/withdrawn/disabled no-ops. Legacy cycles and evaluation age remain unchanged. |
 | `pool-operations` | Private operator plane (admin role, `pools`) | `getPool`, `setPoolMembers` | `/pool/get`, `/pool/members` | `observed` or `applied`/`unchanged` with the desired count, the count in effect, live and missing ordinals and conflicts; or `denied` with `POOL_KIND_UNKNOWN`/`POOL_MEMBERS_INVALID`. Members switch slices together once every ordinal of the new count is live. |
 
 Service handlers must implement exactly the operations in their selected
@@ -83,31 +83,43 @@ is no URL forwarding, dynamic module lookup or generic proxy operation.
 
 Every request names the selected service and protocol version in
 `x-nightscout-internal-service` and `x-nightscout-internal-version`. The current
-version is `1` except connector inspection and evaluator inspection (`2`), alarm delivery and realtime inspection (`3`), and lifecycle participant (`4`); a missing or different service/version is refused. The wire paths
+version is `1` except connector inspection (`2`), evaluator inspection and
+completed output (`3`), alarm delivery (`4`), and realtime inspection and lifecycle
+participant (`5`); a missing or different service/version is refused. The wire paths
 remain recognizable, but service/version enforcement requires a coordinated
 upgrade of communicating processes. There is no fallback to the earlier untyped
 IPC protocol. A breaking request, response or operation change requires an
 explicit protocol version change and a documented deployment transition.
 
-Lifecycle participant version 4 requires the complete admitted identity, including
-the restore-resume and operation-clearance table OIDs, and provides the scoped
-in-flight operation census. Upgrade the operator and every cohort participant
-together before maintenance; version 1, 2 or 3 requests are refused before dispatch.
-Existing pins must be reacquired against the upgraded cohort. The operation
-configuration remains separate. Unsharded lifecycle payload version 1 and legacy
-map1 placement payload version 2 retain their meaning. Selected map2/key2 uses
-placement payload version 3 with exact `ownershipVersion: 2`. Alarm-delivery
-version 3 carries that same discriminator for assignment-scoped handoffs; no
-legacy-key fallback is permitted. Realtime inspection version 3 reports cached
-ownership mode and separate assignment/process identity under existing private
-UDS/explicit HTTP network trust. These headers do not authenticate peers.
+Lifecycle participant version 5 retains the complete admitted datastore/backend
+identity and scoped operation census. Its payload version 4 adds immutable
+realtime ownership `{count, ordinal, rule}` on realtime participants and `null`
+on other roles. The fixed participant manifest covers every ordinal exactly once,
+including idle slices. All participants and the operator upgrade together.
+Existing maintenance pins refuse a replacement incarnation and must be reacquired.
 
-The opt-in `NS_REALTIME_OWNERSHIP_CONTRACT=assignment-v2` profile requires fresh
-map format 2. Absent selection preserves legacy map1/key1. Mixed maps/profiles,
-reader mode changes and in-place conversion through ordinary publication refuse.
-An old source/controller is not compatible with the new prepared profile. No
-conversion may reset UNKNOWN credits; conversion is not implemented or qualified.
-See [the ownership contract](../lib/realtime-placement/README.md#assignment-scoped-ownership-contract-2).
+Realtime workers load `NS_REALTIME_SLICE` once at boot. Evaluator clients load
+`NS_REALTIME_SLICE_PEERS` as distinct private addresses in ordinal order. Public
+sockets, private alarms and output hints route the canonical registry UUID through
+the same [slice function](../lib/pool-membership/slice.js). Alarm delivery version 4
+carries `{count, ordinal}` without changing the durable request, attempt, origin
+generation or transport-acceptance boundary. A missing peer retains durable alarm
+retry. Output hints attempt every addressed group; the unchanged 30-second durable
+reconciliation recovers a lost hint. Realtime inspection version 5 reports cached
+static ownership and the separate process incarnation.
+
+Evaluator inspection version 3 reports static configuration as
+`{mode:'static',count,ordinal,rule,leaseMs:null,configuredTenants}`. Its `gate.members`
+is the configured K. `observed:null` explicitly leaves remote peer liveness unknown.
+The gate's eligibility reports actual local owner availability; `assignedOrdinal`
+uses the configured hash rule. Selected tenant observations do not scan the roster.
+
+The platform replaces a failed worker at the same ordinal with K unchanged and
+restarts or reconnects the producer for durable replay. Changing K requires all
+old owners to stop. Duplicate ordinals, mixed K and stale owners refuse. Static
+serving roles refuse the former dynamic-placement configuration and read no
+publication file. Service/version headers remain routing checks under private UDS
+or explicit network trust; they do not authenticate peers.
 
 ## Operator REST API (admin listener)
 
@@ -274,7 +286,7 @@ For local diagnostics, use the same operation contract as the named client:
 curl --fail --request POST 'http://127.0.0.1:9081/cohort/status' \
   --header 'Content-Type: application/json' \
   --header 'x-nightscout-internal-service: lifecycle-participant' \
-  --header 'x-nightscout-internal-version: 4' \
+  --header 'x-nightscout-internal-version: 5' \
   --data '{"request":"00000000-0000-4000-8000-000000000001"}'
 ```
 

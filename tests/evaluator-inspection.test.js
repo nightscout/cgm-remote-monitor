@@ -21,7 +21,7 @@ function fractionalDue(){
  const due=require('../lib/data/evaluator-due').nextDue({env,ddata:{devicestatus:[{mills:at,pump:{clock:new Date(at).toISOString()}}]},result:{requested:[]},at});
  assert(Number.isFinite(due.dueAt)&&!Number.isInteger(due.dueAt));return{dueAt:due.dueAt,dueReason:due.reason};
 }
-describe('bounded evaluator inspection v2',function(){
+describe('bounded evaluator inspection v3',function(){
  it('selects at most 128 without whole-roster summaries, including empty summary, and refuses unknown/duplicate selectors',async function(){
   const f=fixture();assert.deepEqual((await f.inspect({tenants:[]})).tenants,[]);assert.equal(f.visited(),0);
   const dto=await f.inspect({tenants:f.ids.slice(0,128)});assert.equal(dto.tenants.length,128);assert.equal(f.visited(),256);
@@ -57,7 +57,7 @@ describe('bounded evaluator inspection v2',function(){
   const ordinary=fixture(1);assert.deepEqual((await ordinary.inspect({tenants:[]})).tenants,[]);
   for(const diagnostics of [false,true,'unknown'])await assert.rejects(ordinary.inspect({tenants:[],diagnostics}),/diagnostics selector refused/);
  });
- it('preserves ordinary v2 clients and refuses retired requests and response shapes on the private wire',async function(){
+ it('preserves ordinary paired clients and refuses retired requests and response shapes on the private wire',async function(){
   const f=fixture(1),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-retired-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt=false,invoked=0;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{invoked++;const dto=await f.inspect(body);if(corrupt)dto.diagnostics={changeFeed:{status:'not-configured',health:null}};return dto;}})}]);
@@ -125,7 +125,7 @@ describe('bounded evaluator inspection v2',function(){
    const f=fixture(1,{dueAt:null,dueReason:null,jobs});await assert.rejects(f.inspect({tenants:f.ids}),/job inspection refused/);
   }
  });
- it('carries selected v2 bodies over the actual private UDS client and refuses the prior module version',async function(){
+ it('carries selected v3 bodies over the actual private UDS client and refuses the prior module version',async function(){
   const due={dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},f=fixture(10000,due),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-'));let listener;
   const endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let corrupt=false,jobCorruption=false;
   try{
@@ -136,13 +136,13 @@ describe('bounded evaluator inspection v2',function(){
    for(const next of [fractionalDue(),{dueAt:1,dueReason:'sgv-recent-10'},{dueAt:null,dueReason:null}]){Object.assign(due,next);const observed=await client.inspectEvaluator({tenants:[f.ids[0]]});assert.equal(observed.tenants[0].dueAt,next.dueAt);assert.equal(observed.tenants[0].dueReason,next.dueReason);}
    for(const invalid of ['a'.repeat(129),'stale-reason']){due.dueAt=invalid==='stale-reason'?null:1;corrupt=invalid;await assert.rejects(client.inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'SCHEMA_REFUSES_INVALID_REASON');}corrupt=false;await client.inspectEvaluator({tenants:[f.ids[0]]});
    jobCorruption=true;await assert.rejects(client.inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'SCHEMA_REFUSES_NONBOOLEAN_JOB_STATE');jobCorruption=false;
-   const oldV2=JSON.parse(JSON.stringify(service));const oldRows=oldV2.operations.inspectEvaluator.response.properties.tenants.items;delete oldRows.properties.dueAt;delete oldRows.properties.dueReason;delete oldRows.anyOf;oldRows.required=oldRows.required.filter(key=>!['dueAt','dueReason'].includes(key));
-   await assert.rejects(transport.client(endpoint,oldV2).inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'OLD_STRICT_V2_CLIENT_MUST_NOT_SILENTLY_ACCEPT_NEW_FIELDS');
+   const oldStrict=JSON.parse(JSON.stringify(service));const oldRows=oldStrict.operations.inspectEvaluator.response.properties.tenants.items;delete oldRows.properties.dueAt;delete oldRows.properties.dueReason;delete oldRows.anyOf;oldRows.required=oldRows.required.filter(key=>!['dueAt','dueReason'].includes(key));
+   await assert.rejects(transport.client(endpoint,oldStrict).inspectEvaluator({tenants:[f.ids[0]]}),/SOCKET_IPC_UNAVAILABLE/,'OLD_STRICT_RESPONSE_MUST_NOT_SILENTLY_ACCEPT_NEW_FIELDS');
    const empty=fixture(0),emptyDir=path.join(dir,'empty.sock');
    const emptyEndpoint={...endpoint,socketPath:emptyDir};
    const emptyListener=await transport.compose(emptyEndpoint,[{service,create:()=>({inspectEvaluator:(context,body)=>empty.inspect(body)})}]);
    try { const dto=await transport.client(emptyEndpoint,service).inspectEvaluator({tenants:[]});assert.equal(dto.configured.configuredTenants,0);assert.deepEqual(dto.tenants,[]); } finally { await emptyListener.close(); }
-   const old=transport.client(endpoint,{...service,version:1});await assert.rejects(old.inspectEvaluator({tenants:[]}),/SOCKET_IPC_UNAVAILABLE/);
+   for(const version of [1,2])await assert.rejects(transport.client(endpoint,{...service,version}).inspectEvaluator({tenants:[]}),/SOCKET_IPC_UNAVAILABLE/,'PRIOR_INSPECTION_VERSION_MUST_REFUSE');
   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
  });
  it('actual runtime/window inspection over private UDS does not schedule work or acquire tenant authority',async function(){
@@ -161,4 +161,30 @@ describe('bounded evaluator inspection v2',function(){
   }finally{await listener?.close();await runtime.close();await f.window.close();fs.rmSync(dir,{recursive:true,force:true});}
  });
 
+});
+
+// Static configuration is carried explicitly; this is not a peer census.
+describe('static evaluator private ownership inspection',function(){
+ const B='22222222-2222-4222-8222-222222222222',slice=require('../lib/pool-membership/slice');
+ it('reports ordinal1 at K2 over the paired private v3 wire without scanning a roster or doing membership work',async()=>{
+  let available=true,scans=0;const ids=new Map([[B,true]]),tenants=new Proxy(ids,{get(target,key){if(['keys','values','entries',Symbol.iterator].includes(key))return()=>{scans++;throw Error('STATIC_INSPECTION_ROSTER_SCAN');};return typeof target[key]==='function'?target[key].bind(target):target[key];}});
+  const gate=require('../lib/pgstream/static-gate').create({shape:{count:2,ordinal:1},tenants:[B],available:()=>available});
+  const row={tenant:B,jobs:{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false},dueAt:null,dueReason:null,ready:true,code:null,cycles:1,outputRevision:1,inputCheckpoint:1,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:0,lastCompletedAgeMs:1,failedCompletions:0}};
+  const inspect=inspection({tenants,gate,runtime:{health(selected){assert.deepEqual(selected,[B]);return{runtimeId:A,tenants:[row]};}},registry:{stats(){throw Error('STATIC_REGISTRY_STATS');}},startup:{health(){throw Error('STATIC_STARTUP_STATS');}}});
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'static-evaluator-inspect-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
+  try{listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:(ctx,body)=>inspect(body)})}]);const client=transport.client(endpoint,service);
+   for(let n=0;n<5;n++){const dto=await client.inspectEvaluator({tenants:[B]});assert.deepEqual(dto.configured,{mode:'static',count:2,ordinal:1,rule:slice.RULE,leaseMs:null,configuredTenants:1});assert.equal(dto.observed,null,'CONFIGURED_K_IS_NOT_A_LIVE_PEER_CENSUS');assert.equal(dto.gate.members,2);assert.equal(dto.gate.eligible,true);assert.equal(dto.gate.reads,0);assert.equal(dto.gate.heartbeats,null);assert.equal(dto.tenants[0].assignedOrdinal,1,'STATIC_INSPECTION_MUST_USE_CONFIGURED_K');assert.equal(dto.tenants[0].admitted,true);}
+   assert.equal(scans,0);assert.equal(gate.admits(A),false,'WRONG_STATIC_OWNER_REFUSES');available=false;const lost=await client.inspectEvaluator({tenants:[B]});assert.equal(lost.gate.eligible,false);assert.equal(lost.tenants[0].admitted,false);assert.equal(lost.gate.reason,'EVALUATOR_OWNER_UNAVAILABLE');available=true;gate.close();assert.equal(gate.admits(B),false);assert.equal((await gate.inspect()).gate.reason,'EVALUATOR_STATIC_GATE_CLOSED');
+   await assert.rejects(transport.client(endpoint,{...service,version:2}).inspectEvaluator({tenants:[B]}),/SOCKET_IPC_UNAVAILABLE/,'COORDINATED_PRIVATE_V3_UPGRADE_REQUIRED');
+  }finally{await listener?.close();gate.close();fs.rmSync(dir,{recursive:true,force:true});}
+ });
+ it('uses exact K3/K7 ownership and a mutated K1 report turns the configured-owner criterion red, then restores',async()=>{
+  const actual=require('../lib/pgstream/static-gate'),control=require('./lib/clinical-working-set/control'),crypto=require('node:crypto');
+  const ids=Array.from({length:100},(_,i)=>crypto.createHash('sha256').update(String(i)).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
+  for(const count of [3,7])for(let ordinal=0;ordinal<count;ordinal++){const owned=ids.filter(t=>slice.bucket(t,count)===ordinal),gate=actual.create({shape:{count,ordinal},tenants:owned,available:()=>true}),view=await gate.inspect();for(const tenant of ids){assert.equal(view.owner(tenant),slice.bucket(tenant,count));assert.equal(view.admits(tenant),slice.bucket(tenant,count)===ordinal);}assert.equal(view.observed,null);gate.close();}
+  assert.throws(()=>actual.create({shape:{count:2,ordinal:1},tenants:[A],available:()=>true}),/ROSTER_REFUSED/);
+  const criterion=async module=>{const gate=module.create({shape:{count:2,ordinal:1},tenants:[B],available:()=>true});try{assert.equal((await gate.inspect()).owner(B),1,'STATIC_INSPECTION_MUST_USE_CONFIGURED_K');}finally{gate.close();}};
+  const interval=global.setInterval;global.setInterval=()=>{throw Error('STATIC_MEMBERSHIP_TIMER_FORBIDDEN');};try{const quiet=actual.create({shape:{count:2,ordinal:1},tenants:[B],available:()=>true});quiet.start(100);await quiet.refresh();await quiet.inspect();quiet.close();}finally{global.setInterval=interval;}
+  await criterion(actual);const broken=control('../lib/pgstream/static-gate','const owner=tenant=>bucket(tenant,shape.count);','const owner=tenant=>bucket(tenant,1);');await assert.rejects(criterion(broken),e=>e.code==='ERR_ASSERTION'&&e.message.includes('STATIC_INSPECTION_MUST_USE_CONFIGURED_K'));await criterion(actual);
+ });
 });

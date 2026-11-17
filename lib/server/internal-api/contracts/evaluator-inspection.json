@@ -1,6 +1,6 @@
 {
   "id": "evaluator-inspection",
-  "version": 2,
+  "version": 3,
   "operations": {
     "inspectEvaluator": {
       "path": "/evaluator/inspect",
@@ -87,7 +87,8 @@
               "mode": {
                 "enum": [
                   "standalone",
-                  "partitioned"
+                  "partitioned",
+                  "static"
                 ]
               },
               "ordinal": {
@@ -120,6 +121,12 @@
               "configuredTenants": {
                 "type": "integer",
                 "minimum": 0
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024,
+                "description": "Immutable configured slice count in static mode; does not assert peer liveness."
               }
             },
             "required": [
@@ -129,7 +136,30 @@
               "leaseMs",
               "configuredTenants"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "properties": {
+                  "mode": {
+                    "const": "static"
+                  }
+                },
+                "required": [
+                  "count"
+                ]
+              },
+              {
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "standalone",
+                      "partitioned"
+                    ]
+                  },
+                  "count": false
+                }
+              }
+            ]
           },
           "observed": {
             "anyOf": [
@@ -331,7 +361,8 @@
                     "minimum": 1,
                     "maximum": 1024
                   }
-                ]
+                ],
+                "description": "Configured slice count for static mode; observed peer liveness remains unknown."
               },
               "reads": {
                 "type": "integer",

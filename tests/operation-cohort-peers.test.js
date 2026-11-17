@@ -43,9 +43,9 @@ async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localM
     const entry=entries[index], options={intakeProfile}, f=fixture(options,windowSource?.create);
     const module=load({...(windowSource?{'../../tenant-lifecycle/operation-window':windowSource}:{}),'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
-    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({health:()=>flags.apiHealth||{ready:true,storageReady:true},close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
+    },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({health:()=>({...flags.apiHealth||{ready:true,storageReady:true},...(name==='preview-realtime'?{ownership:{resource:true}}:{})}),close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:registryLabel?[registryLabel]:[A,B],namespaces:entry.namespaces,participant:entry});
-    await cohort.boot(roles[index],{...(registryLabel?{registry:{namespace:registryLabel.slice(9)}}:{}),tenantIds:registryLabel?[registryLabel]:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
+    await cohort.boot(roles[index],{...(roles[index]==='realtime'?{ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0})}:{}),...(registryLabel?{registry:{namespace:registryLabel.slice(9)}}:{}),tenantIds:registryLabel?[registryLabel]:[A,B],namespaces:{clinical:entry.namespaces[0]}});cohort.complete();
     // serve.internal binds the lifecycle handlers; the recording transport stands in for it.
     const operations=module.controlOperations(cohort),address=entry.endpoint.socketPath;handlers.set(address,operations);
     locals.set(index,{f,cohort,options,operations,async close(){if(handlers.get(address)===operations)handlers.delete(address);await cohort.close();}});

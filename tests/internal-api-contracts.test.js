@@ -6,7 +6,7 @@ const contracts = require('../lib/server/internal-api/contracts');
 const A = '11111111-1111-4111-8111-111111111111';
 const request = '00000000-0000-4000-8000-000000000001';
 const identity = require('./fixtures/operation-window-admission-protocol').identity;
-const status = { version: 1, participant: 'api_1', incarnation: request, namespace: 'lifecycle', roles: ['api'], tenants: [A], namespaces: ['clinical'], identity,
+const status = { version: 4, ownership: null, participant: 'api_1', incarnation: request, namespace: 'lifecycle', roles: ['api'], tenants: [A], namespaces: ['clinical'], identity,
   datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
   backends: [{ pid: 123, role: 'synthetic_api', birth: '1700000001.0' }], request };
 const authorize = contracts.socketAuthority.operations.authorizeSocket;
@@ -25,9 +25,9 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
-      // Connector metadata, alarm/cohort fencing and evaluator scheduling observations use v2;
-      // completed-output v3 carries a bounded tenant wake list (realtime owns delivery progress).
-      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 4 : ['alarm-delivery','completed-output'].includes(service.id) ? 3 : ['connector-inspection', 'evaluator-inspection'].includes(service.id) ? 2 : 1);
+      // Explicit versions refuse mixed role/operator upgrades. Evaluator v3
+      // distinguishes immutable static configuration from observed peer state.
+      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 5 : service.id==='alarm-delivery' ? 4 : ['completed-output','evaluator-inspection'].includes(service.id) ? 3 : service.id==='connector-inspection' ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
@@ -173,22 +173,24 @@ describe('Internal service API contracts', function () {
   });
 });
 
-describe('assignment-key wire provenance', function () {
-  it('ties lifecycle placement payloads to exact ownership versions and rejects ambiguous provenance', function () {
-    const placement={generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',incarnation:A,shards:[0]};
+describe('static ownership wire provenance', function () {
+  it('requires the exact static lifecycle tuple and refuses legacy or ambiguous payloads', function () {
+    const ownership={count:2,ordinal:1,rule:'sha256-modulo-v1'};
     for(const response of [lifecycle.getStatus.response,lifecycle.invalidateTenant.response]){
       const base=response===lifecycle.invalidateTenant.response?{...status,tenant:A}:status;
-      validate(response,{...base,version:2,placement});validate(response,{...base,version:3,placement:{...placement,ownershipVersion:2}});
-      for(const value of [{...base,version:3,placement},{...base,version:2,placement:{...placement,ownershipVersion:2}},{...base,version:1,placement},{...base,version:3,placement:{...placement,ownershipVersion:1}}])refused(()=>validate(response,value));
+      validate(response,base);validate(response,{...base,ownership});
+      const missing={...base};delete missing.ownership;
+      for(const value of [missing,{...base,version:3},{...base,placement:{}},
+        {...base,ownership:{...ownership,count:0}},{...base,ownership:{...ownership,ordinal:-1}},
+        {...base,ownership:{...ownership,rule:'sha256-u32be-v1'}},{...base,ownership:{...ownership,incarnation:A}}])refused(()=>validate(response,value));
     }
   });
 });
 
-
 describe('private realtime selected readiness schema',function(){
   it('accepts actual bounded observation and refuses fabricated ready, extra fields and unknown selectors',async function(){
-    const token={},p={ownershipVersion:2,generation:1,digest:'a'.repeat(64),rule:'sha256-u32be-v1',shardCount:1,worker:'a',assignmentIncarnation:A,shards:[0]};
-    const ops=require('../lib/server/serve/realtime-inspection')({processIncarnation:request,placement:{cached:()=>p},owner:()=>true,quiescing:()=>false,startup:{isReady:()=>true},modelWarm:()=>true})(token),contract=contracts.realtimeInspection.operations.inspectRealtimeTenants;
+    const token={},p=require('../lib/realtime-ownership').create({count:1,ordinal:0});
+    const ops=require('../lib/server/serve/realtime-inspection')({processIncarnation:request,ownership:p,owner:()=>true,quiescing:()=>false,startup:{isReady:()=>true},modelWarm:()=>true})(token),contract=contracts.realtimeInspection.operations.inspectRealtimeTenants;
     const reply=await ops.inspectRealtimeTenants({transport:token},{tenants:[A]});validate(contract.response,reply);
     for(const body of [{tenants:[A,A]},{tenants:[A],unknown:true},{tenants:['00000000-0000-0000-0000-000000000000']},{tenants:[[A]]}])refused(()=>validate(contract.request,body));
     for(const change of [v=>{v.tenants[0].startupComplete=false;},v=>{v.tenants[0].modelAvailable=null;},v=>{v.tenants[0].owned=false;},v=>{v.ownerAvailable=false;},v=>{v.phase='quiescing';v.ownerAvailable=false;},v=>{v.tenants[0].extra=true;}]){const bad=structuredClone(reply);change(bad);refused(()=>validate(contract.response,bad));}
