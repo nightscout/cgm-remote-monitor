@@ -19,6 +19,7 @@ function fixture({holdCommit=false,loseReply=false}={}){
   if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('WITH input')){const patches=JSON.parse(values[1]);for(const patch of patches){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(patch.delivery_delta));}return {rowCount:patches.length};}
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision')){const row=current.get(values[0]);row.delivery_revision=String(BigInt(row.delivery_revision)+1n);return {rowCount:1};}
+  if(text.startsWith('UPDATE ')&&text.includes('SET projection=p.projection')){const patches=JSON.parse(values[2]);for(const patch of patches){const row=current.get(patch.tenant);row.projection=patch.projection;row.contract_digest=values[1];row.checkpoint=patch.checkpoint;}return {rowCount:patches.length,rows:[]};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){const row=current.get(values[0]);row.projection=JSON.parse(values[2]);row.contract_digest=values[3];row.checkpoint=values[4];return {rowCount:1};}
   throw new Error('UNEXPECTED_SQL:'+text);
  }};
@@ -87,6 +88,16 @@ describe('atomic native clinical and control SQL receipt',()=>{
   assert.equal(f.durable.get(A).work_observed[5],'11');
   const writes=f.calls.filter(({text})=>text.startsWith('WITH input')||text.includes('SET delivery_revision='));
   assert.equal(writes.length,1,'COMPLETED_ROW_WRITE_REPEATED');
+ });
+ it('uses one already-locked input update for two tenants and skips input reads for control-only work',async()=>{
+  const f=fixture();
+  await sql.acceptTransaction({...f.options,envelope:native.envelope([native.row('a'),native.row('b',130,'I',B)])});
+  const mutations=f.calls.filter(({text})=>text.includes('SET projection='));
+  assert.equal(mutations.length,1);
+  assert.deepEqual(JSON.parse(mutations[0].values[2]).map(row=>row.tenant),[A,B]);
+  const start=f.calls.length;
+  await sql.acceptTransaction({...f.options,envelope:native.envelope([]),observations:[{tenant:A,observed:{settings:'4'}}]});
+  assert(!f.calls.slice(start).some(({text})=>text.startsWith('SELECT c.tenant_id')),'CONTROL_ONLY_MUST_NOT_QUERY_INPUT');
  });
  it('control: removing the final generation check accepts a cohort across suspension',async()=>{
   const control=require('./lib/clinical-working-set/control');

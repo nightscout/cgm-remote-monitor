@@ -109,6 +109,25 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     const cold=await reconcile();assert.deepEqual(cold.rows,before.rows);assert(queries.some(q=>q.includes('snapshot_source')),'REPLACEMENT_MUST_REBUILD_PRIVATE_CACHE');
     queries=[];await reconcile();assert(!queries.some(q=>q.includes('snapshot_source')||q.includes('information_schema')),'WARM_REPLACEMENT_MUST_NOT_REACQUIRE');
   });
+  it('avoids warm projection detoast only while the exact PostgreSQL writer identity matches',async()=>{
+    const broken=brokenModule('../lib/storage/postgres-durable-replay','WHEN xmin::text=$3 AND pg_snapshot_xmax','WHEN $3::text IS NOT NULL AND pg_snapshot_xmax');
+    const check=async factory=>{
+      const candidate=newHandle(factory);
+      const read=()=>scope.withTenant(A,()=>candidate.reconcile({...limits,signature:true,policy:policy.create(env,at)}));
+      await read();
+      const previous=candidate.sourceAccess().snapshotCompleted;
+      queries=[];
+      await read();
+      assert(queries.some(text=>text.includes('pg_snapshot_xmax')&&text.includes('THEN NULL ELSE')),'WARM_READ_NEEDS_WRITER_GUARD');
+      assert.equal(candidate.sourceAccess().snapshotCompleted,previous);
+      await scope.withTenant(A,()=>connection.query("UPDATE "+checkpoint+" SET projection=jsonb_set(projection,'{0,stream,generation}',to_jsonb('fixture:different'::text)) WHERE tenant_id=$1",[A]));
+      await read();
+      assert.equal(candidate.sourceAccess().snapshotCompleted,previous+1,'SAME_FLOOR_DIFFERENT_WRITER_MUST_RECOVER');
+    };
+    await check(replayFactory);
+    await assert.rejects(check(broken),/SAME_FLOOR_DIFFERENT_WRITER_MUST_RECOVER/);
+    await check(replayFactory);
+  });
   it('control: forced warm reacquisition fails the native source-access witness; restored RAM path passes',async()=>{
     const needle='if (stream && cached && streamState?.ready && saved.contract_digest === snapshotDigest &&';
     const broken=brokenModule('../lib/storage/postgres-durable-replay',needle,'if (false &&');
