@@ -125,6 +125,25 @@ describe('REST admission limiter on an actual listener', function () {
     const later = send(port); store.release();
     assert.equal((await later.done).status, 201, 'a released slot admits the next request');
   });
+  it('runs a request admitted from the queue in its own async context, never the releasing request\'s', async function () {
+    // The tenant app wraps each request in an AsyncLocalStorage operation-window
+    // scope and refuses a request that arrives inside another request's scope.
+    // This mirrors that wrapping with a plain AsyncLocalStorage.
+    const { AsyncLocalStorage } = require('node:async_hooks');
+    const scopes = new AsyncLocalStorage(), store = heldStore(), inherited = [];
+    const limiter = admission.create({ concurrency: 1, queue: 2, queueTimeoutMs: 3000 });
+    const app = express(); app.use(limiter.middleware);
+    let sequence = 0;
+    app.use((req, res, next) => { inherited.push(scopes.getStore()?.owner ?? null); scopes.run({ owner: ++sequence }, next); });
+    app.post('/write', store.handler);
+    server = await listen(app); const port = server.address().port;
+    const first = send(port); await until(() => store.state.entered === 1, 'first admitted');
+    const second = send(port), third = send(port); await until(() => limiter.stats().waiting === 2, 'two queued');
+    store.release();
+    assert.deepEqual((await Promise.all([first.done, second.done, third.done])).map(reply => reply.status), [201, 201, 201]);
+    assert.equal(limiter.stats().queued, 2, 'both later requests were admitted from the queue');
+    assert.deepEqual(inherited, [null, null, null], 'a queued request must not inherit another request\'s async scope');
+  });
 });
 
 describe('REST admission in the production api composition', function () {
