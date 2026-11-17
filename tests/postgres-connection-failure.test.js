@@ -396,7 +396,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
       assert.doesNotThrow(() => client.emit('error', failure));
       await assert.rejects(f.store.query('SELECT after_gap'), error => error === failure);
       return { items: [] };
-    } }, { connection: clock, bus, logical: 'entries', source: 'v3' });
+    } }, { connection: clock, bus, logical: 'entries', source: 'v3', stampedV3Writes: true });
     try {
       await scope.withTenant(TENANT, () => assert.rejects(step.write({ op: 'create' }), error => {
         assert.equal(error.cause, failure);
