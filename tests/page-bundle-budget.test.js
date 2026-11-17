@@ -38,7 +38,10 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // Calibrations matching and responsive presentation add 468 reports gzip bytes
 // (71,211 -> 71,679 on Node 24.22.1). Keep the existing 340-byte headroom and
 // every other limit. See docs/audits/calibrations-report-bundle.json.
-const limits = {app: 349000, reports: 72019, admin: 8500, profile: 7100, food: 5700, clock: 63043};
+// Independent hourly basal calculations and their legend add 1,014 reports gzip
+// bytes (71,679 -> 72,693 on Node 24.22.1), retaining the 340-byte margin.
+// Other artifacts/limits are unchanged; see docs/audits/hourly-basal-bundle.json.
+const limits = {app: 349000, reports: 73033, admin: 8500, profile: 7100, food: 5700, clock: 63043};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;

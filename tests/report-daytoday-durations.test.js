@@ -55,7 +55,11 @@ describe('day-to-day report: events with a duration', function () {
       , parseInTimezone: value => moment.utc(value)
       , updateTreatments: function () {}
       , getBasalRenderTimes: start => [start, start + 12 * HOUR]
-      , getTempBasal: date => { const rate = options && options.basalRate !== undefined ? options.basalRate : moment.utc(Number(date)).hour() < 12 ? .5 : .8; return {basal: rate, tempbasal: rate, totalbasal: rate}; }
+      , getTempBasal: date => {
+        const rate = options && options.basalRate !== undefined ? options.basalRate : moment.utc(Number(date)).hour() < 12 ? .5 : .8;
+        const temp = options && options.tempBasalRate !== undefined ? options.tempBasalRate : rate;
+        return {basal: rate, tempbasal: temp, totalbasal: temp};
+      }
     };
     env.window.Nightscout = {
       client: {
@@ -78,7 +82,7 @@ describe('day-to-day report: events with a duration', function () {
       alldays: days.length
       , combobolusTreatments: []
       , devicestatus: []
-      , profiles: []
+      , profiles: [{}]
       , profileSwitchTreatments: []
       , tempbasalTreatments: []
       , treatments: treatments.slice().sort((a, b) => a.mills - b.mills)
@@ -229,6 +233,13 @@ describe('day-to-day report: events with a duration', function () {
     // Axis fixture supplies no glucose ticks; the basal track still starts below the 260px glucose plot.
     assert.ok(basalTicks.every(y => y > 260));
     assert.equal(glucoseTicks.length, 0);
+  });
+
+  it('keeps basal totals independent of whether the basal chart is shown', function () {
+    for (const basal of [true, false]) {
+      render([DAY1], [], {basal, tempBasalRate: 1, insulindistribution: true});
+      assert.equal(env.document.querySelector('.daily-insulin-total').textContent, '24.0');
+    }
   });
 
   for (const units of ['mg/dl', 'mmol']) {

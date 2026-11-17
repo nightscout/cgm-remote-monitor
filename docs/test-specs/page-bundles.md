@@ -91,6 +91,13 @@ source hashes. The reports allowance becomes 72,019 bytes, preserving the same
 the combined size is 413,127 bytes against the existing 426,000-byte limit.
 The responsive layout styles are served as static CSS.
 
+The independent Hourly basal adjustments calculation and legend add 1,014
+reports gzip bytes (72,693 total). The
+[paired measurement](../audits/hourly-basal-bundle.json) records the two new
+report-only modules and unchanged hashes for all other JavaScript artifacts.
+The reports allowance becomes 73,033 bytes with its existing 340-byte margin;
+the 426,000-byte combined limit is unchanged, against 414,141 measured bytes.
+
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. The final head subsequently passed both Firefox jobs; no failures were waived.
 

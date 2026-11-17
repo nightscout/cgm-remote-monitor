@@ -26,6 +26,27 @@ body {
   text-align:center;
 }
 
+#hourly-basal-adjustments { margin-top: 28px; }
+#hourly-basal-adjustments p { max-width: 95ch; line-height: 1.5; }
+.hourly-basal-unavailable, .hourly-basal-empty { padding: 12px; background: #f3f6fa; color: #435b75; border-radius: 7px; }
+.hourly-basal-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+#hourly-basal-adjustments .hourly-basal-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; }
+#hourly-basal-adjustments :is(th, td) { padding: 10px 12px; border: 1px solid #dce4ed; text-align: center; white-space: nowrap; }
+#hourly-basal-adjustments th { background: #edf2f7; color: #435b75; }
+#hourly-basal-adjustments th[scope="row"] { position: sticky; left: 0; z-index: 1; min-width: 120px; white-space: normal; text-align: left; }
+.hourly-basal-table td span { display: block; line-height: 1.6; }
+.hourly-basal-table .basal-net { font-weight: 700; }
+.hourly-basal-table .is-negative .basal-net { color: #a92d3b; }
+.hourly-basal-table .is-positive .basal-net { color: #217344; }
+.hourly-basal-average .is-negative { background: #fcebed; }
+.hourly-basal-average .is-positive { background: #e8f5ec; }
+.hourly-basal-average .is-neutral { background: #f3f6fa; }
+@media print {
+  .hourly-basal-scroll { overflow: visible; }
+  #hourly-basal-adjustments th[scope="row"] { position: static; }
+  #hourly-basal-adjustments :is(th, td) { padding: 4px; font-size: 9px; }
+}
+
 #calibrations-placeholder { box-sizing: border-box; min-width: 0; }
 .calibrations-help { max-width: 85ch; line-height: 1.5; }
 .calibrations-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }

@@ -19,7 +19,7 @@ function queryKey(value) {
 }
 
 describe('legacy reports in a real browser', function () {
-  let server, origin, markup, requests;
+  let server, origin, markup, requests, responses;
   before(async function () {
     const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/reportindex.html');
@@ -32,7 +32,10 @@ describe('legacy reports in a real browser', function () {
         '@import url("//fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,300,400,600,700,800");'
       ].includes(line)).join('\n')]));
     const html = '<!doctype html><html><head><meta charset="utf-8">' + cssNames.map(name => '<link rel="stylesheet" href="/css/' + name + '.css">').join('') + '</head><body></body></html>';
-    const responses = new Map(Object.entries(fixtures.someData).map(([url, data]) => [queryKey(url), data]));
+    responses = new Map(Object.entries(fixtures.someData).map(([url, data]) => [queryKey(url), data]));
+    const reportSettings = structuredClone(fixtures.exampleProfile[0]);
+    delete reportSettings.startDate;
+    const reportProfile = {startDate: '2015-01-01T00:00:00.000Z', defaultProfile: 'Default', store: {Default: reportSettings}};
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     const app = express();
     app.use(express.json()); app.use(express.urlencoded({extended: true}));
@@ -49,7 +52,17 @@ describe('legacy reports in a real browser', function () {
     app.get('/api/v1/verifyauth', (request, response) => response.json({message: 'OK'}));
     app.get('/api/v1/adminnotifies', (request, response) => response.json({message: {notifies: [], notifyCount: 0}}));
     app.get('/translations/{*path}', (request, response) => response.json({}));
-    app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/profiles', '/api/v1/devicestatus.json'],
+    app.get('/api/v1/profiles', (request, response) => {
+      const params = new URL(request.originalUrl, 'http://127.0.0.1').searchParams;
+      const at = Date.parse(reportProfile.startDate);
+      const matches = [['$gt', (a, b) => a > b], ['$gte', (a, b) => a >= b],
+        ['$lt', (a, b) => a < b], ['$lte', (a, b) => a <= b]].every(([operator, compare]) => {
+        const value = params.get('find[startDate][' + operator + ']');
+        return value === null || compare(at, Date.parse(value));
+      });
+      response.json(matches ? [reportProfile] : []);
+    });
+    app.get(['/api/v1/entries.json', '/api/v1/treatments.json', '/api/v1/food/regular.json', '/api/v1/devicestatus.json'],
       (request, response) => response.json(responses.get(queryKey(request.originalUrl)) || []));
     app.delete('/api/v1/treatments/:id', (request, response) => response.json({message: 'OK'}));
     app.put('/api/v1/treatments/', (request, response) => response.json({message: 'OK'}));
@@ -489,6 +502,65 @@ describe('legacy reports in a real browser', function () {
         assert.equal(await page.locator('#calibrations-chart svg').isVisible(), true);
         assert.equal(await page.locator('#calibrations-list').evaluate(node => getComputedStyle(node).maxHeight), 'none');
       });
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('opens hourly basal adjustments directly and preserves them across tab and range changes in ' + theme, async function () {
+      const key = queryKey('/api/v1/treatments.json?find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-08-09T00:00:00.000Z&count=1000');
+      const previous = responses.get(key);
+      responses.set(key, previous.concat([
+        {eventType: 'Temp Basal', created_at: '2015-08-08T00:00:00.000Z', duration: 30, absolute: 0},
+        {eventType: 'Temp Basal', created_at: '2015-08-08T01:00:00.000Z', duration: 30, absolute: 1.1}
+      ]));
+      try {
+        await withReports(async page => {
+          await page.addStyleTag({url: origin + '/css/modern-reports.css'});
+          await page.evaluate(theme => {
+            window.Nightscout.client.settings.theme = theme;
+            document.documentElement.classList.toggle('modern-ui', theme === 'modern');
+            document.body.classList.add('report-page');
+            document.getElementById('rp_optionsbasal').checked = false;
+          }, theme);
+          await page.locator('#rp_to').fill('2015-08-09');
+          await page.locator('#hourlystats').click();
+          await show(page);
+          assert.equal(await page.locator('#daytodaycharts svg').count(), 0, 'Day to Day has never been drawn');
+          const section = page.locator('#hourly-basal-adjustments');
+          assert.equal(await section.locator('h2').textContent(), 'Hourly basal adjustments (U)');
+          const row = section.locator('tbody tr').filter({hasText: '08/08/2015'});
+          assert.equal(await row.locator('td').nth(0).locator('.basal-net').textContent(), '-0.05');
+          assert.equal(await row.locator('td').nth(1).locator('.basal-net').textContent(), '0.50');
+          const baseline = await row.locator('td').allTextContents();
+          const requestCount = requests.length;
+          await page.locator('#daytoday').click();
+          await page.locator('#daytodaycharts svg').first().waitFor();
+          await page.locator('#hourlystats').click();
+          assert.deepEqual(await row.locator('td').allTextContents(), baseline);
+          assert.equal(requests.length, requestCount, 'Tab changes use the loaded data');
+          await page.locator('#daytoday').click();
+          await page.locator('#rp_optionsbasal').check();
+          await show(page);
+          await page.locator('#hourlystats').click();
+          assert.deepEqual(await row.locator('td').allTextContents(), baseline, 'Drawing basal charts leaves statistics unchanged');
+          if (process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS) {
+            await section.screenshot({path: process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS + '/' + theme + '-desktop.png'});
+          }
+          await page.setViewportSize({width: 375, height: 812});
+          const scroll = section.locator('.hourly-basal-scroll');
+          assert.equal(await scroll.evaluate(node => node.scrollWidth > node.clientWidth), true);
+          await scroll.focus(); await page.keyboard.press('ArrowRight');
+          await page.waitForFunction(() => document.querySelector('.hourly-basal-scroll').scrollLeft > 0);
+          if (process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS) {
+            await section.screenshot({path: process.env.NIGHTSCOUT_HOURLY_SCREENSHOTS + '/' + theme + '-phone.png'});
+          }
+          await page.locator('#rp_from').fill('2015-08-09');
+          await show(page);
+          assert.equal(await section.locator('tbody tr').count(), 1);
+          assert.equal(await section.locator('tbody .basal-net').first().textContent(), '0.00');
+          assert.equal(await section.locator('.hourly-basal-unavailable').count(), 0);
+        });
+      } finally {responses.set(key, previous);}
     });
   }
 
