@@ -214,7 +214,17 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           for (const row of (await client.query('SELECT p.oid::regprocedure::text AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1', [entry.namespace])).rows) await client.query('ALTER FUNCTION ' + row.signature + ' OWNER TO ' + q(owner));
           await client.query('ALTER SCHEMA ' + q(entry.namespace) + ' OWNER TO ' + q(owner));
         }
-        await client.query('INSERT INTO ' + q(profile.binding.membershipNamespace) + ".pool_desired(pool_kind,members,slice_rule,revision,updated_at,partitioned) VALUES ('evaluator',1,$1,1,clock_timestamp(),false)", [require('../lib/pool-membership/slice').RULE]);
+        // Current pool mutations require a transaction-local cohort lock,
+        // including fixture initialization. The unlocked attempt is the control.
+        const desiredSQL = 'INSERT INTO ' + q(profile.binding.membershipNamespace) + ".pool_desired(pool_kind,members,slice_rule,revision,updated_at,partitioned) VALUES ('evaluator',1,$1,1,clock_timestamp(),false)";
+        const desiredValues = [require('../lib/pool-membership/slice').RULE];
+        await assert.rejects(client.query(desiredSQL, desiredValues), /POOL_MUTATION_PROTOCOL_REQUIRED/);
+        await client.query('BEGIN');
+        try {
+          await require('../lib/pool-membership/transaction-lock').lock(client.query.bind(client), profile.binding.membershipNamespace, 'evaluator');
+          await client.query(desiredSQL, desiredValues);
+          await client.query('COMMIT');
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
         const lab = await require('./fixtures/provisioned-tenants').create({ admin: client, adminURI, owner, vault,
           namespaces: { ...Object.fromEntries(['authorization', 'secrets', 'legacy', 'access', 'clock'].map(kind => [kind, ns[kind]])),
             control: ns.lifecycle, settings: ns.tenant_settings, operatorPolicy: ns.operator_policy },

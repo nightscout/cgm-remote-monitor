@@ -36,7 +36,12 @@ describe('pool notification maintenance DELETE seam',()=>{
  it('checks source-private claim and exact DATA audit stages before any checkpoint lookup, without borrowing the outbox owner key',()=>{
   const built=candidate.build({binding,intakeProfile:profile}),body=built.maintenanceBody;
   assert.deepEqual(built.catalogue.migrations.slice(0,4),legacy.build(binding).catalogue.migrations);
-  assert(built.body.indexOf(body)<built.body.indexOf('SELECT work_owner_ordinal'));
+  // A missing block has index -1 and used to satisfy the ordering check.
+  // Require the literal SQL too: replacement-string expansion of its regex
+  // anchors can corrupt the generated migration before any native test runs.
+  const offset=built.body.indexOf(body);
+  assert(offset>=0,'generated trigger preserves the literal maintenance SQL');
+  assert(offset<built.body.indexOf('SELECT work_owner_ordinal'));
   for(const needle of ["TG_OP='DELETE' AND NULLIF(current_setting('app.pgstream_notification_maintenance',true),'') IS NOT NULL","current_setting('app.current_tenant_id',true) IS DISTINCT FROM subject::text","maintenance->>'backendPid' IS DISTINCT FROM pg_backend_pid()::text","maintenance->>'transactionId' IS DISTINCT FROM pg_current_xact_id()::text","lifetime.claim_id IS DISTINCT FROM maintenance->>'claimId'","lifetime.artifact_digest IS DISTINCT FROM maintenance->>'artifactDigest'",'lifetime.authorized IS DISTINCT FROM true','lifetime.role_oid IS DISTINCT FROM maintenance_role','lifetime.owner_pid IS DISTINCT FROM pg_backend_pid()','lifetime.owner_birth IS DISTINCT FROM maintenance_birth',"TG_WHEN='BEFORE' AND (lifetime.state<>'suspended' OR lifetime.restored_at IS NOT NULL)","TG_WHEN='AFTER' AND (lifetime.state<>'restored' OR lifetime.restored_at IS NULL)","objsubid=1 AND mode='ExclusiveLock'","objsubid=2 AND mode='ExclusiveLock'",'RETURN OLD;'])assert(body.includes(needle),needle);
   assert(!body.includes(legacy.OWNER_DOMAIN));assert(!body.includes('RETURN NEW'));assert(!/INSERT|UPDATE|SET ROLE|SECURITY DEFINER/.test(body));
   assert.deepEqual(built.READS,maintenance.READS);assert(maintenance.authoritySQL(profile).includes('JOIN "test_control".tenant_lifecycle_restore_audit'));

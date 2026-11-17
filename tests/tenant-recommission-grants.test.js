@@ -19,6 +19,19 @@ describe('private recommission source grants', function () {
     assert(sql.filter(value => value.includes('pgstream_intake_profile')).every(value => value.startsWith('GRANT SELECT(')));
     assert(sql.filter(value => value.includes('tenant_lifecycle_restore_authority')).every(value => value.startsWith('GRANT SELECT')));
   });
+  it('permits reconstruction of the current captured clinical storage-size column', function () {
+    const selected = input(), successors = require('../lib/server/tenant-socket-order-port').catalogues;
+    selected.catalogues = selected.catalogues.map(entry => {
+      const candidate = successors[entry.kind] || entry.candidate;
+      return { ...entry, candidate, tables: require('../lib/tenant-lifecycle/insertion-inventory').tableOrder(entry.kind, candidate, entry.tables) };
+    });
+    const sql = grants.build(selected);
+    for (const kind of ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']) {
+      const table = '"synthetic_' + kind + '"."' + kind + '" TO "synthetic_maintenance"';
+      if (kind !== 'activity') assert(sql.includes('GRANT INSERT(storage_bytes) ON ' + table), kind + ' storage_bytes restore privilege');
+      assert(sql.includes('GRANT UPDATE(storage_bytes) ON ' + table), kind + ' storage-size trigger privilege');
+    }
+  });
   it('keeps retained-key destruction a separate explicit capability', function () {
     assert(grants.build(input()).every(sql => !sql.includes('UPDATE(destroy_started_by')));
     const destructive = grants.build({ ...input(), destroyRetainedKeys: true });
