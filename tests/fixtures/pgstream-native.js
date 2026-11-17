@@ -36,7 +36,7 @@ function configuration({ prefix, capability: selected }) {
   if (!selected || !Number.isSafeInteger(selected.receiverPort)) fail('PGSTREAM_NATIVE_CAPABILITY_REQUIRED');
   return { receiver:{url:'http://127.0.0.1:'+selected.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000}, slot, streamRole,
     bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 },
-    generation:crypto.randomBytes(16).toString('hex'),recovery:{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32} };
+    generation:crypto.randomBytes(16).toString('hex'),transactionRows:10000,recovery:{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32} };
 }
 function binding(source){
   let selected;try{selected=JSON.parse(source[ENV.binding]);}catch{fail('PGSTREAM_NATIVE_BINDING_REQUIRED');}
