@@ -158,6 +158,12 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.reset = async () => {
     if (!registryReady) return reset(); // inherited open resets before this extension exists
     await lab.stopChildren();
+    // Destructive per-test wipes declare a new source incarnation. Retire the
+    // fixture-owned slot/schema/role before TRUNCATE, whose stream event is not
+    // supported by the strict clinical routing contract. Within-test process
+    // restarts do not enter this reset and keep their original source/coverage.
+    if(producer){await producer.close();producer=null;producerIdentity=null;}
+    lab.document.pgstream.generation=crypto.randomBytes(16).toString('hex');
     for (const domain of lab.domains) await lab.admin.query('TRUNCATE "' + lab.namespaces[domain] + '"."' + domain + '"');
     lab.initial = Date.now() + 100000;
     const clock = await lab.admin.query('UPDATE "' + lab.namespaces.clock + '".tenant_write_clock SET last_stamp=$3,last_delete_stamp=0 WHERE tenant_id IN ($1,$2)', [lab.A, lab.B, lab.initial]);

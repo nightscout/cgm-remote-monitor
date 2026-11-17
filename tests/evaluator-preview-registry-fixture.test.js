@@ -114,6 +114,28 @@ describe('independent registry evaluator fixture setup', function () {
       assert(!f.calls.some(c => c.text?.startsWith('GRANT SELECT ON "provisioned_registry".tenant_registry,')));
     } finally { await lab.close(); }
   });
+  it('reuses a source for role restart but retires it before a destructive per-test wipe; omission is red',async function(){
+    async function criterion(change){
+      const f=fixture({change}),lab=f.create();
+      try{
+        await lab.open();const config=lab.configure(),epoch=config.document.pgstream.generation;
+        await lab.worker(config);await lab.worker(config);
+        assert.equal(f.calls.filter(row=>row.producer).length,1,'WITHIN_TEST_RESTART_REUSES_SOURCE');
+        assert(!f.calls.some(row=>row.text==='PRODUCER_CLOSE'),'WITHIN_TEST_RESTART_RETAINS_SLOT');
+        const start=f.calls.length;await lab.reset();const reset=f.calls.slice(start);
+        const retired=reset.findIndex(row=>row.text==='PRODUCER_CLOSE'),wipe=reset.findIndex(row=>row.text?.startsWith('TRUNCATE '));
+        assert(retired>=0&&retired<wipe,'SOURCE_RETIRED_BEFORE_DESTRUCTIVE_WIPE');
+        assert.notEqual(lab.document.pgstream.generation,epoch,'DESTRUCTIVE_WIPE_ROTATES_SOURCE_GENERATION');
+        assert.match(lab.document.pgstream.generation,/^[a-f0-9]{32}$/);
+        const next=lab.configure();await lab.worker(next);
+        assert.equal(f.calls.filter(row=>row.producer).length,2,'NEXT_TEST_PREPARES_FRESH_SOURCE');
+        assert.equal(f.calls.filter(row=>row.producer)[1].producer.config.pgstream.generation,lab.document.pgstream.generation);
+      }finally{await lab.close();}
+    }
+    const needle='if(producer){await producer.close();producer=null;producerIdentity=null;}';
+    await assert.rejects(criterion(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/SOURCE_RETIRED_BEFORE_DESTRUCTIVE_WIPE/);
+    await criterion(source=>source);
+  });
   it('stops the independently owned producer before role teardown; omission is red and restoration passes',async function(){
     async function criterion(change){const f=fixture({change}),lab=f.create();try{await lab.open();await lab.worker(lab.configure());f.children[0].exitCode=null;await lab.stopChildren();const stop=f.calls.findIndex(row=>row.text==='EXTERNAL_PRODUCER_STOP'),signal=f.calls.findIndex(row=>row.text==='ROLE_SIGTERM');assert(stop>=0&&signal>stop,'EXTERNAL_PRODUCER_MUST_DRAIN_BEFORE_ROLE_TEARDOWN');}finally{await lab.close();}}
     const needle='try{await lab.stopStream?.();}catch(error){errors.push(error);}';
