@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const scope=require('../lib/storage/tenant-scope'),replay=require('../lib/storage/postgres-durable-replay'),stream=require('../lib/storage/clinical-stream-state');
 const A='11111111-1111-4111-8111-111111111111',limits={maxRows:10,maxBytes:100000};
-const snapshot={checkpoint:10,signature:{stamp:10,deleted:0},rows:[{domain:'entries',document:{_id:'a',sgv:123,date:1},ordinal:1,storageBytes:80}]};
+const snapshot={stream:require('./lib/clinical-stream-native').boundary,checkpoint:10,signature:{stamp:10,deleted:0},rows:[{domain:'entries',document:{_id:'a',sgv:123,date:1},ordinal:1,storageBytes:80}]};
 function fixture(factory=replay){
  const queries=[],state=stream.bootstrap(null,snapshot,limits);
  let handle;
