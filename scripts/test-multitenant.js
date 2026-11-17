@@ -54,6 +54,10 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'tenant-bound read-only native receipt authority, maintenance lock through COMMIT, active/suspended admission and ownership refusal' },
+  { file: 'tests/postgres-imported-snapshot.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'exact exported snapshot import, source fencing, bounded exporter/importer loss and verified temporary-slot cleanup' },
   { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
   { file: 'tests/storage-event.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -448,7 +452,7 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
 // never pulls or substitutes an ordinary PostgreSQL image after a refusal.
 function producerSelection (suites, source) {
   const requiresProducer = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
-  const requiresWal = suites.some(suite => suite.flags?.NS_CLINICAL_WINDOW_TEST === '1');
+  const requiresWal = suites.some(suite => suite.flags?.NS_CLINICAL_WINDOW_TEST === '1' || suite.file === 'tests/postgres-imported-snapshot.test.js');
   if (!requiresProducer && !requiresWal) return null;
   const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
   if (requiresProducer && !fields.every(key => typeof source[key] === 'string' && source[key].length)) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');

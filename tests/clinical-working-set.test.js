@@ -2,15 +2,18 @@
 const assert = require('node:assert/strict');
 const policy = require('../lib/storage/clinical-working-set-policy');
 const state = require('../lib/storage/clinical-stream-state');
+const native = require('./lib/clinical-stream-native');
 const at = Date.UTC(2026, 10, 16, 12), DAY = 86400000;
 const limits = { maxRows: 30, maxBytes: 200000 };
 const env = { extendedSettings: {} };
 const row = (domain, id, doc) => ({ domain, id_kind: 'string', doc: { _id: id, ...doc }, ordinal: 1, storageBytes: 100 });
 const iso = n => new Date(n).toISOString();
 const boot = rows => state.bootstrap(null, { checkpoint: 10, signature: { stamp: 10, deleted: 0 },
-  policy: policy.create(env, at), rows: rows.map(r => ({ domain: r.domain, document: r.doc, ordinal: r.ordinal, storageBytes: r.storageBytes })) }, limits);
-const update = (saved, domain, id, doc, action = 'U') => state.seal(state.stage(saved, { xid: 42, lsn: '0/20', action, domain, id_kind: 'string', id,
-  prior: { domain, id_kind: 'string', id }, row: action === 'D' ? null : row(domain, id, doc) }, limits), { xid: 42, lsn: '0/30', floor: saved.floor + 1, deleted: action === 'D' ? saved.floor + 1 : 0 }, limits);
+  stream: native.boundary, policy: policy.create(env, at), rows: rows.map(r => ({ domain: r.domain, document: r.doc, ordinal: r.ordinal, storageBytes: r.storageBytes })) }, limits);
+const apply = (saved, events, module=state, evaluatedAt) => module.applyTransaction(saved, events,
+  native.coverage('0/'+(Number.parseInt(saved.stream.accepted_position?.split('/')[1]||'10',16)+16).toString(16)),limits,evaluatedAt);
+const update = (saved, domain, id, doc, action = 'U') => apply(saved,[{ xid: 42, lsn: '0/20', action, domain, id_kind: 'string', id,
+  prior: { domain, id_kind: 'string', id }, row: action === 'D' ? null : row(domain, id, doc) }]);
 const brokenModule = require('./lib/clinical-working-set/control');
 describe('clinically sufficient derived windows', () => {
   it('keeps native date/array comparisons, future rows, age events and permanent switches without a universal TTL', () => {
@@ -35,7 +38,7 @@ describe('clinically sufficient derived windows', () => {
     assert.equal(state.output(corrected).rows[0].document.sgv, 135);
     const deleted = update(original, 'entries', 'old', {}, 'D');assert.equal(deleted.rows.length, 0);
     const omitted = { xid: 43, lsn: '0/40', action: 'U', domain: 'entries', id_kind: 'string', id: 'outside', row: { domain: 'entries', id_kind: 'string', id: 'outside', storageBytes: 80 } };
-    const next = state.seal(state.stage(corrected, omitted, limits), { xid: 43, lsn: '0/50', floor: 12, deleted: 0 }, limits);
+    const next = apply(corrected,[omitted]);
     assert.deepEqual(next.rows, corrected.rows);
     assert.equal(state.output(update(corrected, 'entries', 'old', { date: at - 3 * DAY })).rows.length, 0);
   });
@@ -82,13 +85,12 @@ describe('clinically sufficient derived windows', () => {
     assert.throws(() => criterion(broken), /DISTINCT_EXPIRY_SUBSETS/);criterion(state);
     assert.equal(original.rows.length, 2, 'TRANSIENT_EXPIRY_PRESERVES_DURABLE_BASE');
   });
-  it('prunes the growing durable set inside receipt sealing and keeps omitted metadata documents and rewind recovery safe', () => {
+  it('prunes the growing durable set inside cohort acceptance and keeps omitted metadata documents and rewind recovery safe', () => {
     const original = boot([row('entries', 'edge', { date: at - 2 * DAY }), row('entries', 'retained', { date: at, extension: 'kept' })]);
     const event = { xid: 43, lsn: '0/40', action: 'U', domain: 'entries', id_kind: 'string', id: 'retained',
       row: { domain: 'entries', id_kind: 'string', id: 'retained', storageBytes: 120 } };
-    const staged = state.stage(original, event, limits);
     const criterion = module => {
-      const next = module.seal(staged, { xid: 43, lsn: '0/50', floor: at + 100000, deleted: 0, evaluatedAt: at + 1 }, limits);
+      const next = apply(original,[event],module,at+1);
       assert.deepEqual(next.rows.map(r => r.doc._id), ['retained'], 'RECEIPT_MUST_PRUNE_EXPIRED_DURABLE_MEMBERS');
       assert.equal(next.rows[0].doc.extension, 'kept');assert.equal(next.rows[0].storageBytes, 120);
       assert.equal(next.policy.at, at + 1);
@@ -98,20 +100,19 @@ describe('clinically sufficient derived windows', () => {
     criterion(state);
     const broken = brokenModule('../lib/storage/clinical-stream-state', 'if(state.policy&&evaluatedAt>state.policy.at){', 'if(false){');
     assert.throws(() => criterion(broken), /RECEIPT_MUST_PRUNE/);criterion(state);
-    assert.equal(state.seal(staged, { xid: 43, lsn: '0/50', floor: 11, deleted: 0 }, limits).policy.at, at, 'OLDER_COMMIT_CLOCK_MUST_NOT_REWIND_POLICY');
+    assert.equal(apply(original,[event]).policy.at, at, 'OLDER_COMMIT_CLOCK_MUST_NOT_REWIND_POLICY');
     assert.equal(original.rows.length, 2, 'RECEIPT_MUST_NOT_MUTATE_PRIOR_COHORT');
   });
-  it('keeps logical ordering separate from clinical time when a write clock is future-clamped', () => {
-    const original = boot([row('entries', 'edge', { date: at - 2 * DAY })]);
-    const criterion = module => {
-      const next = module.seal(original, { xid: 43, lsn: '0/50', floor: at + DAY, deleted: 0, evaluatedAt: at }, limits);
-      assert.equal(next.floor, at + DAY, 'ORDERING_FLOOR_MUST_STILL_ADVANCE');
-      assert.equal(next.policy.at, at, 'LOGICAL_CLOCK_MUST_NOT_ADVANCE_CLINICAL_WINDOW');assert.equal(next.rows.length, 1);
-      assert.doesNotThrow(() => module.expire(next, policy.create(env, at + 1), limits));
+  it('keeps native progress separate from clinical time even for a far-future WAL position', () => {
+    const original=boot([row('entries','edge',{date:at-2*DAY})]);
+    const criterion=module=>{
+      const next=module.applyTransaction(original,[],native.coverage('FFFFFFFF/FFFFFFFF'),limits,at);
+      assert.equal(next.floor,11,'LOCAL_OBLIGATION_ADVANCES');assert.equal(next.policy.at,at,'NATIVE_POSITION_MUST_NOT_ADVANCE_CLINICAL_TIME');assert.equal(next.rows.length,1);
     };
     criterion(state);
-    const broken = brokenModule('../lib/storage/clinical-stream-state', 'const policy={...state.policy,at:evaluatedAt};', 'const policy={...state.policy,at:floor};').seal;
-    const oldFloor = { ...state, seal: (saved, cohort, bounds) => broken(saved, { ...cohort, evaluatedAt: cohort.floor }, bounds) };
-    assert.throws(() => criterion(oldFloor), /LOGICAL_CLOCK_MUST_NOT_ADVANCE/);criterion(state);
+    // Deliberately pass a later clinical instant to show that the oracle notices
+    // losing the original required row; native coverage itself remains opaque.
+    assert.throws(()=>criterion({...state,applyTransaction:(saved,events,coverage,bounds)=>state.applyTransaction(saved,events,coverage,bounds,at+DAY)}),/NATIVE_POSITION_MUST_NOT_ADVANCE/);
+    criterion(state);
   });
 });

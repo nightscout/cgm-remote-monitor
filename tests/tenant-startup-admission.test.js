@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
 const { createRequire } = require('node:module');
 const startup = require('../lib/server/serve/tenant-startup');
+const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const fixture = require('./fixtures/operation-window-runtime-protocol');
 const realtime = require('../lib/server/realtime/runtime');
 const scope = require('../lib/storage/tenant-scope');
@@ -136,7 +137,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     const resource=extra=>{const r={end:async()=>{assert.equal(startupClosed,true,'API_STARTUP_DRAIN_PRECEDES_POOL_END');},...extra};resources.push(r);return r;};
     const authority=resource({authorize:async({tenant})=>{reads.push(['authority',tenant]);}});
     const boot=load('lib/server/serve/preview-api.js',{
-      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold},'./tenant-startup':selectedStartup} : {}),
+      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold,wrapClient:Client=>Client},'./tenant-startup':selectedStartup} : {}),
       '../../storage/postgres-connection':async()=>resource(),
       '../../secrets/legacy-postgres':async()=>resource({read:async tenant=>{reads.push(['root',tenant]);return {reference:{id:'synthetic'}};}}),
       '../../tenant-authorization/postgres':async()=>authority,
@@ -167,7 +168,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       assert.equal(args[3].coldAdmission,cold); startupClosed=false; const actual=startup.create(...args),baseClose=actual.close;
       return {...actual,close:async()=>{await baseClose();await Promise.resolve();startupClosed=true;}};
     }};
-    const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[];
+    const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[],nativeEvents=[];
     const evaluator=()=>({evaluate:async()=>({checkpoint:1}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}});evaluator.domains=[];
     const readiness=Object.assign(async()=>{}, {provisionTenant:async(connection,config,tenant)=>{f.window.assertCurrent(tenant);provisioned.push(tenant);}});
     const entries=new Map([A,B].map(tenant=>[tenant,{tenant,identity:'a'.repeat(64),env:{settings:{language:'en'}}}]));
@@ -177,9 +178,10 @@ describe('independent tenant startup admission (source protocol)', function () {
     const registry={tenants:entries,isActive:tenant=>entries.has(tenant),follow:async()=>{},close:async()=>{},revision:()=>1,stats:()=>({})};
     const store={work:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
     const boot=load('lib/server/serve/evaluator-preview.js',{
-      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold},'./tenant-startup':selectedStartup} : {}),
+      ...nativeBoot.mocks({events:nativeEvents}),
+      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold,wrapClient:Client=>Client},'./tenant-startup':selectedStartup} : {}),
       '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './evaluator-readiness':readiness,
-      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_ADMISSION_FIXTURE');}}), '../../data/tenant-projection-evaluator':evaluator,
+      '../../storage/postgres-durable-replay':()=>nativeBoot.replay({events:nativeEvents}), '../../data/tenant-projection-evaluator':evaluator,
       './registry-tenant-set':{open:async()=>registry},
       './evaluator-config':{registryEntry:tenant=>entries.get(tenant),withSettings:async(base,entry,tenant)=>{reads.push(tenant);return entries.get(tenant);}},
       '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})},
@@ -191,7 +193,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../internal-api/clients':{completedOutput:()=>({})},
       './evaluator-consumers':{prepare:async input=>{if(selected)assert.equal(input.coldAdmission,cold);return null;}}
     });
-    const config={registry:{namespace:'synthetic_registry'},trustedWorker:{},pgstream:{bounds:{recoveryMs:1000,pendingMs:1000},outputPeer:{}},maxTenants:2,maxRows:10,maxBytes:10000,pageSize:1,
+    const config={registry:{namespace:'synthetic_registry'},trustedWorker:{activity:'synthetic_activity'},pgstream:nativeBoot.config({bounds:{recoveryMs:1000,pendingMs:1000},outputPeer:{}}),maxTenants:2,maxRows:10,maxBytes:10000,pageSize:1,
       namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',timeIntervalMs:100,
       schedule:()=>1,cancel:()=>{}};
     let role;try{
@@ -207,6 +209,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       readiness.provisionTenant=async()=>{throw new Error('should not enter paused tenant');};
       role=await boot.boot(config,{operationWindow:f.window});assert.equal(role.health().tenants.some(row=>row.ready),false);
       await role.close();role=null;
+      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,2,'BOTH_BOOT_GENERATIONS_CLOSE_NATIVE_PORTS:'+event);
     }finally{if(role)await role.close();await f.window.close();}
     const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{open:async()=>registry},'./evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     const shared=fixture({phase:'suspended'});

@@ -35,8 +35,8 @@ function fixture ({change=source=>source}={}) {
     }, spawn () { throw Error('UNEXPECTED_CLI_CHILD'); } };
     if (name === './pgstream-native') return {
       capability: () => ({ binary: '/synthetic/pinned-pgstream', sha256: 'f'.repeat(64), receiverPort: 19421, subscriptionsPort: 19422 }),
-      configuration: ({prefix, capability}) => ({ receiver:{url:'http://127.0.0.1:'+capability.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000}, slot: prefix + '_stream', streamRole: prefix + '_stream', bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } }),
-      async setup(options) { calls.push({ producer: options }); return {environment:{},async start(){calls.push({text:'EXTERNAL_PRODUCER_START'});},async stop(){calls.push({text:'EXTERNAL_PRODUCER_STOP'});if(stopRefused)throw Error('SYNTHETIC_STREAM_STOP_FAILED');},async close() { calls.push({ text: 'PRODUCER_CLOSE' }); } }; }
+      configuration: options => require('./fixtures/pgstream-native').configuration(options),
+      async setup(options) { calls.push({ producer: options }); const uri=new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);uri.username=options.config.pgstream.streamRole;uri.password='synthetic-recovery';return {environment:{NS_STREAM_RECOVERY_PG:uri.toString()},async start(){calls.push({text:'EXTERNAL_PRODUCER_START'});},async stop(){calls.push({text:'EXTERNAL_PRODUCER_STOP'});if(stopRefused)throw Error('SYNTHETIC_STREAM_STOP_FAILED');},async close() { calls.push({ text: 'PRODUCER_CLOSE' }); } }; }
     };
     if (name === '../../lib/migrations/postgres') return { async run(action, options) { calls.push({ migration: {action, ...options} }); } };
     if (name === './m5-current-state-proof') return base;
@@ -97,6 +97,9 @@ describe('independent registry evaluator fixture setup', function () {
       assert(!Object.hasOwn(worker.options.env, 'MULTITENANT_STATIC_TENANTS'));
       assert.equal(worker.options.env.MULTITENANT_EVALUATOR_CONFIG, configured.file);
       assert(worker.options.env.NS_EVALUATOR_FIXTURE_SETTINGS);
+      assert.equal(new URL(worker.options.env.NS_STREAM_RECOVERY_PG).username,configured.document.pgstream.streamRole,'ONLY_RESTRICTED_RECOVERY_CREDENTIAL_REACHES_ROLE');
+      assert.match(configured.document.pgstream.generation,/^[a-f0-9]{32}$/);
+      assert.deepEqual(configured.document.pgstream.recovery,{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32});
       assert(worker.options.env.MULTITENANT_OPERATION_CONFIG);
       const composition = require('../lib/cli/commands/multitenant').configure(['evaluator'], worker.options.env);
       assert.equal(composition.operationConfig.participantId, 'evaluator');
@@ -110,6 +113,28 @@ describe('independent registry evaluator fixture setup', function () {
       assert(f.calls.some(c => c.text?.includes('tenant_registry_tenants(uuid, integer)')));
       assert(!f.calls.some(c => c.text?.startsWith('GRANT SELECT ON "provisioned_registry".tenant_registry,')));
     } finally { await lab.close(); }
+  });
+  it('reuses a source for role restart but retires it before a destructive per-test wipe; omission is red',async function(){
+    async function criterion(change){
+      const f=fixture({change}),lab=f.create();
+      try{
+        await lab.open();const config=lab.configure(),epoch=config.document.pgstream.generation;
+        await lab.worker(config);await lab.worker(config);
+        assert.equal(f.calls.filter(row=>row.producer).length,1,'WITHIN_TEST_RESTART_REUSES_SOURCE');
+        assert(!f.calls.some(row=>row.text==='PRODUCER_CLOSE'),'WITHIN_TEST_RESTART_RETAINS_SLOT');
+        const start=f.calls.length;await lab.reset();const reset=f.calls.slice(start);
+        const retired=reset.findIndex(row=>row.text==='PRODUCER_CLOSE'),wipe=reset.findIndex(row=>row.text?.startsWith('TRUNCATE '));
+        assert(retired>=0&&retired<wipe,'SOURCE_RETIRED_BEFORE_DESTRUCTIVE_WIPE');
+        assert.notEqual(lab.document.pgstream.generation,epoch,'DESTRUCTIVE_WIPE_ROTATES_SOURCE_GENERATION');
+        assert.match(lab.document.pgstream.generation,/^[a-f0-9]{32}$/);
+        const next=lab.configure();await lab.worker(next);
+        assert.equal(f.calls.filter(row=>row.producer).length,2,'NEXT_TEST_PREPARES_FRESH_SOURCE');
+        assert.equal(f.calls.filter(row=>row.producer)[1].producer.config.pgstream.generation,lab.document.pgstream.generation);
+      }finally{await lab.close();}
+    }
+    const needle='if(producer){await producer.close();producer=null;producerIdentity=null;}';
+    await assert.rejects(criterion(source=>{assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/SOURCE_RETIRED_BEFORE_DESTRUCTIVE_WIPE/);
+    await criterion(source=>source);
   });
   it('stops the independently owned producer before role teardown; omission is red and restoration passes',async function(){
     async function criterion(change){const f=fixture({change}),lab=f.create();try{await lab.open();await lab.worker(lab.configure());f.children[0].exitCode=null;await lab.stopChildren();const stop=f.calls.findIndex(row=>row.text==='EXTERNAL_PRODUCER_STOP'),signal=f.calls.findIndex(row=>row.text==='ROLE_SIGTERM');assert(stop>=0&&signal>stop,'EXTERNAL_PRODUCER_MUST_DRAIN_BEFORE_ROLE_TEARDOWN');}finally{await lab.close();}}

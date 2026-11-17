@@ -11,7 +11,7 @@ function fixture (options = {}) {
   const calls = [];
   const connection = { async readOnly (text, values) {
     calls.push({ text, values, tenant: scope.currentTenant() });
-    if (/FROM pg_class/.test(text)) return { rows: Object.keys(ns).map(() => ({ secured: true, owns: false, writes: false })) };
+    if (/FROM pg_class/.test(text)) return { rows: values[0].map(() => ({ secured: true, owns: false, writes: false })) };
     if (/WHERE false/.test(text)) return { rows: [] };
     if (/activity_version/.test(text)) return { rows: values[0].map(tenant => ({ tenant, activity_version: '1', paused: false, suspended: false, settings: version, policy: generation, stamp: '1', deleted: '0' })) };
     if (held) await held.promise;
@@ -21,6 +21,13 @@ function fixture (options = {}) {
   return { reader, calls, connection, bump: () => { version++; }, policy: () => { generation++; }, time: value => { at = value; }, hold: value => { held = value; } };
 }
 describe('trusted worker metadata and operational scope', function () {
+  it('native stream metadata never reads or requires the public history clock', async function(){
+    const f=fixture({stream:true});
+    const original=f.connection.readOnly;
+    f.connection.readOnly=async(text,values)=>{assert(!text.includes('tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_READ');assert(!values?.[0]?.includes?.('\"tw_clock\".tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_ADMISSION');const result=await original(text,values);if(text.includes('activity_version'))for(const row of result.rows){row.stamp=null;row.deleted=null;}return result;};
+    await f.reader.verify();const rows=await f.reader.scan([A]);assert.equal(rows.get(A).signature,null);await f.reader.close();
+  });
+
   it('keeps full bigint activity versions exact through recovery bootstrap', async function () {
     for (const version of ['9007199254740993', '9223372036854775807']) {
       const f = fixture(), original = f.connection.readOnly;

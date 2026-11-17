@@ -5,14 +5,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const trustedWorker = require('../lib/trusted-worker/postgres');
 const scope = require('../lib/storage/tenant-scope');
+const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
-  const calls = { scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [], streamInvalidated: [] };
+  const calls = { native:[],scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [], streamInvalidated: [] };
   const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false, settings: 1, policy: 1, paused: false, suspended: false };
   const connection = { async readOnly (text, values) {
-    if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: [1,2,3,4].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
+    if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: values[0].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
     if (/WHERE false/.test(text)) return { rows: [] };
     if (/activity_version/.test(text)) {
       calls.scans.push([...values[0]]);
@@ -28,9 +29,9 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const runtime = { async close () {}, async invalidateTenant (id) { calls.invalidated.push(id); }, health: () => ({ tenants: [] }) };
   const profile = { digest: 'synthetic-profile', binding: { tenants: ids, lifecycleNamespace: 'work_activity', namespace: 'work_checkpoint', consumer: 'work', members: 2, membershipNamespace: 'work_membership', revision: 1, role: 'intake' }, assignment: { owner: tenant => ids.indexOf(tenant) % 2 } };
   const peers = [0,1].map(id => ({ id: String(id), roles: ['evaluator'], endpoint: {} }));
-  const config = { tenants, registry: {}, pgstream: { bounds: { recoveryMs: 30000, stepMs: 5000, pendingMs: 30000 } },
+  const config = { tenants, registry: {}, pgstream:nativeBoot.config({slot:'work_stream',bounds:{recoveryMs:30000,stepMs:5000,pendingMs:30000}}),
     trustedWorker: { activity: 'work_activity', clock: 'work_clock', settings: 'work_settings', operatorPolicy: 'work_policy' },
-    namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: {}, maxTenants: 20000 };
+    namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: {}, maxTenants: 20000,maxRows:10000,maxBytes:10000,pageSize:64 };
   if (selected) Object.assign(config, { partition: { partitioned: true, ordinal, namespace: 'work_membership', leaseMs: 3000 },
     selectedIntake: { profile, workers: ['0','1'], connectionString: 'postgres://intake:synthetic@localhost/test', controlConnectionString: 'postgres://control:synthetic@localhost/test' },
     consumers: { realtime: { partitionMetadata: {}, route: { id: 'synthetic-realtime' } } } });
@@ -39,10 +40,11 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const connect = Object.assign(async () => connection, { async readopt () {} });
   const readiness = Object.assign(async () => { calls.readiness++; if (state.holdReadiness) await state.holdReadiness.promise; }, { async provisionTenant () {} });
   const mocks = {
+    ...nativeBoot.mocks({events:calls.native}),
     '../../storage/postgres-connection': connect,
     // Stream recovery now invalidates accepted input before the existing bounded
     // metadata bootstrap; this source-only schema fixture has no clinical DB.
-    '../../storage/postgres-durable-replay': () => ({async invalidateStream(tenant){calls.streamInvalidated.push(tenant);},async acceptClinical(){throw Error('CLINICAL_INPUT_NOT_IN_SCHEMA_FIXTURE');}}),
+    '../../storage/postgres-durable-replay': () => ({configureStream(binding){nativeBoot.replay({events:calls.native}).configureStream(binding);calls.nativeBinding=binding;},async invalidateStream(tenant){calls.streamInvalidated.push(tenant);},async acceptTransaction(){throw Error('CLINICAL_INPUT_NOT_IN_SCHEMA_FIXTURE');}}),
     '../../data/tenant-projection-evaluator': { domains: [] },
     './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
     './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
@@ -99,6 +101,10 @@ describe('evaluator schema work bounds', function () {
         assert(f.calls.pages.every(page => page.length <= 64), 'DURABLE_PAGES_STAY_BOUNDED');
       });
       await service.close();
+      if(!selected){
+        for(const event of ['identify-created','identify-connected','identify-closed','native-configured','native-recovery-created','native-recovery-closed'])
+          assert.equal(f.calls.native.filter(value=>value===event).length,1,'NATIVE_BOOT_CAPABILITY_'+event);
+      }
     });
     it(name + ' schema refuses authority loss and fences an old settings read across revalidation', async () => {
       const f = fixture(2, selected); const service = await f.boot();

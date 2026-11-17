@@ -534,7 +534,52 @@
               "maximum": 2147483647
             }
           }
+        },
+        "transactionRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000,
+          "description": "Maximum rows accepted in one complete transport cohort, independent of the clinical working-set bound."
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$",
+          "description": "Deployment stream incarnation, independent of PostgreSQL source identity and tenant restore generation."
+        },
+        "recovery": {
+          "type": "object",
+          "required": [
+            "connectionEnv",
+            "timeoutMs",
+            "maxQueued"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "connectionEnv": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30000
+            },
+            "maxQueued": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            }
+          },
+          "description": "Bounded native snapshot recovery; only the evaluator resolves this environment reference."
         }
+      },
+      "dependentRequired": {
+        "generation": [
+          "transactionRows"
+        ],
+        "recovery": [
+          "transactionRows"
+        ]
       }
     },
     "selectedIntake": {

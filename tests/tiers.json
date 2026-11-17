@@ -216,6 +216,7 @@
         "tests/clinical-stages.test.js",
         "tests/pgstream-checkpoint-transfer.test.js",
         "tests/pgstream-source-admission.test.js",
+        "tests/pgstream-snapshot-recovery.test.js",
         "tests/pgstream-authority-currentness.test.js",
         "tests/pgstream-supervisor-recovery.test.js",
         "tests/pgstream-completed-delivery.test.js",
@@ -498,6 +499,8 @@
     "integration": {
       "files": [
         "tests/clinical-working-set.integration.test.js",
+        "tests/postgres-imported-snapshot.test.js",
+        "tests/pgstream-receipt-authority.integration.test.js",
         "tests/storage-event.integration.test.js",
         "tests/tenant-insertion-readiness.integration.test.js",
         "tests/00_production-safety.test.js",

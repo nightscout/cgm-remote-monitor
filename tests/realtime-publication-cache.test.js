@@ -7,6 +7,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const contract = require('../lib/server/realtime/contract');
 const configFile = require('../lib/server/serve/config-file');
 const fixture = require('./fixtures/realtime-placement-map');
+const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const registryRefusal = require('../lib/server/serve/registry-config').REFUSAL;
 
 function observe (file, frozen = false) {
@@ -213,7 +214,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
   async function registryCurrent (mutate = source => source, inspect = () => {}) {
     const scope = require('../lib/storage/tenant-scope'), previous = scope.getTenancyMode();
     fs.writeFileSync(file, '{}'); const observed = observe(file);
-    const counts = { reads: 0, factories: 0, refreshes: 0, closes: 0, legacy: 0, finite: 0 }; let reached = false, assertionsReached = false;
+    const nativeEvents=[],counts = { reads: 0, factories: 0, refreshes: 0, closes: 0, legacy: 0, finite: 0 }; let reached = false, assertionsReached = false;
     const settingsOf = isolatedModule('../lib/server/serve/evaluator-config', { '../../tenant-settings/effective-postgres': async () => {
       counts.finite++; throw new Error('finite settings fallback must not execute');
     } });
@@ -221,9 +222,10 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     const keys = tenants.keys.bind(tenants); let testingCurrent = false;
     tenants.keys = () => { if (testingCurrent) { enumerations++; throw new Error('registry roster read on current path'); } return keys(); };
     const boot = isolatedModule('../lib/server/serve/evaluator-preview', {
+      ...nativeBoot.mocks({events:nativeEvents}),
       './evaluator-config': settingsOf,
       '../../storage/postgres-connection': async () => ({ end: async () => {} }),
-      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_REGISTRY_CACHE_FIXTURE');}}),
+      '../../storage/postgres-durable-replay':()=>nativeBoot.replay({events:nativeEvents}),
       '../../pool-membership': { member: async () => ({ register: async () => {}, close: async () => {}, configured: { leaseMs: 1000 } }) },
       './evaluator-pool': { create: () => ({ start () {}, refresh: async () => {}, close () {}, admits: () => true }) },
       '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],
@@ -243,13 +245,14 @@ describe('bounded read-through and pinned atomic publication cache', function ()
     }, mutate);
     // Actual boot must replace this poison callback; neither it nor finite
     // settings fallback can satisfy this owned-reader composition discriminator.
-    const config = { ...evaluatorConfig(), namespaces: evaluatorConfig().postgres.namespaces, registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
+    const config = { ...evaluatorConfig(), pgstream:nativeBoot.config(evaluatorConfig().pgstream), namespaces: evaluatorConfig().postgres.namespaces, registry: { namespace: 'synthetic_registry' }, maxTenants: 10, tenants: new Map(), tenantSettings: {},
       readCurrent: async () => { counts.legacy++; throw new Error('legacy callback must not execute in registry mode'); } };
     try {
       await assert.rejects(boot.boot(config, { operationWindow: {} }), /readiness or initialization refused/);
       assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
       assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
       assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 0, closes: 1, legacy: 0, finite: 0 });
+      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,1,'REGISTRY_FOCUSED_EXIT_CLOSES_NATIVE_PORT:'+event);
     } finally {
       try { inspect({ ...counts, reached, assertionsReached }); }
       finally { observed.restore(); scope.setTenancyMode(previous); }

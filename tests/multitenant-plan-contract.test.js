@@ -161,6 +161,23 @@ describe('deployment plan contract', function () {
     assert(!Object.hasOwn(contract.DOCUMENTS, 'feed-reader'));
   });
 
+  it('declares exact native recovery fields for worker and API metadata without admitting inline credentials', function () {
+    const evaluators=rows.filter(row=>row.variant==='default'&&row.name==='evaluator');
+    assert.equal(evaluators.length,2,'worker and API metadata both carry the evaluator contract');
+    const invalid=[
+      doc=>{doc.pgstream.transactionRows=0;}, doc=>{doc.pgstream.transactionRows=1000001;}, doc=>{doc.pgstream.transactionRows=1.5;},
+      doc=>{delete doc.pgstream.transactionRows;}, doc=>{doc.pgstream.generation='A'.repeat(32);}, doc=>{doc.pgstream.generation='a'.repeat(31);},
+      doc=>{doc.pgstream.recovery.connectionEnv='postgres://synthetic.invalid/recovery';},
+      doc=>{doc.pgstream.recovery.timeoutMs=0;}, doc=>{doc.pgstream.recovery.timeoutMs=30001;},
+      doc=>{doc.pgstream.recovery.maxQueued=0;}, doc=>{doc.pgstream.recovery.maxQueued=1025;},
+      doc=>{doc.pgstream.recovery.connectionString='postgres://synthetic.invalid/recovery';}
+    ];
+    for(const row of evaluators){
+      for(const mutate of invalid){const result=verdict(row,mutate);assert.equal(result.shape,true,'schema refuses invalid recovery shape');assert.equal(result.loader,true,'actual loader refuses invalid recovery contract');}
+      assert.deepEqual(verdict(row,doc=>{doc.maxRows=1;doc.pageSize=1;doc.pgstream.transactionRows=10000;}),{shape:false,loader:false,codes:[]},'transport rows remain independent of clinical cache bound');
+    }
+  });
+
   it('carried: every field a schema names appears in a test plan variant', function () {
     // Pointers of every field a schema names, and of every field the variants' documents carry.
     const namedBy = (schema, pointer = '') => schema.type === 'array' && schema.items ? namedBy(schema.items, pointer + '/*')

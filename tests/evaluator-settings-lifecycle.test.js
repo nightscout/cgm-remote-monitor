@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
 const scope = require('../lib/storage/tenant-scope');
+const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const evaluator = require('../lib/server/serve/evaluator-config');
 const A = '00000000-0000-0000-0000-000000000001', B = '00000000-0000-0000-0000-000000000002';
 const baseConfiguration = { connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } };
@@ -138,10 +139,12 @@ describe('evaluator retained settings capability', function () {
 describe('evaluator settings ownership at maintained role boot', function () {
   async function exercise(outcome,{staleCache=false}={}){
     const plan=require('./fixtures/multitenant-plan'),layout=plan.layout('settings_boot'),docs=plan.documents({layout,urls:plan.syntheticUrls(layout)}),document=structuredClone(docs.configs.evaluator);delete document.consumers;
-    const config=evaluator.parse(document,docs.environments.evaluator),calls={settingsClose:0,clinicalClose:0,settingsRead:0,runtimeClose:0},closed=[];let prepared,active=true;
+    document.pgstream=nativeBoot.document(document.pgstream,{connectionEnv:'NS_SETTINGS_BOOT_RECOVERY_PG'});
+    const recoveryURL=new URL(docs.environments.evaluator[document.postgres.connectionEnv]);recoveryURL.username=document.pgstream.streamRole;
+    const config=evaluator.parse(document,{...docs.environments.evaluator,NS_SETTINGS_BOOT_RECOVERY_PG:recoveryURL.toString()}),calls={native:[],settingsClose:0,clinicalClose:0,settingsRead:0,runtimeClose:0},closed=[];let prepared,active=true;
     const rows=new Map([[A,{version:1,values:{SHOW_SECONDS:true},generation:1,policy:{deployment:{},overrides:{}}}],[B,{version:1,values:{SHOW_SECONDS:false},generation:1,policy:{deployment:{},overrides:{}}}]]);
     const connection={async readOnly(sql,args){
-      if(sql.includes('FROM pg_class'))return {rows:[0,1,2,3].map(()=>({secured:true,owns:false,writes:false}))};
+      if(sql.includes('FROM pg_class'))return {rows:args[0].map(()=>({secured:true,owns:false,writes:false}))};
       if(sql.includes('WHERE false'))return {rows:[]};
       if(sql.includes('activity_version'))return {rows:args[0].map(tenant=>({tenant,activity_version:'1',paused:false,suspended:false,settings:rows.get(tenant).version,policy:rows.get(tenant).generation,stamp:'1',deleted:'0'}))};
       assert(sql.includes('SELECT s.version'),'only the selected trusted settings projection may read settings');calls.settingsRead++;return {rows:[structuredClone(rows.get(args[0]))]};
@@ -149,8 +152,9 @@ describe('evaluator settings ownership at maintained role boot', function () {
     const trusted=isolated('trusted-worker/postgres.js',{},source=>{if(!staleCache)return source;const check='hit.settings === row.settings && hit.policy === row.policy',retire='settingsCache.delete(row.tenant);';assert(source.includes(check)&&source.includes(retire));return source.replace(check,'true').replace(retire,'void 0;');});
     const runtime={acquire:async()=>{},tick:async()=>{},health:()=>({tenants:[]}),last:()=>null,isCurrent:async()=>true,close:async()=>{calls.runtimeClose++;if(outcome==='both-close-fail')throw Error('synthetic runtime close failure');}};
     const boot=isolated('server/serve/evaluator-preview.js',{
+    ...nativeBoot.mocks({events:calls.native}),
       '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
-      '../../storage/postgres-durable-replay':()=>({invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_SETTINGS_FIXTURE');}}),
+      '../../storage/postgres-durable-replay':()=>({configureStream:binding=>nativeBoot.replay({events:calls.native}).configureStream(binding),invalidateStream:async()=>{},acceptTransaction:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_SETTINGS_FIXTURE');}}),
       '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
       './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},
@@ -174,6 +178,8 @@ describe('evaluator settings ownership at maintained role boot', function () {
     try{
       if(outcome==='startup-failure')await assert.rejects(boot.boot(config,{operationWindow:window}),/initialization refused/);
       else{role=await boot.boot(config,{operationWindow:window});assert.equal(typeof prepared.prepare,'function');if(outcome.includes('close-fail')){await assert.rejects(role.close(),error=>error.errors.length===(outcome==='both-close-fail'?2:1)&&error.errors.some(cause=>/synthetic close failure/.test(cause.message)));await assert.rejects(role.close(),/shutdown refused/);}else{await role.close();await role.close();}}
+      for(const event of ['identify-created','identify-connected','identify-closed','native-configured','native-recovery-created','native-recovery-closed'])
+        assert.equal(calls.native.filter(value=>value===event).length,1,'OWNED_NATIVE_CAPABILITY_'+event);
       assert.equal(calls.settingsClose,1);assert.equal(calls.clinicalClose,1);assert.equal(calls.runtimeClose,outcome==='startup-failure'?0:1);assert(closed.indexOf('settings')<closed.indexOf('clinical'),'owned settings capability must close before clinical connection teardown');
     }finally{await role?.close().catch(()=>{});await window.close();}
   }
