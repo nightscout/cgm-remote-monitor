@@ -45,6 +45,8 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // (72,721 reports / 414,169 combined), within these existing limits.
 // Isolated report profile state adds 9 app and 57 reports gzip bytes; all
 // existing allowances hold (72,778 reports / 414,235 combined).
+// Loopalyzer uses the same isolated model: +14 reports gzip bytes
+// (72,792 reports / 414,249 combined), with no change to these limits.
 const limits = {app: 349000, reports: 73033, admin: 8500, profile: 7100, food: 5700, clock: 63043};
 
 describe('Production page bundle resource budgets', function () {

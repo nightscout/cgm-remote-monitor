@@ -588,6 +588,8 @@ describe('legacy reports in a real browser', function () {
           await page.locator('#hourlystats').click();
           const hour = page.locator('#hourly-basal-adjustments tbody tr td').nth(6);
           assert.equal(await hour.locator('.basal-net').textContent(), '0.00');
+          await page.locator('#loopalyzer').click(); await show(page);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.profiletreatments.length), 0);
           await page.locator('#treatments').click();
           assert.equal(JSON.parse(await edit.getAttribute('data')).profile, 'Exercise');
           await edit.click();
@@ -624,6 +626,7 @@ describe('legacy reports in a real browser', function () {
           await show(page);
           assert.equal(await distribution.textContent(), first);
           await page.locator('#daytoday').click(); await show(page);
+          await page.locator('#loopalyzer').click(); await idle(page);
           await page.locator('#glucosedistribution').click();
           assert.equal(await distribution.textContent(), first);
           assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.getTimezone()), 'UTC');

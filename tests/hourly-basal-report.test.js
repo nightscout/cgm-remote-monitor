@@ -21,6 +21,7 @@ describe('Hourly basal report without drawing Day to Day', function () {
       store: {Default: {timezone: 'UTC', basal: [{time: '00:00', value: 1}]}}}],
       tempbasalTreatments: [{mills: START, duration: 30, absolute: 0}, {mills: START + 3600000, duration: 30, absolute: 2}],
       [DAY]: {}, [NEXT]: {}};
+    profile.loadData(structuredClone(data.profiles));
     plugin = require('../lib/report_plugins/hourlystats')();
   });
   afterEach(function () {

@@ -54,7 +54,7 @@ describe('day-to-day report: events with a duration', function () {
     const createProfile = require('../lib/profilefunctions');
     const basal = options && options.basalRate !== undefined ? [{time: '00:00', value: options.basalRate}] :
       [{time: '00:00', value: .5}, {time: '12:00', value: .8}];
-    const record = {startDate: '2020-01-01T00:00:00Z', defaultProfile: 'Default', store: {Default: {basal}}};
+    const record = {startDate: '2020-01-01T00:00:00Z', defaultProfile: 'Default', store: {Default: {timezone: 'UTC', basal}}};
     const profile = createProfile(structuredClone([record]), {moment});
     env.window.Nightscout = {
       client: {

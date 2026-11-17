@@ -13,7 +13,7 @@ function record (startDate = '2020-01-01T00:00:00Z', rate = 1) {
   return {startDate, defaultProfile: 'Default', store: {Default: {timezone: 'UTC', units: 'mg/dl', basal: [{time: '00:00', value: rate}]}}};
 }
 function calculator (temps = [], records = [record()]) {
-  const profile = createProfile(null, {moment});
+  const profile = createProfile([record()], {moment});
   return adjustments.prepare(profile, {profiles: records, tempbasalTreatments: temps}, moment).calculate;
 }
 
@@ -62,7 +62,7 @@ describe('Chart-independent basal adjustments', function () {
   it('preserves legacy profile history across repeated preparation', function () {
     const data = {profiles: [{startDate: '2026-10-22T00:00:00Z', timezone: 'UTC', basal: [{time: '00:00', value: 1}]}]};
     const original = JSON.stringify(data);
-    const profile = createProfile(null, {moment});
+    const profile = createProfile([record()], {moment});
     for (let i = 0; i < 2; i++) {
       const result = adjustments.prepare(profile, data, moment).calculate(DAY);
       assert.deepEqual(result.positive, Array(24).fill(null));

@@ -161,3 +161,6 @@ Isolating historical profile calculations adds 9 app and 57 reports gzip bytes
 (72,778 reports / 414,235 combined), within the existing allowances. The
 `isolationReview` measurement in the same audit records the profile factory and
 copied calculation inputs; no dependency or duplicate profile module is added.
+Extending that isolation to Loopalyzer adds 14 reports gzip bytes (72,792 reports
+/ 414,249 combined). The `loopalyzerReview` entry records this follow-up; the
+73,033-byte reports limit and all other limits remain unchanged.

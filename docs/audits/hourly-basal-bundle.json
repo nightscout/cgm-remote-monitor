@@ -205,5 +205,52 @@
     "reportsGzipDeltaBytes": 57,
     "remainingReportsHeadroomBytes": 255,
     "limitsChanged": false
+  },
+  "loopalyzerReview": {
+    "purpose": "Preserve historical Loopalyzer rates and isolate its profile-switch sampling after removing shared report profile mutations.",
+    "parentRevision": "80fa86760c5e2ba5bfc1815812ae8aec1af2bc8b",
+    "measurement": {
+      "runtime": {
+        "node": "24.22.1",
+        "zlib": "1.3.2.1-motley-285e94b"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1101792,
+          "gzipBytes": 321226
+        },
+        "reports": {
+          "bytes": 245081,
+          "gzipBytes": 72792
+        },
+        "admin": {
+          "bytes": 32053,
+          "gzipBytes": 7926
+        },
+        "profile": {
+          "bytes": 19456,
+          "gzipBytes": 7012
+        },
+        "food": {
+          "bytes": 15798,
+          "gzipBytes": 5293
+        },
+        "clock": {
+          "bytes": 155643,
+          "gzipBytes": 63028
+        }
+      },
+      "allApplicationGzipBytes": 414249
+    },
+    "bundleSha256": {
+      "app": "a0b0c670c0915f60db9610d0b840c120d91b6b954862bde83c0d442648a2814b",
+      "reports": "87dab2040d361af2968b24471403e3e9407744a029cd532c893280cfd2aedc99"
+    },
+    "sourceSha256": {
+      "lib/report_plugins/loopalyzer.js": "fd951016cbe1cb9d55f944f23b041f81aa855d8d07d98fcf15e9903ead665c87"
+    },
+    "reportsGzipDeltaBytes": 14,
+    "remainingReportsHeadroomBytes": 241,
+    "limitsChanged": false
   }
 }
