@@ -8,11 +8,12 @@ const journal=require('../lib/storage/storage-event-journal');
 const sql=require('../lib/storage/clinical-stream-sql');
 const identity=require('../lib/storage/storage-event-identity-sql');
 const state=require('../lib/storage/clinical-stream-state');
+const recoveryFactory=require('../lib/pgstream/snapshot-recovery');
 const control=require('./lib/clinical-working-set/control');
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',digest='a'.repeat(64),completedDigest='b'.repeat(64);
 const enabled=!!process.env.CLINICAL_WINDOW_PG_SOCKET||process.env.NS_CLINICAL_WINDOW_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI;
 optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('native WAL identity and durable raw delivery independent of clinical cache',function(){
- this.timeout(20000);let db,pool,mode;
+ this.timeout(20000);let db,pool,mode,source,recovery;
  const table='synthetic_raw_work.tenant_consumer_checkpoint',consumer='evaluator-synthetic';
  const limits={maxRows:10,maxBytes:200000};
  before(async()=>{
@@ -32,13 +33,36 @@ optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with 
    await db.query('INSERT INTO '+table+'(tenant_id,consumer,contract_digest,projection) VALUES($1,$2,$3,$4)',[tenant,consumer+'-completed',completedDigest,JSON.stringify([{kind:'evaluator-work-v2',output:{frame:{sgvs:[]},rows:[]}}])]);
   }
   await db.query("SELECT * FROM pg_create_logical_replication_slot('synthetic_storage','wal2json')");
+  const identify=new Client({...config,replication:'database'});await identify.connect();try{const row=(await identify.query('IDENTIFY_SYSTEM')).rows[0];source={system_id:String(row.systemid),timeline:Number(row.timeline),database:row.dbname,slot:'synthetic_storage'};}finally{await identify.end();}
+  const columns={work_version:'integer DEFAULT 2',work_observed:'bigint[]',work_completed:'bigint[]',work_observed_at:'bigint[]',work_pending_at:'bigint',work_due_at:'bigint',work_completed_at:'bigint',work_enabled:'boolean DEFAULT true',work_activity_enabled:'boolean DEFAULT true',work_lifecycle_enabled:'boolean DEFAULT true',delivery_ack_revision:'bigint DEFAULT 0',output_identity:'text',output_digest:'text',output_revision:'bigint DEFAULT 0',output_restore_generation:'bigint'};
+  for(const [name,type]of Object.entries(columns))await db.query('ALTER TABLE '+table+' ADD COLUMN '+name+' '+type);
+  const connection={async importedSnapshotTransaction(name,fn,{signal,timeoutMs}){
+   if(!/^[0-9A-Fa-f]+-[0-9A-Fa-f]+-[0-9]+$/.test(name))throw new Error('TEST_SNAPSHOT_NAME');
+   await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await db.query("SET TRANSACTION SNAPSHOT '"+name+"'");await db.query("SELECT set_config('statement_timeout',$1,true)",[String(timeoutMs)]);if(signal?.aborted)throw signal.reason;const result=await fn();if(signal?.aborted)throw signal.reason;await db.query('COMMIT');return result;}catch(error){await db.query('ROLLBACK');throw error;}
+  }};
+  recovery=recoveryFactory.create({connection,createReplicationClient:()=>new Client({...config,replication:'database'}),createLockClient:()=>new Client(config),namespace:'synthetic_raw_work',consumer,mainSource:source,generation:async()=> 'fixture:1',timeoutMs:5000,maxQueued:4});
+  for(const tenant of [A,B])await recovery.withSnapshot({tenant,fn:async boundary=>{const input=state.bootstrap(null,{checkpoint:0,signature:{stamp:0,deleted:0},stream:boundary,rows:[]},limits);await db.query('UPDATE '+table+' SET projection=$3::jsonb WHERE tenant_id=$1 AND consumer=$2',[tenant,consumer,JSON.stringify([input])]);}});
+
  });
- after(async()=>{try{await db?.query("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name='synthetic_storage'");}finally{await pool?.end();await db?.end();scope.setTenancyMode(mode);}});
+ after(async()=>{try{await recovery?.close();await db?.query("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name='synthetic_storage'");}finally{await pool?.end();await db?.end();scope.setTenancyMode(mode);}});
+ // Native SQL/storage proof, not a webhook framing qualification. The joined
+ // connector/receiver campaign separately proves its transport. This adapter
+ // retains the decoder's actual B/C and complete SQL result before acceptance.
  const wal=async()=>{
-  const rows=(await db.query("SELECT data FROM pg_logical_slot_get_changes('synthetic_storage',NULL,NULL,'format-version','2','include-xids','true','include-lsn','true','include-transaction','false','add-tables','synthetic_raw.*')")).rows;
-  return rows.map(row=>JSON.parse(row.data)).filter(row=>['I','U','D'].includes(row.action));
+  const decoded=(await db.query("SELECT data FROM pg_logical_slot_get_changes('synthetic_storage',NULL,NULL,'format-version','2','include-xids','true','include-lsn','true','include-transaction','true','add-tables','synthetic_raw.*')")).rows.map(row=>JSON.parse(row.data));
+  let frames;const changes=[];
+  for(const row of decoded){
+   if(row.action==='B'){frames=[{...row,source_identity:source,transaction_index:0}];continue;}
+   if(!frames)throw new Error('NATIVE_WAL_MISSING_BEGIN');
+   if(row.action==='C'){
+    const envelope={Transaction:[...frames,{...row,source_identity:source,transaction_index:frames.length,transaction_count:frames.length-1}]};
+    for(const event of frames.slice(1)){Object.defineProperty(event,'cohort',{value:envelope});changes.push(event);}frames=undefined;
+   }else frames.push({...row,transaction_index:frames.length});
+  }
+  if(frames)throw new Error('NATIVE_WAL_INCOMPLETE_COHORT');return changes;
  };
- const accept=event=>sql.accept({pool,observeBackend:async()=>{},table,consumer,tenant:Object.fromEntries([...(event.identity||[]),...(event.columns||[])].map(c=>[c.name,c.value])).tenant_id,data:event,domain:event.table,snapshotDigest:digest,completedConsumer:consumer+'-completed',completedDigest,...limits});
+ const options=envelope=>({pool,observeBackend:async()=>{},table,consumer,envelope,routes:['entries','food','activity'].map(domain=>({schema:'synthetic_raw',table:domain,domain})),expectedSource:source,assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_raw_work',consumer),snapshotDigest:digest,completedConsumer:consumer+'-completed',completedDigest,...limits,maxTransactionRows:256,maxTransactionBytes:400000});
+ const accept=event=>sql.acceptTransaction(options(event.cohort));
  const tail=async(tenant=A)=>(await db.query("SELECT projection->1 AS storage FROM "+table+' WHERE tenant_id=$1 AND consumer=$2',[tenant,consumer])).rows[0].storage;
  it('actual FULL WAL includes old public identifier and TOAST document, while unchanged metadata emits no client update',async()=>{
   const large=Array.from({length:300},(_,i)=>require('node:crypto').createHash('sha256').update(String(i)).digest('hex')).join('');
@@ -69,17 +93,15 @@ optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with 
   await identity.assertReady(db,{namespace:'synthetic_raw',domain:'entries'});
   await db.query('DELETE FROM synthetic_raw.entries WHERE tenant_id=$1',[A]);const event=(await wal())[0];
   const before=await tail();
-  const broken=control('../lib/storage/clinical-stream-sql',"await client.query('COMMIT')","({command:'COMMIT'})");
+  const broken=control('../lib/storage/clinical-stream-sql',"const committed=await client.query('COMMIT');if(committed.command!=='COMMIT')throw new Error('CLINICAL_STREAM_COMMIT_UNCONFIRMED');began=false;","const committed={command:'COMMIT'};began=false;");
   // Returning a pooled connection with an open transaction is itself invalid;
   // force rollback on release, as a lost process/connection would do.
   const guardedPool={connect:async()=>{const client=await pool.connect();return {query:client.query.bind(client),release:async()=>{await client.query('ROLLBACK');client.release();}};}};
-  await broken.accept({pool:guardedPool,observeBackend:async()=>{},table,consumer,tenant:A,data:event,domain:'entries',snapshotDigest:digest,completedConsumer:consumer+'-completed',completedDigest,...limits});
+  await broken.acceptTransaction({...options(event.cohort),pool:guardedPool});
   await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(await tail(),before,'NO_DURABLE_RECEIPT_WITHOUT_COMMIT');
   await accept(event);assert.equal((await tail()).events.at(-1).value.identifier,'public-entries');
  });
  it('actual typed clinical completion retains the independently accepted storage tail',async()=>{
-  const columns={work_version:'integer DEFAULT 2',work_observed:'bigint[]',work_completed:'bigint[]',work_observed_at:'bigint[]',work_pending_at:'bigint',work_due_at:'bigint',work_completed_at:'bigint',work_enabled:'boolean DEFAULT true',work_activity_enabled:'boolean DEFAULT true',work_lifecycle_enabled:'boolean DEFAULT true',delivery_ack_revision:'bigint DEFAULT 0',output_identity:'text',output_digest:'text',output_revision:'bigint DEFAULT 0',output_restore_generation:'bigint'};
-  for(const [name,type]of Object.entries(columns))await db.query('ALTER TABLE '+table+' ADD COLUMN '+name+' '+type);
   const connection={query:db.query.bind(db),holdAdvisoryLock:async()=>({available:true,close:async()=>{},withTenant:async(tenant,fn)=>{await db.query('BEGIN');try{const value=await fn();await db.query('COMMIT');return value;}catch(error){await db.query('ROLLBACK');throw error;}}})};
   const store=require('../lib/pgstream/typed-checkpoint').create({connection,namespace:'synthetic_raw_work',consumer,maxBytes:400000,timeIntervalMs:60000});
   await db.query('UPDATE '+table+' SET contract_digest=$3,work_observed=$4 WHERE tenant_id=$1 AND consumer=$2',[A,consumer+'-completed',store.digest,['1',null,null,null,null,null]]);

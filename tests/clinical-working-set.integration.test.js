@@ -2,6 +2,7 @@
 // Explicit local PostgreSQL capability. No implicit database, listener or Docker.
 const assert = require('node:assert/strict');
 const { Client } = require('pg');
+const recoveryFactory=require('../lib/pgstream/snapshot-recovery');
 const { optInSuite } = require('./support/opt-in');
 const scope = require('../lib/storage/tenant-scope');
 const replayFactory = require('../lib/storage/postgres-durable-replay');
@@ -15,13 +16,14 @@ const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-2
 const enabled = !!process.env.CLINICAL_WINDOW_PG_SOCKET || process.env.NS_CLINICAL_WINDOW_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
 optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('native clinically sufficient bounded bootstrap/recovery', function () {
   this.timeout(20000);
-  let db, connection, handle, previous, queries = [], domains, oldRows, sourceCount;
+  let db, connection, handle, previous, recovery, source, config, queries = [], domains, oldRows, sourceCount;
   const checkpoint = 'synthetic_window_work.tenant_consumer_checkpoint';
   before(async () => {
     previous = scope.getTenancyMode();scope.setTenancyMode('multi');
-    db = new Client(process.env.CLINICAL_WINDOW_PG_SOCKET
-      ? { host: process.env.CLINICAL_WINDOW_PG_SOCKET, user: 'postgres', database: 'postgres' }
-      : { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });await db.connect();
+    config=process.env.CLINICAL_WINDOW_PG_SOCKET?{host:process.env.CLINICAL_WINDOW_PG_SOCKET,user:'postgres',database:'postgres'}:{connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI};
+    db = new Client(config);await db.connect();
+    const identify=new Client({...config,replication:'database'});await identify.connect();try{const row=(await identify.query('IDENTIFY_SYSTEM')).rows[0];source={system_id:String(row.systemid),timeline:Number(row.timeline),database:row.dbname,slot:'synthetic_window_main'};}finally{await identify.end();}
+    await db.query("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name='synthetic_window_main'");
     for (const domain of [...stream.DOMAINS, 'work', 'clock']) await db.query('DROP SCHEMA IF EXISTS synthetic_window_' + domain + ' CASCADE');
     await db.query('DROP ROLE IF EXISTS synthetic_window_reader');
     await db.query('CREATE ROLE synthetic_window_reader NOLOGIN');
@@ -43,13 +45,21 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     await db.query("INSERT INTO " + checkpoint + " VALUES ($1,'evaluator-synthetic',0,'',NULL),($2,'evaluator-synthetic',0,'',NULL)", [A, B]);
     connection = {
       async query(text, values) { queries.push(text);await db.query("SELECT set_config('synthetic.tenant',$1,false)", [scope.requireTenant('native window query')]);return db.query(text, values); },
+      async importedSnapshotTransaction(name,fn,{signal,timeoutMs}) {
+        if(!/^[0-9A-Fa-f]+-[0-9A-Fa-f]+-[0-9]+$/.test(name))throw new Error('TEST_SNAPSHOT_NAME');
+        const cancel=()=>{const c=new Client(config);c.connect().then(()=>c.query('SELECT pg_cancel_backend($1)',[db.processID])).finally(()=>c.end()).catch(()=>{});};signal?.addEventListener('abort',cancel,{once:true});
+        await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await db.query("SET TRANSACTION SNAPSHOT '"+name+"'");await db.query("SELECT set_config('statement_timeout',$1,true)",[String(timeoutMs)]);if(signal?.aborted)throw signal.reason;const result=await fn();if(signal?.aborted)throw signal.reason;await db.query('COMMIT');return result;}catch(error){await db.query('ROLLBACK');throw error;}finally{signal?.removeEventListener('abort',cancel);}
+      },
       async snapshotTransaction(fn) { await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try { const result = await fn();await db.query('COMMIT');return result; } catch (error) { await db.query('ROLLBACK');throw error; } }
     };
     handle = replayFactory({ connection, checkpointTable: checkpoint, clockTable: 'synthetic_window_clock.tenant_write_clock', domains, consumer: 'evaluator-synthetic', projectionVersion: 'clinical-current-rows-v1', pageSize: 5, maxRows: limits.maxRows, stream: true });
+    await db.query("SELECT * FROM pg_create_logical_replication_slot('synthetic_window_main','wal2json')");
+    recovery=recoveryFactory.create({connection,createReplicationClient:()=>new Client({...config,replication:'database'}),createLockClient:()=>new Client(config),namespace:'synthetic_window_work',consumer:'evaluator-synthetic',mainSource:source,generation:async()=> 'fixture:1',timeoutMs:5000,maxQueued:4});
+    handle.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
     sourceCount = (await db.query('SELECT count(*)::text AS n FROM ' + domains.entries)).rows[0].n;
     await db.query('SET ROLE synthetic_window_reader');
   });
-  after(async () => { try { await db?.end(); } finally { scope.setTenancyMode(previous); } });
+  after(async () => { try { await recovery?.close();await db?.query('RESET ROLE');await db?.query("SELECT pg_drop_replication_slot(slot_name) FROM pg_replication_slots WHERE slot_name='synthetic_window_main'");await db?.end(); } finally { scope.setTenancyMode(previous); } });
   const reconcile = (tenant = A, extra = {}) => scope.withTenant(tenant, () => handle.reconcile({ ...limits, signature: true, policy: policy.create(env, at), ...extra }));
   it('admits only needed historical rows under a nonowner read-only clinical role and preserves authoritative storage bytes', async () => {
     const result = await reconcile();assert.equal(result.rows.filter(r => r.domain === 'entries').length, 1);assert.equal(result.rows.find(r => r.domain === 'entries').document.sgv, 123);
@@ -74,7 +84,7 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
       const fullReplay = { async reconcile() { return { checkpoint: 10, rows: sourceRows, stats: await stats() }; } };
       const full = evaluator({ tenant: A, replay: fullReplay, connection, env: safeEnv, language, dbstats: stats, maxRows: 3000, maxBytes: 1000000, includeFrame: true });
       const baseline = await full.evaluate({ at });assert.deepEqual(actual.properties, baseline.properties);assert.deepEqual(actual.frame, baseline.frame);
-      queries = [];const later = at + 2 * DAY;clock.pin(later);const expired = await component.evaluateTime({ at: later });assert.equal(expired.frame.sgvs.length, 0);assert.equal(expired.checkpoint, 10);
+      queries = [];const later = at + 2 * DAY;clock.pin(later);const expired = await component.evaluateTime({ at: later });assert.equal(expired.frame.sgvs.length, 0);assert.equal(expired.checkpoint, 0);
       assert(!queries.some(q => q.includes('snapshot_source') || q.includes('information_schema') || q.includes('sum(pg_column_size')), 'EXPIRY_MUST_USE_ONLY_DERIVED_STATE');
       component.close();full.close();
     } finally { clock.uninstall(); }
@@ -91,6 +101,7 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     const broken = brokenModule('../lib/storage/postgres-durable-replay', 'const boundedSource = policy ? await windowSourceSql(policy) : null;', 'const boundedSource = null;');
     await scope.withTenant(A, () => connection.query('UPDATE ' + checkpoint + ' SET projection=NULL WHERE tenant_id=$1', [A]));
     const bad = broken({ connection, checkpointTable: checkpoint, clockTable: 'synthetic_window_clock.tenant_write_clock', domains, consumer: 'evaluator-synthetic', projectionVersion: 'clinical-current-rows-v1', pageSize: 5, maxRows: limits.maxRows, stream: true });
+    bad.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
     await assert.rejects(scope.withTenant(A, () => bad.reconcile({ ...limits, signature: true, policy: policy.create(env, at) })), /REPLAY_SNAPSHOT_ROW_BOUND/);
     await reconcile();
   });
