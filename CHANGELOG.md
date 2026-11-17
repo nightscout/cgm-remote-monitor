@@ -4,6 +4,39 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Report chart styles:** Choose Bar or Pie on Distribution and Daily Stats.
+  Each report remembers its own choice in the browser and switches immediately
+  using the loaded report data. Printed reports use the selected chart style.
+
+### Changed
+
+- **Default theme:** Use Modern for new browser views when no theme is configured,
+  including new deployments from the application templates. Preserve explicit
+  server settings and saved browser preferences. Keep the previous `default`
+  theme available as Classic in Settings.
+
+### Fixed
+
+- **Hourly basal adjustments:** Calculate the section formerly called netIOB
+  directly from loaded profiles and temporary basals. Opening Hourly Stats
+  first or hiding the basal chart no longer produces blank or zero totals.
+  Explain reduced, additional and net basal units, show unavailable data
+  separately from zero adjustments, and account for local hour boundaries.
+  Show unavailable Day to Day insulin averages when profile history is missing.
+  Isolate historical calculations from shared profiles and treatments so note-only
+  edits retain profile-switch names and repeated reports keep the same timezone.
+  Use the isolated historical model for Loopalyzer rates and insulin calculations too.
+- **Calibrations report:** Match raw sensor signals consistently with either
+  date order, excluding derived readings and missing or stale signals. Explain
+  automatic chart selection, label meter values and missing raw data, and use
+  colour swatches with a responsive table and chart layout.
+- **Day to Day OpenAPS markers:** Keep the connected glucose line's hover
+  targets invisible when OpenAPS is selected. They previously appeared as
+  overlapping black rings that disappeared as the pointer moved over them.
+  Reading highlights and OpenAPS tooltips remain available on hover.
+
 ## [15.0.9] - 2026-10-21
 
 Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9

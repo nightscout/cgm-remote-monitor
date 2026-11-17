@@ -230,7 +230,8 @@ describe('stored-data browser output encoding in a real browser', function () {
       const result = await page.evaluate(() => {
         const d3 = window.d3, moment = window.moment, day = '2025-01-01', firstTime = Date.parse(day + 'T00:00:00.000Z');
         const rawPayload = '<img src=x onerror="window.injected=true">Notes', encodedPayload = '&lt;img src=x onerror="window.injected=true"&gt;Notes';
-        const profile = {applyTimezone: value => moment.utc(value), loadData: () => {}, parseInTimezone: value => moment.utc(value), updateTreatments: () => {}};
+        const profile = window.NightscoutTestModules.profilefunctions([{startDate: '1980-01-01',
+          defaultProfile: 'Default', store: {Default: {timezone: 'UTC'}}}], {moment});
         const client = {plugins: () => ({isDeviceStatusAvailable: () => false}), profilefunctions: {activeProfileToTime: () => ''},
           sbx: {data: {profile}}, settings: {timeFormat: 24}, ticks: () => [], tooltip: d3.select('body').append('div'),
           translate: value => value, utils: {scaleMgdl: value => value, roundBGForDisplay: value => value}};

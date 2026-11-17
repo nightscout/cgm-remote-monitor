@@ -74,6 +74,34 @@ The matched parent's monolithic app is 402,808 Node gzip bytes, so the app saves
 
 `tests/page-bundle-budget.test.js` runs in the existing backend CI glob. It enforces the six per-entry limits, combined limit, absence of extra JavaScript chunks and report source-map isolation. Existing actual-template browser cases enforce one document bundle for dashboard and two for each secondary page, with exact request counts and separately checked script order. These counts exclude Socket.IO, startup scripts, CSS, images, APIs and service-worker precaching. The worker still precaches app and clock; first-install traffic is not the sum of unique document bundles alone. The separate populated-page timing/heap and total navigation traffic measurements below must not be inferred from these artifact budgets.
 
+The Distribution and Daily Stats Bar/Pie selectors in #8907 add 858 reports
+gzip bytes: 70,353 at `50641f87` to 71,211 at `16232f13`, measured with the same
+lockfile, installed dependencies, Node 24.22.1 and gzip level 9. The
+[paired measurement](../audits/report-chart-style-bundle.json) records artifact
+hashes and the sole added report source. The reports allowance moves from
+70,693 to 71,551 bytes, retaining its 340-byte margin. Every other JavaScript
+artifact is byte-identical; other entry limits and the 426,000-byte combined
+limit remain unchanged. The measured combined size is 412,659 bytes.
+
+The Calibrations matching and presentation follow-up adds a further 468 reports
+gzip bytes (71,211 to 71,679), using the same runtime and dependencies. Its
+[measurement](../audits/calibrations-report-bundle.json) records artifact and
+source hashes. The reports allowance becomes 72,019 bytes, preserving the same
+340-byte headroom. Other JavaScript artifacts and budgets remain unchanged;
+the combined size is 413,127 bytes against the existing 426,000-byte limit.
+The responsive layout styles are served as static CSS.
+
+The independent Hourly basal adjustments calculation and legend add 1,014
+reports gzip bytes (72,693 total). The
+[paired measurement](../audits/hourly-basal-bundle.json) records the two new
+report-only modules and unchanged hashes for all other JavaScript artifacts.
+The reports allowance becomes 73,033 bytes with its existing 340-byte margin;
+the 426,000-byte combined limit is unchanged, against 414,141 measured bytes.
+
+The final review's unavailable Day to Day insulin-average formatting adds 28
+reports gzip bytes (72,721 reports / 414,169 combined), using the existing
+allowance. The follow-up measurement is recorded in the same audit.
+
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. The final head subsequently passed both Firefox jobs; no failures were waived.
 
@@ -128,3 +156,15 @@ The tools fail resource acceptance when limits are exceeded and mark fewer than 
 `tests/page-resource-acceptance.test.js` rejects incomplete/duplicated runs, omitted revisits, 500 ms startup regressions, excessive heap, excessive body/request counts and cached bundle redownloads. These guard the evidence checker itself; they do not replace browser measurements. The byte-counter test independently checks compressed transport accounting.
 
 The latest hosted failure on `b9f48190` was one Firefox/Node 24 application-worker case: awaiting `registration.update()` raced the intentionally triggered reload and lost the outgoing execution context. The follow-up starts the update without awaiting that promise in the outgoing document, while still requiring the reload, cache retirement and successful page startup. No retry, timeout increase or cache assertion relaxation is used. The final head subsequently passed the complete hosted matrix, including both Firefox jobs.
+
+Isolating historical profile calculations adds 9 app and 57 reports gzip bytes
+(72,778 reports / 414,235 combined), within the existing allowances. The
+`isolationReview` measurement in the same audit records the profile factory and
+copied calculation inputs; no dependency or duplicate profile module is added.
+Extending that isolation to Loopalyzer adds 14 reports gzip bytes (72,792 reports
+/ 414,249 combined). The `loopalyzerReview` entry records this follow-up; the
+73,033-byte reports limit and all other limits remain unchanged.
+
+Making Modern the default changes the app bundle by 6 gzip bytes (321,232 app
+/ 72,792 reports / 414,255 combined on Node 24.22.1). Clock gzip size remains
+63,028 bytes, and the existing resource limits all hold.

@@ -1909,9 +1909,10 @@ components:
           description: Should Night mode be enabled by default?
         theme:
           type: string
+          default: modern
           description: >-
-            Default theme to be displayed system wide, `default`, `colors`, `colorblindfriendly`,
-            `modern`. Modern opts into the responsive dashboard.
+            Default theme to be displayed system wide: `modern` (the default responsive dashboard),
+            `default` (Classic), `colors`, or `colorblindfriendly`. Saved browser preferences take precedence.
         language:
           type: string
           description: Default language code to be used system wide
