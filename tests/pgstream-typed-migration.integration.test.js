@@ -66,7 +66,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  const table='"'+namespace+'".tenant_consumer_checkpoint',consumer='realtime-native';
  let admin,observer,nativePool,metadataRole,connected=false,observerConnected=false,protocol,create,at=100,failCommit=false,rollbackCommit=false,commitGate=null,commitEntered=null,store;
  const statements=[];
- const metadataPool={connect:async()=>{const client=await nativePool.connect();return {release:error=>client.release(error),query:async(text,values)=>{statements.push(text);if(text==='COMMIT'){if(commitEntered)commitEntered();if(commitGate)await commitGate;if(failCommit)throw new Error('SYNTHETIC_RECEIPT_COMMIT_FAILURE');if(rollbackCommit)return client.query('ROLLBACK');}return client.query(text,values);}};}};
+ const metadataPool={connect:async()=>{const client=await nativePool.connect();return {release:error=>client.release(error),query:async(text,values)=>{statements.push(typeof text==='string'?text:text.text);if(text==='COMMIT'){if(commitEntered)commitEntered();if(commitGate)await commitGate;if(failCommit)throw new Error('SYNTHETIC_RECEIPT_COMMIT_FAILURE');if(rollbackCommit)return client.query('ROLLBACK');}return client.query(text,values);}};}};
  const port={query:(...args)=>admin.query(...args),readOnly:(...args)=>nativePool.query(...args),updateRealtimeReceipts:options=>require('../lib/pgstream/realtime-receipt-sql').update({pool:metadataPool,observeBackend:async client=>{const role=(await client.query('SELECT r.rolsuper,r.rolbypassrls FROM pg_roles r WHERE r.rolname=current_user')).rows[0];assert.equal(role.rolsuper,false);assert.equal(role.rolbypassrls,false);},...options})};
  const make=owner=>create({config:{namespaces:{checkpoint:namespace},consumer,maxTenants:2},connection:port,operationWindow:protocol.window,worker:owner,now:()=>at});
  const row=async()=>((await observer.query(`SELECT output_received::text AS received,output_completed::text AS completed,output_retry_at::text AS retry,output_owner::text AS owner FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer])).rows[0]);
@@ -114,9 +114,64 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   await assert.rejects(store.complete(tenant,'9007199254740993'),/REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED/);
   assert.equal((await row()).completed,'0');await replacement.complete(tenant,'9007199254740993');assert.equal((await row()).completed,'9007199254740993');
  });
+ it('acknowledges duplicate and older hints without rewriting an already owned durable receipt',async()=>{
+  const tuple=async()=>(await observer.query(`SELECT ctid::text AS tuple FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer])).rows[0].tuple;
+  await store.receive(tenant,'2');await store.retry(tenant,'2');
+  const pending=await tuple(),before=await row();
+  for(const revision of ['2','1','2'])assert.equal(await store.receive(tenant,revision),'2');
+  assert.equal(await tuple(),pending,'DUPLICATE_HINT_MUST_NOT_REWRITE_PENDING_RECEIPT');assert.deepEqual(await row(),before);
+  await store.complete(tenant,'2');const completed=await tuple();
+  await store.receive(tenant,'2');await store.receive(tenant,'1');
+  assert.equal(await tuple(),completed,'OLD_HINT_MUST_NOT_REWRITE_COMPLETED_RECEIPT');
+  const replacement=make(nextWorker);await replacement.receive(tenant,'1');
+  assert.notEqual(await tuple(),completed,'DIFFERENT_OWNER_STILL_REQUIRES_DURABLE_WRITE');assert.equal((await row()).owner,nextWorker);
+ });
+ it('holds duplicate ACK until COMMIT and serializes a concurrent newer receipt behind it',async()=>{
+  await store.receive(tenant,'1');
+  let release,entered,acked=false;
+  commitGate=new Promise(resolve=>{release=resolve;});const waiting=new Promise(resolve=>{entered=resolve;});commitEntered=entered;
+  const duplicate=store.receive(tenant,'1').then(()=>{acked=true;});let newer;
+  try{
+   await waiting;assert.equal(acked,false,'DUPLICATE_ACK_MUST_WAIT_FOR_COMMIT');
+   commitGate=null;commitEntered=null;newer=store.receive(tenant,'2');
+   let blocked=false;
+   for(let i=0;i<100;i++){
+    blocked=(await observer.query("SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock'",[metadataRole])).rowCount>0;
+    if(blocked)break;await new Promise(resolve=>setTimeout(resolve,5));
+   }
+   assert.equal(blocked,true,'DUPLICATE_RECEIVE_MUST_LOCK_DURABLE_OWNERSHIP');assert.equal((await row()).received,'1');assert.equal(acked,false);
+  }finally{commitGate=null;commitEntered=null;release();await Promise.all([duplicate,newer]);}
+  assert.equal(acked,true);assert.equal((await row()).received,'2');assert.deepEqual(await store.work(),[{tenant,received:'2'}]);
+ });
  it('rejects noncanonical or overflowing revisions before mutating the physical receipt',async()=>{
   for(const value of ['0','01','9223372036854775808',9007199254740992])await assert.rejects(store.receive(tenant,value),/Exact positive delivery revision/);
   assert.equal((await row()).received,'0');await store.receive(tenant,'9223372036854775807');await store.receive(tenant,'9223372036854775807');assert.equal((await row()).received,'9223372036854775807');
+ });
+ it('rechecks a duplicate waiting behind a newer uncommitted revision',async()=>{
+  await store.receive(tenant,'1');await admin.query('BEGIN');
+  let duplicate,acked=false;
+  try{
+   await admin.query(`UPDATE ${table} SET output_received=2 WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer]);
+   duplicate=store.receive(tenant,'1').then(value=>{acked=true;return value;});
+   let blocked=false;
+   for(let i=0;i<100;i++){
+    blocked=(await observer.query("SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock'",[metadataRole])).rowCount>0;
+    if(blocked)break;await new Promise(resolve=>setTimeout(resolve,5));
+   }
+   assert.equal(blocked,true,'DUPLICATE_MUST_WAIT_FOR_NEWER_TRANSACTION');assert.equal(acked,false);assert.equal((await row()).received,'1');
+   await admin.query('COMMIT');assert.equal(await duplicate,'2');assert.equal((await row()).received,'2');
+  }finally{await admin.query('ROLLBACK');await Promise.allSettled([duplicate]);}
+ });
+ it('returns each mixed batch tenant once and rewrites only its changed receipt',async()=>{
+  const ids=[tenant,'44444444-4444-4444-8444-444444444444','55555555-5555-4555-8555-555555555555'];
+  for(const id of ids.slice(1))await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,$2,$3,0)`,[id,consumer,'a'.repeat(64)]);
+  const update=(mode,rows)=>port.updateRealtimeReceipts({table:namespace+'.tenant_consumer_checkpoint',consumer,worker,mode,rows});
+  const capture=async()=>new Map((await observer.query(`SELECT tenant_id::text AS tenant,ctid::text AS tuple,output_retry_at::text AS retry FROM ${table} WHERE consumer=$1`,[consumer])).rows.map(value=>[value.tenant,value]));
+  await update('receive',ids.map(tenant=>({tenant,revision:'2'})));await update('retry',ids.map(tenant=>({tenant,revision:'2',due:1100})));
+  const before=await capture(),result=await update('receive',ids.map((tenant,i)=>({tenant,revision:['3','2','1'][i]}))),after=await capture();
+  assert.equal(result.rows.length,3);assert.deepEqual(new Map(result.rows.map(row=>[row.tenant,row.received])),new Map(ids.map((tenant,i)=>[tenant,i===0?'3':'2'])),'MIXED_RECEIPT_EACH_TENANT_ONCE');
+  assert.notEqual(before.get(tenant).tuple,after.get(tenant).tuple);assert.equal(after.get(tenant).retry,null);
+  for(const id of ids.slice(1))assert.deepEqual(after.get(id),before.get(id),'UNCHANGED_BATCH_RECEIPT_MUST_KEEP_TUPLE_AND_BACKOFF');
  });
  it('receives and recovers suspended control through metadata SQL while serving admission is closed',async()=>{
   const suspended=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true,phases:{[tenant]:'suspended'}});await suspended.window.ready();
@@ -144,7 +199,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   for(const sql of [`UPDATE ${table} SET tenant_id='55555555-5555-4555-8555-555555555555'`,`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ('55555555-5555-4555-8555-555555555555','realtime-native','${'a'.repeat(64)}',0)`,`DELETE FROM ${table}`,`SELECT * FROM "${namespace}".clinical`])await assert.rejects(nativePool.query(sql),error=>error.code==='42501');
   await store.receive(tenant,'1');
   await admin.query(`DROP POLICY receipt_metadata_update ON ${table}`);
-  try{await assert.rejects(store.receive(tenant,'2'),/REALTIME_RECEIPT/);assert.equal((await row()).received,'1');}
+  try{for(const revision of ['1','2'])await assert.rejects(store.receive(tenant,revision),/REALTIME_RECEIPT/);assert.equal((await row()).received,'1');}
   finally{await admin.query(`CREATE POLICY receipt_metadata_update ON ${table} FOR UPDATE TO "${metadataRole}" USING (consumer='realtime-native') WITH CHECK (consumer='realtime-native')`);}
   await store.receive(tenant,'2');assert.equal((await row()).received,'2');
  });

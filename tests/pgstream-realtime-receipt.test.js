@@ -19,7 +19,7 @@ describe('durable realtime output scheduling source protocol',function(){
   it('uses bounded fixed metadata SQL outside a suspended clinical operation and batches independent outcomes',async function(){
     const updates=[],queries=[],released=[];
     const worker='33333333-3333-4333-8333-333333333333';
-    const pool={connect:async()=>({query:async(sql,values)=>{queries.push(sql);if(!values)return {rows:[],command:sql};const rows=JSON.parse(values[2]);updates.push({sql,rows});return {rows:rows.map(row=>({tenant:row.tenant,received:row.revision||'1'}))};},release:error=>released.push(error)})};
+    const pool={connect:async()=>({query:async(statement,values)=>{const sql=typeof statement==='string'?statement:statement.text;queries.push(sql);if(!values)return {rows:[],command:sql};assert.match(statement.name,/^realtime-receipt-v2:rt_checkpoint:(receive|claim|complete|retry)$/);const rows=JSON.parse(values[2]);updates.push({sql,rows});return {rows:rows.map(row=>({tenant:row.tenant,received:row.revision||'1'}))};},release:error=>released.push(error)})};
     const store=receipts.create({config:{namespaces:{checkpoint:'rt_checkpoint'},consumer:'realtime-test',maxTenants:64},worker,
       operationWindow:{run:()=>assert.fail('SUSPENDED_CLINICAL_OPERATION_MUST_NOT_RUN')},
       connection:{readOnly:async()=>({rows:[]}),updateRealtimeReceipts:options=>require('../lib/pgstream/realtime-receipt-sql').update({pool,observeBackend:async()=>{},...options})}});
