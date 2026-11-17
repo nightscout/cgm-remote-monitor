@@ -172,10 +172,16 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.configure = (change = () => {}) => {
     const document = structuredClone(lab.document); change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
-    const parsed = configParser.parse(document, env({ file }));
-    return { document, file, async identity (tenant) {
+    // Validate shape without requiring a recovery credential before setup has
+    // created its restricted replication role. Actual identity parsing follows
+    // that setup; no placeholder URI is supplied to the product parser.
+    configParser.parseMetadata(document);
+    const configured = { document, file, async identity (tenant) {
+      await lab.prepareProduct(configured);
+      const parsed = configParser.parse(document, env(configured));
       return (await configParser.withSettings(parsed, configParser.registryEntry(tenant), tenant)).identity;
     } };
+    return configured;
   };
   lab.provisionPreview = async () => {
     // Membership and checkpoints were created by strict actual provisioning.
@@ -187,10 +193,10 @@ module.exports = function evaluatorPreviewRegistryLab () {
       assert.equal(Number(checkpoint.checkpoint), 0);
     }
   };
-  // This oracle reports the last sealed clinical working rows; it does not
+  // This oracle reports atomically accepted clinical working rows; it does not
   // assert that the current input is ready (raw lab.checkpoint exposes gaps). The materializer now
-  // persists them inside a cohort envelope; raw staging/receipt tests continue
-  // to read lab.checkpoint directly and must not mistake staged rows for input.
+  // persists them inside a native-coverage envelope. Coverage/recovery tests
+  // read lab.checkpoint directly to distinguish clinical and raw acceptance.
   lab.previewCheckpoint = async tenant => {
     const saved=await lab.checkpoint(lab.consumerName,tenant),state=saved.projection?.[0];
     return state?.kind===require('../../lib/storage/clinical-stream-state').KIND
@@ -217,6 +223,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
+      ...producer?.environment,
       ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all' };

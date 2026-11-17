@@ -4,10 +4,12 @@
 // listener or control API. IPC is inherited only by the explicitly forked test.
 let held, release, armed = false, running, context, starting;
 // Count actual role queries without changing their result or timing contract.
-const clinicalReads={snapshots:0,statistics:0,catalogue:0};
+const clinicalReads={snapshots:0,statistics:0,catalogue:0,exports:0,imports:0};
 const pg=require('pg'),query=pg.Client.prototype.query;
 pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text;
   if(typeof sql==='string'){
+    if(sql.startsWith('CREATE_REPLICATION_SLOT ')&&sql.includes(' TEMPORARY '))clinicalReads.exports++;
+    if(sql.startsWith('SET TRANSACTION SNAPSHOT '))clinicalReads.imports++;
     if(sql.includes('snapshot_source'))clinicalReads.snapshots++;
     if(sql.includes('pg_column_size(doc)'))clinicalReads.statistics++;
     if(sql.includes('information_schema.columns'))clinicalReads.catalogue++;

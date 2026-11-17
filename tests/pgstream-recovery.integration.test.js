@@ -46,16 +46,24 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       process.kill(-worker.processGroup,'SIGKILL');const result=await exited;
       assert.equal(result.signal,'SIGKILL');await lab.stopStream();return result;
     }
+    const floor = value => BigInt(value || '0');
+    async function acceptedValue(value, id='synthetic-recovery', tenant=lab.A) {
+      return wait(async()=>{
+        const saved=await lab.checkpoint(lab.consumerName,tenant),input=saved.projection?.[0];
+        return input?.ready&&input.rows.some(row=>row.domain==='entries'&&row.doc._id===id&&row.doc.sgv===value)?String(input.floor):null;
+      },10000,'NATIVE_COHORT_INPUT_NOT_DURABLY_ACCEPTED');
+    }
     async function holdNext(worker,value) {
       await worker.call('arm');let entered=false;worker.held().then(()=>{entered=true;});
-      await write(value);const stamp=(await lab.clock()).stamp;
+      await write(value);
       await wait(()=>entered,5000,'ACTUAL_CLINICAL_CYCLE_MUST_REACH_HOLD');
-      const held=await state();assert(BigInt(held.observed.clock)>=BigInt(stamp),'RECEIPT_DURABLE_BEFORE_CLINICAL_HOLD');
-      assert(BigInt(held.completed.clock)<BigInt(stamp),'HELD_CYCLE_MUST_NOT_COMPLETE');
-      return stamp;
+      const accepted=await acceptedValue(value),held=await state();
+      assert(floor(held.observed.bootstrap)>=floor(accepted),'RECEIPT_DURABLE_BEFORE_CLINICAL_HOLD');
+      assert(floor(held.completed.bootstrap)<floor(accepted),'HELD_CYCLE_MUST_NOT_COMPLETE');
+      return accepted;
     }
-    function completed(row, stamp) {
-      return row && BigInt(require('../lib/pgstream/work-state').map(row.work_completed).clock || '0') >= BigInt(stamp);
+    function completed(row, accepted) {
+      return row && floor(require('../lib/pgstream/work-state').map(row.work_completed).bootstrap) >= floor(accepted);
     }
     it('reads warm accepted input without waiting for a concurrent receipt writer; old lock is a real native red',async()=>{
       await write(117);await lab.provisionPreview();
@@ -94,11 +102,11 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     it('materializes actual default clinical cohorts, corrections and deletion without warm clinical snapshot or catalogue rediscovery',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       try{
-        const initial=await worker.call('queries');assert(initial.snapshots>0,'CONSISTENT_BOOTSTRAP_REQUIRED');
+        const initial=await worker.call('queries');assert(initial.snapshots>0&&initial.exports>0&&initial.imports>0,'EXACT_NATIVE_BOOTSTRAP_REQUIRED');
         const at=Date.now(),late=at-300000;
         await lab.persistDomains({entries:[{_id:'cohort-one',type:'sgv',sgv:141,date:late,dateString:new Date(late).toISOString(),extension:{synthetic:'preserved'}},
           {_id:'cohort-two',type:'sgv',sgv:142,date:at,dateString:new Date(at).toISOString()}]});
-        const cohort=(await lab.clock()).stamp;
+        const cohort=await acceptedValue(142,'cohort-two');
         const output=await wait(async()=>{const row=await lab.previewCompleted();return completed(row,cohort)?row:null;},10000,'DEFAULT_ROW_COHORT_NOT_COMPLETED');
         // Raw clinical rows belong to the accepted input; durable output carries
         // the actual engine frame rather than another copy of that projection.
@@ -108,11 +116,12 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         assert(frame.sgvs.some(row=>row._id==='cohort-two'&&row.mgdl===142),'COHORT_PARTIAL_ENGINE_FRAME');
         assert(rows.some(row=>row.doc._id==='cohort-one'&&row.doc.extension.synthetic==='preserved'),'EXTENSION_ROW_MISSING');
         assert(rows.some(row=>row.doc._id==='cohort-two'),'COHORT_PARTIAL_OUTPUT');
-        await write(151,'cohort-one',600000);const corrected=(await lab.clock()).stamp;
+        await write(151,'cohort-one',600000);const corrected=await acceptedValue(151,'cohort-one');
         await wait(async()=>completed(await lab.previewCompleted(),corrected),10000,'LATE_CORRECTION_NOT_COMPLETED');
         assert.equal((await lab.previewCheckpoint(lab.A)).projection.find(row=>row.doc._id==='cohort-one').doc.sgv,151);
         assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='cohort-one').mgdl,151,'CORRECTED_ENGINE_FRAME');
-        await lab.hardDelete('entries',{_id:'cohort-two'});const removed=(await lab.clock()).stamp;
+        await lab.hardDelete('entries',{_id:'cohort-two'});
+        const removed=await wait(async()=>{const saved=await lab.checkpoint(lab.consumerName),input=saved.projection?.[0];return input?.ready&&floor(input.floor)>floor(corrected)&&!input.rows.some(row=>row.domain==='entries'&&row.doc._id==='cohort-two')?String(input.floor):null;},10000,'DELETE_NOT_DURABLY_ACCEPTED');
         await wait(async()=>completed(await lab.previewCompleted(),removed),10000,'DELETE_COHORT_NOT_COMPLETED');
         assert(!(await lab.previewCheckpoint(lab.A)).projection.some(row=>row.doc._id==='cohort-two'),'DELETED_ROW_RETAINED');
         assert(!(await lab.previewCompleted()).projection[0].output.frame.sgvs.some(row=>row._id==='cohort-two'),'DELETED_ENGINE_FRAME_RETAINED');
@@ -120,7 +129,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         // Authoritative whole-history accounting is independent of the bounded
         // clinical input. A source write may refresh it; warm clinical rows and
         // their catalogue must still come from the accepted stream.
-        assert.deepEqual({snapshots:after.snapshots,catalogue:after.catalogue},{snapshots:initial.snapshots,catalogue:initial.catalogue},'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
+        assert.deepEqual({snapshots:after.snapshots,catalogue:after.catalogue,exports:after.exports,imports:after.imports},{snapshots:initial.snapshots,catalogue:initial.catalogue,exports:initial.exports,imports:initial.imports},'WARM_CLINICAL_SNAPSHOT_REDISCOVERY');
         lab.tracePreview('default-streamed-cohort-correction-delete',{initial,after,cohort,corrected,removed,scope:'actual default evaluator and maintained CDC; bootstrap allowed, warm clinical source snapshot/catalogue reads forbidden; authoritative whole-history accounting may refresh after writes'});
       }finally{await lab.stopWorker(worker);}
     });
@@ -131,19 +140,19 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       try{
         const held=await holdNext(worker,131);
         const newer=Date.now();await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:241,date:newer,dateString:new Date(newer).toISOString()}]},lab.B);
-        const stamp=(await lab.clock(lab.B)).stamp;
+        const stamp=await acceptedValue(241,'neighbor',lab.B);
         const output=await wait(async()=>{const row=await lab.previewCompleted(lab.B);return completed(row,stamp)?row:null;},5000,'IDLE_SLOT_MUST_COMPLETE_NEIGHBOR_BEFORE_HELD_TENANT_RELEASE');
         assert.equal(output.projection[0].output.frame.sgvs.find(row=>row._id==='neighbor').mgdl,241);
-        assert(BigInt((await state()).completed.clock)<BigInt(held),'HELD_TENANT_MUST_REMAIN_UNFINISHED');
-        await worker.call('release');await wait(async()=>BigInt((await state()).completed.clock)>=BigInt(held),5000,'HELD_TENANT_MUST_RESUME');
+        assert(floor((await state()).completed.bootstrap)<floor(held),'HELD_TENANT_MUST_REMAIN_UNFINISHED');
+        await worker.call('release');await wait(async()=>floor((await state()).completed.bootstrap)>=floor(held),5000,'HELD_TENANT_MUST_RESUME');
         lab.tracePreview('default-held-tenant-neighbor-progress',{held,neighbor:stamp,scope:'actual default role/CDC with one held clinical completion and an independently completed tenant'});
       }finally{await worker.call('release');await lab.stopWorker(worker);}
     });
     it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),originalStarts=producer.state().starts,before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
-      const began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
-      await write(149);const stamp=(await lab.clock()).stamp;
+      const beforeWork=await state(),began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
+      await write(149);
       // The application no longer synthesizes feed liveness. Stopping an idle
       // producer does not revoke source admission or the evaluator owner. Real
       // undelivered input remains behind the durable observed/completed floor.
@@ -152,11 +161,13 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       assert.equal(stoppedHealth.owner,true,'ACTUAL_EVALUATOR_OWNER_REMAINS_HELD');
       for(const field of ['heartbeatAgeMs','monotonicHeartbeatAgeMs','sequence','received','pulses','receipts','probes'])assert.equal(Object.hasOwn(stoppedHealth,field),false,'NO_SYNTHETIC_FEED_LIVENESS_'+field);
       const stoppedWork=await state();
-      assert(BigInt(stoppedWork.observed.clock)<BigInt(stamp),'STOPPED_FEED_MUST_NOT_FABRICATE_DURABLE_OBSERVATION');
-      assert(BigInt(stoppedWork.completed.clock)<BigInt(stamp),'UNDELIVERED_INPUT_MUST_NOT_BE_MARKED_COMPLETED');
+      assert.deepEqual(stoppedWork.observed,beforeWork.observed,'STOPPED_FEED_MUST_NOT_FABRICATE_DURABLE_OBSERVATION');
+      assert.deepEqual(stoppedWork.completed,beforeWork.completed,'UNDELIVERED_INPUT_MUST_NOT_BE_MARKED_COMPLETED');
+      assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,110,'UNDELIVERED_CORRECTION_MUST_NOT_APPEAR');
       assert.deepEqual(identity(worker.child.pid),evaluator,'SAME_EVALUATOR_SURVIVES_STREAM_OUTAGE');
       assert.equal(producer.state().starts,originalStarts,'NO_FIXTURE_AUTOMATIC_RESTART');
       await lab.startStream();assert.notEqual(producer.identity().pid,original.pid,'EXPLICIT_EXTERNAL_PRODUCER_REPLACEMENT');
+      const stamp=await acceptedValue(149);
       const recovered=await wait(async()=>{const health=(await worker.call('health')).pgstream,output=await lab.previewCompleted();return health.healthy&&completed(output,stamp)&&BigInt(output.output_revision)>BigInt(before.output_revision)?{health,output}:null;},config.document.pgstream.bounds.recoveryMs,'EXTERNAL_STREAM_MUST_RECOVER_COMMITTED_OUTPUT');
       assert.equal(recovered.output.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149,'EXACT_COMMITTED_FRAME_AFTER_STREAM_RESUME');assert.deepEqual(identity(worker.child.pid),evaluator);
       lab.tracePreview('independent-stream-fixture-stop-and-resume',{elapsedMs:performance.now()-began,evaluator,producerBefore:original,producerAfter:producer.identity(),stoppedHealth,stoppedWork,recoveredHealth:recovered.health,completed:recovered.output.work_completed,scope:'Fixture-controlled external restart and durable catchup; silent idle-feed detection and platform restart-policy qualification are not claimed'});
@@ -164,17 +175,17 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     });
     it('retains a newer observation across held completion and recovers pending clinical work after actual role process-group death',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
-      await holdNext(worker,130);await write(149);const newer=(await lab.clock()).stamp;
-      await wait(async()=>BigInt((await state()).observed.clock)>=BigInt(newer),5000,'NEWER_RECEIPT_MUST_COMMIT_WHILE_OLDER_CYCLE_HELD');
+      await holdNext(worker,130);await write(149);const newer=await acceptedValue(149);
+      await wait(async()=>floor((await state()).observed.bootstrap)>=floor(newer),5000,'NEWER_RECEIPT_MUST_COMMIT_WHILE_OLDER_CYCLE_HELD');
       await worker.call('release');
-      await wait(async()=>BigInt((await state()).completed.clock)>=BigInt(newer),10000,'NEWER_GENERATION_MUST_REMAIN_PENDING_UNTIL_COMPLETED');
+      await wait(async()=>floor((await state()).completed.bootstrap)>=floor(newer),10000,'NEWER_GENERATION_MUST_REMAIN_PENDING_UNTIL_COMPLETED');
       assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149);
-      const pending=await holdNext(worker,171),held=await state();
+      const pending=await holdNext(worker,171),held=await state(),clockBefore=(await lab.clock()).stamp;
       const death=await killWorker(worker);
       const next=await lab.worker(config,{detached:true});assert.equal(next.startup.ready,true,'RESTARTED_ACTUAL_ROLE_READY');
-      await wait(async()=>BigInt((await state()).completed.clock)>=BigInt(pending),10000,'PROCESS_LOSS_MUST_RECOVER_DURABLE_PENDING');
+      await wait(async()=>floor((await state()).completed.bootstrap)>=floor(pending),10000,'PROCESS_LOSS_MUST_RECOVER_DURABLE_PENDING');
       const recovered=await lab.previewCompleted();assert.equal(recovered.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,171);
-      assert.equal((await lab.clock()).stamp,pending,'RESTART_RECOVERY_NEEDS_NO_INPUT_WRITE');
+      assert.equal((await lab.clock()).stamp,clockBefore,'RESTART_RECOVERY_NEEDS_NO_INPUT_WRITE');
       lab.tracePreview('actual-role-held-generation-and-pending-crash-recovery',{death,held,newer,pending,recoveredCompleted:recovered.work_completed});
       await lab.stopWorker(next);
     });
@@ -192,7 +203,8 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       await wait(async()=>{const current=await state();return Number(current.completed_at)>Number(resumed.completed_at)&&Number(current.completed_at)>=Number(before.due_at);},25000,'RESTARTED_DUE_MUST_FIRE_WITHOUT_INPUT');
       const after=await state(),outputAfter=await lab.previewCompleted();
       assert.equal((await lab.clock()).stamp,clockBefore,'TIME_WORK_MUST_NOT_REQUIRE_OR_CREATE_INPUT_WRITE');
-      assert.equal(outputAfter.projection[0].output.trigger,'time-only','ACTUAL_DUE_CLINICAL_COMPLETION_REQUIRED');
+      assert(Number(outputAfter.projection[0].output.result.now)>=Number(before.due_at),'ACTUAL_DUE_CLINICAL_COMPLETION_REQUIRED');
+      assert.deepEqual(after.observed,resumed.observed,'DUE_ONLY_WORK_DOES_NOT_INVENT_INPUT_COVERAGE');
       assert.equal(after.work_pending_at,null);
       lab.tracePreview('actual-role-completed-output-and-future-due-recovery',{death,before,resumed,after,clockBefore,outputRevision:outputAfter.output_revision});
       await lab.stopWorker(next);
@@ -202,18 +214,19 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       const table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint',role='"'+lab.previewRole+'"';
       const grants=async()=>(await lab.admin.query("SELECT grantor,grantee,is_grantable FROM information_schema.column_privileges WHERE table_schema=$1 AND table_name='tenant_consumer_checkpoint' AND column_name='work_observed' AND grantee=$2 AND privilege_type='UPDATE' ORDER BY grantor",[lab.replayNamespace,lab.previewRole])).rows;
       const canUpdate=async()=>(await lab.admin.query("SELECT has_column_privilege($1,$2,'work_observed','UPDATE') AS allowed",[lab.previewRole,lab.replayNamespace+'.tenant_consumer_checkpoint'])).rows[0].allowed;
-      const prior=await grants();assert.equal(prior.length,1,'EXACT_PRIOR_COLUMN_GRANT_REQUIRED');assert.equal(prior[0].is_grantable,'NO');assert.equal(await canUpdate(),true);let stamp,producerState;
+      const beforeWork=await state(),prior=await grants();assert.equal(prior.length,1,'EXACT_PRIOR_COLUMN_GRANT_REQUIRED');assert.equal(prior[0].is_grantable,'NO');assert.equal(await canUpdate(),true);let stamp,producerState;
       try{
         await lab.admin.query('REVOKE UPDATE(work_observed) ON '+table+' FROM '+role);assert.equal(await canUpdate(),false);
-        await write(149);stamp=(await lab.clock()).stamp;await new Promise(resolve=>setTimeout(resolve,2000));
-        assert(BigInt((await state()).observed.clock)<BigInt(stamp),'FAILED_RECEIPT_MUST_NOT_BE_DURABLY_ACKNOWLEDGED');producerState=lab.stream().state();
+        await write(149);await new Promise(resolve=>setTimeout(resolve,2000));
+        assert.deepEqual((await state()).observed,beforeWork.observed,'FAILED_RECEIPT_MUST_NOT_BE_DURABLY_ACKNOWLEDGED');
+        assert.equal((await lab.previewCheckpoint(lab.A)).projection.find(row=>row.doc._id==='synthetic-recovery').doc.sgv,110,'FAILED_COHORT_MUST_ROLL_BACK_INPUT');producerState=lab.stream().state();
       }finally{
         await lab.admin.query('GRANT UPDATE(work_observed) ON '+table+' TO '+role);assert.deepEqual(await grants(),prior,'EXACT_PRIOR_GRANT_RESTORED');assert.equal(await canUpdate(),true);
       }
       // Explicit test action, independent of the evaluator. The platform-owned
       // restart policy has its own canonical component witness.
-      await lab.stopStream();await lab.startStream();
-      await wait(async()=>{const health=(await worker.call('health')).pgstream;return health.healthy&&BigInt((await state()).completed.clock)>=BigInt(stamp);},30000,'GRANT_FAULT_DURABLE_RESUME');
+      await lab.stopStream();await lab.startStream();stamp=await acceptedValue(149);
+      await wait(async()=>{const health=(await worker.call('health')).pgstream;return health.healthy&&floor((await state()).completed.bootstrap)>=floor(stamp);},30000,'GRANT_FAULT_DURABLE_RESUME');
       assert.deepEqual(identity(worker.child.pid),evaluator,'RECEIVER_GRANT_RECOVERY_KEEPS_SAME_ROLE');assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149);
       lab.tracePreview('independent-stream-injected-receiver-grant-refusal',{priorGrant:prior,producerState,evaluator,stamp,scope:'Injected grant fault; observed producer exit state does not establish permanent wedging or production frequency'});await lab.stopWorker(worker);
     });

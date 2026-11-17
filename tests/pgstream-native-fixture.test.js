@@ -25,7 +25,8 @@ describe('owned native maintained producer fixture', function () {
     const selected = { receiverPort: 21461, subscriptionsPort: 21462 };
     const config = fixture.configuration({ prefix: 'synthetic_fixture', capability: selected });
     assert.equal(config.receiver.url, 'http://127.0.0.1:21461/'); assert.equal(config.slot, 'synthetic_fixture_pgstream');
-    assert.equal(config.streamRole, 'synthetic_fixture_pgstream'); assert(!Object.hasOwn(config,'binaryEnv'));assert(!Object.hasOwn(config,'configFileEnv'));
+    assert.equal(config.streamRole, 'synthetic_fixture_pgstream');
+    assert.match(config.generation,/^[a-f0-9]{32}$/);assert.deepEqual(config.recovery,{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32}); assert(!Object.hasOwn(config,'binaryEnv'));assert(!Object.hasOwn(config,'configFileEnv'));
     assert.throws(() => fixture.configuration({ prefix: 'bad;sql', capability: selected }), /IDENTIFIER/);
     assert.throws(() => fixture.configuration({ prefix: 'synthetic_fixture' }), /CAPABILITY_REQUIRED/);
   });
