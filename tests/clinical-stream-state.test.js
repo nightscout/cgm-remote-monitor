@@ -34,6 +34,12 @@ describe('complete native clinical cohorts',()=>{
   assert.equal(next.rows.length,0,'SNAPSHOT_COVERED_ROW_DOUBLE_APPLIED');assert.equal(next.stream.accepted_position,'0/30');assert.equal(next.floor,12);
   assert.equal(stream.applyTransaction(next,events([native.row('new')]),native.coverage('0/90'),limits).rows.length,1);
  });
+ it('new source generations begin raw coverage at recovery boundary while same-generation recovery preserves delayed delivery',()=>{
+  const before=boot(),same=stream.bootstrap(before,{checkpoint:11,signature:{stamp:11,deleted:0},stream:{...native.boundary,snapshot_position:'0/80'},rows:[]},limits);
+  assert.equal(same.stream.accepted_position,'0/10');
+  const restored=stream.bootstrap(before,{checkpoint:11,signature:{stamp:11,deleted:0},stream:{...native.boundary,generation:'new-epoch:2',snapshot_position:'0/80'},rows:[]},limits);
+  assert.equal(restored.stream.accepted_position,'0/80');
+ });
  it('refuses source, slot and restore-generation changes rather than reinterpreting old coverage',()=>{
   for(const patch of [{generation:'2'},{source_identity:{...native.source,system_id:'2'}},{source_identity:{...native.source,slot:'other'}}])assert.throws(()=>stream.applyTransaction(boot(),events([native.row('a')]),{...native.coverage('0/30'),...patch},limits),/SOURCE_FENCE/);
   assert.throws(()=>stream.bootstrap(null,{checkpoint:0,signature:{stamp:0,deleted:0},rows:[]},limits),/GENERATION/);

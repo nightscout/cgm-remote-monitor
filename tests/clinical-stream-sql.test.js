@@ -14,6 +14,7 @@ function fixture({holdCommit=false,loseReply=false}={}){
    if(loseReply){loseReply=false;throw new Error('LOST_COMMIT_REPLY');}return {command:'COMMIT'};
   }
   if(text.includes('pg_advisory_xact_lock_shared'))return {rows:[{}]};
+  if(text.startsWith('SELECT projection,contract_digest,checkpoint FROM '))return {rows:[structuredClone(current.get(values[0]))]};
   if(text.startsWith('SELECT c.tenant_id'))return {rows:values[0].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
   if(text.startsWith('WITH input')){const patches=JSON.parse(values[1]);for(const patch of patches){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;if(patch.control)row.delivery_revision=String(BigInt(row.delivery_revision)+1n);}return {rowCount:patches.length};}
@@ -55,6 +56,12 @@ describe('atomic native clinical and control SQL receipt',()=>{
  it('accepts raw delivery independently when the complete clinical set overflows and remains pending',async()=>{
   const f=fixture();await sql.acceptTransaction({...f.options,maxRows:1,envelope:native.envelope([native.row('a'),native.row('b')])});
   const saved=f.durable.get(A);assert.equal(saved.projection[0].ready,false);assert.equal(saved.projection[0].gap,'rows');assert.equal(saved.work_observed[5],'11');assert.equal(saved.projection[1].head,2);
+ });
+ it('explicit invalidation advances pending work without rewinding local coverage or racing recovery',async()=>{
+  const f=fixture();const receipt=await sql.accept({...f.options,tenant:A,invalidate:true});
+  const saved=f.durable.get(A);assert.equal(saved.projection[0].floor,11);assert.equal(saved.projection[0].ready,false);assert.equal(saved.work_observed[5],'11');assert.equal(receipt.deliveryPending,true);
+  await sql.accept({...f.options,tenant:A,invalidate:true});assert.equal(f.durable.get(A).projection[0].floor,12);
+  await assert.rejects(sql.accept({...f.options,tenant:A,invalidate:true,lockKey:undefined}),/RECOVERY_LOCK/);assert.equal(f.durable.get(A).projection[0].floor,12);
  });
  it('does no SQL for empty filtered cohorts and rejects malformed partial input before pool acquisition',async()=>{
   const f=fixture();assert.deepEqual(await sql.acceptTransaction({...f.options,envelope:native.envelope([])}),[]);assert.equal(f.connected,0);
