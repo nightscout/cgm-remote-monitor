@@ -4,6 +4,7 @@ const { randomUUID, randomBytes } = require('node:crypto');
 const { Client } = require('pg');
 const connect = require('../lib/storage/postgres-connection');
 const recovery = require('../lib/pgstream/snapshot-recovery');
+const waitForEntry = require('./fixtures/snapshot-recovery-entry');
 const scope = require('../lib/storage/tenant-scope');
 const { optInSuite } = require('./support/opt-in');
 const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI;
@@ -99,16 +100,41 @@ suite('PostgreSQL exact exported snapshot recovery', function () {
       assert.equal((await admin.query("SELECT count(*)::int AS n FROM pg_replication_slots WHERE slot_name LIKE 'ns_recovery_%'")).rows[0].n, 0);
     } finally { await writer.query('ROLLBACK'); await writer.end(); await c.close(); }
   });
+  it('refuses a deadline during delayed connection setup without entering the seed callback', async function () {
+    let releaseConnect, enteredConnect, delayed=true,seedEntered=false,exports=0;
+    const heldConnect=new Promise(resolve=>{releaseConnect=resolve;}),connected=new Promise(resolve=>{enteredConnect=resolve;});
+    const c=coordinator({
+      createLockClient:()=>{
+        const client=new Client({...cfg,connectionString:appURI});
+        if(delayed){delayed=false;const connect=client.connect.bind(client);client.connect=async()=>{await connect();enteredConnect();await heldConnect;};}
+        return client;
+      },
+      createReplicationClient:()=>{exports++;return new Client(exportCfg);}
+    });
+    const pending=scope.withTenant(TENANT,()=>c.withSnapshot({tenant:TENANT,fn:()=>{seedEntered=true;assert.fail('setup refusal reached seed');}}));
+    try{
+      await waitForEntry(connected,pending);
+      await assert.rejects(pending,/DEADLINE/);
+      assert.equal(seedEntered,false);assert.equal(exports,0,'REFUSED_SETUP_MUST_NOT_EXPORT_SNAPSHOT');
+      assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+name+'.saved')).rows[0].n,1);
+      assert.equal((await admin.query("SELECT count(*)::int AS n FROM pg_replication_slots WHERE slot_name LIKE 'ns_recovery_%'")).rows[0].n,0);
+    }finally{releaseConnect();await c.close();}
+  });
   it('deadline aborts the imported backend before a late callback can persist or COMMIT', async function () {
-    const c = coordinator({ timeoutMs: 100 }); let finish, entered;
-    const started = new Promise(resolve => { entered = resolve; });
-    const pending = scope.withTenant(TENANT, () => c.withSnapshot({ tenant: TENANT, fn: async () => {
-      entered(); await new Promise(resolve => { finish = resolve; });
-      await store.query('INSERT INTO ' + name + '.saved VALUES($1,$2::jsonb)', [TENANT, '{"late":true}']);
-    } }));
-    await started; await assert.rejects(pending, /DEADLINE/); finish();
-    await new Promise(resolve => setTimeout(resolve, 30));
-    assert.equal((await admin.query('SELECT count(*)::int AS n FROM ' + name + '.saved')).rows[0].n, 1);
-    await c.close();
+    const c=coordinator();let finish,entered,lateFinished;
+    const started=new Promise(resolve=>{entered=resolve;}),lateSettled=new Promise(resolve=>{lateFinished=resolve;});
+    const pending=scope.withTenant(TENANT,()=>c.withSnapshot({tenant:TENANT,fn:async()=>{
+      entered();await new Promise(resolve=>{finish=resolve;});
+      try{await store.query('INSERT INTO '+name+'.saved VALUES($1,$2::jsonb)',[TENANT,'{"late":true}']);}
+      finally{lateFinished();}
+    }}));
+    try{
+      // Refusal before entry rejects here explicitly instead of waiting forever
+      // for a callback that cannot run. The normal setup budget remains bounded.
+      await waitForEntry(started,pending);
+      await assert.rejects(pending,/DEADLINE/);finish();await lateSettled;
+      assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+name+'.saved')).rows[0].n,1);
+      assert.equal((await admin.query("SELECT count(*)::int AS n FROM pg_replication_slots WHERE slot_name LIKE 'ns_recovery_%'")).rows[0].n,0);
+    }finally{finish?.();await c.close();}
   });
 });

@@ -25,6 +25,24 @@ function fixture (overrides = {}) {
     generation: async () => generation, timeoutMs: 1000, ...overrides.options });
   return { coordinator, calls, clients, imported, setGeneration: value => { generation = value; } };
 }
+describe('native recovery callback entry observation',function(){
+  const waitForEntry=require('./fixtures/snapshot-recovery-entry');
+  async function criterion(observe){
+    const refused=Promise.reject(Error('SETUP_REFUSED')),started=new Promise(()=>{});
+    // The control itself observes the rejection even when the old mechanism
+    // ignores it; the assertion measures the fixture wait, not unhandled errors.
+    refused.catch(()=>{});
+    let settled=false,result;
+    observe(started,refused).then(()=>{settled=true;},error=>{settled=true;result=error;});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(settled,true,'EARLY_SETUP_REFUSAL_MUST_SETTLE_ENTRY_WAIT');
+    assert.match(result.message,/SETUP_REFUSED/);
+  }
+  it('control: waiting only for callback entry misses setup rejection; restored gate reports it',async()=>{
+    await assert.rejects(criterion(started=>started),/EARLY_SETUP_REFUSAL_MUST_SETTLE_ENTRY_WAIT/);
+    await criterion(waitForEntry);
+  });
+});
 describe('exact clinical snapshot recovery coordinator', function () {
   it('locks before export, imports the exact name and retains main source identity', async function () {
     const f = fixture();
