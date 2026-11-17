@@ -138,6 +138,56 @@ describe('day-to-day report: events with a duration', function () {
     });
   }
 
+  for (const theme of ['default', 'modern']) {
+    for (const openAps of [false, true]) {
+      it('keeps connected reading targets invisible before and after hover in ' + theme + ' with OpenAPS ' + openAps, function () {
+        const openaps = {suggested: {reason: 'Synthetic OpenAPS reason', mealAssist: 'Synthetic meal assist'}};
+        const readings = [sensor(0), sensor(5, 121, {openaps}), sensor(10)];
+        const options = {theme, openAps};
+        render([DAY1], [], options, readings);
+        const samples = Array.from(env.document.querySelectorAll('.daytoday-glucose-sample'));
+        function assertInvisible (sample) {
+          assert.equal(sample.getAttribute('fill'), 'transparent');
+          assert.equal(Number(sample.getAttribute('stroke-width')), 0);
+          assert.equal(Number(sample.getAttribute('r')), 6, 'retains the larger hover target');
+        }
+        samples.forEach(assertInvisible);
+
+        const sample = samples[1];
+        sample.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 200, clientY: 100}));
+        assert.equal(sample.getAttribute('fill'), '#fff');
+        assert.ok(Number(sample.getAttribute('stroke-width')) > 0, 'the selected reading remains highlighted');
+        const tooltip = env.document.querySelector('.daytoday-reading-tooltip');
+        assert.equal(tooltip.style.display, 'block');
+        assert.equal(tooltip.querySelector('.daily-tooltip-glucose strong').textContent, '121 mg/dL');
+        assert.equal(tooltip.textContent.includes(openaps.suggested.reason), openAps);
+        assert.equal(tooltip.textContent.includes(openaps.suggested.mealAssist), openAps);
+        sample.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
+        assert.equal(tooltip.style.display, 'none');
+        samples.forEach(assertInvisible);
+
+        render([DAY1], [], options, readings);
+        Array.from(env.document.querySelectorAll('.daytoday-glucose-sample')).forEach(assertInvisible);
+      });
+    }
+
+    it('retains visible isolated, raw and fingerstick markers with OpenAPS in ' + theme, function () {
+      const openaps = {suggested: {reason: 'Synthetic OpenAPS reason'}};
+      render([DAY1], [], {theme, openAps: true, raw: true}, [
+        sensor(0), sensor(5), sensor(30, 140, {openaps}),
+        sensor(15, 130, {type: 'rawbg', color: 'gray'}), sensor(20, 125, {type: 'mbg', color: 'red'})
+      ]);
+      const markers = Array.from(env.document.querySelectorAll('#daytodaychart-' + DAY1 + ' circle'));
+      for (const [type, fill, strokeWidth] of [['sgv', 'green', 1], ['rawbg', 'gray', 0], ['mbg', 'red', 2]]) {
+        const marker = markers.find(node => node.__data__ && node.__data__.type === type &&
+          (type !== 'sgv' || node.__data__.openaps));
+        assert.ok(marker, type + ' marker exists');
+        assert.equal(marker.getAttribute('fill'), fill);
+        assert.equal(Number(marker.getAttribute('stroke-width')), strokeWidth);
+      }
+    });
+  }
+
   for (const units of ['mg/dl', 'mmol']) {
     it('tracks the nearest reading from empty plot space in ' + units, function () {
       const values = units === 'mmol' ? [5.5, 6.7, 7.8] : [100, 121, 140];

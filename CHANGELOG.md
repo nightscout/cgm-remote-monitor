@@ -4,6 +4,13 @@ All notable changes to cgm-remote-monitor are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Day to Day OpenAPS markers:** Keep the connected glucose line's hover
+  targets invisible when OpenAPS is selected. They previously appeared as
+  overlapping black rings that disappeared as the pointer moved over them.
+  Reading highlights and OpenAPS tooltips remain available on hover.
+
 ## [15.0.9] - 2026-10-21
 
 Release notes: https://github.com/nightscout/cgm-remote-monitor/releases/tag/v15.0.9
