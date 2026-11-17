@@ -63,7 +63,18 @@ events from the bounded raw mutation tail in the evaluator input checkpoint's
 second JSONB envelope. Clinical rows occupy the first envelope; expiry, clinical
 refusal and output replacement cannot fabricate source mutations. Accepted raw
 changes and their existing delivery-revision obligation commit before stream ACK.
-The same receipt drain owns retries and neighbor progress for both channels.
+
+Realtime is the sole owner of completed-output delivery progress for both
+channels. The evaluator commits `delivery_revision` with its output (and with
+each raw-tail append) and then sends only a disposable, coalesced wake naming up
+to 64 tenants (`completed-output` contract v3); it writes no delivery ACK and
+keeps no delivery retry. Realtime reads the owed revision joined to its own row
+in one read-only statement per page, delivers through the addressed check, and
+records completion, or one retry due time, for the whole page in one UPDATE
+under owner and monotone-revision fences. Wakes coalesce for `flushMs`, so the
+raw-tail and output revisions of one cycle share a delivery. A bounded paged
+reconciliation of the owned roster runs at startup and every 30 s and recovers
+any lost wake.
 
 Each storage subscription starts at its current source-tail high-water mark and
 receives later events in source order. Exact retries do not repeat an event within

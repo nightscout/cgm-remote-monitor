@@ -41,10 +41,10 @@ describe('proposed sole-intake source capability (synthetic SQL; native unmeasur
    const context=f.calls.find(c=>c.text.startsWith("SELECT set_config('app.pgstream_intake'")).values[0];assert.equal(JSON.parse(context).transactionId,'9007199254740995');assert(!context.includes('restoreGeneration'));
   }finally{await f.close();}
  });
- it('revalidates no-op receipts before COMMIT and repairs lost hints without rejuvenating stored timestamps or output',async()=>{
+ it('revalidates no-op receipts before COMMIT without a repeated wake or rejuvenating stored timestamps or output',async()=>{
   const f=await open();try{await f.store.own(()=>{});await f.store.admit([f.A,f.B]);await f.store.observe(f.A,'activity','2',false);const before=copy(f.rows.get(f.A)),updates=f.calls.filter(c=>c.text.startsWith('WITH input')).length;
-   await f.store.observe(f.A,'activity','2',true);assert.deepEqual(f.rows.get(f.A),before);assert.equal(f.calls.filter(c=>c.text.startsWith('WITH input')).length,updates);assert.equal(f.state.assertions,4);assert.equal(f.hints.length,2);
-   f.state.failAssert=6;await assert.rejects(f.store.observe(f.A,'activity','2',false),/SYNTHETIC_SQL_INTAKE_REFUSAL/);assert.equal(f.hints.length,2);assert.equal(f.store.available,false);
+   await f.store.observe(f.A,'activity','2',true);assert.deepEqual(f.rows.get(f.A),before);assert.equal(f.calls.filter(c=>c.text.startsWith('WITH input')).length,updates);assert.equal(f.state.assertions,4);assert.equal(f.hints.length,1,'NO_OP_RECEIPT_IS_NO_NEW_OBLIGATION; realtime reconciliation repairs a lost wake');
+   f.state.failAssert=6;await assert.rejects(f.store.observe(f.A,'activity','2',false),/SYNTHETIC_SQL_INTAKE_REFUSAL/);assert.equal(f.hints.length,1);assert.equal(f.store.available,false);
   }finally{await f.close();}
  });
  it('withdraws before loss callback; unknown COMMIT cannot fulfill/hint and remains explicitly uncertain',async()=>{

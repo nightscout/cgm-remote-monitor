@@ -92,7 +92,7 @@ async function failureRetentionCriterion(mutate=source=>source){
 describe('actual selected boot source constructor boundaries (all I/O recording protocols)',()=>{
  it('starts each selected scheduler before notification preparation; reversed ordering control is red',async()=>{
   async function criterion(mutate){for(const ordinal of [0,1]){const f=await compositionProtocol(ordinal,mutate);let context;try{context=await f.boot();assert(f.log.findIndex(row=>row.kind==='scheduler')<f.log.findIndex(row=>row.kind==='consumers'),'SELECTED_PENDING_WAKE_OWNER_MUST_PRECEDE_DELIVERY_PREPARE');}finally{await context?.close();await f.close();}}}
-  await assert.rejects(criterion(source=>{const a=source.indexOf('    {\n      const hint='),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}),/SELECTED_PENDING_WAKE_OWNER_MUST_PRECEDE_DELIVERY_PREPARE/);
+  await assert.rejects(criterion(source=>{const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}),/SELECTED_PENDING_WAKE_OWNER_MUST_PRECEDE_DELIVERY_PREPARE/);
   await criterion(source=>source);
  });
 
