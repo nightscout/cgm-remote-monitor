@@ -259,13 +259,13 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(await lab.rows(), []);
     });
 
-    it('characterizes soft-delete ties of legacy identifier-absent typed twins across an exclusive history page boundary', async function () {
+    it('pages both soft-deleted legacy identifier-absent typed twins across an exclusive history boundary', async function () {
       // Preexisting typed twins are a seed, not concurrent raw-import coverage.
       // A truthy identifier would address each row by that identifier instead
       // of its legacy _id, so it would not exercise everyForm's twin selector.
       const hex = '1234567890abcdef12345678';
       for (const kind of ['objectid', 'string']) {
-        const doc = { _id: hex, ...document('unused'), srvCreated: lab.initial, srvModified: lab.initial };
+        const doc = { _id: hex, ...document('unused'), device: kind, srvCreated: lab.initial, srvModified: lab.initial };
         delete doc.identifier;
         await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
           lab.admin.query('INSERT INTO "' + lab.namespaces.entries +
@@ -275,14 +275,27 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       const rows = await lab.rows();
       assert.equal(rows.length, 2);
       assert.ok(rows.every(row => row.isValid === false));
-      assert.deepEqual(rows.map(row => row.srvModified), [lab.initial + 1, lab.initial + 1]);
-      assert.equal(await lab.floor(lab.A), lab.initial + 1);
+      assert.deepEqual(rows.map(row => row.srvModified), [lab.initial + 1, lab.initial + 2]);
+      assert.equal(await lab.floor(lab.A), lab.initial + 2);
       const page = await scope.withTenant(lab.A, () => port(0).storage.findFiltered(
         fromMongo({ srvModified: { $gt: lab.initial } }),
         { sort: { srvModified: 1 }, limit: 1, options: { normalize: false } }));
       assert.equal(page.length, 1);
-      assert.deepEqual(await lab.rows(lab.A, page[0].srvModified), [],
-        'One allocation for these legacy twins omits the tied second row after an exclusive cursor');
+      // One stamp per mutation previously hid the second stored identity.
+      const next = await lab.rows(lab.A, page[0].srvModified);
+      assert.equal(next.length, 1);
+      assert.equal(next[0].srvModified, lab.initial + 2);
+      assert.equal(next[0].isValid, false);
+      assert.deepEqual([page[0].device, next[0].device].sort(), ['objectid', 'string']);
+
+      // If the last member cannot fit, no part of the new mutation may commit.
+      const almostFull = 8640000000000000 - 2;
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=$1 WHERE tenant_id=$2', [almostFull, lab.A]);
+      await assert.rejects(scope.withTenant(lab.A, () =>
+        port(0).write({ op: 'delete', form: 'mark', target: { identifier: hex } })), /Invalid tenant write clock floor/);
+      assert.equal(await lab.floor(lab.A), almostFull);
+      assert.deepEqual(await lab.rows(), rows);
     });
 
     it('admits valid floors across all seven catalogues and ignores nonnumeric or out-of-range legacy server dates', async function () {
