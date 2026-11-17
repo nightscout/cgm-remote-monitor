@@ -41,6 +41,7 @@ describe('static alarm and completed-output routing',function(){
     const routes=peers(),seen=[];
     await assert.rejects(routes.hint({tenants:[A,B]},endpoint=>({hintCompletedOutput:async body=>{seen.push({endpoint,body});if(endpoint.socketPath.endsWith('a.sock'))throw Error('down');return{accepted:true};}})),{code:'REALTIME_OUTPUT_HINT_UNAVAILABLE'});
     assert.equal(seen.length,2);assert.deepEqual(seen.find(row=>row.endpoint.socketPath.endsWith('a.sock')).body,{tenants:[A]});assert.deepEqual(seen.find(row=>row.endpoint.socketPath.endsWith('b.sock')).body,{tenants:[B]});
+    const sync=[];await assert.rejects(routes.hint({tenants:[A,B]},endpoint=>{if(endpoint.socketPath.endsWith('a.sock'))throw Error('synchronous client construction failure');return{hintCompletedOutput:async body=>{sync.push(body);return{accepted:true};}};}),{code:'REALTIME_OUTPUT_HINT_UNAVAILABLE'});assert.deepEqual(sync,[{tenants:[B]}],'synchronous private-client refusal never prevents healthy peer attempt');
   });
 });
 

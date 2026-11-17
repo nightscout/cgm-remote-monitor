@@ -7,11 +7,12 @@ describe('immutable static realtime ownership',function(){
     for(let i=0;i<1000;i++){const tenant='00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0');for(const count of [1,2,3,7,8]){const expected=Number(createHash('sha256').update(tenant,'utf8').digest().readBigUInt64BE(0)%BigInt(count));assert.equal(slice.bucket(tenant,count),expected,'STATIC_VECTOR');for(let ordinal=0;ordinal<count;ordinal++)assert.equal(ownership.create({count,ordinal}).owns(tenant),ordinal===expected);}}
     assert.throws(()=>slice.bucket('00000000-0000-4000-8000-00000000000A',3));
   });
-  it('STATIC_CONFIG: exact boot identity is immutable and legacy publication selectors refuse',function(){
+  it('STATIC_CONFIG: exact boot identity is immutable and legacy publication selectors refuse',async function(){
     const shape={count:3,ordinal:1},value=ownership.create(shape);shape.ordinal=2;assert.equal(value.ordinal,1);assert(Object.isFrozen(value));
     for(const input of [{count:0,ordinal:0},{count:3,ordinal:3},{count:2.5,ordinal:1},{count:2,ordinal:-1},{count:2,ordinal:0,extra:true}])assert.throws(()=>ownership.create(input),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
     for(const key of ['MULTITENANT_REALTIME_PLACEMENT','MULTITENANT_REALTIME_ROUTES','REALTIME_WORKER_ID','REALTIME_WORKER_INCARNATION','NS_REALTIME_OWNERSHIP_CONTRACT'])assert.throws(()=>ownership.load({[key]:'obsolete'}),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
     assert.deepEqual(ownership.load({}).cached(),{count:1,ordinal:0,rule:slice.RULE});
+    await assert.rejects(require('../lib/server/serve/preview-realtime').boot({registry:{},completedOutput:{},trustedWorker:{}}),{code:'REALTIME_STATIC_OWNERSHIP_REQUIRED'},'missing process ownership refuses before resource construction');
   });
   it('STATIC_PEERS: ordinal order is preserved and ambiguous, duplicate or service addresses refuse',function(){
     const bounds={maxBytes:1000,timeoutMs:100},observer=require('../lib/server/internal-api/listener-config').observer({NS_REALTIME_INTERNAL_SOCKET:'/synthetic/service.sock'});
