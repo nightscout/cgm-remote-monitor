@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({assignedTenants,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let placementClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
@@ -21,6 +21,7 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
   // Actual receipt/completion modules; the SQL/backend port alone is synthetic.
   const work=require('../lib/pgstream/work-state');
   const row={tenant:A,work_version:2,work_observed:[null,'1',null,null,null,null],work_completed:[null,null,null,null,null,null],work_observed_at:[null,Date.now(),null,null,null,null],work_pending_at:Date.now(),work_due_at:null,work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:null,output_digest:null,output_revision:'0',output_restore_generation:null};
+  if(futureDue){row.work_completed=[...row.work_observed];row.work_pending_at=null;row.work_due_at=Date.now()+50;}
   const snapshot=()=>structuredClone(row);
   const sql={async query(text,args){
    if(text.startsWith('SELECT projection'))return {rows:[{output:row.projection?.[0]?.output}]};
@@ -44,6 +45,7 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
+  './platform-verification':{guard:async()=>({ready:()=>true,verify:async()=>{},health:()=>({ready:true}),close:async()=>{}})},
   '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
   './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
   '../../trusted-worker/postgres':{create:()=>reader},
@@ -79,7 +81,7 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
  loaded.require=name=>Object.hasOwn(mocks,name)?mocks[name]:Module.prototype.require.call(loaded,name);
  loaded._compile(sourceTransform(fs.readFileSync(filename,'utf8')),filename);
  const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
- const config={partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{placement:{close(){placementClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
+ const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{placement:{close(){placementClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
  return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,placementClosed})};
@@ -92,6 +94,29 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   try{service=await f.boot();assert.deepEqual(f.state().selectedAssignment.tenants,[A]);assert.equal(f.state().registryFollowed,false,'FIXED_ASSIGNMENT_REQUIRES_RESTART_TO_CHANGE_ROSTER');for(let n=0;n<60&&!f.state().clinical.ready;n++)await settle();assert.equal(f.state().clinical.ready,true);}finally{await service?.close();await f.window.close();}
   const bad=fixture({assignedTenants:['22222222-2222-4222-8222-222222222222']});bad.prepare.resolve();
   try{await assert.rejects(bad.boot(),error=>error.cause?.message==='EVALUATOR_ASSIGNMENT_NOT_PROVISIONED');assert.equal(bad.state().selectedAssignment,undefined);}finally{await bad.window.close();}
+ });
+ it('selected lazy startup recovers accepted pending and future due work without a fresh input, with a lost-recovery control',async function(){
+  this.timeout(10000);
+  async function criterion({sourceTransform=text=>text,futureDue=false}={}){
+   const f=fixture({platformVerification:true,pendingRace:true,futureDue,sourceTransform});f.prepare.resolve();let service;
+   try{
+    service=await f.boot();
+    for(let n=0;n<80&&!f.state().evaluatingEntered;n++){await new Promise(resolve=>setTimeout(resolve,2));}
+    assert(f.state().evaluatingEntered,futureDue?'FUTURE_DUE_MUST_RECOVER_WITHOUT_FRESH_INPUT':'ACCEPTED_PENDING_MUST_RECOVER_WITHOUT_FRESH_INPUT');
+    f.finishCycle.resolve();
+    for(let n=0;n<80&&!f.completions.length;n++)await settle();
+    assert(f.completions.length>0,'RECOVERED_WORK_MUST_COMMIT_COMPLETED_OUTPUT');
+    assert.equal(f.completions[0].work_pending_at,null);assert.equal(f.completions[0].output_revision,'1');
+    assert.equal(f.completions[0].work_completed[1],'1');
+    assert.equal(f.snapshot().work_pending_at,null);
+    assert.equal(f.state().clinical.progress.failedCompletions,0);
+   }finally{f.finishCycle.resolve();await service?.close();await f.window.close();}
+  }
+  const removeRecovery=text=>{const needle='      workScheduler.recover().catch(()=>{});';assert.equal(text.split(needle).length,2);return text.replace(needle,'');};
+  await assert.rejects(criterion({sourceTransform:removeRecovery}),/ACCEPTED_PENDING_MUST_RECOVER_WITHOUT_FRESH_INPUT/);
+  await criterion();
+  await assert.rejects(criterion({sourceTransform:removeRecovery,futureDue:true}),/FUTURE_DUE_MUST_RECOVER_WITHOUT_FRESH_INPUT/);
+  await criterion({futureDue:true});
  });
  it('refuses evaluator pool max one before constructing a zero-slot scheduler',async()=>{
   const prior=process.env.NS_POOL_EVALUATOR_MAX;process.env.NS_POOL_EVALUATOR_MAX='1';const f=fixture();

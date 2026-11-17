@@ -32,9 +32,11 @@ async function withReadiness (value, fn) {
 // The actual api boot (lib/server/serve/preview-api.js) with recorded storage:
 // BROKEN's root credential metadata is missing, the misconfiguration the api's
 // tenant initializer refuses ("incomplete preview root preparation").
-function apiBoot ({ display } = {}) {
+function apiBoot ({ display, verified = false } = {}) {
+  let verificationReady = true;
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
+    './platform-verification': {guard:async()=>({ready:()=>verificationReady,health:()=>({ready:verificationReady}),verify:async()=>{},close:async()=>{}})},
     ...(display ? { '../../tenant-settings/presentation-reader': () => display } : {}),
     '../../storage/postgres-connection': async () => resource(),
     '../../secrets/legacy-postgres': async () => resource({ read: async tenant => tenant === BROKEN ? null : { reference: { id: 'synthetic' } } }),
@@ -46,8 +48,8 @@ function apiBoot ({ display } = {}) {
     '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
     '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } }
   });
-  const config = { bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: {}, ...(display ? { tenantSettings: {} } : {}) };
-  return { boot: () => boot.boot(config), initialized, calls };
+  const config = { ...(verified ? {platformVerification:{namespace:'synthetic_verification',role:'api'}} : {}), bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: {}, ...(display ? { tenantSettings: {} } : {}) };
+  return { boot: () => boot.boot(config), initialized, calls, setVerified: value => {verificationReady=value;} };
 }
 
 describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm)', function () {
@@ -69,6 +71,18 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
       for (const tenant of TENANTS.filter(t => t !== BROKEN)) await lab.calls.http(tenant);
       await assert.rejects(lab.calls.http(BROKEN), error => error.code === 'TENANT_UNAVAILABLE' && error.retryAfter > 0);
     } finally { await role.close(); }
+  });
+
+  it('selected verified API starts cold, admits one tenant on demand and refuses public/private traffic after verification loss', async function () {
+    const lab=apiBoot({verified:true}),role=await withReadiness('serve',lab.boot);
+    try{
+      await role.warmed();assert.equal(lab.initialized.size,0,'VERIFIED_API_MUST_NOT_WARM_IDLE_ROSTER');
+      await assert.rejects(lab.calls.http(TENANTS[0]),{code:'TENANT_WARMING'});await role.warmed();await lab.calls.http(TENANTS[0]);assert.equal(lab.initialized.size,1);
+      lab.setVerified(false);assert.equal(role.health().ready,false);
+      await assert.rejects(lab.calls.http(TENANTS[0]),{code:'PLATFORM_VERIFICATION_REQUIRED'});
+      await request(role.app).get('/api/v1/entries').expect(503).expect('Retry-After','5').expect({error:'PLATFORM_VERIFICATION_REQUIRED'});
+      lab.setVerified(true);await lab.calls.http(TENANTS[0]);assert.equal(role.health().ready,true);
+    }finally{await role.close();}
   });
 
   it('NS_TENANT_READINESS=all restores all-tenants readiness: the same broken tenant fails the boot', async function () {
