@@ -14,7 +14,7 @@ function record (startDate = '2020-01-01T00:00:00Z', rate = 1) {
 }
 function calculator (temps = [], records = [record()]) {
   const profile = createProfile(null, {moment});
-  return adjustments.prepare(profile, {profiles: records, tempbasalTreatments: temps}, moment);
+  return adjustments.prepare(profile, {profiles: records, tempbasalTreatments: temps}, moment).calculate;
 }
 
 describe('Chart-independent basal adjustments', function () {
@@ -50,7 +50,7 @@ describe('Chart-independent basal adjustments', function () {
 
   it('does not use a stale client profile when loaded report profiles are missing', function () {
     const profile = createProfile([record()], {moment});
-    assert.equal(adjustments.prepare(profile, {profiles: []}, moment)(DAY), null);
+    assert.equal(adjustments.prepare(profile, {profiles: []}, moment).calculate(DAY), null);
   });
 
   it('marks dates before the first loaded profile unavailable', function () {
@@ -64,10 +64,44 @@ describe('Chart-independent basal adjustments', function () {
     const original = JSON.stringify(data);
     const profile = createProfile(null, {moment});
     for (let i = 0; i < 2; i++) {
-      const result = adjustments.prepare(profile, data, moment)(DAY);
+      const result = adjustments.prepare(profile, data, moment).calculate(DAY);
       assert.deepEqual(result.positive, Array(24).fill(null));
       assert.equal(JSON.stringify(data), original);
     }
+  });
+
+  it('isolates embedded profile switches, temp basal records and caches from the client and source data', function () {
+    const profile = createProfile([record()], {moment});
+    const data = {profiles: [record()], profileSwitchTreatments: [{mills: START + 6 * HOUR,
+      profile: 'Exercise', duration: 60, profileJson: JSON.stringify({timezone: 'UTC', basal: [{time: '00:00', value: .5}]})}],
+    tempbasalTreatments: [{mills: START + 6 * HOUR, duration: 30, absolute: 1}], combobolusTreatments: []};
+    const original = JSON.stringify(data), originalClient = JSON.stringify(profile.data);
+    const prepared = adjustments.prepare(profile, data, moment);
+    assert.notEqual(prepared.profile, profile);
+    for (const day of [DAY, '2026-10-22', DAY]) {
+      const result = prepared.calculate(day);
+      if (day === DAY) { close(result.base, 23.5); close(result.positive[6], .25); }
+      assert.equal(JSON.stringify(data), original);
+      assert.equal(JSON.stringify(profile.data), originalClient);
+      assert.equal(profile.getBasal(START + 6 * HOUR), 1);
+      assert.equal(profile.tempbasaltreatments.length, 0);
+      assert.equal(profile.profiletreatments.length, 0);
+    }
+  });
+
+  it('uses report calendar hours with historical schedule timezones without changing the client timezone', function () {
+    const profile = createProfile([record()], {moment});
+    const historical = record();
+    historical.store.Default.timezone = 'America/New_York';
+    historical.store.Default.basal.push({time: '12:00', value: 2});
+    const data = {profiles: [historical], tempbasalTreatments: [{mills: START + HOUR, duration: 60, absolute: 3}]};
+    const result = adjustments.prepare(profile, data, moment).calculate(DAY);
+    // Report midnight is UTC; the New York schedule changes at 16:00 UTC.
+    // The preceding New York evening contributes four hours at 2 U/h.
+    close(result.base, 36); close(result.positive[1], 1);
+    close(result.positiveTotal, 1);
+    assert.equal(profile.getTimezone(), 'UTC');
+    assert.equal(profile.parseInTimezone(DAY).valueOf(), START);
   });
 
   function fixedProfile (zone, invalidHour) {

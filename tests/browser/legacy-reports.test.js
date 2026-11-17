@@ -19,7 +19,7 @@ function queryKey(value) {
 }
 
 describe('legacy reports in a real browser', function () {
-  let server, origin, markup, requests, responses;
+  let server, origin, markup, requests, responses, reportProfile;
   before(async function () {
     const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/reportindex.html');
@@ -35,7 +35,7 @@ describe('legacy reports in a real browser', function () {
     responses = new Map(Object.entries(fixtures.someData).map(([url, data]) => [queryKey(url), data]));
     const reportSettings = structuredClone(fixtures.exampleProfile[0]);
     delete reportSettings.startDate;
-    const reportProfile = {startDate: '2015-01-01T00:00:00.000Z', defaultProfile: 'Default', store: {Default: reportSettings}};
+    reportProfile = {startDate: '2015-01-01T00:00:00.000Z', defaultProfile: 'Default', store: {Default: reportSettings}};
     const settings = structuredClone(require('../fixtures/default-server-settings'));
     const app = express();
     app.use(express.json()); app.use(express.urlencoded({extended: true}));
@@ -561,6 +561,81 @@ describe('legacy reports in a real browser', function () {
           assert.equal(await section.locator('.hourly-basal-unavailable').count(), 0);
         });
       } finally {responses.set(key, previous);}
+    });
+  }
+
+  for (const theme of ['default', 'modern']) {
+    it('preserves profile switches through report tabs and a note-only edit in ' + theme, async function () {
+      const key = queryKey('/api/v1/treatments.json?find[created_at][$gte]=2015-08-08T00:00:00.000Z&find[created_at][$lt]=2015-08-09T00:00:00.000Z&count=1000');
+      const previous = responses.get(key);
+      const embedded = {timezone: 'UTC', units: 'mg/dl', basal: [{time: '00:00', value: 0.05}]};
+      const treatment = {_id: 'report-switch', eventType: 'Profile Switch', created_at: '2015-08-08T06:00:00.000Z',
+        duration: 60, profile: 'Exercise', profileJson: JSON.stringify(embedded), notes: 'Original note'};
+      responses.set(key, [treatment]);
+      try {
+        await withReports(async page => {
+          await page.evaluate(({theme, embedded}) => {
+            const client = window.Nightscout.client;
+            client.settings.theme = theme;
+            client.sbx.data.profile.data[0].store.Exercise = embedded;
+          }, {theme, embedded});
+          await page.locator('#rp_to').fill('2015-08-08');
+          await page.locator('#treatments').click(); await show(page);
+          const edit = page.locator('.editTreatment[data*="report-switch"]');
+          assert.equal(JSON.parse(await edit.getAttribute('data')).profile, 'Exercise');
+          await page.locator('#daytoday').click();
+          await page.locator('#rp_optionsbasal').check(); await show(page);
+          await page.locator('#hourlystats').click();
+          const hour = page.locator('#hourly-basal-adjustments tbody tr td').nth(6);
+          assert.equal(await hour.locator('.basal-net').textContent(), '0.00');
+          await page.locator('#treatments').click();
+          assert.equal(JSON.parse(await edit.getAttribute('data')).profile, 'Exercise');
+          await edit.click();
+          assert.equal(await page.locator('#rped_profile').inputValue(), 'Exercise');
+          await page.locator('#rped_adnotes').fill('Changed note only');
+          await page.locator('.ui-dialog-buttonpane button').filter({hasText: 'Save'}).click();
+          await idle(page);
+          const saved = requests.find(request => request.method === 'PUT').body;
+          assert.equal(saved.profile, 'Exercise');
+          assert.equal(saved.profileJson, treatment.profileJson);
+          assert.equal(saved.notes, 'Changed note only');
+          assert.equal(saved.eventTime, treatment.created_at);
+        });
+      } finally {responses.set(key, previous);}
+    });
+
+    it('keeps report timezones and filtered results stable across refreshes in ' + theme, async function () {
+      const start = Date.parse('2015-08-08T00:00:00Z');
+      const key = queryKey('/api/v1/entries.json?find[date][$gte]=' + start + '&find[date][$lt]=' + (start + 86400000) + '&count=10000');
+      const previous = responses.get(key), previousZone = reportProfile.store.Default.timezone;
+      reportProfile.store.Default.timezone = 'America/New_York';
+      responses.set(key, [0, 5, 10, 720, 725, 730].map((minute, index) => ({type: 'sgv',
+        date: start + minute * 60000, sgv: index < 3 ? 60 : 200, dateString: new Date(start + minute * 60000).toISOString()})));
+      try {
+        await withReports(async page => {
+          await page.evaluate(theme => {window.Nightscout.client.settings.theme = theme;}, theme);
+          await page.locator('#rp_to').fill('2015-08-08');
+          await page.locator('#glucosedistribution').click();
+          await page.locator('#glucosedistribution-0').uncheck(); await show(page);
+          const distribution = page.locator('#glucosedistribution-report');
+          const first = await distribution.textContent();
+          assert.ok(first.includes('100.0%3'), first);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.getTimezone()), 'UTC');
+          await show(page);
+          assert.equal(await distribution.textContent(), first);
+          await page.locator('#daytoday').click(); await show(page);
+          await page.locator('#glucosedistribution').click();
+          assert.equal(await distribution.textContent(), first);
+          assert.equal(await page.evaluate(() => window.Nightscout.client.sbx.data.profile.getTimezone()), 'UTC');
+          // Fetch another day after the historical calculation: query boundaries
+          // must still use the timezone that loaded the original report period.
+          await page.locator('#rp_to').fill('2015-08-09'); await show(page);
+          const queries = requests.filter(request => request.url.startsWith('/api/v1/entries.json'))
+            .map(request => new URL(request.url, origin).searchParams.get('find[date][$gte]'));
+          assert.ok(queries.includes(String(start + 86400000)));
+          assert.ok(!queries.includes(String(start + 86400000 + 4 * 3600000)));
+        });
+      } finally {responses.set(key, previous); reportProfile.store.Default.timezone = previousZone;}
     });
   }
 

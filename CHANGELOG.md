@@ -18,6 +18,8 @@ All notable changes to cgm-remote-monitor are documented in this file.
   Explain reduced, additional and net basal units, show unavailable data
   separately from zero adjustments, and account for local hour boundaries.
   Show unavailable Day to Day insulin averages when profile history is missing.
+  Isolate historical calculations from shared profiles and treatments so note-only
+  edits retain profile-switch names and repeated reports keep the same timezone.
 - **Calibrations report:** Match raw sensor signals consistently with either
   date order, excluding derived readings and missing or stale signals. Explain
   automatic chart selection, label meter values and missing raw data, and use

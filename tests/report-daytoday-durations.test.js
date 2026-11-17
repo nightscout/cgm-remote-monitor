@@ -36,6 +36,8 @@ describe('day-to-day report: events with a duration', function () {
     env = createSecureDOM('<!DOCTYPE html><html><body><div id="daytodaycharts"></div></body></html>');
     state = domGlobals.installDomGlobals(env);
     env.window.moment = moment;
+    // jsdom has no SVG layout; the empty temp-basal label measures zero.
+    env.window.SVGElement.prototype.getBBox = () => ({x: 0, y: 0, width: 0, height: 0});
   });
 
   afterEach(function () {
@@ -49,22 +51,15 @@ describe('day-to-day report: events with a duration', function () {
   // datastorage.treatments holds every loaded day, including the day before the first.
   function render (days, treatments, options, readings) {
     const mmol = options && options.units === 'mmol';
-    const profile = {
-      applyTimezone: value => moment.utc(value)
-      , loadData: function () {}
-      , parseInTimezone: value => moment.utc(value)
-      , updateTreatments: function () {}
-      , getBasalRenderTimes: start => [start, start + 12 * HOUR]
-      , getTempBasal: date => {
-        const rate = options && options.basalRate !== undefined ? options.basalRate : moment.utc(Number(date)).hour() < 12 ? .5 : .8;
-        const temp = options && options.tempBasalRate !== undefined ? options.tempBasalRate : rate;
-        return {basal: rate, tempbasal: temp, totalbasal: temp};
-      }
-    };
+    const createProfile = require('../lib/profilefunctions');
+    const basal = options && options.basalRate !== undefined ? [{time: '00:00', value: options.basalRate}] :
+      [{time: '00:00', value: .5}, {time: '12:00', value: .8}];
+    const record = {startDate: '2020-01-01T00:00:00Z', defaultProfile: 'Default', store: {Default: {basal}}};
+    const profile = createProfile(structuredClone([record]), {moment});
     env.window.Nightscout = {
       client: {
         plugins: () => ({ isDeviceStatusAvailable: () => false })
-        , profilefunctions: { activeProfileToTime: () => 'Default', profileSwitchName: name => name }
+        , profilefunctions: profile
         , sbx: { data: { profile: profile } }
         , settings: { timeFormat: 24, units: mmol ? 'mmol' : 'mg/dl', theme: options && options.theme }
         , ticks: () => []
@@ -82,9 +77,9 @@ describe('day-to-day report: events with a duration', function () {
       alldays: days.length
       , combobolusTreatments: []
       , devicestatus: []
-      , profiles: options && options.reportProfiles || [{}]
+      , profiles: (options && options.reportProfiles || [{}]).map(fields => Object.assign(structuredClone(record), fields))
       , profileSwitchTreatments: []
-      , tempbasalTreatments: []
+      , tempbasalTreatments: options && options.tempBasalRate !== undefined ? days.map(day => ({mills: START[day], duration: 1440, absolute: options.tempBasalRate})) : []
       , treatments: treatments.slice().sort((a, b) => a.mills - b.mills)
     };
     days.forEach(function (day) {
@@ -242,6 +237,11 @@ describe('day-to-day report: events with a duration', function () {
       assert.match(env.document.querySelector('#daytodaycharts').textContent, /TDD average:\s*24\.0U/);
       assert.match(env.document.querySelector('#daytodaycharts').textContent, /Basal average:\s*100%/);
     }
+  });
+
+  it('renders profile-switch boundaries when historical profile records are unavailable', function () {
+    render([DAY1], [event('Profile Switch', DAY1, 6, 60, {profile: 'Exercise'})], {reportProfiles: []});
+    assert.ok(env.document.querySelector('#daytodaycharts').textContent.includes('Not available'));
   });
 
   it('labels unavailable insulin averages when profile history does not cover the selected days', function () {

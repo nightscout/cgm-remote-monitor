@@ -156,3 +156,8 @@ The tools fail resource acceptance when limits are exceeded and mark fewer than 
 `tests/page-resource-acceptance.test.js` rejects incomplete/duplicated runs, omitted revisits, 500 ms startup regressions, excessive heap, excessive body/request counts and cached bundle redownloads. These guard the evidence checker itself; they do not replace browser measurements. The byte-counter test independently checks compressed transport accounting.
 
 The latest hosted failure on `b9f48190` was one Firefox/Node 24 application-worker case: awaiting `registration.update()` raced the intentionally triggered reload and lost the outgoing execution context. The follow-up starts the update without awaiting that promise in the outgoing document, while still requiring the reload, cache retirement and successful page startup. No retry, timeout increase or cache assertion relaxation is used. The final head subsequently passed the complete hosted matrix, including both Firefox jobs.
+
+Isolating historical profile calculations adds 9 app and 57 reports gzip bytes
+(72,778 reports / 414,235 combined), within the existing allowances. The
+`isolationReview` measurement in the same audit records the profile factory and
+copied calculation inputs; no dependency or duplicate profile module is added.
