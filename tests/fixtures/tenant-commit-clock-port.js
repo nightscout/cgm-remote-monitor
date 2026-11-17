@@ -74,7 +74,7 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
       const deadline = Date.now() + 5000;
       do {
         const state = await admin.query(`SELECT pid,pg_blocking_pids(pid) AS blockers,query FROM pg_stat_activity
-          WHERE application_name LIKE $1 AND wait_event_type='Lock' AND query LIKE '%tenant_write_clock%FOR UPDATE%'`, [name + '_%']);
+          WHERE application_name LIKE $1 AND wait_event_type='Lock' AND query LIKE '%tenant_write_clock%'`, [name + '_%']);
         if (state.rows.length > 0 && state.rows[0].blockers.length > 0) return state.rows[0];
         await new Promise(resolve => setTimeout(resolve, 10));
       } while (Date.now() < deadline);

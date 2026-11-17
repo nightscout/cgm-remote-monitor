@@ -138,7 +138,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
         second = scope.withTenant(lab.A, () => port(1).write(replacement(stored[1])));
         second.catch(() => {});
         const waiting = await lab.waitForClockLock();
-        assert.ok(waiting.blockers.length > 0, 'Actual clock SELECT FOR UPDATE must have a blocking backend');
+        assert.ok(waiting.blockers.length > 0, 'Actual history clock allocation must have a blocking backend');
         assert.deepEqual(await lab.rows(lab.A, baseline), [], 'Higher cursor must not become visible ahead of held lower replacement');
         assert.deepEqual(await insertionState(), insertion);
         assert.equal(events, 0);
@@ -200,6 +200,75 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       }
       await first;
       await waiter;
+    });
+
+    it('settles a complete legacy identity resend while an independent writer holds the clock', async function () {
+      const step = worker => createLegacy({ connection: lab.clocks[worker], table: lab.table, logical: 'entries',
+        source: 'v1/internal', env: { write: { resend: 'refuse' } }, naturalOrder: true });
+      const docs = () => [0, 1].map(i => ({ ...document('repeat-' + i), date: 1793923200000 + i }));
+      const batch = worker => scope.withTenant(lab.A, () => {
+        const writer = step(worker);
+        return writer.write(writer.plan({ op: 'create', docs: docs() }));
+      });
+      const racing = await Promise.all([batch(0), batch(1)]);
+      assert.deepEqual(racing.map(reply => reply.items.map(it => it.outcome).join(',')).sort(),
+        ['inserted,inserted', 'refused,refused']);
+      const baseline = await lab.floor(lab.A);
+      const entered = deferred(), release = deferred();
+      const held = scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
+        await port(0).write({ op: 'create', docs: [document('held-separate')] });
+        entered.resolve();
+        await release.promise;
+      }));
+      let pending;
+      try {
+        await Promise.race([held, entered.promise]);
+        pending = batch(1);
+        let timer;
+        const timeout = new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('A read-only legacy resend waited on the history lock')), 4000);
+        });
+        const reply = await Promise.race([pending, timeout]).finally(() => clearTimeout(timer));
+        assert.deepEqual(reply.items.map(it => it.outcome), ['refused', 'refused']);
+        assert.equal(await lab.floor(lab.A), baseline);
+      } finally { release.resolve(); await Promise.allSettled([held, pending]); }
+      await held;
+    });
+
+    it('queues an insert on the ordinal after acquiring history, then admits another writer after release', async function () {
+      await write(0, 'seed-ordinal');
+      const entered = deferred(), release = deferred();
+      // An uncommitted fixture insert isolates the ordinal contention in the
+      // trigger. Roll it back so it cannot create an unstamped public row.
+      const blocker = scope.withTenant(lab.A, () => assert.rejects(lab.raw[0].transaction(async () => {
+        await port(0).storage.insertOne(document('ordinal-blocker'));
+        entered.resolve();
+        await release.promise;
+        throw new Error('rollback ordinal fixture');
+      }), /rollback ordinal fixture/));
+      let first, second;
+      try {
+        await Promise.race([blocker, entered.promise]);
+        first = write(1, 'first-ordinal');
+        const until = Date.now() + 4000;
+        let blocked;
+        do {
+          blocked = (await lab.admin.query(`SELECT pg_blocking_pids(pid) AS blockers FROM pg_stat_activity
+            WHERE application_name=$1 AND wait_event_type='Lock' AND query LIKE 'INSERT INTO %entries%'`,
+          [lab.name + '_1'])).rows[0];
+          if (!blocked) await new Promise(done => setTimeout(done, 5));
+        } while (!blocked && Date.now() < until);
+        assert.ok(blocked && blocked.blockers.length, 'insertion trigger waits for the uncommitted ordinal');
+        second = write(0, 'second-ordinal');
+        const historyWait = await lab.waitForClockLock();
+        assert.ok(historyWait.blockers.length, 'the writer behind the ordinal holds the history fence');
+      } finally {
+        release.resolve();
+        await Promise.allSettled([blocker, first, second]);
+      }
+      await Promise.all([blocker, first, second]);
+      assert.deepEqual((await lab.rows()).map(row => row.identifier), ['seed-ordinal', 'first-ordinal', 'second-ordinal']);
+      assert.equal((await insertionState()).ordinals.length, 3);
     });
 
     it('finalizes an earlier legacy plan above an intervening committed v3 cursor without changing its identities or domain dates', async function () {
