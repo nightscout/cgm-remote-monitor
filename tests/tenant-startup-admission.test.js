@@ -84,13 +84,14 @@ describe('independent tenant startup admission (source protocol)', function () {
     } finally { await f.window.close(); }
   });
   it('hard refuses wrong binding, wrong datastore, metadata failure, fake window and application code lookalikes', async function () {
-    for (const options of [{key:'99'}, {superuser:true}, {phase:'suspended',unlock:false}]) {
-      const f=fixture(options); try { await assert.rejects(startup.attempt(f.window,A,async()=>{})); } finally {
-        if(options.unlock===false)await assert.rejects(f.window.close(),{code:'LIFECYCLE_WINDOW_DRAIN_FAILED'});
-        else await f.window.close();
-      }
+    // Session unlocks retired; genuine suspension is covered as a deferral above.
+    for (const options of [{key:'99'}, {superuser:true}]) {
+      const f=fixture(options); try { await assert.rejects(startup.attempt(f.window,A,async()=>{})); }
+      finally { await f.window.close(); }
     }
-    const options={}, f=fixture(options); await f.window.ready(); options.datastore={database_oid:'999'};
+    const options={}, f=fixture(options); await f.window.ready();
+    // A connection cannot change databases in place. Model a new physical backend.
+    options.datastore={database_oid:'999'}; f.client.processID=124; options.sqlPid=124;
     try { await assert.rejects(startup.attempt(f.window,A,async()=>{}),{code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'}); }
     finally { await f.window.close(); }
     await assert.rejects(startup.attempt({run:async()=>{}},A,async()=>{}),/Actual operation window/);

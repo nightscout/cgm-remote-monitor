@@ -14,7 +14,12 @@ function load (overrides,mutate=s=>s) {
   vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>Object.hasOwn(overrides,name)?overrides[name]:original(name),output,output.exports);
   return output.exports;
 }
-async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localMutate) {
+function windowModule(mutate=s=>s){
+  const file=path.resolve(__dirname,'../lib/tenant-lifecycle/operation-window.js'), output={exports:{}};
+  const original=require('node:module').createRequire(file);
+  vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(original,output,output.exports);return output.exports;
+}
+async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localMutate,windowSource) {
   const entries=manifest.validate(roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],endpoint:{socketPath:'/synthetic/peer_'+index+'.sock',maxBytes:100000,timeoutMs}})));
   const handlers=new Map(), locals=new Map(), invalidated=[], actors=roles.map((role,index)=>({pid:100+index,role:'synthetic_'+index,birth:'1700000000.'+index}));
   const flags={};
@@ -35,8 +40,8 @@ async function lab (mutate, timeoutMs = 1000, intakeProfile,registryLabel,localM
       return structuredClone(reply);
     }]))};
   async function boot(index) {
-    const entry=entries[index], options={intakeProfile}, f=fixture(options);
-    const module=load({'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
+    const entry=entries[index], options={intakeProfile}, f=fixture(options,windowSource?.create);
+    const module=load({...(windowSource?{'../../tenant-lifecycle/operation-window':windowSource}:{}),'../internal-api/transport':ipc,'../internal-api/clients':clients,'../../storage/postgres-connection':{
       installOperationWindow:()=>()=>{},cohortBackends:()=>[actors[index]],cohortDatastore:()=>DATA,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:backends(index)})
     },...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name=>['./'+name,{boot:async()=>({health:()=>flags.apiHealth||{ready:true,storageReady:true},close:async()=>{},invalidateTenant:async tenant=>invalidated.push([entry.id,tenant])})}]))},localMutate);
     const cohort=await module.create({window:f.window,names:entry.roles,tenants:registryLabel?[registryLabel]:[A,B],namespaces:entry.namespaces,participant:entry});
@@ -169,8 +174,8 @@ describe('Separate-process fixed cohort source protocol',function(){
     await assert.rejects(releasedOperationsPin(source=>source.replace("if (state.pinned.get(tenant) !== pin) throw fail('RESTORE_COHORT_PIN_REQUIRED');",'')),/Missing expected rejection/);
     await releasedOperationsPin();
   });
-  async function recoveredOperations (mutate) {
-    const f=await lab(mutate); let pin, finish, entered;
+  async function recoveredOperations (windowSource) {
+    const f=await lab(undefined,1000,undefined,undefined,undefined,windowSource); let pin, finish, entered;
     const waiting=new Promise(resolve=>{entered=resolve;});
     const barrier=new Promise(resolve=>{finish=resolve;});
     const local=f.locals.get(0);
@@ -180,21 +185,21 @@ describe('Separate-process fixed cohort source protocol',function(){
     const settled=body.then(()=>null,error=>error);
     try {
       await waiting;
-      const ids=local.f.window.inflight(A); assert.equal(ids.length,1);
+      const ids=local.f.window.inflight(A); assert.deepEqual(ids,[],'TRANSACTIONS_REPLACE_DURABLE_BODY_MARKERS');
       pin=await f.coordinator.pin(f.remote,A,{client:f.operator});
       assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids);
       assert.deepEqual((await f.coordinator.operations(f.remote,B).catch(error=>error)).code,'RESTORE_COHORT_PIN_REQUIRED');
       local.cohort.datastoreUnavailable();
       await assert.rejects(f.coordinator.operations(f.remote,A),{code:'RESTORE_COHORT_DATASTORE_UNAVAILABLE'});
-      // Same-store reconnect is not permission to forget a still-running body.
+      // Same-store recovery cannot adopt a failed session while its body still runs.
       await assert.rejects(local.f.window.recover(), {code:'LIFECYCLE_WINDOW_DRAIN_REQUIRED'});
       local.cohort.datastoreRecovered();
-      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids,'RECOVERY_RETAINS_RUNNING_OPERATION');
-      assert.deepEqual([...local.f.pending.values()],[false],'RECOVERY_NEVER_CLEARS_LOST_MARKER');
+      assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,ids,'RECOVERY_INSPECTION_HAS_NO_BODY_MARKERS');
+      assert.equal(local.f.pending.size,0,'RECOVERY_CREATES_NO_RETIRED_BODY_MARKER');
       finish(); assert.equal(await settled,loss);
       assert.deepEqual(await local.f.window.recover(),{restarted:false,sessionsReplaced:1});
       assert.deepEqual((await f.coordinator.operations(f.remote,A)).operations,[]);
-      assert.deepEqual([...local.f.pending.values()],[false],'BODY_END_DOES_NOT_CLEAR_LOST_MARKER');
+      assert.equal(local.f.pending.size,0,'BODY_END_CREATES_NO_RETIRED_BODY_MARKER');
       // A published restart invalidates the ORIGINAL pin before any operations
       // answer can certify that a predecessor process stopped running.
       local.cohort.datastoreUnavailable();local.cohort.datastoreRecovered({restarted:true});
@@ -206,9 +211,13 @@ describe('Separate-process fixed cohort source protocol',function(){
       await f.coordinator.releasePin(b);
     } finally {finish();await settled;await local.f.window.recover();if(pin)await f.coordinator.releasePin(pin);await f.close();}
   }
-  it('preserves live lost-backend operations and uncertain markers through recovery; stale original pins refuse',()=>recoveredOperations());
-  it('control: an erased in-flight reply fails the joined recovery oracle; restored source passes',async function(){
-    await assert.rejects(recoveredOperations(source=>source.replace('operations:Object.freeze([...ids].sort())','operations:Object.freeze([])')),assert.AssertionError);
+  it('refuses recovery while a failed-session body runs without durable body markers; stale original pins refuse',()=>recoveredOperations());
+  it('control: adopting a failed session before its body ends fails recovery refusal; restored source passes',async function(){
+    const withoutDrain=windowModule(source=>{
+      const guard="if ([...activeBodies].some(state => state.failure)) throw fail('LIFECYCLE_WINDOW_DRAIN_REQUIRED');";
+      assert(source.includes(guard));return source.replace(guard,'/* deliberate premature recovery */');
+    });
+    await assert.rejects(recoveredOperations(withoutDrain),/Missing expected rejection/);
     await recoveredOperations();
   });
   it('refuses manifest omissions and duplicate endpoints, while admitting explicit API replicas',function(){
@@ -249,25 +258,22 @@ describe('Fixed process configuration v2',function(){
 });
 
 describe('Window and lower lease actual datastore binding',function(){
-  function windowModule(mutate=s=>s){
-    const file=path.resolve(__dirname,'../lib/tenant-lifecycle/operation-window.js'), output={exports:{}};
-    const original=require('node:module').createRequire(file);
-    vm.runInThisContext('(function(require,module,exports){'+mutate(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(original,output,output.exports);return output.exports;
-  }
   async function bindingCheck(mutate){
     const options={}, f=fixture(options,windowModule(mutate).create);await f.window.ready();
     const before=f.window.datastore;
     // Same schema/table OIDs and catalogue; only the actual PG endpoint differs.
     options.datastore={server_port:5433};let called=false;
+    // Structural datastore checks run at physical admission, not every warm body.
+    f.client.processID=124;options.sqlPid=124;
     try{
       await assert.rejects(f.window.run(A,()=>{called=true;}),{code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
       assert.equal(called,false);assert.equal(f.pending.size,0);assert.deepEqual(f.window.datastore,before);
       options.datastore={};await f.window.run(A,()=>{called=true;});assert.equal(called,true);
     }finally{await f.window.close();}
   }
-  it('refuses an identically migrated foreign datastore before lifetime registration',()=>bindingCheck());
+  it('refuses an identically migrated foreign datastore at physical backend admission',()=>bindingCheck());
   it('detects removal of the datastore comparison and passes restored source',async function(){
-    await assert.rejects(bindingCheck(s=>{const line="if (row.pid !== client.processID || !same(datastore.identity(row), database)) throw fail('LIFECYCLE_WINDOW_DATASTORE_CHANGED');";assert.ok(s.includes(line));return s.replace(line,'');}),/Missing expected rejection/);await bindingCheck();
+    await assert.rejects(bindingCheck(s=>{const line="await admit(client, namespace, {lifetime, identity, intakeProfile});\n    if (!same(await datastore.read(client), database)) throw fail('LIFECYCLE_WINDOW_DATASTORE_CHANGED');";assert.ok(s.includes(line));return s.replace(line,"await admit(client, namespace, {lifetime, identity, intakeProfile});");}),/Missing expected rejection/);await bindingCheck();
   });
 });
 
