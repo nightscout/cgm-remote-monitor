@@ -37,6 +37,12 @@ describe('per-tenant domain construction is clinically equivalent (decision read
     for (const [tenant] of TENANTS) assert.deepEqual(actual[tenant], golden[tenant], tenant);
     assert.equal(new Set(Object.values(actual).map(row => JSON.stringify(row.env))).size, TENANTS.length, 'the fixture tenants differ');
   });
+  it('selected demand ports and request frames preserve the complete clinical construction fingerprint', async function () {
+    const create = require('../lib/server/serve/preview-domains');
+    const actual = await quiet(() => fingerprints(options => create({ ...options,
+      config: { ...options.config, platformVerification: { namespace: 'source_verification', role: 'api' } } })));
+    assert.deepEqual(actual, golden);
+  });
   it('control: a construction that gives every tenant the first tenant\'s environment is caught', async function () {
     const mutated = loadMutated(s => s.replace('const env = config.environments.get(tenant);', 'const env = config.environments.get([...config.bindings.keys()][0]);'));
     const actual = await quiet(() => fingerprints(mutated));
