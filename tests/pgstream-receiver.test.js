@@ -159,3 +159,14 @@ describe('native complete-cohort receiver composition',function(){
   const f=cohortFixture(async(_event,options)=>{observed=options.observations;return [];});await f.receive(parse(text));assert.equal(observed[0].observed.settings,'9223372036854775807');
  });
 });
+
+
+describe('explicit native transport configuration',function(){
+ it('requires source identity fields and separates clinical cache size from an explicit transaction limit',function(){
+  const parse=require('../lib/pgstream/config').parse;
+  const config={slot:'synthetic_slot',streamRole:'synthetic_stream',bounds:{stepMs:1000,recoveryMs:2000,pendingMs:3000},receiver:{url:'http://127.0.0.1:23456/',trust:'network',bindHost:'127.0.0.1',maxBytes:4096,timeoutMs:1000},generation:'a'.repeat(32),recovery:{connectionEnv:'SYNTHETIC_RECOVERY',timeoutMs:1000,maxQueued:1},transactionRows:128};
+  assert.equal(parse(config).transactionRows,128);
+  for(const field of ['slot','streamRole','transactionRows']){const missing={...config};delete missing[field];assert.throws(()=>parse(missing));}
+  for(const transactionRows of [0,-1,1.5,1000001,'128'])assert.throws(()=>parse({...config,transactionRows}));
+ });
+});
