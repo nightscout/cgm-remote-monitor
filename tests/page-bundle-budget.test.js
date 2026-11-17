@@ -31,7 +31,11 @@ const {entries, output, measure} = require('../tools/measure-page-bundles');
 // BF-223: removing a refused saved API secret and saying so adds 43 gzip bytes
 // to clock (62,968 -> 63,011 on Node 22.23.4); the clock allowance moves by
 // that measured cost and keeps its prior 32-byte margin.
-const limits = {app: 349000, reports: 70693, admin: 8500, profile: 7100, food: 5700, clock: 63043};
+// Bar/Pie selectors add 858 reports gzip bytes (70,353 -> 71,211 on Node
+// 24.22.1). Move only the reports allowance by that cost, preserving its
+// 340-byte margin; all other artifacts and limits, including total, stay fixed.
+// See docs/audits/report-chart-style-bundle.json for the paired measurements.
+const limits = {app: 349000, reports: 71551, admin: 8500, profile: 7100, food: 5700, clock: 63043};
 
 describe('Production page bundle resource budgets', function () {
   let measurements;

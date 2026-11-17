@@ -74,6 +74,15 @@ The matched parent's monolithic app is 402,808 Node gzip bytes, so the app saves
 
 `tests/page-bundle-budget.test.js` runs in the existing backend CI glob. It enforces the six per-entry limits, combined limit, absence of extra JavaScript chunks and report source-map isolation. Existing actual-template browser cases enforce one document bundle for dashboard and two for each secondary page, with exact request counts and separately checked script order. These counts exclude Socket.IO, startup scripts, CSS, images, APIs and service-worker precaching. The worker still precaches app and clock; first-install traffic is not the sum of unique document bundles alone. The separate populated-page timing/heap and total navigation traffic measurements below must not be inferred from these artifact budgets.
 
+The Distribution and Daily Stats Bar/Pie selectors in #8907 add 858 reports
+gzip bytes: 70,353 at `50641f87` to 71,211 at `16232f13`, measured with the same
+lockfile, installed dependencies, Node 24.22.1 and gzip level 9. The
+[paired measurement](../audits/report-chart-style-bundle.json) records artifact
+hashes and the sole added report source. The reports allowance moves from
+70,693 to 71,551 bytes, retaining its 340-byte margin. Every other JavaScript
+artifact is byte-identical; other entry limits and the 426,000-byte combined
+limit remain unchanged. The measured combined size is 412,659 bytes.
+
 
 Hosted lifecycle validation on `d79b8a74` passed all backend, Chromium and WebKit jobs, npm 12 and CodeQL. Both Firefox jobs passed the report-rendering cases but failed four worker-control cases before exercising cache behavior. The compatibility follow-up restores the prior document-navigation network path while retaining native bypass for uncached API/polling traffic; all four focused application/worker cases pass locally on Chromium and WebKit, and 24 Node worker/cachebuster/resource-budget cases pass. The final head subsequently passed both Firefox jobs; no failures were waived.
 
