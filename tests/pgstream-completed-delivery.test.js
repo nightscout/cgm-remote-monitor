@@ -67,14 +67,14 @@ describe('completed-output delivery reuse', function () {
     let body={tenant:A,inputCheckpoint:2,checkpoint:2,trigger:'input',result:{properties:{clinicalOnly:'must not transfer'}},rows:[],frame:{lastUpdated:100,sgvs:[{mgdl:100.5,mills:1234,extra:null}]}};
     const copy=value=>JSON.parse(JSON.stringify(value));
     const connection={async transaction(){throw new Error('WRITE_ONLY_CURSOR_MUST_NOT_RUN');},
-      async snapshotTransaction(fn){assert.equal(snapshot,undefined,'NO_NESTED_OR_UPGRADED_SNAPSHOT');snapshot={enabled,completedVersion,restore,identity,revision,body:copy(body)};try{return await fn();}finally{snapshot=undefined;}},
+      async readOnlyTransaction(fn){assert.equal(snapshot,undefined,'NO_NESTED_OR_UPGRADED_SNAPSHOT');snapshot={enabled,completedVersion,restore,identity,revision,body:copy(body)};try{return await fn();}finally{snapshot=undefined;}},
       async query(text,values){
         assert.equal(scope.currentTenant(),A);assert.equal(values[0],A);assert(snapshot,'METADATA_AND_PHYSICAL_MUST_SHARE_SNAPSHOT');
         if(text.includes(' AS output_summary')){
           metadataReads++;assert.match(text,/\(projection->0->'output'\)-'rows'-'frame'-'result'/,'COMPACT_SUMMARY_MUST_EXCLUDE_CLINICAL_RESULT');
           const summary=copy(snapshot.body);delete summary.rows;delete summary.frame;delete summary.result;
           if(publishDuringRead){publishDuringRead=false;revision='4';body.frame.lastUpdated=200;body.frame.sgvs[0].mgdl=101.5;}
-          return {rows:[{tenant:A,contract_digest:digest,work_version:2,work_observed:[null,null,null,null,'1',null],work_completed:[null,null,null,null,snapshot.completedVersion,null],work_enabled:snapshot.enabled,
+          return {rows:[{output_read_isolation:'repeatable read',tenant:A,contract_digest:digest,work_version:2,work_observed:[null,null,null,null,'1',null],work_completed:[null,null,null,null,snapshot.completedVersion,null],work_enabled:snapshot.enabled,
             output_identity:snapshot.identity,output_digest:'a'.repeat(64),output_revision:snapshot.revision,output_restore_generation:snapshot.restore,output_summary:summary,frame_at:snapshot.body.frame.lastUpdated}]};
         }
         physicalReads++;assert.match(text,/SELECT \(projection->0->'output'\)-'result'-'rows' AS output/,'PHYSICAL_TRANSFER_MUST_EXCLUDE_CLINICAL_RESULT');

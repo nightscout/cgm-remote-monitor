@@ -23,6 +23,12 @@ describe('durable tenant alarm state source protocol', function () {
     assert.ok(candidate.migrations[0].up.some(sql => sql.includes('WITH CHECK')));
     assert.equal(candidate.migrations[0].up.some(sql => /GRANT|TRIGGER/i.test(sql)), false);
   });
+  it('requires the explicit read-only capability and binds the reader to it', async function () {
+    const f = protocol();
+    assert.throws(() => createReader({ connection: {query() {}, snapshotTransaction() {}}, namespace: 'safe', maxRows: 1, maxBytes: 100 }), /explicit tenant transaction/);
+    await f.reader.read({ tenant: f.A, at: f.now });
+    assert.equal(f.calls.filter(call => call === 'READ_ONLY').length, 1, 'ALARM_READER_MUST_USE_READ_ONLY_PORT');
+  });
   it('persists original expiry and ignores an active repeat across fresh writer handles', async function () {
     const f = protocol(), op = f.operation();
     const first = await f.writer.ack(op), expiry = first.rows[0].expiresAt;

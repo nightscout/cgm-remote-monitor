@@ -78,6 +78,24 @@ optInSuite(process.env.NS_TENANT_ALARM_TEST === '1' && !!process.env.NS_TEST_POS
     assert.ok(lab.commits.every(value => value.status === 'aborted'));
     assert.deepEqual(afterRevoked, []); assert.equal(callbacks, 1, 'ALARM_NATIVE_FAILURE_NOACK no synthesized success');
   });
+  it('runs suppression reads in a database-enforced read-only repeatable view', async function () {
+    const {createReader} = require('../lib/tenant-alarms/postgres');
+    let write = false, observed;
+    const port = {...lab.reader, async query(text, values) {
+      observed = (await lab.reader.query("SELECT current_setting('transaction_read_only') AS read_only,current_setting('transaction_isolation') AS isolation")).rows[0];
+      if (write) await lab.reader.query('CREATE TEMP TABLE alarm_read_must_refuse(value integer)');
+      return lab.reader.query(text, values);
+    }};
+    const reader = createReader({connection: port, namespace: lab.namespace, maxRows: 100, maxBytes: 100000});
+    await ack();
+    const rows = await reader.read({tenant: lab.A, at: 0});
+    assert.equal(rows.length, 1);
+    assert.deepEqual(observed, {read_only: 'on', isolation: 'repeatable read'}, 'ALARM_READER_MUST_USE_READ_ONLY_SNAPSHOT');
+    write = true;
+    await assert.rejects(reader.read({tenant: lab.A, at: 0}), error => error.code === '25006', 'ALARM_PORT_MUST_REFUSE_WRITES');
+    write = false;
+    assert.deepEqual(await reader.read({tenant: lab.A, at: 0}), rows);
+  });
   it('keeps foreign state unreadable and realtime unable to write, with unsafe privilege refusal', async function () {
     await ack(lab.forwarder({ tenant: lab.B, credential: { id: 'owner-b' } }), 2, 'shared', 60000);
     const b = await lab.physical(lab.B);

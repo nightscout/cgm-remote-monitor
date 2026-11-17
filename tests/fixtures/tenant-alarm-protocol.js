@@ -27,7 +27,7 @@ module.exports = function protocol () {
       } catch (error) { calls.push('ROLLBACK'); throw error; }
       finally { staged = undefined; unlock(); }
     },
-    async snapshotTransaction (fn) { return fn(); },
+    async readOnlyTransaction (fn) { calls.push('READ_ONLY'); return fn(); },
     async query (text, values) {
       calls.push({ text, values });
       if (text.startsWith('SELECT c.relrowsecurity')) return { rows: [{ secured: true, owns: false, reads: true, inserts: true, state_updates: true, broad_writes: false, any_writes: false, schema_writes: false }] };

@@ -197,7 +197,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
 optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('typed delivery snapshot on actual PostgreSQL',function(){
  this.timeout(30000);
  const lab=require('./fixtures/tenant-projection-evaluator')();
- let store,table,publish=false,snapshot=true,physicalReads=0;
+ let store,table,publish=false,snapshot=true,physicalReads=0,attemptWrite=false;
  const identity='a'.repeat(64),consumer='evaluator-snapshot';
  const body=revision=>({tenant:lab.A,inputCheckpoint:revision,checkpoint:revision,trigger:'acquisition',result:{privateResult:'must stay in evaluator'},rows:[],frame:{revision,lastUpdated:revision}});
  const seed=revision=>lab.admin.query('UPDATE '+table+' SET output_revision=$3,output_digest=$4,projection=$5::jsonb WHERE tenant_id=$1 AND consumer=$2',[lab.A,store.consumer,revision,String(revision).repeat(64),JSON.stringify([{kind:'evaluator-work-v2',output:body(revision)}])]);
@@ -207,7 +207,8 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   const checkpoint=require('../lib/pgstream/checkpoint');
   await lab.admin.query('GRANT UPDATE('+checkpoint.WORK_COLUMNS.join(',')+') ON '+table+' TO "'+lab.readerRole+'"');
   await lab.admin.query('CREATE POLICY typed_snapshot_metadata ON '+table+' TO "'+lab.readerRole+'" USING (consumer=\''+consumer+'-completed\') WITH CHECK (consumer=\''+consumer+'-completed\')');
-  const port={...lab.reader,snapshotTransaction:fn=>snapshot?lab.reader.snapshotTransaction(fn):fn(),query:async(text,values)=>{
+  const port={...lab.reader,readOnlyTransaction:fn=>snapshot?lab.reader.readOnlyTransaction(fn):fn(),query:async(text,values)=>{
+   if(attemptWrite){attemptWrite=false;await lab.reader.query('UPDATE '+table+' SET output_revision=output_revision WHERE tenant_id=$1',[lab.A]);}
    const result=await lab.reader.query(text,values);
    if(/AS output\b/.test(text))physicalReads++;
    if(publish&&/AS output_summary/.test(text)){publish=false;await seed(2);}
@@ -221,9 +222,21 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  const coherent=output=>{assert.equal(output.outputRevision,output.frame.revision,'REVISION_FRAME_MUST_SHARE_SNAPSHOT');assert.equal(Object.hasOwn(output,'result'),false,'DELIVERY_MUST_NOT_COPY_CLINICAL_RESULT');};
  it('keeps publication between metadata and frame in one snapshot, with a broken/restored native control',async()=>{
   await seed(1);publish=true;coherent(await store.output(lab.A,identity,{delivery:true}));
-  await seed(1);snapshot=false;publish=true;const broken=await store.output(lab.A,identity,{delivery:true});
-  assert.throws(()=>coherent(broken),/REVISION_FRAME_MUST_SHARE_SNAPSHOT/);
+  await seed(1);snapshot=false;publish=true;const before=physicalReads;
+  await assert.rejects(store.output(lab.A,identity,{delivery:true}),/EVALUATOR_OUTPUT_REPEATABLE_READ_REQUIRED/);
+  assert.equal(physicalReads,before,'WEAK_SNAPSHOT_MUST_REFUSE_BEFORE_PHYSICAL_FRAME');
   snapshot=true;await seed(1);publish=true;coherent(await store.output(lab.A,identity,{delivery:true}));
+ });
+ it('refuses a delivery read that would inherit a weaker ambient write snapshot',async()=>{
+  await seed(1);publish=true;
+  const read=async()=>{const value=await store.output(lab.A,identity,{delivery:true});console.log('R4_WEAK_DELIVERY_ACCEPTED '+JSON.stringify({metadataRevision:value.outputRevision,frameRevision:value.frame.revision}));return value;};
+  await assert.rejects(tenantScope.withTenant(lab.A,()=>lab.reader.transaction(read)),/EVALUATOR_OUTPUT_REPEATABLE_READ_REQUIRED/,'DELIVERY_MUST_NOT_INHERIT_READ_COMMITTED');
+  publish=false;coherent(await store.output(lab.A,identity,{delivery:true}));
+ });
+ it('refuses a physical checkpoint write through the actual delivery reader',async()=>{
+  await seed(1);attemptWrite=true;
+  await assert.rejects(store.output(lab.A,identity,{delivery:true}),error=>error.code==='25006','DELIVERY_PORT_MUST_REFUSE_WRITES');
+  coherent(await store.output(lab.A,identity,{delivery:true}));
  });
  it('acquires one result-free physical output per revision and reuses the intact retained delivery',async()=>{
   await seed(1);const first=await store.output(lab.A,identity,{delivery:true});coherent(first);

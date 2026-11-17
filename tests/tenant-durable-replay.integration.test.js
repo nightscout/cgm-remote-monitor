@@ -91,6 +91,54 @@ optInSuite(process.env.NS_TENANT_DURABLE_REPLAY_TEST === '1' && !!process.env.NS
       assert.deepEqual(next.rows.map(row => row.document.sgv), [111, 150]);
     });
 
+    it('requires a writable repeatable view across the checkpoint floor and concurrent pages', async function () {
+      async function exercise(weakened) {
+        await lab.reset();
+        await lab.persist([{ _id: 'a', sgv: 111 }, { _id: 'b', sgv: 112 }]);
+        await lab.provision();
+        const floor = await lab.floor(lab.A);
+        let changed = false;
+        const port = {...lab.reader,
+          snapshotTransaction: fn => weakened ? lab.reader.transaction(fn) : lab.reader.snapshotTransaction(fn),
+          async query(text, values) {
+            const result = await lab.reader.query(text, values);
+            if (!changed && text.startsWith('SELECT domain')) {
+              changed = true; await lab.persist([{ _id: 'b', sgv: 150 }]);
+            }
+            return result;
+          }};
+        const result = await catchUp(lab.makeConsumer('evaluator', port));
+        assert.equal(changed, true, 'CONCURRENT_PAGE_CONTROL_MUST_LAND');
+        assert.equal(result.checkpoint, floor);
+        assert.equal((await lab.checkpoint()).checkpoint, String(floor), 'REPLAY_BOOKKEEPING_MUST_COMMIT');
+        return result.rows.map(row => row.document._id);
+      }
+      const coherent = ids => assert.deepEqual(ids, ['a', 'b'], 'REPLAY_SNAPSHOT_MUST_NOT_SKIP_OVERWRITTEN_ROW');
+      coherent(await exercise(false));
+      const broken = await exercise(true);
+      assert.deepEqual(broken, ['a'], 'WEAKENED_READ_COMMITTED_MUST_EXPOSE_THE_MISSING_PAGE_ROW');
+      assert.throws(() => coherent(broken), /REPLAY_SNAPSHOT_MUST_NOT_SKIP_OVERWRITTEN_ROW/);
+      coherent(await exercise(false));
+    });
+
+    it('imports an exported snapshot before queries and refuses an ambient transaction', async function () {
+      await lab.persist([{_id: 'import-order', sgv: 111}]);
+      await lab.admin.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+      try {
+        const name = (await lab.admin.query('SELECT pg_export_snapshot() AS name')).rows[0].name;
+        await lab.persist([{_id: 'import-order', sgv: 150}]);
+        const read = () => lab.reader.query('SELECT doc FROM "'+lab.namespaces.entries+'".entries');
+        const old = await scope.withTenant(lab.A, () => lab.reader.importedSnapshotTransaction(name, read));
+        assert.equal(old.rows[0].doc.sgv, 111, 'SNAPSHOT_IMPORT_MUST_PRECEDE_FIRST_QUERY');
+        let entered = false;
+        await scope.withTenant(lab.A, () => lab.reader.transaction(async () => {
+          assert.throws(() => lab.reader.importedSnapshotTransaction(name, () => {entered = true;}), /requires a new transaction/);
+        }));
+        assert.equal(entered, false, 'IMPORTED_SNAPSHOT_MUST_NOT_JOIN_AMBIENT');
+        assert.equal((await scope.withTenant(lab.A, read)).rows[0].doc.sgv, 150);
+      } finally { await lab.admin.query('ROLLBACK'); }
+    });
+
     it('forces tenant RLS on checkpoints and grants bookkeeping without clinical writes', async function () {
       await lab.provision('evaluator', lab.A);
       await lab.provision('evaluator', lab.B);

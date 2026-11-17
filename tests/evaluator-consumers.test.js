@@ -61,15 +61,15 @@ describe('selected actual database consumer readiness protocols', function () {
   afterEach(function () { scope.setTenancyMode(mode); });
   it('screens both physical backend admissions and rechecks structure on explicit invalidation',async function(){
     const filename=require.resolve('../lib/server/serve/evaluator-consumers'), local=require('node:module').createRequire(filename);
-    const module={exports:{}},backends=[],checks=[];let unsafe=false;
+    const module={exports:{}},backends=[],checks=[];let unsafe=false,deny=false,readerPort,inRead=false,readBodies=0;
     const proof=kind=>{checks.push(kind);if(unsafe)throw new Error('SYNTHETIC_STRUCTURAL_CHANGE');};
-    const connection={transaction:fn=>fn(),end:async()=>{}};
+    const connection={transaction:fn=>fn(),async readOnlyTransaction(fn){assert.equal(inRead,false);inRead=true;try{return await fn();}finally{inRead=false;}},end:async()=>{}};
     const mocks={
       '../../storage/postgres-connection':async options=>{assert.equal(typeof options.admitBackend,'function');backends.push(options.admitBackend);await options.admitBackend({physical:backends.length});return connection;},
       '../../tenant-notifications/readiness':async()=>proof('outbox'),
       './evaluator-consumer-readiness':{suppression:async()=>proof('suppression'),sameDatastore:async()=>{},operational:async()=>proof('operational')},
       '../../tenant-notifications/postgres':()=>({own:async()=>{},close:async()=>{},consume:async()=>{},enqueue:async()=>{},due:async()=>[],begin:async()=>{},dispatch:async()=>{},finish:async()=>{},receipts:async()=>[]}),
-      '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>[],allows:async()=>true})},
+      '../../tenant-alarms/postgres':{createReader:({connection:db})=>{readerPort=db;return {read:()=>db.readOnlyTransaction(()=>{readBodies++;return [];}),allows:async()=>true};}},
       '../realtime/alarm-transport':{createAdapter:()=>({send(){}}),createSliceAdapter:()=>({send(){}})}
     };
     require('node:vm').runInThisContext('(function(require,module,exports){'+fs.readFileSync(filename,'utf8')+'\n})',{filename})(id=>Object.hasOwn(mocks,id)?mocks[id]:local(id),module,module.exports);
@@ -78,8 +78,11 @@ describe('selected actual database consumer readiness protocols', function () {
     await window.ready();let value;
     try {
       value=await module.exports.prepare({config:cfg,clinicalConnection:{},current:()=>null,isCurrent:async()=>true,operationWindow:window,
-        jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),assertOperational:()=>{}});
+        jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),assertOperational:()=>{assert.equal(inRead,true,'SUPPRESSION_AUTHORITY_MUST_RUN_INSIDE_READ');if(deny)throw new Error('SYNTHETIC_SUPPRESSION_AUTHORITY_REFUSED');}});
       assert.deepEqual(checks,['outbox','suppression'],'STARTUP_AND_BOTH_BACKEND_ADMISSIONS');
+      const before=readBodies;deny=true;
+      await assert.rejects(readerPort.readOnlyTransaction(()=>{readBodies++;}),/SYNTHETIC_SUPPRESSION_AUTHORITY_REFUSED/,'READ_ONLY_PORT_MUST_RETAIN_OPERATIONAL_AUTHORITY');
+      assert.equal(readBodies,before,'REFUSED_AUTHORITY_MUST_PRECEDE_SUPPRESSION_BODY');deny=false;
       await value.verifyOperational();unsafe=true;
       await assert.rejects(value.verifyOperational(),/SYNTHETIC_STRUCTURAL_CHANGE/,'DDL_CHANGE_REFUSES');
       for(const admit of backends)await assert.rejects(admit({physical:'replacement'}),/SYNTHETIC_STRUCTURAL_CHANGE/,'REPLACEMENT_BACKEND_REFUSES');
