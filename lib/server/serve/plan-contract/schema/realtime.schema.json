@@ -213,62 +213,6 @@
           "pattern": "^evaluator-[A-Za-z0-9_-]{1,100}$"
         }
       }
-    },
-    "intakeProfile": {
-      "type": "object",
-      "required": [
-        "binding",
-        "digest",
-        "contractDigest",
-        "ownerKey"
-      ],
-      "description": "A generated intake-profile value. The loader validates the canonical binding and digests, then regenerates assignment. Incoming assignment and other envelope metadata grant no authority.",
-      "properties": {
-        "binding": {
-          "type": "object",
-          "description": "Canonical binding is validated by intake-profile.validate against the selected source capability."
-        },
-        "digest": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "contractDigest": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "ownerKey": {
-          "type": "string",
-          "pattern": "^-?[0-9]{1,19}$"
-        }
-      }
-    },
-    "predecessorProfile": {
-      "type": "object",
-      "required": [
-        "binding",
-        "digest",
-        "contractDigest",
-        "ownerKey"
-      ],
-      "description": "Optional canonical v1 intake profile retained when adopting a selected pool intake profile. The loader validates its binding and digests and requires the same namespace, membership, lifecycle, consumer, codec and generation domain as intakeProfile.",
-      "properties": {
-        "binding": {
-          "type": "object",
-          "description": "Canonical predecessor binding is validated by intake-profile.validate; it cannot select a different intake domain."
-        },
-        "digest": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "contractDigest": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        },
-        "ownerKey": {
-          "type": "string",
-          "pattern": "^-?[0-9]{1,19}$"
-        }
-      }
     }
   }
 }

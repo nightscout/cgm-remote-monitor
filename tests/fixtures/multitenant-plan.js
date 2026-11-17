@@ -19,7 +19,7 @@
 //                        worker), so each field's type meets its loader;
 //                        its Vault credentials are environment references,
 //                        and `full-token-files` is the same with token files.
-//                        `selected-pool` carries the canonical pool/predecessor pair
+//                        `selected-pool` carries the canonical pool operation profile
 //   documentSet(docs)    those documents as `nightscout plan check` takes them
 const { createHash } = require('node:crypto');
 const { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle } = require('./multitenant-registry-layout');
@@ -152,8 +152,6 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
     membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), operatorRole: named('intake_operator'),
     consumer: evaluator.consumer, codec: intake.binding.codec, generationDomain: intake.binding.generationDomain,
     sliceRule: require('../../lib/pool-membership/slice').RULE }) : intake;
-  realtime.intakeProfile = JSON.parse(JSON.stringify(selected));
-  if (selectedPool) realtime.predecessorProfile = JSON.parse(JSON.stringify(intake));
   evaluator.consumers.realtime.partitionMetadata = { checkpointNamespace: ns.eval_checkpoint, membershipNamespace: named('partition_members'), lifecycleNamespace: named('partition_lifecycle') };
   for (const operation of Object.values(docs.operations)) operation.intakeProfile = JSON.parse(JSON.stringify(selected));
   api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';

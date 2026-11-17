@@ -15,6 +15,49 @@ function fixture(ids){
  return {counts,states,invalidated,detector};
 }
 describe('addressed realtime output demand',function(){
+ it('reads and reuses a native typed frame in a repeatable snapshot and refuses a stale restore generation',async()=>{
+   const {createHash}=require('node:crypto');
+   const {canonical}=require('../lib/server/serve/evaluator-runtime');
+   const scope=require('../lib/storage/tenant-scope');
+   const tenant=id(1),namespace='test_completed',consumer='evaluator-test',identity='current';
+   const digest=createHash('sha256').update(canonical(['evaluator-work-v2',namespace,consumer])).digest('hex');
+   const frame={sgvs:[],lastUpdated:100},summary={tenant,inputCheckpoint:2,checkpoint:2,trigger:'input'};
+   const row={tenant,contract_digest:digest,work_version:2,work_enabled:true,
+     output_identity:identity,output_digest:'a'.repeat(64),output_revision:'4',
+     output_restore_generation:'7',output_summary:summary,frame_at:100};
+   let generation='7',physical=0,snapshots=0,entered=false;
+   const connection={
+     async snapshotTransaction(fn){
+       snapshots++;entered=true;
+       try{return await fn();}finally{entered=false;}
+     },
+     async query(sql,args){
+       assert.equal(entered,true,'NATIVE_FRAME_REQUIRES_SNAPSHOT');
+       assert.equal(scope.currentTenant(),tenant);
+       assert.deepEqual(args,[tenant,consumer+'-completed']);
+       if(sql.includes(' AS output_summary'))return {rows:[row]};
+       assert.match(sql,/^SELECT /);
+       physical++;
+       return {rows:[{output:{...summary,frame}}]};
+     }
+   };
+   const previous=scope.getTenancyMode();
+   scope.setTenancyMode('multi');
+   try{
+     const reader=completed.projection({config:{completedOutput:{namespace,consumer},maxBytes:100000},
+       connection,current:{tenant,identity},operationWindow:{currentGeneration:()=>generation}});
+     const current=await reader.acquire();
+     assert.deepEqual(current.frame,frame);
+     assert.equal(current.checkpoint,4);
+     assert.equal(await reader.acquire(),current);
+     assert.equal(physical,1);
+     assert.equal(snapshots,2);
+     generation='8';
+     await assert.rejects(reader.acquire(),/REALTIME_COMPLETED_OUTPUT_RESTORE_GENERATION/);
+     generation='7';
+     assert.equal(await reader.acquire(),current);
+   }finally{scope.setTenancyMode(previous);}
+ });
  for(const size of [8,64,256])for(const viewers of [0,1,4])it('reads identities only for '+viewers+' watched tenants of '+size+' addressed tenants',async()=>{
    const ids=Array.from({length:size},(_,i)=>id(i+1)),f=fixture(ids),watched=ids.slice(0,viewers);
    const service=await runtime({tenants:ids,watchedTenants:()=>watched,detect:f.detector,

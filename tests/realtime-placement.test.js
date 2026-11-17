@@ -162,7 +162,7 @@ describe('actual realtime boot observation wiring', function () {
         '../../trusted-worker/postgres':{create:()=>({scan:async()=>new Map(),read:noop,current:()=>null,state:()=>({available:true,generation:1}),close:noop})},
         '../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
         '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({polls:0,failures:0})}),projection:()=>({})},
-        '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop,wake(){},reconcile(){}})},
+        '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({received:0,completed:0,retries:0,workQueries:7,metadataUpdates:0,metadataRows:0,maxMetadataBatch:0})}),start:()=>({close:noop,wake(){},reconcile(){},stats:()=>({reconciliationPages:5})})},
         '../realtime/runtime':async()=>({health(){throw Error('WHOLE_TENANT_HEALTH_SCAN');},warm:tenant=>tenant===A,close:noop})};
       const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
       vm.runInNewContext(transform(source),sandbox,{filename});
@@ -173,6 +173,21 @@ describe('actual realtime boot observation wiring', function () {
       const token={},a=await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token}),b=await two.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});
       assert.notEqual(a.processIncarnation,b.processIncarnation);assert.equal(a.placement.assignmentIncarnation,I);assert.equal(b.placement.assignmentIncarnation,I);assert.equal(a.ownerAvailable,true);
       const selected=await one.internal['realtime-inspection'].create(token).inspectRealtimeTenants({transport:token},{tenants:[A,B]});assert.equal(selected.tenants[0].startupComplete,true);assert.equal(selected.tenants[0].modelAvailable,true);assert.equal(selected.tenants[0].ready,true);assert.equal(selected.tenants[1].ready,false);
+      const inspection = require('../lib/server/internal-api/contracts').realtimeInspection.operations;
+      const validate = require('../lib/server/internal-api/schema').validate;
+      validate(inspection.inspectRealtime.response, a);
+      validate(inspection.inspectRealtimeTenants.response, selected);
+      const verifyReconciliationPages = view => assert.equal(view.stats.delivery.reconciliationPages, 5, 'REALTIME_RECONCILIATION_PAGES_MISSING');
+      verifyReconciliationPages(a);
+      verifyReconciliationPages(selected);
+      const counterPort = 'reconciliationPages:outputDrain.stats().reconciliationPages';
+      assert(source.includes(counterPort));
+      const missingCounter = await boot(s => s.replace(', ' + counterPort, ''));
+      try {
+        const view = await missingCounter.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});
+        assert.throws(() => verifyReconciliationPages(view), /REALTIME_RECONCILIATION_PAGES_MISSING/);
+        verifyReconciliationPages(b);
+      } finally { await missingCounter.close(); }
       const version2=await boot(undefined,2);try{const observed=await version2.internal['realtime-inspection'].create(token).inspectRealtime({transport:token});assert.equal(observed.placement.ownershipVersion,2);assert.equal(keys.at(-1),require('../lib/realtime-placement/owner').key({worker:'a',consumer:'realtime-stable',ownershipVersion:2,assignmentIncarnation:I}));}finally{await version2.close();}
       await one.quiesce();assert.equal((await one.internal['realtime-inspection'].create(token).inspectRealtime({transport:token})).ownerAvailable,false);
       const needle="'realtime-inspection': Object.freeze({create: require('./realtime-inspection')";assert(source.includes(needle));
