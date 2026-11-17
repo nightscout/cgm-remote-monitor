@@ -377,6 +377,8 @@
     "Values loaded.": "Значення завантажено.",
     "Default values used.": "Використовуються стандартні значення.",
     "Error. Default values used.": "Помилка. Використовуються стандартні значення.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Діапазони нижніх та верхніх цільових значень не збігаються. Відновлено значення за промовчанням.",
     "Valid from:": "Дійсний з:",
     "Save current record before switching to new?": "Зберегти поточний запис перед переходом до нових?",

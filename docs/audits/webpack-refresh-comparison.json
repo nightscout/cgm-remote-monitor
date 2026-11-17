@@ -1,0 +1,107 @@
+{
+  "scope": "Matched Node 22 production builds and installed file sizes. Excludes cache, tarballs, disk allocation, runtime heap/RSS and build-time claims. Candidate worktree has uncommitted changes identified by lock SHA256.",
+  "before": {
+    "commit": "96d462382af08dbe4d45d486b3ecb70948c60f89",
+    "lockSha256": "0580ddadf916e7a77f86cea8bd3df03fdab0554cd296f32e43773deec6881d1a",
+    "declarations": 62,
+    "packagePaths": 905,
+    "productionPaths": 294,
+    "installedFiles": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 24667,
+      "bytes": 203902127
+    },
+    "bundles": {
+      "runtime": {
+        "node": "22.23.2",
+        "zlib": "1.3.1-e00f703"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1029121,
+          "gzipBytes": 298667
+        },
+        "reports": {
+          "bytes": 170351,
+          "gzipBytes": 50579
+        },
+        "admin": {
+          "bytes": 32069,
+          "gzipBytes": 7933
+        },
+        "profile": {
+          "bytes": 18498,
+          "gzipBytes": 6665
+        },
+        "food": {
+          "bytes": 15868,
+          "gzipBytes": 5319
+        },
+        "clock": {
+          "bytes": 150640,
+          "gzipBytes": 61427
+        }
+      },
+      "allApplicationGzipBytes": 369163
+    },
+    "webpackConfigSha256": "8a4e37edc76777b6bf706bdc05c85896da5fb2a7bb444d72263901a09700a2be"
+  },
+  "after": {
+    "commit": "96d462382af08dbe4d45d486b3ecb70948c60f89",
+    "lockSha256": "84afe99b3acc1356e1aa5aea9e1c5b1acf817de3d7b16eca1a779f4b37f8a681",
+    "declarations": 61,
+    "packagePaths": 900,
+    "productionPaths": 294,
+    "installedFiles": {
+      "node": "v22.23.2",
+      "platform": "darwin",
+      "arch": "arm64",
+      "files": 24799,
+      "bytes": 208333694
+    },
+    "bundles": {
+      "runtime": {
+        "node": "22.23.2",
+        "zlib": "1.3.1-e00f703"
+      },
+      "bundles": {
+        "app": {
+          "bytes": 1041919,
+          "gzipBytes": 303753
+        },
+        "reports": {
+          "bytes": 170347,
+          "gzipBytes": 50577
+        },
+        "admin": {
+          "bytes": 32065,
+          "gzipBytes": 7930
+        },
+        "profile": {
+          "bytes": 18472,
+          "gzipBytes": 6660
+        },
+        "food": {
+          "bytes": 15864,
+          "gzipBytes": 5316
+        },
+        "clock": {
+          "bytes": 150606,
+          "gzipBytes": 61422
+        }
+      },
+      "allApplicationGzipBytes": 374236
+    },
+    "webpackConfigSha256": "0023a2484a120adb79f3e94bb54f24b062c58deeeca85340bd6f22c20d5f91a4"
+  },
+  "delta": {
+    "declarations": -1,
+    "packagePaths": -5,
+    "productionPaths": 0,
+    "installedBytes": 4431567,
+    "appGzipBytes": 5086,
+    "allApplicationGzipBytes": 5073
+  }
+}

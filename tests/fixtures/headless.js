@@ -35,6 +35,14 @@ function headless (benv, binding) {
       self.$.fn.tooltip = function mockTooltip ( ) { };
 
       var indexHtml = read(htmlFile, 'utf8');
+      if (!opts.htmlFile) {
+        // The dashboard is composed of EJS partials. Exercise the same rendered
+        // DOM as the server, rather than inserting unexpanded include tags.
+        indexHtml = require('ejs').render(indexHtml, {
+          settings: serverSettings.settings || {}, type: 'index', title: '',
+          locals: { bundle: '/bundle', cachebuster: 'test' }
+        }, { filename: htmlFile });
+      }
       self.$('body').html(indexHtml);
 
       console.log('HTML set', Date.now() - t);

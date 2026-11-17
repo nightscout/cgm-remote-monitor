@@ -137,6 +137,11 @@
       "value": "off",
       "required": false 
     },
+    "SHOW_SECONDS": {
+      "description": "Default setting for new browser views, for showing seconds on the dashboard clock. ('on' or 'off')",
+      "value": "off",
+      "required": false
+    },
     "SHOW_PLUGINS": {
       "description": "Default setting for whether or not these plugins are checked (active) by default, not merely enabled. Include plugins here as in the ENABLE line; space-separated and lower-case.",
       "value": "careportal dbsize",
@@ -148,8 +153,8 @@
       "required": false 
     },
     "THEME": {
-      "description": "Default setting for new browser views, for the color theme of the CGM graph. ('default', 'colors', or 'colorblindfriendly')",
-      "value": "colors",
+      "description": "Default theme for new browser views. Defaults to 'modern', the responsive dark dashboard; 'default', 'colors', and 'colorblindfriendly' use the classic layout. Saved browser preferences take precedence.",
+      "value": "modern",
       "required": false 
     },
     "TIME_FORMAT": {

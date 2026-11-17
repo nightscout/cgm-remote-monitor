@@ -2,20 +2,28 @@ import '../static/css/drawer.css';
 import '../static/css/dropdown.css';
 import '../static/css/sgv.css';
 
-$ = require("jquery");
+// Keep the existing light/dark palettes while matching maintained widget markup.
+import 'jquery-ui/themes/base/core.css';
+import 'jquery-ui/themes/base/button.css';
+import 'jquery-ui/themes/base/dialog.css';
+import 'jquery-ui/themes/base/draggable.css';
+import 'jquery-ui/themes/base/resizable.css';
+import 'jquery-ui/themes/base/sortable.css';
 
-require('jquery-ui-bundle');
+// Initialize the shared browser global before widgets and page scripts.
+require('../lib/client/jquery-global');
 
-window.d3 = require('d3');
+// Dialog includes its draggable/resizable dependencies. Food editing also
+// needs droppable and sortable; unused UI widgets are not bundled.
+require('jquery-ui/ui/widgets/dialog');
+require('jquery-ui/ui/widgets/droppable');
+require('jquery-ui/ui/widgets/sortable');
 
-require('jquery.tooltips');
+window.d3 = require('../lib/d3.mjs');
 
-window.Storage = require('js-storage');
 
-require('flot');
-require('../node_modules/flot/jquery.flot.time');
-require('../node_modules/flot/jquery.flot.pie');
-require('../node_modules/flot/jquery.flot.fillbetween');
+window.Storage = require('../lib/client/storage');
+
 
 const moment = require('moment-timezone');
 
@@ -23,21 +31,12 @@ window.moment = moment;
 
 window.Nightscout = window.Nightscout || {};
 
-var ctx = {
-    moment: moment
-};
-
-window.Nightscout = {
+// Shared hot updates must retain the exports installed by page entries.
+Object.assign(window.Nightscout, {
     client: require('../lib/client'),
-    units: require('../lib/units')(),
-    admin_plugins: require('../lib/admin_plugins/')(ctx)
-};
+    units: require('../lib/units')()
+});
 
-window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
-window.Nightscout.predictions = require('../lib/report/predictions');
-window.Nightscout.reportclient = require('../lib/report/reportclient');
-window.Nightscout.profileclient = require('../lib/profile/profileeditor');
-window.Nightscout.foodclient = require('../lib/food/food');
 
 console.info('Nightscout bundle ready');
 

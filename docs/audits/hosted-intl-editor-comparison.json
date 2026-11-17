@@ -1,0 +1,287 @@
+{
+  "run": "34049568233",
+  "pr": "8690",
+  "head": "adb348f6fa446dda2524c8fe2e92261a41ac4af4",
+  "artifacts": [
+    {
+      "artifact": "editor-time-24-firefox",
+      "id": 9994231156,
+      "testedTree": "d843304e6018bd277816d0b37ea4fc99f2ac147e",
+      "result": {
+        "engine": "firefox",
+        "browserVersion": "155.0",
+        "node": "v24.20.0",
+        "baseline": "be2dc3a8eff7ae9db246ea67b6e2bd7f2ad7d29f",
+        "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+        "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+        "bundledLocales": [
+          "en"
+        ],
+        "requestedLocalesNotBundled": [
+          "de",
+          "fr",
+          "ar",
+          "fa"
+        ],
+        "moment": "2.30.1",
+        "momentTimezone": "0.5.48",
+        "momentTzData": "2025b",
+        "cases": 65,
+        "mismatches": [
+          {
+            "zone": "Australia/Lord_Howe",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "11:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "10:00"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Kathmandu",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "05:45"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "05:41"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Gaza",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "02:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "02:17"
+            },
+            "equal": false
+          }
+        ]
+      }
+    },
+    {
+      "artifact": "editor-time-24-webkit",
+      "id": 9994189891,
+      "testedTree": "d843304e6018bd277816d0b37ea4fc99f2ac147e",
+      "result": {
+        "engine": "webkit",
+        "browserVersion": "26.6",
+        "node": "v24.20.0",
+        "baseline": "be2dc3a8eff7ae9db246ea67b6e2bd7f2ad7d29f",
+        "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+        "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+        "bundledLocales": [
+          "en"
+        ],
+        "requestedLocalesNotBundled": [
+          "de",
+          "fr",
+          "ar",
+          "fa"
+        ],
+        "moment": "2.30.1",
+        "momentTimezone": "0.5.48",
+        "momentTzData": "2025b",
+        "cases": 65,
+        "mismatches": [
+          {
+            "zone": "Australia/Lord_Howe",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "11:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "10:00"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Kathmandu",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "05:45"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "05:41"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Gaza",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "02:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "02:17"
+            },
+            "equal": false
+          }
+        ]
+      }
+    },
+    {
+      "artifact": "editor-time-24-chromium",
+      "id": 9994179746,
+      "testedTree": "d843304e6018bd277816d0b37ea4fc99f2ac147e",
+      "result": {
+        "engine": "chromium",
+        "browserVersion": "153.0.8010.12",
+        "node": "v24.20.0",
+        "baseline": "be2dc3a8eff7ae9db246ea67b6e2bd7f2ad7d29f",
+        "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+        "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+        "bundledLocales": [
+          "en"
+        ],
+        "requestedLocalesNotBundled": [
+          "de",
+          "fr",
+          "ar",
+          "fa"
+        ],
+        "moment": "2.30.1",
+        "momentTimezone": "0.5.48",
+        "momentTzData": "2025b",
+        "cases": 65,
+        "mismatches": [
+          {
+            "zone": "Australia/Lord_Howe",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "11:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "10:00"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Kathmandu",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "05:45"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "05:41"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Gaza",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "02:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "02:17"
+            },
+            "equal": false
+          }
+        ]
+      }
+    },
+    {
+      "artifact": "editor-time-22-chromium",
+      "id": 9994177816,
+      "testedTree": "d843304e6018bd277816d0b37ea4fc99f2ac147e",
+      "result": {
+        "engine": "chromium",
+        "browserVersion": "153.0.8010.12",
+        "node": "v22.23.2",
+        "baseline": "be2dc3a8eff7ae9db246ea67b6e2bd7f2ad7d29f",
+        "appBundleSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+        "scope": "Actual production app bundle and its clipped timezone data; editor formatting shapes only, not editor interaction or therapy calculations.",
+        "bundledLocales": [
+          "en"
+        ],
+        "requestedLocalesNotBundled": [
+          "de",
+          "fr",
+          "ar",
+          "fa"
+        ],
+        "moment": "2.30.1",
+        "momentTimezone": "0.5.48",
+        "momentTzData": "2025b",
+        "cases": 65,
+        "mismatches": [
+          {
+            "zone": "Australia/Lord_Howe",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "11:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "10:00"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Kathmandu",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "05:45"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "05:41"
+            },
+            "equal": false
+          },
+          {
+            "zone": "Asia/Gaza",
+            "locale": "en",
+            "instant": "1900-01-01T00:00:00.000Z",
+            "previous": {
+              "date": "1900-01-01",
+              "time": "02:00"
+            },
+            "candidate": {
+              "date": "1900-01-01",
+              "time": "02:17"
+            },
+            "equal": false
+          }
+        ]
+      }
+    }
+  ]
+}

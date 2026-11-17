@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2022",
+    "checkJs": false
+  },
+  "exclude": ["node_modules", "coverage", ".nyc_output", "tmp"]
+}

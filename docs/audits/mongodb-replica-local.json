@@ -1,0 +1,78 @@
+{
+  "validatorSHA256": "4c21c9c464bf4e883ec71ece0e86e43edded5fbc62aaf723f52564799e8ada44",
+  "results": [
+    {
+      "driver": "5.9.2",
+      "node": "v22.23.2",
+      "server": "8.0.29",
+      "transitions": [
+        {
+          "from": "127.0.0.1:27174",
+          "to": "127.0.0.1:27173"
+        },
+        {
+          "from": "127.0.0.1:27173",
+          "to": "127.0.0.1:27172"
+        }
+      ],
+      "records": 3,
+      "updates": 5,
+      "statsObjects": 3
+    },
+    {
+      "driver": "5.9.2",
+      "node": "v24.20.0",
+      "server": "8.0.29",
+      "transitions": [
+        {
+          "from": "127.0.0.1:27172",
+          "to": "127.0.0.1:27174"
+        },
+        {
+          "from": "127.0.0.1:27174",
+          "to": "127.0.0.1:27173"
+        }
+      ],
+      "records": 3,
+      "updates": 5,
+      "statsObjects": 3
+    },
+    {
+      "driver": "7.6.0",
+      "node": "v22.23.2",
+      "server": "8.0.29",
+      "transitions": [
+        {
+          "from": "127.0.0.1:27173",
+          "to": "127.0.0.1:27172"
+        },
+        {
+          "from": "127.0.0.1:27172",
+          "to": "127.0.0.1:27174"
+        }
+      ],
+      "records": 3,
+      "updates": 5,
+      "statsObjects": 3
+    },
+    {
+      "driver": "7.6.0",
+      "node": "v24.20.0",
+      "server": "8.0.29",
+      "transitions": [
+        {
+          "from": "127.0.0.1:27174",
+          "to": "127.0.0.1:27173"
+        },
+        {
+          "from": "127.0.0.1:27173",
+          "to": "127.0.0.1:27172"
+        }
+      ],
+      "records": 3,
+      "updates": 5,
+      "statsObjects": 3
+    }
+  ],
+  "scope": "Local MongoDB 8.0.29, two commanded primary stepdowns per case; not injected write failures or live deployment validation."
+}

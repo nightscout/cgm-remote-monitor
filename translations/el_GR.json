@@ -377,6 +377,8 @@
     "Values loaded.": "Φόρτωση δεδομένων.",
     "Default values used.": "Χρήση προκαθορισμένων τιμών.",
     "Error. Default values used.": "Σφάλμα: Χρήση προκαθορισμένων τιμών.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Το χρονικό διάστημα του χαμηλού_στόχου και του υψηλού_στόχου, δεν συμβαδίζουν. Γίνεται επαναφορά στις προκαθορισμένες τιμές.",
     "Valid from:": "Ισχύει από:",
     "Save current record before switching to new?": "Αποθήκευση αλλαγών στην εγγραφή πριν γίνει εναλλαγή σε νέα;",

@@ -228,6 +228,7 @@
         "mgdl": 156,
         "color": "#1e88e5",
         "mills": 1778284801472,
+        "forecastMills": 1778284798139,
         "noFade": true,
         "forecastType": "IOB"
       },
@@ -235,6 +236,7 @@
         "mgdl": 39,
         "color": "#c9bd60",
         "mills": 1778293208138,
+        "forecastMills": 1778293198139,
         "noFade": true,
         "forecastType": "UAM"
       }

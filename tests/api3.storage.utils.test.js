@@ -35,7 +35,11 @@ describe('API3 mongoCollection selector helpers', function () {
     const filter = utils.identifyingFilter(identifier);
 
     filter.$or[0].should.eql({ identifier: { $eq: identifier } });
-    filter.$or[1].identifier.should.eql({ $exists: false });
+    // the records a read shows with this identifier: none of their own
+    filter.$or[1].identifier.should.eql({
+      $in: [null, '', 0, false, NaN],
+      $not: { $type: ['array', 'decimal'] }
+    });
     filter.$or[1]._id.should.have.property('$eq');
     filter.$or[1]._id.$eq.should.be.instanceof(ObjectId);
     filter.$or[1]._id.$eq.toString().should.equal(identifier);

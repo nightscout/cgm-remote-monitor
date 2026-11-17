@@ -5,6 +5,7 @@ const path = require('path');
 const { fork } = require('child_process');
 const { MongoClient } = require('mongodb');
 const request = require('supertest');
+const { onlyIn } = require('./fixtures/api3/role');
 
 // Uses separate Node processes and isolated collection names in the test DB.
 // The first process writes an import through HTTP; the second must continue
@@ -74,7 +75,9 @@ describe('API3 history after a server restart', function () {
     }
   });
 
-  it('keeps imported history and subsequent v1/v3 writes visible across restart', async function () {
+  const v1InProcess = onlyIn('single', 'needs API v1 in the process: subject is v1 and v3 writes sharing one history clock');
+
+  v1InProcess.it('keeps imported history and subsequent v1/v3 writes visible across restart', async function () {
     await start();
     const now = Number(childEnv.HISTORY_TEST_NOW);
     const batch = Array.from({ length: 1501 }, (_, i) => ({

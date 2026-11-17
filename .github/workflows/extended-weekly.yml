@@ -1,0 +1,27 @@
+name: Weekly extended tests
+
+# Runs the main workflow's extended matrix (every patched Node floor and
+# latest line, every MongoDB edge pair, every browser on every Node) on dev
+# once a week, so new Node and MongoDB patch releases are tested without
+# someone starting the run by hand. Scheduled workflows run from the default
+# branch, so this starts once it is on master; it dispatches against dev,
+# whose main workflow has the extended input.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    name: Start the extended run on dev
+    if: github.repository_owner == 'nightscout'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch main.yml on dev with extended=true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref dev -f extended=true

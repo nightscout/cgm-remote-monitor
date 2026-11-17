@@ -1,0 +1,33 @@
+{
+  "addedPackagePaths": [
+    "node_modules/@aws-sdk/core",
+    "node_modules/@aws-sdk/credential-provider-cognito-identity",
+    "node_modules/@aws-sdk/credential-provider-env",
+    "node_modules/@aws-sdk/credential-provider-http",
+    "node_modules/@aws-sdk/credential-provider-ini",
+    "node_modules/@aws-sdk/credential-provider-login",
+    "node_modules/@aws-sdk/credential-provider-node",
+    "node_modules/@aws-sdk/credential-provider-process",
+    "node_modules/@aws-sdk/credential-provider-sso",
+    "node_modules/@aws-sdk/credential-provider-web-identity",
+    "node_modules/@aws-sdk/credential-providers",
+    "node_modules/@aws-sdk/nested-clients",
+    "node_modules/@aws-sdk/signature-v4-multi-region",
+    "node_modules/@aws-sdk/token-providers",
+    "node_modules/@aws-sdk/types",
+    "node_modules/@aws-sdk/xml-builder",
+    "node_modules/@aws/lambda-invoke-store",
+    "node_modules/@smithy/core",
+    "node_modules/@smithy/credential-provider-imds",
+    "node_modules/@smithy/fetch-http-handler",
+    "node_modules/@smithy/node-http-handler",
+    "node_modules/@smithy/signature-v4",
+    "node_modules/@smithy/types",
+    "node_modules/bowser"
+  ],
+  "changedRetainedVersions": [],
+  "removedPackagePaths": [],
+  "installedRegularFiles": 2706,
+  "installedRegularFileBytes": 4753775,
+  "scope": "AWS credential-provider addition relative to driver migration before AWS compatibility; excludes nested node_modules and symlinks; not compressed size or RAM"
+}

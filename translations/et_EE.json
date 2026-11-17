@@ -377,6 +377,8 @@
     "Values loaded.": "Values loaded.",
     "Default values used.": "Default values used.",
     "Error. Default values used.": "Error. Default values used.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Time ranges of target_low and target_high don't  match. Values are restored to defaults.",
     "Valid from:": "Kehtiv alates:",
     "Save current record before switching to new?": "Save current record before switching to new?",

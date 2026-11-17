@@ -172,7 +172,7 @@ describe('final error handler (BF-73)', function () {
       res.text.should.containEql('&lt;script&gt;');
     });
 
-    it('logs the full error server-side', async function () {
+    it('preserves the custom logger callback contract', async function () {
       const logged = [];
       const err = new Error('logged detail');
       await request(appWith(finalErrorHandler.productionErrorHandler({
@@ -181,12 +181,16 @@ describe('final error handler (BF-73)', function () {
       logged.should.eql([err]);
     });
 
-    it('hands off to express when the response has already started', function () {
-      const err = new Error('late');
+    it('hands off a redacted error to express when the response has already started', function () {
+      const err = new Error('late /api/v1/status?token=late-fixture-token');
       let passed;
       const res = { headersSent: true };
       finalErrorHandler.productionErrorHandler({ log: false })(err, {}, res, function (e) { passed = e; });
-      passed.should.equal(err);
+      passed.should.not.equal(err);
+      passed.should.be.instanceOf(Error);
+      passed.message.should.equal('late /api/v1/status');
+      passed.stack.should.not.containEql('late-fixture-token');
+      err.message.should.containEql('late-fixture-token');
     });
 
     it('keeps express errorhandler, with the stack, when NODE_ENV=development', async function () {

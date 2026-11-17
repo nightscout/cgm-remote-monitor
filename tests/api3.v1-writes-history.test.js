@@ -10,9 +10,10 @@
 // Synthetic values only.
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 const ObjectId = require('mongodb').ObjectId;
 
-describe('BF-122: API v1 and websocket writes appear in API v3 history', function () {
+onlyIn('single', 'needs API v1 and the websocket in the process: subject is their writes in API v3 history').describe('BF-122: API v1 and websocket writes appear in API v3 history', function () {
   const self = this
     , instance = require('./fixtures/api3/instance')
     , authSubject = require('./fixtures/api3/authSubject')

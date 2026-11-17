@@ -1,0 +1,296 @@
+[
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11473920,
+    "rssDelta": 42860544,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 0
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 4521984,
+    "retainedBrowserBundles": [],
+    "cycle": 0
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11472800,
+    "rssDelta": 44122112,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 1
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1541520,
+    "rssDelta": 4472832,
+    "retainedBrowserBundles": [],
+    "cycle": 1
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11472056,
+    "rssDelta": 42795008,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 2
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 4931584,
+    "retainedBrowserBundles": [],
+    "cycle": 2
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11472632,
+    "rssDelta": 43433984,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 3
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 5029888,
+    "retainedBrowserBundles": [],
+    "cycle": 3
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11472728,
+    "rssDelta": 44122112,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 4
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 5259264,
+    "retainedBrowserBundles": [],
+    "cycle": 4
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11472728,
+    "rssDelta": 43188224,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 5
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 4816896,
+    "retainedBrowserBundles": [],
+    "cycle": 5
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11470752,
+    "rssDelta": 43909120,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 6
+  },
+  {
+    "node": "v22.23.2",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1543632,
+    "rssDelta": 5128192,
+    "retainedBrowserBundles": [],
+    "cycle": 6
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11764008,
+    "rssDelta": 34045952,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 0
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1555008,
+    "rssDelta": 5193728,
+    "retainedBrowserBundles": [],
+    "cycle": 0
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11770424,
+    "rssDelta": 33406976,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 1
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1556272,
+    "rssDelta": 5046272,
+    "retainedBrowserBundles": [],
+    "cycle": 1
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11770424,
+    "rssDelta": 33456128,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 2
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1554976,
+    "rssDelta": 5046272,
+    "retainedBrowserBundles": [],
+    "cycle": 2
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11770392,
+    "rssDelta": 33751040,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 3
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1555064,
+    "rssDelta": 4751360,
+    "retainedBrowserBundles": [],
+    "cycle": 3
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11771112,
+    "rssDelta": 33390592,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 4
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1555008,
+    "rssDelta": 5079040,
+    "retainedBrowserBundles": [],
+    "cycle": 4
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11770496,
+    "rssDelta": 34078720,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 5
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1556240,
+    "rssDelta": 4767744,
+    "retainedBrowserBundles": [],
+    "cycle": 5
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "4.6.3",
+    "ui": "4.19.1",
+    "heapDelta": 11770464,
+    "rssDelta": 34340864,
+    "retainedBrowserBundles": [
+      "swagger-ui-bundle.js",
+      "swagger-ui-standalone-preset.js"
+    ],
+    "cycle": 6
+  },
+  {
+    "node": "v24.20.0",
+    "wrapper": "5.0.1",
+    "ui": "5.32.15",
+    "heapDelta": 1554976,
+    "rssDelta": 4997120,
+    "retainedBrowserBundles": [],
+    "cycle": 6
+  }
+]

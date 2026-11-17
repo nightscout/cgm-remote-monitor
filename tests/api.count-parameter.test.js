@@ -28,6 +28,7 @@ describe('API v1 ?count= parameter', function () {
     self.env.settings.authDefaultRoles = 'readable';
     self.env.settings.enable = ['careportal', 'api'];
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     require('../lib/server/bootevent')(self.env, language).boot(function booted (ctx) {
       self.ctx = ctx;
@@ -171,7 +172,21 @@ describe('API v1 ?count= parameter', function () {
     };
     let from, to;
 
+    // Seed and clear this block's own window: documents another file left in
+    // these collections would otherwise be counted (BF-158).
+    async function clearSeeded () {
+      await self.ctx.treatments().deleteMany({ });
+      await self.ctx.devicestatus().deleteMany({ });
+      await self.ctx.profile().deleteMany({ });
+      await self.ctx.activity().deleteMany({ });
+      // deleteMany does not tell the runtime cache, which boot filled from
+      // whatever devicestatus held; a remove without changes flushes it
+      // (lib/server/cache.js dataChanged), as on an empty database.
+      self.ctx.bus.emit('data-update', { type: 'devicestatus', op: 'remove' });
+    }
+
     before(async function () {
+      await clearSeeded();
       const now = Date.now();
       from = new Date(now - FIVE_MINUTES * 200).toISOString();
       to = new Date(now + FIVE_MINUTES).toISOString();
@@ -186,12 +201,7 @@ describe('API v1 ?count= parameter', function () {
       await self.ctx.activity().insertMany(docs(function (at, i) { return { created_at: at, steps: i }; }));
     });
 
-    after(async function () {
-      await self.ctx.treatments().deleteMany({ });
-      await self.ctx.devicestatus().deleteMany({ });
-      await self.ctx.profile().deleteMany({ });
-      await self.ctx.activity().deleteMany({ });
-    });
+    after(clearSeeded);
 
     function expectDeprecated (res) {
       res.headers.should.have.property('deprecation', 'true');

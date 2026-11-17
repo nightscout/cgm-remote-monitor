@@ -19,14 +19,14 @@ describe('reportstorage unit tests', () => {
 
     beforeEach(() => {
         reportstorage = require('../lib/report/reportstorage');
-        storage = require('js-storage').localStorage;
+        storage = require('../lib/client/storage').localStorage;
         mockStorage = require('./fixtures/localstorage');
         storage.get = mockStorage.get;
         storage.set = mockStorage.set;
     });
 
     afterEach(() => {
-        delete require.cache[require.resolve('js-storage')];
+        delete require.cache[require.resolve('../lib/client/storage')];
         delete require.cache[require.resolve('./fixtures/localstorage')];
         delete require.cache[require.resolve('../lib/report/reportstorage')];
     });

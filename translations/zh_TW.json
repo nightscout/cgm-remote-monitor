@@ -377,6 +377,8 @@
     "Values loaded.": "數值已載入。",
     "Default values used.": "使用預設數值。",
     "Error. Default values used.": "發生錯誤，使用預設數值。",
+    "Enter every profile value before saving.": "儲存前，請先輸入所有設定檔數值。",
+    "Your profile could not be loaded. Reload before editing.": "無法載入你的設定檔。請重新載入後再進行編輯。",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "目標低值與目標高值的時間範圍不匹配，數值已恢復為預設值。",
     "Valid from:": "生效時間：",
     "Save current record before switching to new?": "要先儲存當前記錄後再切換嗎？",
@@ -709,8 +711,8 @@
     "Security issue": "安全問題",
     "Weak API_SECRET detected. Please use a mix of small and CAPITAL letters, numbers and non-alphanumeric characters such as !#%&/ to reduce the risk of unauthorized access. The minimum length of the API_SECRET is 12 characters.": "偵測到弱 API_SECRET。請使用大小寫字母、數字及非字母數字字符（如 !#%&/）的組合，以降低未經授權存取的風險。API_SECRET 最小長度應為 12 個字元。",
     "less than 1": "小於 1",
-    "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.": "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.",
-    "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.": "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.",
-    "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.": "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.",
+    "Authorization failed. Reauthorize Nightscout access or ask the administrator to check your Loop command permissions.": "授權失敗。請重新授權 Nightscout 存取權限，或請管理員檢查你的 Loop 指令權限。",
+    "Could not confirm whether Loop received this command. Check your connection and Loop before submitting it again.": "無法確認 Loop 是否已收到此指令。再次送出前，請先檢查網路連線與 Loop 狀態。",
+    "Nightscout returned an error without details. Check Loop before submitting again, and ask the Nightscout administrator to check the server logs.": "Nightscout 回傳錯誤，但未提供詳細資訊。再次送出前，請先檢查 Loop 狀態，並請 Nightscout 管理員查看伺服器記錄。",
     "MongoDB password and API_SECRET match. This is a really bad idea. Please change both and do not reuse passwords across the system.": "MongoDB 密碼與 API_SECRET 相同，這是極度不安全的做法。請立即更改兩者，並避免在系統內重複使用密碼。"
 }

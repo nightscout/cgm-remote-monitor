@@ -377,6 +377,8 @@
     "Values loaded.": "Стойностите за заредени.",
     "Default values used.": "Стойностите по подразбиране са използвани.",
     "Error. Default values used.": "Грешка. Стойностите по подразбиране са използвани.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Времевите интервали за долна граница на кз и горна граница на кз не съвпадат. Стойностите са възстановени по подразбиране.",
     "Valid from:": "Валиден от",
     "Save current record before switching to new?": "Запазване текущият запис преди превключване на нов?",

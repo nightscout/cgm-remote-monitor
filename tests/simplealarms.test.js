@@ -85,20 +85,31 @@ describe('simplealarms on an mmol site with only the targets set in mmol/L', fun
   var vars = { DISPLAY_UNITS: 'mmol', BG_TARGET_TOP: '8.5', BG_TARGET_BOTTOM: '3.9' };
   var saved = {};
   var env, ctx, simplealarms;
+  // env.settings is one object shared by every require('../lib/server/env')()
+  // call, and this suite's env() writes mmol units, targets and alarm types
+  // onto it that a later read of the restored environment does not undo.
+  // Keep a copy and put it back, or later files (ar2) inherit them.
+  var shared, savedSettings;
+
+  function quietEnv () {
+    var realInfo = console.info;
+    console.info = function () {};
+    try {
+      return require('../lib/server/env')();
+    } finally {
+      console.info = realInfo;
+    }
+  }
 
   before(function () {
+    shared = quietEnv().settings;
+    savedSettings = JSON.parse(JSON.stringify(shared));
     ['DISPLAY_UNITS', 'BG_HIGH', 'BG_TARGET_TOP', 'BG_TARGET_BOTTOM', 'BG_LOW'].forEach(function (name) {
       saved[name] = process.env[name];
       delete process.env[name];
     });
     Object.assign(process.env, vars);
-    var realInfo = console.info;
-    console.info = function () {};
-    try {
-      env = require('../lib/server/env')();
-    } finally {
-      console.info = realInfo;
-    }
+    env = quietEnv();
     ctx = {
       language: require('../lib/language')(require('fs'))
       , settings: env.settings
@@ -115,6 +126,10 @@ describe('simplealarms on an mmol site with only the targets set in mmol/L', fun
       if (saved[name] === undefined) delete process.env[name];
       else process.env[name] = saved[name];
     });
+    Object.keys(shared).forEach(function (key) {
+      if (typeof shared[key] !== 'function' && !(key in savedSettings)) delete shared[key];
+    });
+    Object.assign(shared, savedSettings);
   });
 
   function highestAlarmAt (mgdl) {

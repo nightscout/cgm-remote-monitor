@@ -1,0 +1,13 @@
+{
+  "scenario": "One matched populated report-page probe after explicit V8 collection",
+  "browser": "Chromium 153.0.8010.12",
+  "retainer": "(Strong root list) -> smi_string_cache",
+  "parentBytes": 1032,
+  "candidateBytes": 65544,
+  "additionalBytes": 64512,
+  "snapshots": {
+    "parent": "04c387d3f22e45f7d1e28a27d4cc2b63713ecceb2dd3cb84d42e840d55689938",
+    "candidate": "c063d3ee5415aa532150d89229c3579f45398e361aa7c2d46eee78494b1671b8"
+  },
+  "interpretation": "This identifies the largest additional retained array in the probe. It does not prove a leak, total browser RSS, or a server-memory change."
+}

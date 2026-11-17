@@ -1,5 +1,4 @@
-
-@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');
+@import url("/css/ubuntu-font.css");
 
 @font-face {
   font-family: 'nsicons';
@@ -93,7 +92,7 @@ html, body {
 }
 
 body {
-  font-family: 'Ubuntu', sans-serif;
+  font-family: 'Ubuntu derivative Nightscout', sans-serif;
   background: #000;
   color: #bdbdbd;
 }
@@ -138,7 +137,7 @@ a, a:visited, a:link {
 }
 
 .primary {
-  font-family: 'Ubuntu', Verdana, Helvetica, Arial, sans-serif;
+  font-family: 'Ubuntu derivative Nightscout', Verdana, Helvetica, Arial, sans-serif;
   vertical-align: middle;
   clear: both;
   white-space: nowrap;

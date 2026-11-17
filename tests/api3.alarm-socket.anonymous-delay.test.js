@@ -2,6 +2,7 @@
 'use strict';
 
 require('should');
+const { onlyIn } = require('./fixtures/api3/role');
 
 /*
  * BF-80: the failed-login delay must not hold back alarms from a viewer that
@@ -37,7 +38,7 @@ require('should');
  * resolves the client address from (TRUST_PROXY unset), so each case starts
  * from its own delay state.
  */
-describe('Alarm socket and the failed-login delay (BF-80)', function () {
+onlyIn('single', 'subject is the alarm socket (websocket)').describe('Alarm socket and the failed-login delay (BF-80)', function () {
   const self = this
     , crypto = require('crypto')
     , request = require('supertest')

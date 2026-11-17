@@ -377,6 +377,8 @@
     "Values loaded.": "Valorile au fost încărcate.",
     "Default values used.": "Se folosesc valorile implicite.",
     "Error. Default values used.": "Eroare. Se folosesc valorile implicite.",
+    "Enter every profile value before saving.": "Enter every profile value before saving.",
+    "Your profile could not be loaded. Reload before editing.": "Your profile could not be loaded. Reload before editing.",
     "Time ranges of target_low and target_high don't  match. Values are restored to defaults.": "Intervalele temporale pentru țintă_inferioară și țintă_superioară nu se potrivesc. Se folosesc valorile implicite.",
     "Valid from:": "Valid de la:",
     "Save current record before switching to new?": "Salvez valoarea curentă înainte de a trece la una nouă?",

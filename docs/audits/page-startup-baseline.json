@@ -1,0 +1,2634 @@
+{
+  "complete": true,
+  "node": "22.23.2",
+  "zlib": "1.3.1-e00f703",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M4 Pro"
+  },
+  "samples": 7,
+  "builds": {
+    "parent": {
+      "bundle.app.js": "4fa03371a8bbf2336b3cbb20b892126f2bf577aaa9f5dedca281eb30cab2a345",
+      "bundle.clock.js": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3"
+    },
+    "candidate": {
+      "bundle.admin.js": "b0b291da267f0e901eeb76ea97582a1c75bbfbbee59e583bf975fe2086e074e2",
+      "bundle.app.js": "3827c7943381d6b61075192e88fff7140e2691a7be817d5ace7f5fadc47b3e55",
+      "bundle.clock.js": "c37a1c7dd2460037f3175479fe31a9eb63fd08c0e11f84994168fe81836451d3",
+      "bundle.food.js": "3235915435ed50979653d4316d91e317dad2667a5387240ca66deb12feec54c7",
+      "bundle.profile.js": "fb20a691e908237df9da308668e24ca913aebe37e9d6a7cdbfcbc8ebb0a4a6dd",
+      "bundle.reports.js": "f678270b02e8b3b65496feb02ff64ce150f9823a8c82411b2ffe75715f8a1984"
+    }
+  },
+  "workload": {
+    "sgvs": 576,
+    "treatments": 48,
+    "foods": 300,
+    "profiles": 1,
+    "fixedTime": "2026-09-06T08:20:38.617Z"
+  },
+  "scenario": "cold direct pages, service workers blocked, fresh browser per sample",
+  "rows": [
+    {
+      "run": 0,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 178,
+      "heap": {
+        "usedSize": 5083624,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4644680,
+        "backingStorageSize": 1554680
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 4095,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 637049,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 163,
+      "heap": {
+        "usedSize": 5015264,
+        "totalSize": 6356992,
+        "embedderHeapUsedSize": 4937856,
+        "backingStorageSize": 1314010
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 4106,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 573660,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4378256,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2307296,
+        "backingStorageSize": 1559135
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4411952,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2317968,
+        "backingStorageSize": 1495841
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4620072,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2097856,
+        "backingStorageSize": 1555280
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4577280,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 2106600,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 4614780,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4034528,
+        "backingStorageSize": 1554472
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 4561952,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4054832,
+        "backingStorageSize": 1332106
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5854420,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8917192,
+        "backingStorageSize": 1557792
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 0,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5799460,
+        "totalSize": 6619136,
+        "embedderHeapUsedSize": 8928792,
+        "backingStorageSize": 1332787
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 178,
+      "heap": {
+        "usedSize": 5016580,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4365536,
+        "backingStorageSize": 1314007
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4097,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5085800,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4363320,
+        "backingStorageSize": 1554680
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 637241,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 113,
+      "heap": {
+        "usedSize": 4412296,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2323304,
+        "backingStorageSize": 1495841
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4378112,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2302824,
+        "backingStorageSize": 1559137
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4576432,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106776,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4619796,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2152376,
+        "backingStorageSize": 1555284
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4561636,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4045200,
+        "backingStorageSize": 1332104
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 429434,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 4614928,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4037144,
+        "backingStorageSize": 1554468
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5799436,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8927848,
+        "backingStorageSize": 1332772
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5851840,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8916640,
+        "backingStorageSize": 1557764
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5085760,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4363320,
+        "backingStorageSize": 1554683
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 637241,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5018728,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4608608,
+        "backingStorageSize": 1314007
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4097,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4378796,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2302824,
+        "backingStorageSize": 1559133
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 114,
+      "heap": {
+        "usedSize": 4415004,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2323304,
+        "backingStorageSize": 1495841
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4620072,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2097896,
+        "backingStorageSize": 1555284
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4576512,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106376,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 4614840,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4043000,
+        "backingStorageSize": 1554470
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4561400,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4046408,
+        "backingStorageSize": 1332106
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5856488,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8916848,
+        "backingStorageSize": 1557794
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5799500,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8927848,
+        "backingStorageSize": 1332774
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5018552,
+        "totalSize": 6619136,
+        "embedderHeapUsedSize": 4608648,
+        "backingStorageSize": 1314007
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4097,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5085760,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4363320,
+        "backingStorageSize": 1554677
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 637241,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 113,
+      "heap": {
+        "usedSize": 4411680,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2323304,
+        "backingStorageSize": 1495843
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4378880,
+        "totalSize": 5308416,
+        "embedderHeapUsedSize": 2307296,
+        "backingStorageSize": 1559133
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4577468,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106560,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4619208,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 2097680,
+        "backingStorageSize": 1555284
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4561636,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4046912,
+        "backingStorageSize": 1332108
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 4614388,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4038688,
+        "backingStorageSize": 1554472
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5799532,
+        "totalSize": 7143424,
+        "embedderHeapUsedSize": 8928792,
+        "backingStorageSize": 1332785
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5854516,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8916200,
+        "backingStorageSize": 1557807
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5085600,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4364352,
+        "backingStorageSize": 1554677
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 637241,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5017492,
+        "totalSize": 6619136,
+        "embedderHeapUsedSize": 4611624,
+        "backingStorageSize": 1314010
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4097,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4378688,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2306536,
+        "backingStorageSize": 1559133
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4411184,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2287432,
+        "backingStorageSize": 1495841
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4618176,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 2060480,
+        "backingStorageSize": 1555282
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 492011,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4577108,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106520,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 4614828,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4036696,
+        "backingStorageSize": 1554472
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 4561576,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4019840,
+        "backingStorageSize": 1332108
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5854480,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8917144,
+        "backingStorageSize": 1557809
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 5803024,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8928800,
+        "backingStorageSize": 1332757
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5018164,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4608608,
+        "backingStorageSize": 1314007
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4097,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 161,
+      "heap": {
+        "usedSize": 5085868,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4363320,
+        "backingStorageSize": 1554677
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 637241,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4411976,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2317968,
+        "backingStorageSize": 1495841
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4378432,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2302824,
+        "backingStorageSize": 1559133
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4577748,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106496,
+        "backingStorageSize": 1346666
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4620168,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 2097856,
+        "backingStorageSize": 1555284
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4561896,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4055824,
+        "backingStorageSize": 1332106
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 4614552,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4034528,
+        "backingStorageSize": 1554470
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 5799496,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8927896,
+        "backingStorageSize": 1332757
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 5852684,
+        "totalSize": 6881280,
+        "embedderHeapUsedSize": 8916592,
+        "backingStorageSize": 1557807
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5083624,
+        "totalSize": 6094848,
+        "embedderHeapUsedSize": 4362176,
+        "backingStorageSize": 1554677
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 4086,
+        "jsEventListeners": 1326
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 28,
+      "responseTransferBytes": 637049,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "entry": "app",
+      "browser": "153.0.8010.12",
+      "startupMs": 178,
+      "heap": {
+        "usedSize": 5017408,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 4649088,
+        "backingStorageSize": 1314010
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 4106,
+        "jsEventListeners": 1330
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 573852,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4378912,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2302824,
+        "backingStorageSize": 1559133
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3725,
+        "jsEventListeners": 58
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 490192,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "entry": "reports",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4412116,
+        "totalSize": 5046272,
+        "embedderHeapUsedSize": 2322384,
+        "backingStorageSize": 1495845
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 3742,
+        "jsEventListeners": 66
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 480058,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.reports.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 53235
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 130,
+      "heap": {
+        "usedSize": 4619768,
+        "totalSize": 5832704,
+        "embedderHeapUsedSize": 2102136,
+        "backingStorageSize": 1555282
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 998,
+        "jsEventListeners": 28
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 492203,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "entry": "admin",
+      "browser": "153.0.8010.12",
+      "startupMs": 129,
+      "heap": {
+        "usedSize": 4578112,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 2106520,
+        "backingStorageSize": 1346664
+      },
+      "dom": {
+        "documents": 2,
+        "nodes": 1017,
+        "jsEventListeners": 31
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 437565,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.admin.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 8527
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 145,
+      "heap": {
+        "usedSize": 4614100,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4040072,
+        "backingStorageSize": 1554470
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6890,
+        "jsEventListeners": 116
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 31,
+      "responseTransferBytes": 487761,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "entry": "profile",
+      "browser": "153.0.8010.12",
+      "startupMs": 146,
+      "heap": {
+        "usedSize": 4561700,
+        "totalSize": 5570560,
+        "embedderHeapUsedSize": 4054832,
+        "backingStorageSize": 1332106
+      },
+      "dom": {
+        "documents": 3,
+        "nodes": 6909,
+        "jsEventListeners": 119
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 32,
+      "responseTransferBytes": 431578,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.profile.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 7193
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "parent",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 162,
+      "heap": {
+        "usedSize": 5854944,
+        "totalSize": 7143424,
+        "embedderHeapUsedSize": 8916896,
+        "backingStorageSize": 1557792
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6491,
+        "jsEventListeners": 1538
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 29,
+      "responseTransferBytes": 486869,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 394590
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "label": "candidate",
+      "entry": "food",
+      "browser": "153.0.8010.12",
+      "startupMs": 147,
+      "heap": {
+        "usedSize": 5798608,
+        "totalSize": 6619136,
+        "embedderHeapUsedSize": 8928816,
+        "backingStorageSize": 1332757
+      },
+      "dom": {
+        "documents": 1,
+        "nodes": 6510,
+        "jsEventListeners": 1541
+      },
+      "counts": {
+        "sgvs": 576,
+        "treatments": 48,
+        "food": 300
+      },
+      "completedResponses": 30,
+      "responseTransferBytes": 429416,
+      "websocketPayloadBytes": 0,
+      "bundles": [
+        {
+          "path": "/bundle/js/bundle.food.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 5921
+        },
+        {
+          "path": "/bundle/js/bundle.app.js",
+          "status": 200,
+          "encoding": "br",
+          "responseTransferBytes": 330520
+        }
+      ]
+    }
+  ],
+  "assessment": {
+    "assessed": true,
+    "pass": true,
+    "comparisons": [
+      {
+        "entry": "app",
+        "parentIQRMs": 0,
+        "startupMedianMs": 162,
+        "startupLimitMs": 195,
+        "maxHeapBytes": 5018728,
+        "heapLimitBytes": 5500000,
+        "pass": true
+      },
+      {
+        "entry": "reports",
+        "parentIQRMs": 1,
+        "startupMedianMs": 129,
+        "startupLimitMs": 163,
+        "maxHeapBytes": 4415004,
+        "heapLimitBytes": 4850000,
+        "pass": true
+      },
+      {
+        "entry": "admin",
+        "parentIQRMs": 1,
+        "startupMedianMs": 129,
+        "startupLimitMs": 162,
+        "maxHeapBytes": 4578112,
+        "heapLimitBytes": 5050000,
+        "pass": true
+      },
+      {
+        "entry": "profile",
+        "parentIQRMs": 1,
+        "startupMedianMs": 130,
+        "startupLimitMs": 178,
+        "maxHeapBytes": 4561952,
+        "heapLimitBytes": 5050000,
+        "pass": true
+      },
+      {
+        "entry": "food",
+        "parentIQRMs": 16,
+        "startupMedianMs": 146,
+        "startupLimitMs": 194,
+        "maxHeapBytes": 5803024,
+        "heapLimitBytes": 6400000,
+        "pass": true
+      }
+    ]
+  }
+}

@@ -19,22 +19,27 @@ var stub = function (records, recent, opts) {
 };
 stub.selectOpenAPSState = stub;
 
-// Install BEFORE requiring lib/plugins/openaps so the plugin picks up the stub.
-require.cache[SELECT_PATH] = { id: SELECT_PATH, filename: SELECT_PATH, loaded: true, exports: stub };
-
-// Also clear the plugin cache in case a prior test loaded it.
 var PLUGIN_PATH = require.resolve('../../lib/plugins/openaps');
-delete require.cache[PLUGIN_PATH];
-
 var moment = require('moment');
-var levels = require('../../lib/levels');
-var language = require('../../lib/language')(require('fs'));
-language.set('en');
-var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };
-var openaps = require(PLUGIN_PATH)(ctx);
-
 
 describe('plugin wiring: openaps.analyzeData → selectOpenAPSState', function () {
+  var openaps;
+
+  // Install the stub in before(), not at module top level: mocha loads
+  // every file before running any, so a top-level stub leaks into files
+  // loaded after this one (devicestatus-openaps) when the order changes.
+  before(function () {
+    // Install BEFORE requiring lib/plugins/openaps so the plugin picks up the stub.
+    require.cache[SELECT_PATH] = { id: SELECT_PATH, filename: SELECT_PATH, loaded: true, exports: stub };
+    // Also clear the plugin cache in case a prior test loaded it.
+    delete require.cache[PLUGIN_PATH];
+    var levels = require('../../lib/levels');
+    var language = require('../../lib/language')(require('fs'));
+    language.set('en');
+    var ctx = { language: language, settings: { units: 'mg/dl' }, levels: levels, moment: moment };
+    openaps = require(PLUGIN_PATH)(ctx);
+  });
+
   after(function () {
     delete require.cache[SELECT_PATH];
     delete require.cache[PLUGIN_PATH];

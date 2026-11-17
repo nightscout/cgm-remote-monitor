@@ -112,7 +112,7 @@ describe('Mocha runner compatibility', function () {
     });
   }
 
-  it('renders assertion diffs with the overridden diff dependency', function () {
+  it('renders assertion diffs with the installed diff dependency', function () {
     const file = fixture('diff.test.cjs', `
       const assert = require('assert');
       it('intentional diff', function () { assert.strictEqual('actual-value', 'expected-value'); });
@@ -136,6 +136,29 @@ describe('Mocha runner compatibility', function () {
     assert.strictEqual(result.report.stats.passes, 0);
     assert.strictEqual(result.report.failures[0].err.message, 'fixture setup failed');
     assert.ok(!result.stdout.includes('affected test ran'));
+  });
+
+  it('preserves quoted grep values and Node flags when respawning', function () {
+    const file = fixture('flags.test.cjs', `
+      const assert = require('assert');
+      it('quoted "name" -1', function () { assert.strictEqual(typeof global.gc, 'function'); });
+      it('excluded test', function () { throw new Error('grep filter lost'); });
+    `);
+    const result = run(['--node-option', 'expose-gc', '--grep', 'quoted "name" -1', file]);
+    assert.strictEqual(result.status, 0, result.stdout + result.stderr);
+    assert.strictEqual(result.report.stats.passes, 1);
+    assert.strictEqual(result.report.tests[0].title, 'quoted "name" -1');
+  });
+
+  it('escapes test names in the xunit reporter after removal of its HTML helper', async function () {
+    const file = fixture('xml.test.cjs', `
+      it('fixture <script>&"', function () {});
+    `);
+    const result = run([file], 'xunit');
+    assert.strictEqual(result.status, 0, result.stdout + result.stderr);
+    const parsed = await require('xml2js').parseStringPromise(result.stdout);
+    assert.strictEqual(parsed.testsuite.testcase[0].$.name, 'fixture <script>&"');
+    assert(!result.stdout.includes('<script>'));
   });
 
   it('fails timed-out asynchronous tests instead of returning success', function () {

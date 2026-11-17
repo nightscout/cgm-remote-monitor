@@ -1,41 +1,24 @@
-# jsdom and analyzer WebSocket regression tests
+# Analyzer WebSocket regression tests and jsdom retirement
 
-This update uses jsdom 26.1.0 and the bundle analyzer's ws 7.5.13. The application
-transport packages already use Socket.IO 4.8.3, engine.io-client 6.6.6 and ws
-8.21.3. Keep the two WebSocket consumer lines distinct when checking resolution.
+The jsdom 26 migration described by PR #8544 is historical. M08 now removes
+jsdom and its unused compatibility/harness files after migrating application
+contracts to the required real-browser suite. The [retirement plan](../plans/jsdom-retirement.md)
+and [browser specification](browser-tests.md) record per-case coverage,
+isolation, validation and tooling costs. A jsdom major upgrade is not required.
 
-jsdom 26.1.0 preserves the existing Node support. Newer jsdom releases require
-higher Node patch versions, and jsdom 30 drops Node 20. Upstream recommends 26.1.0
-for older Node environments. Moving to the newest major needs a separate Node
-support decision. The canvas v3 peer change in jsdom 26 does not affect this
-repository: canvas is not installed or used by these fixtures.
+`tests/dependency-ws-analyzer.test.js` remains active under `test-ci` and
+`test:dependencies`. It resolves webpack-bundle-analyzer's actual ws copy,
+checks bounded fragments/chunks and verifies counter resets between valid
+messages. Fresh connections exchange Unicode and binary messages twice.
+Keep this consumer distinct from the application's Socket.IO transport tree.
 
-`tests/dependency-jsdom.test.js` runs the four existing secure-jsdom isolation
-tests in normal CI, where the nested fixture path was previously not discovered.
-It also covers scripted-window realm isolation, storage lifetime, selectors and delegated form events, SVG
-interfaces/viewport relationships, indexed form controls, composed abort
-signals, entities/template content and repeated XHR multipart uploads. Network
-requests use an explicit local HTTP fixture; ordinary DOM fixtures remain
-network-blocked.
+Browser authentication and served Socket.IO checks now live in
+`tests/browser/authentication.test.js` and `socket-client.test.js`. They retain
+native storage and repeated transport/reconnection contracts. The browser
+suite requires Chromium/Firefox/WebKit on both Node floors; its isolation
+checks replace applicable guarantees from the removed DOM harness.
 
-`tests/dependency-ws-analyzer.test.js` exercises the actual ws copy resolved by
-webpack-bundle-analyzer. Small explicit receiver caps check bounded fragments and
-chunks without large allocations. Consecutive valid fragmented messages check
-that the fragment counter resets, guarding the bug fixed in 7.5.13. Fresh
-connections exchange Unicode and binary messages twice.
-
-`tests/hashauth.modern.test.js` additionally repeats the real authentication
-store/remove cycle twice and checks both localStorage and in-memory state. The
-original PR's legacy benv failure is covered by the current modern test harness.
-
-Both dependency suites run under `test-ci` and `test:dependencies`; the
-authentication suite runs under `test-ci`. CI verifies jsdom and both ws versions
-with `npm ls`. Existing DOMPurify, chart, report, profile and served Socket.IO
-client tests continue to exercise jsdom.
-
-These are development/test dependencies. No user configuration or visual changes
-are required, and production browser bundles should remain unchanged.
-
-References: [jsdom 26.1](https://github.com/jsdom/jsdom/releases/tag/26.1.0),
-[jsdom Node compatibility](https://github.com/jsdom/jsdom/releases/tag/27.0.1),
-[ws 7.5.13](https://github.com/websockets/ws/releases/tag/7.5.13).
+No application, configuration, visual or stored-data change is required for
+this test-tool removal. Production is already jsdom-free. The earlier
+[ws 7.5.13 release](https://github.com/websockets/ws/releases/tag/7.5.13)
+remains the reference for the analyzer regression checks.

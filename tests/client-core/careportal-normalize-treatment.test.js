@@ -66,6 +66,56 @@ describe('client-core/careportal/normalize-treatment', function () {
     out.targetBottom.should.be.approximately(5 * consts.MMOL_TO_MGDL, 0.001);
   });
 
+  describe('a Temporary Target on an mmol site (careportal temp-target double conversion)', function () {
+    var matrix = {
+      'Temporary Target': { bg: false, targets: true, duration: true }
+      , 'BG Check': { bg: true }
+    };
+
+    // What the form hands over on an mmol site: the units are the site's, and
+    // a glucose value typed under another event type may still be in the
+    // hidden BG field.
+    function tempTarget(extra) {
+      return baseRaw(Object.assign({
+        eventType: 'Temporary Target', reason: 'Manual', duration: 60
+        , targetTop: '5.5', targetBottom: '5.5', units: 'mmol'
+      }, extra));
+    }
+
+    // How the chart reads the stored record: ddata converts targets that say
+    // mmol. The v1 API deletes units only when no glucose value is present, so
+    // a record with one is stored as posted.
+    function charted(record) {
+      var ddata = require('../../lib/data/ddata')();
+      ddata.treatments = [Object.assign({ _id: 'tt', mills: fixedNow.getTime() }, record)];
+      ddata.processTreatments(false);
+      var t = ddata.tempTargetTreatments[0];
+      return [+t.targetBottom.toFixed(2), +t.targetTop.toFixed(2)];
+    }
+
+    it('converts the targets once and labels them mg/dl', function () {
+      var out = normalize(tempTarget(), { units: 'mmol', inputMatrix: matrix, now: fixedNow });
+      out.targetTop.should.be.approximately(5.5 * consts.MMOL_TO_MGDL, 0.001);
+      out.units.should.equal('mg/dl');
+    });
+
+    it('does not send a glucose value left in the hidden BG field', function () {
+      var out = normalize(tempTarget({ glucose: '6.1', glucoseType: 'Finger' }), { units: 'mmol', inputMatrix: matrix, now: fixedNow });
+      // Before the fix: stored as 99.09 labelled mmol (the glucose value keeps
+      // the label on the server) and charted at 1785.09 mg/dL.
+      charted(out).should.eql([99.09, 99.09]);
+      out.should.not.have.property('glucose');
+      out.should.not.have.property('glucoseType');
+      out.units.should.equal('mg/dl');
+    });
+
+    it('keeps a glucose value on an event type that shows the BG field, in its typed units', function () {
+      var out = normalize(baseRaw({ eventType: 'BG Check', glucose: '6.1', glucoseType: 'Finger', units: 'mmol' }), { units: 'mmol', inputMatrix: matrix, now: fixedNow });
+      out.glucose.should.equal('6.1');
+      out.units.should.equal('mmol');
+    });
+  });
+
   it('preserves mg/dL targets unchanged when units != mmol', function () {
     var out = normalize(baseRaw({
       eventType: 'Temporary Target', duration: 30, targetTop: 120, targetBottom: 100

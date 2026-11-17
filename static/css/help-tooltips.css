@@ -1,0 +1,14 @@
+.ns-help-tooltip {
+  position: fixed;
+  box-sizing: border-box;
+  z-index: 100000;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 6px 9px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  font: 12px/1.4 sans-serif;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+.ns-help-tooltip[hidden] { display: none; }

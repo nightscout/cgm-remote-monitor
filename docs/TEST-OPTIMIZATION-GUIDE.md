@@ -46,9 +46,9 @@ CLEAR_REQUIRE_CACHE=true npm test
 **New Scripts:**
 ```json
 {
-  "test:fast": "env-cmd -f ./my.test.env mocha --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
-  "test:parallel": "env-cmd -f ./my.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 4 ./tests/*.test.js",
-  "test:parallel:ci": "env-cmd -f ./tests/ci.test.env nyc --reporter=lcov --reporter=text-summary mocha --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 4 ./tests/*.test.js"
+  "test:fast": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 5000 --require ./tests/hooks.js --exit --reporter min ./tests/*.test.js",
+  "test:parallel": "node bin/with-env.js ./my.test.env node_modules/mocha/bin/mocha.js --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 4 ./tests/*.test.js",
+  "test:parallel:ci": "node bin/with-env.js ./tests/ci.test.env node_modules/nyc/bin/nyc.js --reporter=lcov --reporter=text-summary mocha --timeout 10000 --require ./tests/hooks.js --exit --parallel --jobs 4 ./tests/*.test.js"
 }
 ```
 
@@ -125,7 +125,7 @@ jobs:
           per_shard=$(( (total + 3) / 4 ))
           start=$(( (matrix.shard - 1) * per_shard ))
           shard_files="${files[@]:$start:$per_shard}"
-          env-cmd -f ./tests/ci.test.env mocha --timeout 10000 --require ./tests/hooks.js --exit $shard_files
+          node bin/with-env.js ./tests/ci.test.env node_modules/mocha/bin/mocha.js --timeout 10000 --require ./tests/hooks.js --exit $shard_files
 ```
 
 ### Option 3: Dependency Caching

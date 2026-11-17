@@ -1,0 +1,156 @@
+/* Page markers exist in every theme; every visual rule requires modern-ui. */
+.editor-navigation { display: none; }
+.modern-ui .editor-page { margin: 0; font-size: 15px; }
+.modern-ui .editor-page *, .modern-ui .editor-page *::before, .modern-ui .editor-page *::after { box-sizing: border-box; }
+.modern-ui .editor-page #toolbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  position: relative; width: 100%; height: auto; min-height: 64px; margin: 0;
+  padding: 8px max(24px, env(safe-area-inset-left));
+  border-bottom: 1px solid #2b323c; background: #171c23;
+}
+.modern-ui .editor-page #toolbar .customTitle { position: static; flex: 1; text-align: left; }
+.modern-ui .editor-page #buttonbar { display: grid; grid-template-columns: auto minmax(0, 1fr); order: 1; flex: 0 0 260px; align-items: center; justify-content: start; gap: 5px; width: 260px; height: 40px; min-width: 0; overflow: auto; scrollbar-width: thin; font-size: 12px; color: #aab9ca; }
+.modern-ui .editor-page #buttonbar b { font-weight: 400; }
+.modern-ui .editor-page #buttonbar > span { overflow-wrap: anywhere; }
+.modern-ui .editor-page #toolbar .closeButton {
+  display: inline-flex; align-items: center; justify-content: center; order: 3; flex-shrink: 0;
+  position: static; float: none; width: 40px; height: 40px; margin: 0; padding: 0;
+  border: 1px solid #344152; border-radius: 10px; background: #202a36; color: #b9c9db;
+  text-decoration: none; font-size: 0; transform: none;
+}
+.modern-ui .editor-page #toolbar .closeButton::after { content: '←'; font-size: 23px; }
+.modern-ui .editor-page #toolbar .closeButton span { display: none; }
+.modern-ui .editor-page .toolbar-title { max-width: 1280px; margin: 0 auto; padding: 32px 24px 18px; border: 0; }
+.modern-ui .editor-page .toolbar-title h2 { position: static; margin: 0; padding: 0; text-align: left; color: #f0f4f9; font-size: 30px; font-weight: 650; letter-spacing: -.035em; }
+.modern-ui .editor-navigation { display: flex; flex-wrap: wrap; gap: 6px; max-width: 1280px; margin: 0 auto; padding: 0 24px 24px; }
+.modern-ui .editor-navigation a { padding: 9px 14px; border: 1px solid transparent; border-radius: 8px; color: #aebdd0; text-decoration: none; font-size: 14px; }
+.modern-ui .editor-navigation a[aria-current] { color: #c5e3ff; background: #223348; border-color: #38536e; }
+.modern-ui .editor-navigation a:hover { color: #fff; background: #24303f; }
+.modern-ui .editor-page #toolbar .editor-navigation { order: 2; flex: 0 1 auto; flex-wrap: nowrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; margin: 0; padding: 3px 2px; overflow-x: auto; scrollbar-width: thin; }
+.modern-ui .editor-page #toolbar .editor-navigation a { flex: 0 0 auto; min-height: 36px; padding: 7px 10px; white-space: nowrap; font-size: 13px; }
+.modern-ui .editor-content { max-width: 1280px; margin: 0 auto; padding: 0 24px 24px; }
+.modern-ui .editor-content :is(#pe_form, #fe_form, #admin_placeholder) { margin: 0; min-width: 0; }
+.modern-ui :is(#pe_form, #fe_form, #admin_placeholder) fieldset { min-width: 0; margin: 0 0 24px; padding: 20px; border: 1px solid #303d4d; border-radius: 12px; background: #171f29; }
+.modern-ui :is(#pe_form, #fe_form, #admin_placeholder) fieldset fieldset { margin-top: 14px; background: #131a23; }
+.modern-ui .editor-content legend { max-width: 100%; padding: 0 8px; color: #ccd8e6; font-size: 15px; font-weight: 600; text-shadow: none; overflow-wrap: anywhere; }
+.modern-ui .editor-content :is(input, select, textarea) {
+  max-width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px;
+  border: 1px solid #425064; border-radius: 7px; background: #101720; color: #edf2f9; font: inherit;
+}
+.modern-ui .editor-content :is(input[type="checkbox"], input[type="radio"]) { min-height: 0; width: 18px; height: 18px; padding: 0; vertical-align: middle; accent-color: #9bcdfb; }
+.modern-ui .editor-content textarea { width: 100%; resize: vertical; }
+.modern-ui :is(#pe_form, #fe_form, #admin_placeholder) :is(button, input[type="button"], input[type="submit"]) {
+  min-height: 42px; margin: 8px 8px 0 0; padding: 9px 16px; border: 1px solid #41526a;
+  border-radius: 8px; box-shadow: none; background: #263449; color: #e2ecf8; font: inherit; font-weight: 600; cursor: pointer;
+}
+.modern-ui :is(#pe_form, #fe_form, #admin_placeholder) :is(button, input[type="button"], input[type="submit"]):hover { background: #354a65; }
+.modern-ui .editor-content :is(#pe_submit, #fe_editcreate, #fe_quickpick_save) { border-color: #9bcdfb; background: #9bcdfb; color: #122033; }
+.modern-ui .editor-content :is(input, button, select, textarea):disabled { opacity: .5; cursor: not-allowed; }
+.modern-ui .editor-page :is(a, input, button, select, textarea):focus-visible { outline: 2px solid #9bcdfb; outline-offset: 3px; }
+.modern-ui .editor-content dl { margin: 12px 0; }
+.modern-ui .editor-content b { font-weight: 550; }
+.modern-ui .editor-content hr { margin: 24px 0; border: 0; border-top: 1px solid #303d4d; }
+.modern-ui .editor-page > .authentication-status { max-width: 1232px; margin: 0 auto 24px; padding: 16px 24px; border-top: 1px solid #2b3746; color: #aab9cb; font-size: 13px; overflow-wrap: anywhere; }
+.modern-ui .editor-page .authentication-status a { color: #a9d3fb; }
+/* Existing image controls keep their handlers, with larger pointer targets. */
+.modern-ui .editor-content img[title] { width: 34px; height: 34px; object-fit: none; vertical-align: middle; padding: 8px; border: 1px solid #3b4b60; border-radius: 7px; background: #263449; }
+.modern-ui .editor-content img[title]:hover { background: #3b4d65; }
+/* Profile schedules: compact rows on desktop, stacked cells on narrow phones. */
+.modern-ui #pe_form > fieldset:first-child { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.modern-ui #pe_form > fieldset:first-child dl { margin: 0; color: #aebed0; }
+.modern-ui #pe_form .pe_stored_profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+.modern-ui #pe_form .pe_stored_profile > dl { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 4px 0; }
+.modern-ui #pe_form .pe_stored_profile > dl b { min-width: 120px; }
+.modern-ui #pe_form .pe_stored_profile > fieldset { margin-bottom: 0; padding: 14px; }
+.modern-ui #pe_form .pe_stored_profile > fieldset:last-child { grid-column: 1 / -1; }
+.modern-ui #pe_form :is(#pe_history, #pe_multiple) { line-height: 2.7; }
+.modern-ui #pe_form :is(#pe_databaserecords, #pe_profiles) { max-width: 100%; }
+.modern-ui #pe_form input[type="text"], .modern-ui #pe_form input[type="number"] { width: 82px; }
+.modern-ui #pe_form table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.modern-ui #pe_form td { padding: 8px 5px; border-bottom: 1px solid #2c3847; vertical-align: middle; }
+.modern-ui #pe_form td:last-child { white-space: nowrap; }
+.modern-ui #pe_form td :is(input, select) { margin-top: 4px; }
+.modern-ui #pe_form #pe_targetbg_placeholder td { white-space: normal; }
+.modern-ui #pe_form #pe_submit { min-width: 140px; margin-top: 24px; }
+/* Food data keeps its existing drag-and-drop and touch scrolling. */
+.modern-ui #fe_form > fieldset:first-child > fieldset { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.modern-ui #fe_form .food-filter { flex: 1 1 180px; min-width: 0; color: #b7c7da; font-size: 13px; }
+.modern-ui #fe_form .food-filter > span { display: block; margin-bottom: 6px; }
+.modern-ui #fe_form .food-filter :is(input, select) { width: 100%; }
+.modern-ui #fe_form .food-database-scroll { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
+.modern-ui #fe_form #fe_data { width: 1328px !important; overflow-x: hidden !important; }
+.modern-ui #fe_form #fe_data_header { width: 1328px; white-space: nowrap; }
+.modern-ui #fe_data_header, .modern-ui #fe_data .draggablefood { display: grid; grid-template-columns: 82px 200px 150px 82px 100px 100px 150px 150px 100px 100px 100px; align-items: center; }
+.modern-ui #fe_form :is(#fe_data_header, .draggablefood) > span { width: auto; }
+.modern-ui #fe_data_header { padding: 8px 0; color: #a9bad0; font-size: 12px; }
+.modern-ui #fe_data .draggablefood { width: max-content; min-width: 100%; margin-bottom: 4px; padding: 8px 4px; border: 0; border-radius: 7px; background: #222e3d; }
+.modern-ui #fe_data .draggablefood:hover { background: #2c3c50; }
+.modern-ui #fe_form .width50px { width: 82px; }
+.modern-ui #fe_form .food-record-fields, .modern-ui #fe_form .food-record-fields tbody { display: block; }
+.modern-ui #fe_form .food-record-fields tr { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.modern-ui #fe_form .food-record-fields td { display: block; padding: 0; color: #b7c7da; font-size: 13px; }
+.modern-ui #fe_form .food-record-fields :is(input, select) { width: 100%; margin-top: 6px; }
+.modern-ui #fe_form #fe_id { width: 180px; font-size: 12px; }
+.modern-ui #fe_picklist .sortablequickpick { background: #1e2938; }
+.modern-ui #fe_picklist legend { line-height: 2.7; font-size: 13px; }
+.modern-ui #fe_picklist .fe_foodinsideqp { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px; border: 1px solid #354458; border-radius: 7px; background: #16202c; }
+.modern-ui #fe_picklist .fe_qpportions { width: 80px; }
+/* Admin tools retain their existing auth, preview and confirmation flows. */
+.modern-ui #admin_placeholder > fieldset { padding: 24px; }
+.modern-ui #admin_placeholder > fieldset > b { display: inline-block; margin: 8px 0; text-decoration: none !important; color: #dce7f4; }
+.modern-ui #admin_placeholder > fieldset > i { display: block; max-width: 850px; margin: 4px 0 14px; color: #acbed2; font-style: normal; }
+.modern-ui #admin_placeholder table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.modern-ui #admin_placeholder :is(tr, th, td) { background: transparent !important; }
+.modern-ui #admin_placeholder :is(th, td) { padding: 12px 8px; border-bottom: 1px solid #334052; text-align: left; overflow-wrap: anywhere; }
+.modern-ui #admin_placeholder th { color: #aebed0; font-size: 12px; font-weight: 550; }
+.modern-ui #admin_placeholder :is(input, select) { margin: 6px 4px; }
+.modern-ui #admin_placeholder [id$="_html"] { max-width: 100%; overflow-x: auto; }
+.modern-ui #admin_placeholder .adminButton:not([plugin="subjects"]):not([plugin="roles"]) { background: #382731; color: #ffc1c4; border-color: #76505c; }
+.modern-ui #admin_placeholder [id$="_status"] { display: inline-block; padding: 10px 0; color: #bbcbde; font-size: 13px; }
+/* Role/subject dialogs are body-level jQuery UI elements. */
+.modern-ui .editor-page .ui-dialog { position: fixed; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%); width: min(560px, calc(100vw - 24px)) !important; max-height: calc(100dvh - 24px); padding: 0; overflow-y: auto; border: 1px solid #46576b; border-radius: 12px; background: #171f29; color: #e5e9ef; font: inherit; box-shadow: 0 20px 80px #0008 !important; }
+.modern-ui .editor-page .ui-dialog-titlebar { padding: 16px; border: 0; border-bottom: 1px solid #344152; border-radius: 0; background: #1c2735; color: #edf3fa; }
+.modern-ui .editor-page .ui-dialog-content { width: auto !important; height: auto !important; padding: 20px; background: #171f29; color: #e5e9ef; }
+.modern-ui .editor-page .ui-dialog-content :is(input, textarea, select) { display: block; box-sizing: border-box; width: 100% !important; min-height: 40px; margin: 6px 0 14px; padding: 8px; border: 1px solid #42536b; border-radius: 7px; background: #101720; color: #edf2f9; font: inherit; }
+.modern-ui .editor-page .ui-dialog-content input[type="checkbox"] { display: inline; width: 18px !important; min-height: 0; margin: 0 8px 0 0; }
+.modern-ui .editor-page .ui-dialog-buttonpane { margin: 0; padding: 12px 16px; border: 0; border-top: 1px solid #344152; background: #171f29; }
+.modern-ui .editor-page .ui-dialog-buttonpane button { min-height: 40px; border: 1px solid #4d6381; border-radius: 7px; background: #2b3d54; color: #e5edf8; font: inherit; }
+@media (max-width: 1000px) {
+  .modern-ui :is(.profile-page, .food-page) #toolbar { display: grid; grid-template-columns: 260px minmax(0, 1fr) 40px; grid-template-areas: "brand brand back" "status navigation navigation"; row-gap: 4px; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .customTitle { grid-area: brand; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .closeButton { grid-area: back; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar #buttonbar { grid-area: status; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar .editor-navigation { grid-area: navigation; }
+  .modern-ui #pe_form .pe_stored_profile { grid-template-columns: minmax(0, 1fr); }
+  .modern-ui #fe_form .food-record-fields tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .modern-ui .editor-page #toolbar { padding: 8px 12px; gap: 4px; }
+  .modern-ui .editor-page #toolbar .customTitle { font-size: 17px; }
+  .modern-ui :is(.profile-page, .food-page) #toolbar { grid-template-columns: minmax(0, 1fr) 40px; grid-template-areas: "brand back" "status status" "navigation navigation"; }
+  .modern-ui .editor-page #buttonbar { width: 100%; height: 34px; }
+  .modern-ui .editor-page .toolbar-title { padding: 24px 12px 12px; }
+  .modern-ui .editor-page .toolbar-title h2 { font-size: 26px; }
+  .modern-ui .editor-page #toolbar .editor-navigation { order: 4; flex: 1 1 100%; width: 100%; }
+  .modern-ui .editor-page #toolbar .editor-navigation a { min-height: 40px; padding: 8px 10px; font-size: 12px; }
+  .modern-ui .editor-content { padding: 0 12px 16px; }
+  .modern-ui :is(#pe_form, #fe_form, #admin_placeholder) fieldset, .modern-ui #admin_placeholder > fieldset { padding: 14px; border-radius: 10px; }
+  .modern-ui .editor-content legend { font-size: 14px; }
+  .modern-ui #pe_form .pe_stored_profile { padding: 10px; gap: 10px; }
+  .modern-ui #pe_form .pe_stored_profile > fieldset { padding: 10px; }
+  .modern-ui #pe_form tr { display: flex; flex-wrap: wrap; border-bottom: 1px solid #2c3847; padding: 6px 0; }
+  .modern-ui #pe_form td { flex: 1 1 38%; padding: 4px; border: 0; }
+  .modern-ui #pe_form td:last-child { flex: 1 1 100%; }
+  .modern-ui #fe_form .food-record-fields tr { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .modern-ui #fe_form .food-record-fields td:first-child { grid-column: 1 / -1; }
+  .modern-ui .editor-page > .authentication-status { padding: 16px 12px; }
+}
+.modern-ui .editor-page .ui-dialog-titlebar { position: relative; padding: 18px 58px 18px 20px; font-size: 18px; }
+.modern-ui .editor-page .ui-dialog-titlebar-close { position: absolute; top: 50%; right: 12px; width: 36px; height: 36px; margin: -18px 0 0; padding: 0; border: 0; border-radius: 7px; background: transparent; color: #c2cfdf; font-size: 0; box-shadow: none; }
+.modern-ui .editor-page .ui-dialog-titlebar-close::before { content: '×'; font-size: 25px; line-height: 1; }
+.modern-ui .editor-page .ui-dialog-titlebar-close :is(.ui-icon, .ui-button-icon-space, .ui-button-text) { display: none; }
+.modern-ui .editor-page .ui-dialog-titlebar-close:hover { background: #2a394c; }
+.modern-ui .editor-page .ui-dialog-buttonpane button { padding: 9px 16px; }
+.modern-ui .editor-page .ui-dialog-content > br { display: none; }
+.modern-ui .editor-page .ui-dialog-content > label { display: block; margin: 0 0 12px; }
+.modern-ui .editor-content input:invalid { border-color: #ff9b9f; background: #34232d; }

@@ -3,8 +3,9 @@
 const assert = require('assert');
 const request = require('supertest');
 const express = require('express');
-const bodyParser = require('body-parser');
 const { createRequire } = require('module');
+const fromExpress = createRequire(require.resolve('express'));
+const bodyParser = fromExpress('body-parser');
 const zlib = require('zlib');
 const configureWares = require('../lib/middleware');
 const query = require('../lib/server/query');
@@ -12,6 +13,7 @@ const MiB = 1024 * 1024;
 
 function appWithParser (parser, handler) {
   const app = express();
+  require('../lib/middleware/configure-request')(app);
   app.post('/', parser, handler || ((req, res) => res.json(req.body)));
   app.use(function (error, req, res, next) {
     res.status(error.status || 500).json({type: error.type});
@@ -26,17 +28,19 @@ function post (app, type, body) {
 
 describe('Express and body-parser dependency compatibility', function () {
   it('uses the patched body-parser for Express built-in parsers as well', function () {
-    const fromExpress = createRequire(require.resolve('express'));
-    assert.strictEqual(fromExpress.resolve('body-parser'), require.resolve('body-parser'));
+    for (const type of ['json', 'urlencoded', 'raw', 'text']) {
+      assert.strictEqual(express[type], bodyParser[type]);
+      assert.strictEqual(configureWares.wares.bodyParser[type], express[type]);
+    }
     assert.throws(() => express.json({limit: 'invalid'}), TypeError);
     assert.throws(() => express.urlencoded({extended: true, limit: NaN}), TypeError);
   });
 
   [
-    ['json', bodyParser.json, 'application/json', size => JSON.stringify('x'.repeat(size)), {strict: false}],
-    ['urlencoded', bodyParser.urlencoded, 'application/x-www-form-urlencoded', size => 'v=' + 'x'.repeat(size), {extended: true}],
-    ['raw', bodyParser.raw, 'application/octet-stream', size => Buffer.alloc(size, 120), {}],
-    ['text', bodyParser.text, 'text/plain', size => 'x'.repeat(size), {}]
+    ['json', express.json, 'application/json', size => JSON.stringify('x'.repeat(size)), {strict: false}],
+    ['urlencoded', express.urlencoded, 'application/x-www-form-urlencoded', size => 'v=' + 'x'.repeat(size), {extended: true}],
+    ['raw', express.raw, 'application/octet-stream', size => Buffer.alloc(size, 120), {}],
+    ['text', express.text, 'text/plain', size => 'x'.repeat(size), {}]
   ].forEach(function ([name, parser, type, payload, options]) {
     ['invalid', NaN].forEach(function (limit) {
       it(name + ' rejects invalid size limit ' + String(limit) + ' at construction', function () {
@@ -89,7 +93,7 @@ describe('Express and body-parser dependency compatibility', function () {
   it('accepts a bulk JSON upload above 1MiB with both API limit formats', async function () {
     const payload = JSON.stringify([{type: 'sgv', sgv: 123, device: 'x'.repeat(MiB + 1)}]);
     for (const limit of ['50Mb', 1048576 * 50]) {
-      const app = appWithParser(bodyParser.json({limit: limit}), (req, res) => {
+      const app = appWithParser(express.json({limit: limit}), (req, res) => {
         if (!Array.isArray(req.body)) return res.sendStatus(400);
         res.json({count: req.body.length, sgv: req.body[0].sgv});
       });
@@ -126,9 +130,24 @@ describe('Express and body-parser dependency compatibility', function () {
     assert.strictEqual(response.body.notes, 'Fish & Chips');
   });
 
+  it('preserves empty unparsed bodies without replacing parsed JSON arrays', async function () {
+    const app = appWithParser(configureWares({settings: {}}).jsonParser);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const absent = await request(app).post('/').expect(200);
+      assert.deepStrictEqual(absent.body, {});
+      const unsupported = await post(app, 'text/plain', 'unparsed').expect(200);
+      assert.deepStrictEqual(unsupported.body, {});
+      const emptyArray = await post(app, 'application/json', '[]').expect(200);
+      assert.deepStrictEqual(emptyArray.body, []);
+      const document = await post(app, 'application/json', '{"notes":"test"}').expect(200);
+      assert.deepStrictEqual(document.body, {notes: 'test'});
+    }
+  });
+
   ['repeated', 'bracket', 'indexed'].forEach(function (notation) {
     it('preserves 25-value query filter arrays using ' + notation + ' notation through Nightscout query conversion', async function () {
       const app = express();
+      require('../lib/middleware/configure-request')(app);
       app.use(configureWares({settings: {}}).extensions(['json']));
       app.get('/entries', (req, res) => res.json(query(req.query, {noDateFilter: true})));
       const expected = Array.from({length: 25}, (_, i) => 100 + i);
@@ -141,6 +160,7 @@ describe('Express and body-parser dependency compatibility', function () {
 
   it('retains the default 1000-query-parameter cap', async function () {
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.get('/', (req, res) => res.json(req.query));
     const response = await request(app).get('/?' + Array.from({length: 1001}, (_, i) => 'v=' + i).join('&')).expect(200);
     assert.ok(Array.isArray(response.body.v));
@@ -150,8 +170,9 @@ describe('Express and body-parser dependency compatibility', function () {
 
   it('keeps nested date filters, content negotiation and legacy wildcard routing', async function () {
     const app = express();
+    require('../lib/middleware/configure-request')(app);
     app.use(configureWares({settings: {}}).extensions(['json']));
-    app.all('/entries*', (req, res) => res.json({path: req.path, accept: req.get('accept'),
+    app.all(/^\/entries.*$/i, (req, res) => res.json({path: req.path, accept: req.get('accept'),
       filter: query(req.query, {noDateFilter: true})}));
     const response = await request(app)
       .get('/entries/sgv.json?find[date][$gte]=1700000000000&find[sgv][$gte]=80').expect(200);

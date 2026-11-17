@@ -1,0 +1,69 @@
+{
+  "node": "v22.23.2",
+  "oldVersion": "0.5.48",
+  "newVersion": "0.6.3",
+  "changedCountries": [],
+  "removedLinks": [],
+  "addedLinks": [],
+  "packageBytes": {
+    "old": 2843422,
+    "current": 2810298
+  },
+  "bundles": {
+    "app": {
+      "oldBytes": 1041884,
+      "newBytes": 1042066,
+      "oldGzip": 304938,
+      "newGzip": 304959,
+      "oldSha256": "05f8876bee74acdf5d221f37f8ba420a4e729d88d576ecef298174f5e1b7aa48",
+      "newSha256": "139f2ac864e1e59f657a26c054826be3c085ea31e58edb1e66560b5541c7e155",
+      "identical": false
+    },
+    "clock": {
+      "oldBytes": 150606,
+      "newBytes": 150606,
+      "oldGzip": 61497,
+      "newGzip": 61497,
+      "oldSha256": "959131ee91feadadcadfa24fcba0d70fa7b7c54348e9f116c6f42ea7a08a9215",
+      "newSha256": "959131ee91feadadcadfa24fcba0d70fa7b7c54348e9f116c6f42ea7a08a9215",
+      "identical": true
+    },
+    "reports": {
+      "oldBytes": 170335,
+      "newBytes": 170335,
+      "oldGzip": 50700,
+      "newGzip": 50700,
+      "oldSha256": "111ac8baa5f69f2e1edf9768dd798960f19b443e9fc8e23dedd2f7f038819eb1",
+      "newSha256": "111ac8baa5f69f2e1edf9768dd798960f19b443e9fc8e23dedd2f7f038819eb1",
+      "identical": true
+    },
+    "admin": {
+      "oldBytes": 32053,
+      "newBytes": 32053,
+      "oldGzip": 7953,
+      "newGzip": 7953,
+      "oldSha256": "f887740db029a03a87e61616ae5073b0500d3ed7a68675aa4918c8f78bb3658a",
+      "newSha256": "f887740db029a03a87e61616ae5073b0500d3ed7a68675aa4918c8f78bb3658a",
+      "identical": true
+    },
+    "food": {
+      "oldBytes": 15864,
+      "newBytes": 15864,
+      "oldGzip": 5326,
+      "newGzip": 5326,
+      "oldSha256": "fb7be2b2196f0ad4678cd3513b881fbd4606cd055a409becab7a435bb6b51a3d",
+      "newSha256": "fb7be2b2196f0ad4678cd3513b881fbd4606cd055a409becab7a435bb6b51a3d",
+      "identical": true
+    },
+    "profile": {
+      "oldBytes": 18472,
+      "newBytes": 18472,
+      "oldGzip": 6665,
+      "newGzip": 6665,
+      "oldSha256": "10d6b3353837943838acb9cd46d17504486483bd21fd166825cd82aa99b954ff",
+      "newSha256": "10d6b3353837943838acb9cd46d17504486483bd21fd166825cd82aa99b954ff",
+      "identical": true
+    }
+  },
+  "scope": "Both roots must be built with the same Node/build toolchain. Installed regular-file bytes and JS transfer bytes only; no runtime heap or RSS measurement."
+}

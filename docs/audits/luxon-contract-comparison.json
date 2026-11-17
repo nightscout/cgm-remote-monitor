@@ -1,0 +1,412 @@
+{
+  "probeSha256": "9f9d084e1f8e274ba51509e554d20557f782c89cc6925696b3cd2204130db192",
+  "luxonPackage": {
+    "version": "3.7.2",
+    "resolved": "https://registry.npmjs.org/luxon/-/luxon-3.7.2.tgz",
+    "integrity": "sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==",
+    "license": "MIT",
+    "engines": {
+      "node": ">=12"
+    }
+  },
+  "runs": [
+    {
+      "node": "v22.23.2",
+      "icu": "78.2",
+      "tz": "2026a",
+      "luxon": "3.7.2",
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "cases": 325,
+      "parsing": [
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-03-10T02:30:00",
+          "moment": "2024-03-10T07:30:00.000Z",
+          "luxon": "2024-03-10T07:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-03-10T07:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-03-10T07:30:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-11-03T01:30:00",
+          "moment": "2024-11-03T05:30:00.000Z",
+          "luxon": "2024-11-03T06:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-11-03T05:30:00.000Z",
+            "2024-11-03T06:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-11-03T05:30:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-10-06T02:15:00",
+          "moment": "2024-10-05T15:45:00.000Z",
+          "luxon": "2024-10-05T15:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-10-05T15:45:00.000Z"
+          ],
+          "earliestLuxon": "2024-10-05T15:45:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-04-07T01:45:00",
+          "moment": "2024-04-06T14:45:00.000Z",
+          "luxon": "2024-04-06T14:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-04-06T14:45:00.000Z",
+            "2024-04-06T15:15:00.000Z"
+          ],
+          "earliestLuxon": "2024-04-06T14:45:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-03-10T02:30:00",
+          "moment": "2024-03-10T07:30:00.000Z",
+          "luxon": "2024-03-10T07:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-03-10T07:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-03-10T07:30:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-11-03T01:30:00",
+          "moment": "2024-11-03T05:30:00.000Z",
+          "luxon": "2024-11-03T05:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-11-03T05:30:00.000Z",
+            "2024-11-03T06:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-11-03T05:30:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-10-06T02:15:00",
+          "moment": "2024-10-05T15:45:00.000Z",
+          "luxon": "2024-10-05T15:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-10-05T15:45:00.000Z"
+          ],
+          "earliestLuxon": "2024-10-05T15:45:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-04-07T01:45:00",
+          "moment": "2024-04-06T14:45:00.000Z",
+          "luxon": "2024-04-06T15:15:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-04-06T14:45:00.000Z",
+            "2024-04-06T15:15:00.000Z"
+          ],
+          "earliestLuxon": "2024-04-06T14:45:00.000Z"
+        }
+      ],
+      "mutation": {
+        "momentReturnsSameObject": true,
+        "luxonReturnsSameObject": false
+      },
+      "timings": [
+        {
+          "round": 0,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 14.970749999999995,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 28.75975000000001,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 22.342,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.887999999999991,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 7.382042000000013,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 21.758207999999996,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 21.544333000000023,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.744375000000019,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.512167000000005,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 21.697000000000003,
+          "checksum": 75000
+        }
+      ],
+      "mismatchCount": 65,
+      "mismatchesByLocale": {
+        "ar": 65
+      },
+      "mismatchExamples": [
+        {
+          "zone": "UTC",
+          "locale": "ar",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u0661\u0669\u0660\u0660-\u0660\u0661-\u0660\u0661",
+            "time": "\u0660\u0660:\u0660\u0660"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        }
+      ]
+    },
+    {
+      "node": "v24.20.0",
+      "icu": "78.3",
+      "tz": "2026c",
+      "luxon": "3.7.2",
+      "moment": "2.30.1",
+      "momentTimezone": "0.5.48",
+      "cases": 325,
+      "parsing": [
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-03-10T02:30:00",
+          "moment": "2024-03-10T07:30:00.000Z",
+          "luxon": "2024-03-10T07:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-03-10T07:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-03-10T07:30:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-11-03T01:30:00",
+          "moment": "2024-11-03T05:30:00.000Z",
+          "luxon": "2024-11-03T06:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-11-03T05:30:00.000Z",
+            "2024-11-03T06:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-11-03T05:30:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-10-06T02:15:00",
+          "moment": "2024-10-05T15:45:00.000Z",
+          "luxon": "2024-10-05T15:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-10-05T15:45:00.000Z"
+          ],
+          "earliestLuxon": "2024-10-05T15:45:00.000Z"
+        },
+        {
+          "now": "2024-01-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-04-07T01:45:00",
+          "moment": "2024-04-06T14:45:00.000Z",
+          "luxon": "2024-04-06T14:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-04-06T14:45:00.000Z",
+            "2024-04-06T15:15:00.000Z"
+          ],
+          "earliestLuxon": "2024-04-06T14:45:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-03-10T02:30:00",
+          "moment": "2024-03-10T07:30:00.000Z",
+          "luxon": "2024-03-10T07:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-03-10T07:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-03-10T07:30:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "America/New_York",
+          "local": "2024-11-03T01:30:00",
+          "moment": "2024-11-03T05:30:00.000Z",
+          "luxon": "2024-11-03T05:30:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-11-03T05:30:00.000Z",
+            "2024-11-03T06:30:00.000Z"
+          ],
+          "earliestLuxon": "2024-11-03T05:30:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-10-06T02:15:00",
+          "moment": "2024-10-05T15:45:00.000Z",
+          "luxon": "2024-10-05T15:45:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-10-05T15:45:00.000Z"
+          ],
+          "earliestLuxon": "2024-10-05T15:45:00.000Z"
+        },
+        {
+          "now": "2024-07-15T00:00:00Z",
+          "zone": "Australia/Lord_Howe",
+          "local": "2024-04-07T01:45:00",
+          "moment": "2024-04-06T14:45:00.000Z",
+          "luxon": "2024-04-06T15:15:00.000Z",
+          "possibleLuxonInstants": [
+            "2024-04-06T14:45:00.000Z",
+            "2024-04-06T15:15:00.000Z"
+          ],
+          "earliestLuxon": "2024-04-06T14:45:00.000Z"
+        }
+      ],
+      "mutation": {
+        "momentReturnsSameObject": true,
+        "luxonReturnsSameObject": false
+      },
+      "timings": [
+        {
+          "round": 0,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 10.378749999999997,
+          "checksum": 75000
+        },
+        {
+          "round": 0,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 21.29820799999999,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 18.457457999999974,
+          "checksum": 75000
+        },
+        {
+          "round": 1,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 7.4847079999999835,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 7.595832999999999,
+          "checksum": 75000
+        },
+        {
+          "round": 2,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 19.218959000000012,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 18.346124999999972,
+          "checksum": 75000
+        },
+        {
+          "round": 3,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.6129999999999995,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "moment",
+          "iterations": 5000,
+          "milliseconds": 6.252124999999978,
+          "checksum": 75000
+        },
+        {
+          "round": 4,
+          "name": "luxon",
+          "iterations": 5000,
+          "milliseconds": 18.30324999999999,
+          "checksum": 75000
+        }
+      ],
+      "mismatchCount": 65,
+      "mismatchesByLocale": {
+        "ar": 65
+      },
+      "mismatchExamples": [
+        {
+          "zone": "UTC",
+          "locale": "ar",
+          "instant": "1900-01-01T00:00:00.000Z",
+          "previous": {
+            "date": "\u0661\u0669\u0660\u0660-\u0660\u0661-\u0660\u0661",
+            "time": "\u0660\u0660:\u0660\u0660"
+          },
+          "candidate": {
+            "date": "1900-01-01",
+            "time": "00:00"
+          },
+          "equal": false
+        }
+      ]
+    }
+  ]
+}

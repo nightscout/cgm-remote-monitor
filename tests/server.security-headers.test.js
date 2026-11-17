@@ -56,6 +56,58 @@ function shouldHaveSameOriginFrameProtection (res) {
 }
 
 describe('server security headers', function () {
+  for (const options of [
+    {}, {secureHstsHeader: false}, {insecureUseHttp: true},
+    {secureCsp: true}, {secureCsp: true, secureCspReportOnly: true}
+  ]) {
+    it('sets no-referrer independently of CSP and TLS configuration ' + JSON.stringify(options), async function () {
+      const res = await getRobots(securityApp(options));
+      res.headers['referrer-policy'].should.equal('no-referrer');
+    });
+  }
+
+  it('protects HTTPS redirects before other middleware runs', async function () {
+    const res = await request(securityApp()).get('/robots.txt?token=fixture-redirect-token').expect(307);
+    res.headers['referrer-policy'].should.equal('no-referrer');
+    res.headers['cache-control'].should.equal('no-store');
+    res.headers.location.should.containEql('token=fixture-redirect-token');
+  });
+
+  it('keeps public static caching but prevents caching credential-bearing static requests', async function () {
+    const app = securityApp({insecureUseHttp: true});
+    const anonymous = await request(app).get('/css/sgv.css').expect(200);
+    anonymous.headers['cache-control'].should.containEql('public, max-age=');
+    const credential = await request(app).get('/css/sgv.css?token=fixture-static-token').expect(200);
+    credential.headers['cache-control'].should.equal('no-store');
+  });
+
+  it('redacts credential URLs in real CSP reports without logging arbitrary report fields', async function () {
+    const app = securityApp({insecureUseHttp: true, secureCsp: true});
+    const log = console.log;
+    const captured = [];
+    console.log = function (...args) {
+      if (args[0] === 'CSP Violation: ') captured.push(args);
+      else log(...args);
+    };
+    try {
+      await request(app).post('/report-violation?token=fixture-report-token')
+        .set('Content-Type', 'application/csp-report')
+        .send(JSON.stringify({'csp-report': {
+          'document-uri': 'https://example.test/?token=fixture-report-token',
+          'blocked-uri': 'https://cdn.test/image?secret=fixture-report-secret',
+          'violated-directive': 'img-src', 'line-number': 8,
+          'script-sample': 'fixture-report-token', unexpected: 'fixture-report-secret'
+        }})).expect(204).expect('Cache-Control', 'no-store');
+    } finally { console.log = log; }
+    captured.length.should.equal(1);
+    captured[0][1].should.eql({
+      'document-uri': 'https://example.test/', 'blocked-uri': 'https://cdn.test/image',
+      'violated-directive': 'img-src', 'line-number': 8
+    });
+    JSON.stringify(captured).should.not.containEql('fixture-report-token');
+    JSON.stringify(captured).should.not.containEql('fixture-report-secret');
+  });
+
   it('preserves unrestricted cross-origin embedding by default', async function () {
     const res = await getRobots(securityApp());
 
@@ -200,4 +252,50 @@ describe('server security headers', function () {
     res.headers['content-security-policy'].should.not.containEql('frame-ancestors');
     should.not.exist(res.headers['strict-transport-security']);
   });
+  for (const insecureUseHttp of [false, true]) {
+    for (const secureHstsHeader of [false, true]) {
+      for (const allowUnrestrictedFrameEmbedding of [false, true]) {
+        for (const cspMode of ['off', 'enforced', 'report-only']) {
+          it(`keeps explicit policies for HTTP=${insecureUseHttp}, HSTS=${secureHstsHeader}, embedding=${allowUnrestrictedFrameEmbedding}, CSP=${cspMode}`, async function () {
+            for (let cycle = 0; cycle < 2; cycle++) {
+              const app = securityApp({insecureUseHttp, secureHstsHeader, allowUnrestrictedFrameEmbedding,
+                secureCsp: cspMode !== 'off', secureCspReportOnly: cspMode === 'report-only'});
+              const res = await (insecureUseHttp ? getRobotsOverHttp(app) : getRobots(app));
+              for (const name of ['cross-origin-embedder-policy', 'cross-origin-opener-policy',
+                'cross-origin-resource-policy', 'origin-agent-cluster']) should.not.exist(res.headers[name]);
+              for (const name of ['content-security-policy', 'content-security-policy-report-only']) {
+                const value = res.headers[name] || '';
+                value.should.not.containEql('upgrade-insecure-requests');
+                value.should.not.containEql('script-src-attr');
+              }
+              const hstsBundleEnabled = !insecureUseHttp && secureHstsHeader;
+              const retainedHeaders = {
+                'x-content-type-options': 'nosniff', 'x-dns-prefetch-control': 'off',
+                'x-download-options': 'noopen', 'x-permitted-cross-domain-policies': 'none',
+                'x-xss-protection': '0'
+              };
+              for (const [name, value] of Object.entries(retainedHeaders)) {
+                if (hstsBundleEnabled) res.headers[name].should.equal(value);
+                else should.not.exist(res.headers[name]);
+              }
+              if (hstsBundleEnabled) should.not.exist(res.headers['x-powered-by']);
+              // EXPECTATION CHANGED at the cut 5 merge: this branch sent
+              // Referrer-Policy only with the HSTS bundle or CSP. dev sends it on
+              // every response, independently of CSP and TLS settings (see the
+              // 'sets no-referrer independently' test above), and dev's
+              // behaviour is kept.
+              res.headers['referrer-policy'].should.equal('no-referrer');
+              if (insecureUseHttp || !secureHstsHeader) should.not.exist(res.headers['strict-transport-security']);
+              else res.headers['strict-transport-security'].should.equal('max-age=31536000');
+              if (allowUnrestrictedFrameEmbedding) should.not.exist(res.headers['x-frame-options']);
+              else res.headers['x-frame-options'].should.equal('SAMEORIGIN');
+              if (cspMode === 'enforced') res.headers['content-security-policy'].should.containEql("script-src 'self' 'unsafe-inline'");
+              if (cspMode === 'report-only') res.headers['content-security-policy-report-only'].should.containEql("script-src 'self' 'unsafe-inline'");
+            }
+          });
+        }
+      }
+    }
+  }
+
 });

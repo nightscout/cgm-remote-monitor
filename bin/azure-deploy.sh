@@ -113,11 +113,13 @@ selectNodeVersion
 # 3. Install npm packages
 if [ -e "$DEPLOYMENT_TARGET/package.json" ]; then
   cd "$DEPLOYMENT_TARGET"
-  echo Installing webpack and webpack-command and yargs
-  eval $NPM_CMD install -g webpack webpack-command 
-  eval $NPM_CMD install yargs
-  eval $NPM_CMD install --production --scripts-prepend-node-path
-  exitWithMessageOnError "npm failed"
+  # postinstall builds assets and generates the runtime key using locked tools.
+  echo Installing locked build dependencies and building assets
+  eval $NPM_CMD ci --include=dev
+  exitWithMessageOnError "npm install/build failed"
+  echo Pruning build dependencies from the runtime artifact
+  eval $NPM_CMD prune --omit=dev --ignore-scripts
+  exitWithMessageOnError "npm prune failed"
   cd - > /dev/null
 fi
 

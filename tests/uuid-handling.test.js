@@ -65,6 +65,7 @@ describe('UUID_HANDLING=false (explicit)', function() {
     
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
@@ -171,6 +172,7 @@ describe('UUID_HANDLING=true', function() {
     
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {
@@ -334,6 +336,7 @@ describe('UUID Edge Cases', function() {
     
     self.wares = require('../lib/middleware/')(self.env);
     self.app = require('express')();
+    require('../lib/middleware/configure-request')(self.app);
     self.app.enable('api');
     
     require('../lib/server/bootevent')(self.env, language).boot(function booted(ctx) {

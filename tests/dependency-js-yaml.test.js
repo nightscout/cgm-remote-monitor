@@ -12,11 +12,23 @@ const { spawnSync } = require('child_process');
 const semver = require('semver');
 const lock = require('../package-lock.json');
 
-const consumers = ['eslint', '@eslint/eslintrc', '@istanbuljs/load-nyc-config', 'mocha'];
+// Legacy-peer-deps installations omit CLI's optional parser after Mocha
+// stops requiring v4. Required parsers must still always resolve.
+let cliYamlPresent = true;
+try {
+  createRequire(require.resolve('webpack-cli')).resolve('js-yaml');
+} catch (error) {
+  assert.strictEqual(error.code, 'MODULE_NOT_FOUND');
+  assert.strictEqual(require('webpack-cli/package.json').peerDependenciesMeta['js-yaml'].optional, true);
+  cliYamlPresent = false;
+}
+const consumers = ['@istanbuljs/load-nyc-config', 'mocha'];
+if (cliYamlPresent) consumers.push('webpack-cli');
 const versions = [
-  { consumer: 'eslint', major: 3, method: 'safeLoad', all: 'safeLoadAll', dump: 'safeDump' },
-  { consumer: 'mocha', major: 4, method: 'load', all: 'loadAll', dump: 'dump' }
+  { consumer: '@istanbuljs/load-nyc-config', major: 3, method: 'safeLoad', all: 'safeLoadAll', dump: 'safeDump' },
+  { consumer: 'mocha', major: 5, method: 'load', all: 'loadAll', dump: 'dump' }
 ];
+if (cliYamlPresent) versions.push({consumer: 'webpack-cli', major: 4, method: 'load', all: 'loadAll', dump: 'dump'});
 
 function run(program, args, cwd) {
   // Keep parent coverage instrumentation and application settings out of fixtures.
@@ -37,18 +49,23 @@ describe('js-yaml dependency compatibility', function () {
     const copies = Object.entries(lock.packages).filter(([name]) => name.endsWith('/js-yaml'));
     assert.ok(copies.length > 0);
     for (const [name, entry] of copies) {
+      const manifest = path.resolve(__dirname, '..', name, 'package.json');
+      if (!fs.existsSync(manifest)) {
+        assert.ok(entry.optional && entry.peer, 'Only an optional peer parser may be absent: ' + name);
+        continue;
+      }
       // eslint-disable-next-line security/detect-non-literal-require
-      const installed = require(path.resolve(__dirname, '..', name, 'package.json'));
+      const installed = require(manifest);
       assert.strictEqual(installed.version, entry.version);
-      assert.ok(semver.satisfies(installed.version, '>=3.15.2 <4 || >=4.3.2 <5'));
+      assert.ok(semver.satisfies(installed.version, '>=3.15.2 <4 || >=4.3.2 <5 || >=5.4.1 <6'));
     }
     for (const consumer of consumers) {
       const consumerRequire = createRequire(require.resolve(consumer));
       const installed = consumerRequire('js-yaml/package.json');
       // eslint-disable-next-line security/detect-non-literal-require
       const parent = require(consumer + '/package.json');
-      assert.ok(semver.satisfies(installed.version, parent.dependencies['js-yaml']));
-      assert.strictEqual(typeof consumerRequire('js-yaml')[consumer === 'mocha' ? 'load' : 'safeLoad'], 'function');
+      assert.ok(semver.satisfies(installed.version, (parent.dependencies || {})['js-yaml'] || (parent.peerDependencies || {})['js-yaml']));
+      assert.strictEqual(typeof consumerRequire('js-yaml')[consumer === '@istanbuljs/load-nyc-config' ? 'safeLoad' : 'load'], 'function');
     }
   });
 
@@ -56,7 +73,11 @@ describe('js-yaml dependency compatibility', function () {
     describe('js-yaml ' + version.major + '.x', function () {
       const consumerRequire = createRequire(require.resolve(version.consumer));
       const yaml = consumerRequire('js-yaml');
-      const load = yaml[version.method];
+      // v5 defaults to YAML 1.2 without merges/ordered maps. Exercise its
+      // explicit compatibility tags for the retained resource-limit checks;
+      // the actual Mocha defaults are covered separately below.
+      const options = version.major === 5 ? {schema: yaml.CORE_SCHEMA.withTags(yaml.mergeTag, yaml.omapTag)} : {};
+      const load = (source, extra) => yaml[version.method](source, {...options, ...extra});
 
       it('preserves configuration values, anchors and explicit merge overrides', function () {
         const value = load('base: &base {timeout: 5000, enabled: true}\nconfig:\n  <<: *base\n  timeout: 3000\n  label: "off"\n');
@@ -84,7 +105,7 @@ describe('js-yaml dependency compatibility', function () {
 
       it('bounds merge work across multiple documents in one call', function () {
         const input = 'config: {<<: {enabled: true}}\n---\nconfig: {<<: {enabled: false}}';
-        const loadAll = yaml[version.all];
+        const loadAll = (source, extra) => yaml[version.all](source, {...options, ...extra});
         assert.strictEqual(loadAll(input, { maxTotalMergeKeys: 4 }).length, 2);
         assert.throws(() => loadAll(input, { maxTotalMergeKeys: 3 }), /maxTotalMergeKeys/);
       });
@@ -99,12 +120,12 @@ describe('js-yaml dependency compatibility', function () {
       });
 
       it('rejects executable YAML tags through the safe configuration API', function () {
-        assert.throws(() => load('!!js/function "function () { return 1; }"'), /unknown tag/);
+        assert.throws(() => load('!!js/function "function () { return 1; }"'), /unknown.*tag/);
       });
 
       it('preserves ordered maps and rejects duplicate keys', function () {
         assert.deepStrictEqual(load('!!omap\n- constructor: 1\n- __proto__: 2\n'), [{ constructor: 1 }, JSON.parse('{"__proto__":2}')]);
-        assert.throws(() => load('!!omap\n- repeated: 1\n- repeated: 2\n'), /cannot resolve/);
+        assert.throws(() => load('!!omap\n- repeated: 1\n- repeated: 2\n'), version.major === 5 ? /duplicate key in ordered map/ : /cannot resolve/);
       });
 
       it('parses a large ordered map without quadratic CPU consumption', function () {
@@ -114,14 +135,44 @@ describe('js-yaml dependency compatibility', function () {
           const yaml = require(process.argv[1]);
           const count = 200000;
           const source = '!!omap\\n' + Array.from({length: count}, (_, i) => '- k' + i + ': ' + i).join('\\n');
-          const result = yaml[process.argv[2]](source);
+          const options = process.argv[3] === '5' ? {schema: yaml.CORE_SCHEMA.withTags(yaml.omapTag)} : {};
+          const result = yaml[process.argv[2]](source, options);
           assert.strictEqual(result.length, count);
           assert.strictEqual(result[count - 1]['k' + (count - 1)], count - 1);
         `;
-        run('-e', [script, consumerRequire.resolve('js-yaml'), version.method], __dirname);
+        run('-e', [script, consumerRequire.resolve('js-yaml'), version.method, String(version.major)], __dirname);
       });
     });
   }
+
+  describe('Mocha YAML 1.2 defaults', function () {
+    const yaml = createRequire(require.resolve('mocha'))('js-yaml');
+    it('preserves numeric options, aliases and strings without implicit merge expansion', function () {
+      const value = yaml.load('base: &base {timeout: 5000}\nconfig: {<<: *base, timeout: 3000, label: off}');
+      assert.strictEqual(value.config.timeout, 3000);
+      assert.strictEqual(value.config.label, 'off');
+      assert.strictEqual(value.config['<<'], value.base);
+      assert.deepStrictEqual(yaml.load(yaml.dump({timeout: 3000, spec: ['*.test.cjs']})),
+        {timeout: 3000, spec: ['*.test.cjs']});
+    });
+    it('keeps prototype keys as own data and rejects executable and unsupported tags', function () {
+      const value = yaml.load('__proto__: {polluted: true}\nconstructor: ordinary');
+      assert.strictEqual(Object.getPrototypeOf(value), Object.prototype);
+      assert.strictEqual(value.polluted, undefined);
+      assert.strictEqual(Object.prototype.polluted, undefined);
+      assert(Object.hasOwn(value, '__proto__'));
+      assert.strictEqual(value.constructor, 'ordinary');
+      assert.throws(() => yaml.load('!!js/function "function () {}"'), /unknown.*tag/);
+      assert.throws(() => yaml.load('!!omap\n- key: value'), /unknown.*tag/);
+      assert.throws(() => yaml.load('!!merge <<'), /unknown.*tag/);
+    });
+    it('rejects duplicate keys and enforces a configured alias budget', function () {
+      assert.throws(() => yaml.load('timeout: 1\ntimeout: 2'), /duplicat/);
+      const input = 'a: &a {enabled: true}\nb: [*a, *a]';
+      assert.strictEqual(yaml.load(input, {maxAliases: 2}).b.length, 2);
+      assert.throws(() => yaml.load(input, {maxAliases: 1}), /maxAliases/);
+    });
+  });
 
   describe('tool configuration consumers', function () {
     let directory;
@@ -137,20 +188,6 @@ describe('js-yaml dependency compatibility', function () {
       fs.writeFileSync(file, value);
       return file;
     }
-
-    it('loads ESLint YAML configuration and produces YAML TAP diagnostics', function () {
-      const config = fixture('.eslintrc.yml', 'root: true\nrules:\n  no-undef: error\n');
-      const { CLIEngine } = require('eslint');
-      const eslint = new CLIEngine({ cwd: directory, useEslintrc: false, configFile: config });
-      const report = eslint.executeOnText('missingName();', 'fixture.js');
-      assert.strictEqual(report.errorCount, 1);
-      assert.strictEqual(report.results[0].messages[0].ruleId, 'no-undef');
-      const output = CLIEngine.getFormatter('tap')(report.results);
-      assert.ok(output.includes('not ok 1'));
-      const diagnostic = output.match(/ {2}---\n([\s\S]*?)\.\.\./)[1].replace(/^ {2}/gm, '');
-      const consumerRequire = createRequire(require.resolve('eslint'));
-      assert.strictEqual(consumerRequire('js-yaml').safeLoad(diagnostic).data.ruleId, 'no-undef');
-    });
 
     it('loads nyc YAML options and preserves inherited configuration', async function () {
       fixture('base.yml', 'reporter: [lcov, text-summary]\nexclude: [tests/**]\n');

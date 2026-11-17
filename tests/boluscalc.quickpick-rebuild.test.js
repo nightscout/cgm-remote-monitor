@@ -95,6 +95,9 @@ describe('boluscalc quick-pick chooser rebuilds from the food data at open', fun
     Object.defineProperty(global, 'window', { configurable: true, writable: true, value: env.window });
     Object.defineProperty(global, 'document', { configurable: true, writable: true, value: env.window.document });
     Object.defineProperty(global, 'navigator', { configurable: true, writable: true, value: env.window.navigator });
+    // An earlier file can leave jquery cached against its own window.
+    delete require.cache[require.resolve('jquery')];
+    delete require.cache[require.resolve('../lib/client/boluscalc')];
     $ = require('jquery');
 
     const moment = require('moment');

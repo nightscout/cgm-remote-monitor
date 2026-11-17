@@ -1,0 +1,39 @@
+{
+  "scope": "Installed package file bytes; excludes filesystem allocation and is not server RSS. csv-parse is test-only.",
+  "packages": {
+    "csv-stringify": {
+      "before": {
+        "version": "5.6.5",
+        "bytes": 537710,
+        "files": 13
+      },
+      "after": {
+        "version": "6.8.3",
+        "bytes": 947275,
+        "files": 26
+      },
+      "byteDelta": 409565
+    },
+    "csv-parse": {
+      "before": {
+        "version": "4.16.3",
+        "bytes": 667911,
+        "files": 15
+      },
+      "after": {
+        "version": "7.0.2",
+        "bytes": 1606924,
+        "files": 33
+      },
+      "byteDelta": 939013
+    }
+  },
+  "compatibility": {
+    "fixtureCombinations": 444,
+    "nodeVersions": [
+      "22.23.2",
+      "24.20.0"
+    ],
+    "byteDifferences": 0
+  }
+}
