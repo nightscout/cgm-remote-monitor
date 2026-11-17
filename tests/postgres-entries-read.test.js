@@ -361,6 +361,31 @@ suite('PostgreSQL entries read matches mongod (requires NS_TEST_POSTGRES_ADMIN_U
 
 
 describe('PostgreSQL read projection materialization (no database)', function () {
+  it('uses the same connection inside the explicit read port for every entries read shape', async function () {
+    let active = false, entered = 0, queries = 0;
+    const connection = {
+      async readOnlyTransaction (fn) {
+        assert.equal(this, connection);
+        active = true; entered++;
+        try { return await fn(); } finally { active = false; }
+      },
+      async query (text) {
+        assert.equal(this, connection);
+        assert.equal(active, true, 'ENTRIES_QUERY_MUST_USE_READ_ONLY_PORT');
+        queries++;
+        return { rows: text.startsWith('SELECT count(') ? [{ n: '1' }] : [encodeDocument({ _id: 'x', sgv: 100 })] };
+      }
+    };
+    const reader = entriesRead({ connection, naturalOrder: true });
+    await reader.findNatural(and());
+    await reader.findFiltered(and());
+    await reader.findMany({ filter: [], sort: { _id: 1 }, limit: 1, skip: 0 });
+    await reader.findOne('x');
+    assert.equal(await reader.count(and()), 1);
+    assert.equal(entered, 5);
+    assert.equal(queries, 5);
+  });
+
   it('preserves nested arrays, typed ids, normalization and projection refusals', async function () {
     const docs = [{ _id: new ObjectId(H1), selected: [{ a: 1, b: 2 }, null, 3], ignored: [1, 2] },
       { _id: H1, selected: [{ a: 4 }] }];

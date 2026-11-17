@@ -185,6 +185,59 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       }
     });
 
+    it('runs the actual GET reader read-only, refuses SQL writes and joins existing write work', async function () {
+      const readOnly = connection.readOnlyTransaction;
+      assert.equal(typeof readOnly, 'function', 'EXPLICIT_READ_ONLY_PORT_REQUIRED');
+      let entered = 0;
+      connection.readOnlyTransaction = function (fn) {
+        return readOnly.call(connection, async () => {
+          entered++;
+          const state = (await connection.query("SELECT current_setting('transaction_read_only') AS read_only, current_setting('transaction_isolation') AS isolation")).rows[0];
+          assert.equal(state.read_only, 'on', 'PUBLIC_GET_MUST_BE_READ_ONLY');
+          assert.equal(state.isolation, 'repeatable read');
+          await assert.rejects(connection.withSavepoint(() => connection.query(
+            'UPDATE "' + namespace + '".entries SET doc=doc WHERE false')), { code: '25006' });
+          return fn();
+        });
+      };
+      try {
+        assert.equal((await http(A).expect(200)).body.result.sgv, 100);
+        assert.equal(entered, 1, 'PUBLIC_GET_MUST_ENTER_READ_ONLY_PORT');
+      } finally { connection.readOnlyTransaction = readOnly; }
+
+      const reader = require('../lib/storage/postgres-entries-read')({ connection, table });
+      const { and } = require('../lib/storage/filter');
+      await scope.withTenant(A, () => connection.readOnlyTransaction(async () => {
+        assert.equal(await reader.count(and()), 2);
+      }));
+      await connection.withTenant(A, async () => {
+        assert.equal((await reader.findOne('shared-entry'))[0].sgv, 100);
+        assert.equal((await connection.query("SELECT current_setting('transaction_read_only') AS read_only")).rows[0].read_only, 'off');
+        await connection.query(`UPDATE "${namespace}".entries SET doc=jsonb_set(doc,'{sgv}','111') WHERE "_id"=$1`, ['shared-id']);
+      });
+      assert.equal((await http(A).expect(200)).body.result.sgv, 111);
+      assert.equal((await http(B).expect(200)).body.result.sgv, 200);
+    });
+
+    it('keeps an imported snapshot when the entries reader joins it', async function () {
+      const reader = require('../lib/storage/postgres-entries-read')({ connection, table });
+      const correction = new Client(admin.connectionParameters);
+      await correction.connect();
+      await admin.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+      try {
+        const snapshot = (await admin.query('SELECT pg_export_snapshot() AS name')).rows[0].name;
+        await require('./fixtures/tenant-insertion-grants').withTenant(correction, A, () =>
+          correction.query(`UPDATE "${namespace}".entries SET doc=jsonb_set(doc,'{sgv}','112') WHERE tenant_id=$1 AND "_id"=$2`, [A, 'shared-id']));
+        const before = await scope.withTenant(A, () => connection.importedSnapshotTransaction(snapshot,
+          () => reader.findOne('shared-entry')));
+        assert.equal(before[0].sgv, 100, 'ENTRIES_READ_MUST_KEEP_IMPORTED_SNAPSHOT');
+      } finally {
+        await admin.query('ROLLBACK');
+        await correction.end();
+      }
+      assert.equal((await http(A).expect(200)).body.result.sgv, 112);
+    });
+
     it('commits different PATCH outcomes through M1 while reusing one physical pool connection', async function () {
       const responses = await Promise.all([
         http(A, 'patch').send({ sgv: 111 }).expect(200),
