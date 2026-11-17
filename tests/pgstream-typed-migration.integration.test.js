@@ -37,23 +37,14 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   finally{await admin.query(`UPDATE ${table} SET delivery_ack_revision=0 WHERE tenant_id=$1`,[tenant]);await admin.query(candidate.migrations[1].up.find(sql=>sql.includes('ADD CONSTRAINT evaluator_delivery_order')).replace('tenant_consumer_checkpoint',table));}
   await assert.rejects(admin.query(`UPDATE ${table} SET delivery_ack_revision=1 WHERE tenant_id=$1`,[tenant]),error=>error.code==='23514');
  });
- it('admits legacy exact versions and fractional due once, then makes the old reader refuse',async()=>{
-  const checkpoint=require('../lib/pgstream/checkpoint');
-  admissionPool=new Pool({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,max:1});
-  // readOnly mirrors the production metadata read: one SELECT in a READ ONLY transaction.
-  const port={query:(...args)=>admin.query(...args),readOnly:async(text,values)=>{await admin.query('BEGIN READ ONLY');try{const result=await admin.query(text,values);await admin.query('COMMIT');return result;}catch(e){await admin.query('ROLLBACK');throw e;}},withTenant:async(_tenant,fn)=>{await admin.query('BEGIN');try{const value=await fn();await admin.query('COMMIT');return value;}catch(e){await admin.query('ROLLBACK');throw e;}}};
-  // This suite isolates physical migration/admission SQL; native backend authority has separate gates.
-  port.admitEvaluatorTyped=options=>require('../lib/pgstream/work-state').admit({pool:admissionPool,observeBackend:async()=>{},...options});
-  const options={connection:port,namespace,consumer:'evaluator-admit',maxBytes:1048576,timeIntervalMs:60000};
-  const legacy=require('./fixtures/legacy-evaluator-checkpoint')(namespace,options.consumer),typed=checkpoint.create({...options,typed:true});
-  const state={kind:'evaluator-work-v1',observed:{clock:'9007199254740993'},completed:{clock:'9007199254740993'},observedAt:{clock:0},pendingAt:null,nextDueAt:8572.42857142857,completedAt:0,enabled:true,output:null};
-  await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint,projection) VALUES ($1,$2,$3,0,$4::jsonb)`,[tenant,legacy.consumer,legacy.digest,JSON.stringify([state])]);
-  await typed.admit([tenant]);
-  const before=(await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[typed.consumer])).rows[0];
-  assert.equal(before.work_due_at,'8573');assert.equal(before.work_observed[0],'9007199254740993');assert.deepEqual(before.projection,[{kind:'evaluator-work-v2',output:null}]);
-  await typed.admit([tenant]);assert.deepEqual((await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[typed.consumer])).rows[0],before);
-  assert.throws(()=>checkpoint.create(options),/EVALUATOR_CHECKPOINT_TYPED_REQUIRED/,'retired runtime is refused before any read');
-  assert.deepEqual(await typed.begin(tenant),{clock:'9007199254740993'});
+ it('initializes only a fresh current-format row and refuses legacy progress unchanged',async()=>{
+  const work=require('../lib/pgstream/work-state');admissionPool=new Pool({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,max:1});
+  const consumer='evaluator-admit-completed',digest='b'.repeat(64),options={pool:admissionPool,observeBackend:async()=>{},table:namespace+'.tenant_consumer_checkpoint',consumer,digest,tenants:[tenant]};
+  await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,$2,$3,0)`,[tenant,consumer,digest]);
+  await work.admit(options);const before=(await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[consumer])).rows[0];assert.equal(before.work_version,2);assert.deepEqual(before.work_observed,[null,null,null,null,null,null]);
+  await work.admit(options);assert.deepEqual((await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[consumer])).rows[0],before);
+  await admin.query(`UPDATE ${table} SET work_version=0,projection=$2::jsonb WHERE consumer=$1`,[consumer,JSON.stringify([{kind:'evaluator-work-v1',observed:{clock:'9007199254740993'}}])]);
+  const legacy=(await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[consumer])).rows[0];await assert.rejects(work.admit(options),/EVALUATOR_OUTPUT_CONTRACT/);assert.deepEqual((await admin.query(`SELECT * FROM ${table} WHERE consumer=$1`,[consumer])).rows[0],legacy);
  });
  it('rejects a changed migration checksum',()=>{const broken=structuredClone(candidate);broken.migrations[1].checksum='0'.repeat(64);assert.throws(()=>catalogue.validateCatalogue(broken),/checksum mismatch/);});
 });

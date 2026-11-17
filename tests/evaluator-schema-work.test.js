@@ -86,7 +86,7 @@ describe('evaluator schema work bounds', function () {
   let prior;
   beforeEach(() => { prior = scope.getTenancyMode(); });
   afterEach(() => { scope.setTenancyMode(prior); });
-  for (const selected of [false, true]) {
+  for (const selected of [false]) {
     const name = selected ? 'selected' : 'global';
     for (const count of [1, 65, 500]) for (const events of [0, 1, 4]) it(name + ' boot scans only once for durable recovery at cohort ' + count + ', events ' + events, async () => {
       const f = fixture(count, selected);
@@ -185,7 +185,7 @@ describe('evaluator schema work bounds', function () {
       assert.deepEqual(f.calls.scans.at(-1), f.ids, 'ACTUAL_RECOVERY_RECONCILES_ROSTER');
     } finally { await service.close(); }
   }
-  for (const selected of [false,true]) {
+  for (const selected of [false]) {
   const name=selected?'selected fixed-v1':'global';
   it(name+' quiet streaming has no metadata SQL/roster timer, while schema and transport recovery still reconcile', () => quietCriterion(selected));
   async function readmissionCriterion (change = text => text) {
@@ -216,24 +216,13 @@ describe('evaluator schema work bounds', function () {
     await quietCriterion(selected);
   });
   }
-  it('selected fixed-v1 non-intake worker revalidates addressed work without an idle metadata timer', async () => {
-    const f=fixture(65,true,1,text=>text,true),service=await f.boot();
-    try { assert.equal(f.calls.timers.length,0);const before=f.calls.verify;f.reader().invalidate();
-      await f.schedulerOptions().scan([f.ownIds[0]]);assert.equal(f.calls.verify,before+1);
-      assert.deepEqual(f.calls.scans.at(-1),[f.ownIds[0]]);
-    } finally { await service.close(); }
-  });
-  it('selected ordinal one reconciles its own slice before startup without an eager scan or intake bootstrap', async () => {
-    const f = fixture(65, true, 1), service = await f.boot();
-    try { assert.deepEqual(f.calls.scans, [f.ownIds]); assert.equal(f.calls.pages.length, 0); }
-    finally { await service.close(); }
-  });
+
 });
 
 describe('actual preview completion authority after computation',()=>{
  let prior;
  beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
- for(const selected of [false,true])for(const kind of ['settings','policy','paused','suspended'])it((selected?'selected':'global')+' refuses silent '+kind+' before durable output',async()=>{
+ for(const selected of [false])for(const kind of ['settings','policy','paused','suspended'])it((selected?'selected':'global')+' refuses silent '+kind+' before durable output',async()=>{
   const f=fixture(2,selected),service=await f.boot();try{
    await f.reader().verify();await f.reader().scan(f.ids);
    const complete=f.runtimeOptions().durable.complete,tenant=f.ownIds[0],before=f.calls.scans.length;

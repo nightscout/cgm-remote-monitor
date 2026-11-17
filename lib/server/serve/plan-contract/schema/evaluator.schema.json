@@ -581,63 +581,6 @@
           "transactionRows"
         ]
       }
-    },
-    "selectedIntake": {
-      "type": "object",
-      "required": [
-        "profile",
-        "workers"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "profile": {
-          "type": "object",
-          "required": [
-            "binding",
-            "digest",
-            "contractDigest",
-            "ownerKey"
-          ],
-          "description": "A generated intake-profile value. The loader validates the canonical binding and digests, then regenerates assignment. Incoming assignment and other envelope metadata grant no authority.",
-          "properties": {
-            "binding": {
-              "type": "object",
-              "description": "Canonical binding is validated by intake-profile.validate against the selected source capability."
-            },
-            "digest": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$"
-            },
-            "contractDigest": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{64}$"
-            },
-            "ownerKey": {
-              "type": "string",
-              "pattern": "^-?[0-9]{1,19}$"
-            }
-          }
-        },
-        "workers": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-          },
-          "minItems": 2,
-          "maxItems": 2,
-          "uniqueItems": true
-        },
-        "connectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
-        },
-        "controlConnectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
-        }
-      },
-      "description": "Explicit selected capability only. The actual loader validates partition ordinal, roles, source capability, distinct identities and namespace binding."
     }
   }
 }

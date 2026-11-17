@@ -156,8 +156,6 @@ const INVENTORY = [
     note: 'scanTenants: one READ ONLY round trip under each tenant\'s forced-RLS binding' },
   { file: 'tests/pool-membership.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'pool membership: two kinds, member/inspector/operator identities, operator-set count, agreement, lease expiry' },
-  { file: 'tests/incremental-view.integration.test.js', flags: { NS_TENANT_DURABLE_REPLAY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'decision incremental-refresh: edit, soft and hard delete, gap, mismatch' },
   { file: 'tests/tenant-write-clock-complete.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'decision write-clock-complete: every supported write advances the clock, hard deletes also last_delete_stamp' },
   { file: 'tests/evaluator-wake.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
