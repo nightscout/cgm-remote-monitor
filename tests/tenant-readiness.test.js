@@ -18,11 +18,11 @@ const scope = require('../lib/storage/tenant-scope');
 const tenantOf = i => '00000000-0000-4000-8000-' + String(i + 1).padStart(12, '0');
 const TENANTS = Array.from({ length: 100 }, (_, i) => tenantOf(i));
 const BROKEN = TENANTS[37];
-function load (relative, overrides) {
+function load (relative, overrides, transform = source => source) {
   const filename = path.resolve(__dirname, '..', relative), local = createRequire(filename);
   const sandbox = { module: { exports: {} }, setInterval: () => { throw new Error('SOURCE_TEST_TIMER_FORBIDDEN'); }, clearInterval: () => {},
     console: { log () {}, warn () {} }, process, require: name => Object.hasOwn(overrides, name) ? overrides[name] : local(name) };
-  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename }); return sandbox.module.exports;
+  vm.runInNewContext(transform(fs.readFileSync(filename, 'utf8')), sandbox, { filename }); return sandbox.module.exports;
 }
 async function withReadiness (value, fn) {
   const previous = process.env.NS_TENANT_READINESS;
@@ -32,7 +32,7 @@ async function withReadiness (value, fn) {
 // The actual api boot (lib/server/serve/preview-api.js) with recorded storage:
 // BROKEN's root credential metadata is missing, the misconfiguration the api's
 // tenant initializer refuses ("incomplete preview root preparation").
-function apiBoot ({ display, verified = false } = {}) {
+function apiBoot ({ display, verified = false, transform } = {}) {
   let verificationReady = true;
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
@@ -47,7 +47,7 @@ function apiBoot ({ display, verified = false } = {}) {
     './preview-domains': async () => ({ initializeTenant: async tenant => { await new Promise(resolve => setImmediate(resolve)); initialized.add(tenant); }, data: () => {}, safeRoutes: {} }),
     '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
     '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } }
-  });
+  }, transform);
   const config = { ...(verified ? {platformVerification:{namespace:'synthetic_verification',role:'api'}} : {}), bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: {}, ...(display ? { tenantSettings: {} } : {}) };
   return { boot: () => boot.boot(config), initialized, calls, setVerified: value => {verificationReady=value;} };
 }
@@ -83,6 +83,65 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
       await request(role.app).get('/api/v1/entries').expect(503).expect('Retry-After','5').expect({error:'PLATFORM_VERIFICATION_REQUIRED'});
       lab.setVerified(true);await lab.calls.http(TENANTS[0]);assert.equal(role.health().ready,true);
     }finally{await role.close();}
+  });
+
+  // Actual API composition with recorded dependencies. The platform guard's
+  // false verdict covers revoked and expired verification; database certificate
+  // semantics are tested separately by the platform verification native suite.
+  for (const displayState of [undefined, { ready: true, state: 'ready' }, { ready: false, state: 'pending' },
+    { ready: false, state: 'unavailable', code: 'SETTINGS_STORE_UNSAFE' }]) {
+    it('gates storage health on platform verification with display ' + (displayState?.state || 'absent'), async function () {
+      let reads = 0;
+      const display = displayState ? { health: () => displayState, check: async () => displayState,
+        read: async () => { reads++; throw new Error('DISPLAY_READ_MUST_NOT_GATE_INGESTION'); }, close: async () => {} } : undefined;
+      const lab = apiBoot({ display, verified: true }), role = await withReadiness('serve', lab.boot);
+      const screenReady = displayState?.ready ?? true;
+      try {
+        await assert.rejects(lab.calls.http(TENANTS[0]), { code: 'TENANT_WARMING' });
+        await role.warmed(); await lab.calls.http(TENANTS[0]);
+        assert.equal(role.health().storageReady, true, 'VERIFIED_STORAGE_ADMISSION_REQUIRED');
+        assert.equal(role.health().ready, screenReady, 'DISPLAY_SCREEN_ONLY_GATES_OVERALL_READY');
+        for (const condition of ['revoked', 'expired']) {
+          lab.setVerified(false);
+          const refused = role.health();
+          assert.equal(refused.ready, false, condition + ': PLATFORM_MUST_REFUSE_OVERALL_HEALTH');
+          assert.equal(refused.storageReady, false, condition + ': PLATFORM_MUST_REFUSE_STORAGE_HEALTH');
+          assert.equal(refused.platformVerification.ready, false);
+          await assert.rejects(lab.calls.http(TENANTS[0]), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          await request(role.app).get('/api/v1/entries').expect(503).expect({ error: 'PLATFORM_VERIFICATION_REQUIRED' });
+          lab.setVerified(true);
+          assert.equal(role.health().storageReady, true, 'RESTORED_PLATFORM_MUST_RESTORE_STORAGE_HEALTH');
+          assert.equal(role.health().ready, screenReady);
+          await lab.calls.http(TENANTS[0]);
+        }
+        assert.equal(reads, 0, 'DISPLAY_SCREEN_FAILURE_MUST_NOT_READ_OR_GATE_INGESTION');
+        role.quiesce();
+        assert.equal(role.health().storageReady, false, 'QUIESCED_ROLE_MUST_REFUSE_STORAGE_HEALTH');
+        assert.equal(role.health().ready, false);
+      } finally { await role.close(); }
+    });
+  }
+
+  it('control: omitting the platform storage-health gate fails the actual API criterion; restored source passes', async function () {
+    const criterion = async transform => {
+      const display = { health: () => ({ ready: true, state: 'ready' }), check: async () => {}, close: async () => {} };
+      const lab = apiBoot({ display, verified: true, transform }), role = await withReadiness('serve', lab.boot);
+      try {
+        assert.equal(role.health().storageReady, true);
+        lab.setVerified(false);
+        assert.equal(role.health().ready, false);
+        assert.equal(role.health().storageReady, false, 'UNVERIFIED_PLATFORM_MUST_REFUSE_STORAGE_HEALTH');
+        lab.setVerified(true); assert.equal(role.health().storageReady, true);
+      } finally { await role.close(); }
+    };
+    await criterion();
+    const omitGate = source => {
+      const needle = 'storageReady: admitted && (current.storageReady ?? current.ready)';
+      assert.equal(source.split(needle).length, 2, 'STORAGE_HEALTH_CONTROL_SEAM_REQUIRED');
+      return source.replace(needle, 'storageReady: current.storageReady ?? current.ready');
+    };
+    await assert.rejects(criterion(omitGate), /UNVERIFIED_PLATFORM_MUST_REFUSE_STORAGE_HEALTH/);
+    await criterion();
   });
 
   it('NS_TENANT_READINESS=all restores all-tenants readiness: the same broken tenant fails the boot', async function () {
