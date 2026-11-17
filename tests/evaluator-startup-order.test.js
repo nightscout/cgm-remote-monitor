@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text}={}){
+function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let placementClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
@@ -40,7 +40,7 @@ function fixture({assignedTenants,holdAdmission=false,pgstreamEnabled=true,parti
  const mocks={
   'pg':{Client:class {async connect(){} async end(){} async query(){return {rows:[{systemid:'123',timeline:1,dbname:'synthetic'}]};}}},
   '../../pgstream/snapshot-recovery':{lockKey:()=> '123',create:()=>({close:async()=>{}})},
-  './evaluator-runtime':async options=>{runtime=await require('../lib/server/serve/evaluator-runtime')(options);return runtime;},
+  './evaluator-runtime':async options=>{runtime=await runtimeFactory(options);return runtime;},
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
@@ -134,6 +134,28 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   }
   await assert.rejects(criterion(source=>{const needle="      sweep('start', 'run', tenants);";assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/STARTUP_MUST_RECONCILE_UNOBSERVED_ALARM_REVISION/);
   await criterion();
+ });
+ it('keeps input arriving during computation pending, with a completion-time recapture control',async()=>{
+  const control=require('./lib/clinical-working-set/control');
+  const late=control('../lib/server/serve/evaluator-runtime',
+   'await durable.complete(state.tenant, { observed,','await durable.complete(state.tenant, { observed:await durable.begin(state.tenant),');
+  const verify=async runtimeFactory=>{
+   const f=fixture({pendingRace:true,runtimeFactory}),boot=f.boot().catch(error=>({error}));let service;
+   try{
+    await f.evaluating.promise;await f.hint('2');f.finishCycle.resolve();
+    for(let n=0;n<60&&!f.completions.length;n++)await settle();
+    const saved=f.completions[0];
+    assert.equal(saved?.work_observed[1],'2');
+    assert.equal(saved.work_completed[1],'1','EVALUATOR_CERTIFIED_UNREAD_INPUT');
+    assert.notEqual(saved.work_pending_at,null);
+   } finally {
+    f.finishCycle.resolve();f.prepare.resolve();service=await boot;
+    await service?.close?.();await f.window.close();
+   }
+  };
+  await verify();
+  await assert.rejects(verify(late),/EVALUATOR_CERTIFIED_UNREAD_INPUT/);
+  await verify();
  });
  it('reconciles a genuine pending hint during boot; delayed-scheduler control is red and restored source passes',async function(){
   this.timeout(10000);

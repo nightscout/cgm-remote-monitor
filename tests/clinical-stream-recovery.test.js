@@ -56,7 +56,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
   if(text.startsWith('SELECT count(*)::text'))return {rows:[{row_count:String(canonicalRows.length),document_bytes:String(canonicalRows.length*80)}]};
   if(text.includes('information_schema.columns'))return {rows:[{name:'synthetic_entries.entries'}]};
   if(text.startsWith('SELECT domain,id_kind,doc,stamp'))return {rows:args.length>1?[]:structuredClone(canonicalRows)};
-  if(text.startsWith('WITH input')){const patch=JSON.parse(args[1])[0];Object.assign(current.output,{work_observed:patch.observed,work_observed_at:patch.observed_at,work_pending_at:patch.pending_at});return {rowCount:1};}
+  if(text.startsWith('WITH input')){const patch=JSON.parse(args[1])[0];Object.assign(current.output,{work_observed:patch.observed,work_observed_at:patch.observed_at,work_pending_at:patch.pending_at,delivery_revision:String(BigInt(current.output.delivery_revision)+BigInt(patch.delivery_delta))});return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){current.input={checkpoint:args[4],projection:JSON.parse(args[2])};return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET checkpoint=$3, projection=')){current.input={checkpoint:args[2],projection:[JSON.parse(args[3])[0],args[5]?JSON.parse(args[5]):current.input.projection[1]]};return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision=')){current.output.delivery_revision=String(BigInt(current.output.delivery_revision)+1n);return {rowCount:1};}
@@ -75,7 +75,7 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
 describe('durable generation recovery bootstrap obligation',()=>{
  let prior;before(()=>{prior=scope.getTenancyMode();scope.setTenancyMode('multi');});after(()=>scope.setTenancyMode(prior));
  it('mints owed work for a drained generation and commits it with input before returning',async()=>{
-  const f=recoveryFixture();const result=await f.reconcile(),saved=f.snapshot();assert.equal(result.checkpoint,5);assert.equal(saved.input.checkpoint,5);assert.equal(saved.output.work_observed[5],'5');assert.equal(saved.output.work_completed[5],'4');assert.notEqual(saved.output.work_pending_at,null);assert.equal(saved.input.projection[0].stream.generation,'epoch:2');
+  const f=recoveryFixture();const result=await f.reconcile(),saved=f.snapshot();assert.equal(result.checkpoint,5);assert.equal(saved.input.checkpoint,5);assert.equal(saved.output.work_observed[5],'5');assert.equal(saved.output.work_completed[5],'4');assert.notEqual(saved.output.work_pending_at,null);assert.equal(saved.input.projection[0].stream.generation,'epoch:2');assert.equal(saved.output.delivery_revision,'1');
  });
  it('reuses a genuinely pending covering token on cold startup and new generation',async()=>{
   for(const options of [{cold:true,floor:0,observed:'0',completed:null},{observed:'4',completed:'3'}]){
@@ -87,6 +87,20 @@ describe('durable generation recovery bootstrap obligation',()=>{
  });
  it('does no new work or history query for compatible same-generation warm state',async()=>{
   const f=recoveryFixture({sameGeneration:true});await f.reconcile();const before=f.snapshot(),reads=sourceAccess(f);await f.reconcile();assert.equal(f.recoveries,1);assert.equal(sourceAccess(f),reads);assert.deepEqual(f.snapshot(),before);
+ });
+ it('control: whole-projection warm read fails the metadata-only query criterion',async()=>{
+  const control=require('./lib/clinical-working-set/control');
+  const broad=control('../lib/storage/postgres-durable-replay','stream && !boundary ? warmInput',"stream && !boundary ? 'jsonb_build_array(projection->0) AS projection'");
+  const check=async factory=>{
+   const f=recoveryFixture({factory,sameGeneration:true}),warm=await f.reconcile(),offset=f.queries.length;
+   assert.deepEqual(await f.reconcile(),warm);
+   const reads=f.queries.slice(offset).filter(text=>text.startsWith('SELECT checkpoint, contract_digest, '));
+   assert.equal(reads.length,1);
+   assert.match(reads[0],/jsonb_build_object\('kind',projection->0->'kind','floor',projection->0->'floor','deleted',projection->0->'deleted','stream',projection->0->'stream'\)/,'WARM_READ_RETURNED_FULL_PROJECTION');
+  };
+  await check(replay);
+  await assert.rejects(check(broad),/WARM_READ_RETURNED_FULL_PROJECTION/);
+  await check(replay);
  });
  it('refuses counter exhaustion, wrong completed digest and source overflow atomically',async()=>{
   for(const [options,extra,symptom]of [[{floor:8639999999999999,observed:'8639999999999999',completed:'8639999999999999'},undefined,/INVALID_STAMP/],[{badDigest:true},undefined,/COMPLETED_CONTRACT/],[{sourceRows:2},{maxRows:1},/ROW_BOUND/]]){
