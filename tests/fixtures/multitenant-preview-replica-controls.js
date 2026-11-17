@@ -16,8 +16,10 @@ if (control === 'history-clock') {
   const realNow = Date.now;
   Date.now = function () {
     // Preserve actual authentication, expiry, provider and timeout clocks. Only
-    // the unmodified srv-dates allocator sees the same time in both children.
-    return new Error().stack.includes(path.join('lib', 'server', 'srv-dates.js') + ':') ? fixed : realNow();
+    // the history allocator and its in-transaction reservation use fixed time.
+    const caller = new Error().stack.split('\n')[2];
+    return [path.join('lib', 'server', 'srv-dates.js'), path.join('lib', 'storage', 'postgres-write-clock.js')]
+      .some(file => caller.includes(file + ':')) ? fixed : realNow();
   };
   process.stderr.write('replica-control: history-clock installed\n');
 }

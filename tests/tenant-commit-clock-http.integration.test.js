@@ -70,7 +70,9 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
     it('orders equal-clock writes across API processes and returns the later exclusive-history record', async function () {
       const options = clockOptions(), [first, second] = await f.pair(options);
       const token = await f.localToken(A), foreign = await f.foreignRows(B);
+      const initial = await f.floor(A);
       const one = await seed(first, token, 'commit-clock-equal-one');
+      assert.equal(one.srvModified, Math.max(initial + 1, Number(options.NS_PREVIEW_REPLICA_CLOCK_MS)));
       assert.ok((await history(first, token, one.srvModified - 1)).some(doc => doc.identifier === one.identifier));
       const two = await seed(second, token, 'commit-clock-equal-two');
       assert.ok(two.srvModified > one.srvModified, 'distinct processes must not reuse the first issued cursor');
@@ -98,7 +100,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         dataWait = await f.waitForBlocked(w1, blocker.pid, 'data-update');
         await f.assertClockHeld(A);
         w2 = f.tracked(call(second, A, 'POST', '/api/v3/entries', token, entry('commit-clock-blocked-second', 147)));
-        clockWait = await f.waitForBlocked(w2, dataWait.pid, 'clock-select', dataWait.deadline);
+        clockWait = await f.waitForBlocked(w2, dataWait.pid, 'clock-row', dataWait.deadline);
         const progress = f.tracked(call(second, B, 'POST', '/api/v3/entries', b, entry('commit-clock-independent-b', 175)));
         await f.completed(progress, 201, 'different tenant', dataWait.deadline);
         const current = await history(second, token, original.srvModified);
@@ -135,7 +137,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         dataWait = await f.waitForBlocked(w1, blocker.pid, 'data-update');
         await f.assertClockHeld(A);
         w2 = f.tracked(call(second, A, 'POST', '/api/v3/entries', token, entry('commit-clock-after-nodekill', 148)));
-        await f.waitForBlocked(w2, dataWait.pid, 'clock-select', dataWait.deadline);
+        await f.waitForBlocked(w2, dataWait.pid, 'clock-row', dataWait.deadline);
         assert.ok(Date.now() < dataWait.deadline, 'Node kill occurs within the shared pre-timeout budget');
         await f.kill(first);
         assert.ok((await w1.promise).error, 'killed Node writer produces transport failure, not success');
@@ -178,7 +180,7 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
         dataWait = await f.waitForBlocked(w1, blocker.pid, 'data-update');
         await f.assertClockHeld(A);
         w2 = f.tracked(call(second, A, 'POST', '/api/v3/entries', token, entry('commit-clock-after-backend-abort', 149)));
-        await f.waitForBlocked(w2, dataWait.pid, 'clock-select', dataWait.deadline);
+        await f.waitForBlocked(w2, dataWait.pid, 'clock-row', dataWait.deadline);
         assert.ok(Date.now() < dataWait.deadline, 'operator abort occurs within the shared pre-timeout budget');
         assert.equal(await f.terminateBackend(dataWait.pid, first), true, 'operator terminates the exact observed W1 database backend');
         // W2 must commit while the original data-row locker is STILL held.

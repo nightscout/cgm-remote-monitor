@@ -241,8 +241,9 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
           AND $1::int=ANY(pg_blocking_pids(pid))`, [blockerPid]);
       for (const row of state.rows) {
         const isData = /\bUPDATE\b/i.test(row.query) && /preview_data/.test(row.query) && /entries/.test(row.query);
-        const isClock = /\bSELECT\s+last_stamp\b/i.test(row.query) && /tenant_write_clock/.test(row.query) && /FOR\s+UPDATE/i.test(row.query);
-        if ((kind === 'data-update' && isData) || (kind === 'clock-select' && isClock)) {
+        const isClock = /tenant_write_clock/.test(row.query) &&
+          (/^SELECT last_stamp .*FOR UPDATE/i.test(row.query) || /^UPDATE .*SET last_stamp = GREATEST/i.test(row.query));
+        if ((kind === 'data-update' && isData) || (kind === 'clock-row' && isClock)) {
           return { pid: Number(row.pid), blockers: row.blockers, kind,
             // Stop well before the preview data transaction's5s timeout. All
             // later probes share this remaining budget rather than adding it.
