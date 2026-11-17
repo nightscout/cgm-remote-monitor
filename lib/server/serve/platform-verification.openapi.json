@@ -29,7 +29,7 @@
         },
         "responses": {
           "200": {
-            "description": "Verified namespace, validityMs, refreshMs and per-role generation/expiresAt bind the receipt"
+            "description": "Verified namespace, validityMs, refreshMs and per-role generation/expiresAt bind the receipt; successful explicit POST resumes automatic refresh"
           },
           "409": {
             "description": "Verification already running"
@@ -54,7 +54,7 @@
         },
         "responses": {
           "200": {
-            "description": "Admission revoked and concurrent verification fenced"
+            "description": "Admission revoked, concurrent verification fenced and automatic refresh suspended until a successful explicit POST"
           },
           "503": {
             "description": "Invalidation failed; do not mutate platform state"

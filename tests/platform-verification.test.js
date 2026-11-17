@@ -189,6 +189,106 @@ native('Native PostgreSQL admin verification state', function () {
     } finally { await faulty.close(); await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY'); }
     await service.verify(); await platform.admit(config, 'api');
   });
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  async function until (predicate, code) {
+    const deadline = Date.now() + 6000;
+    while (Date.now() < deadline) { if (await predicate()) return; await delay(25); }
+    assert.fail(code);
+  }
+  async function timerPauseOracle (implementation) {
+    let callsA = 0, callsB = 0, server;
+    const own = check => ({ role: 'api', get config () { return config; }, check });
+    const a = implementation.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
+      targets: [own(async () => { callsA++; await target.check(); })] });
+    const b = implementation.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
+      targets: [own(async () => { callsB++; await target.check(); })] });
+    try {
+      await a.verify(); await b.verify(); await platform.admit(config, 'api');
+      server = http.createServer(api({ service: b, fallback: (_req, res) => { res.writeHead(404); res.end(); } }));
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+      const origin = 'http://127.0.0.1:' + server.address().port;
+      const call = method => fetch(origin + '/v1/platform-verification', { method, headers: { 'content-type': 'application/json' }, body: '{}' });
+      const deleted = await call('DELETE'); assert.equal(deleted.status, 200); await deleted.json();
+      await delay(2200); // Two scheduled refreshes, well before the old 10 s expiry.
+      let state = await b.inspect();
+      assert.equal(state.roles[0].status, 'revoked', 'AUTOMATIC_REPUBLISHED_AFTER_DELETE');
+      assert.equal(state.operation.automaticEnabled, false, 'AUTOMATIC_REENABLED_AFTER_DELETE');
+      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      const pausedA = callsA;
+      // A failed explicit POST must not release the operator's pause.
+      await admin.query('ALTER TABLE ' + quote(schema) + '.probe DISABLE ROW LEVEL SECURITY');
+      const refused = await call('POST'); assert.equal(refused.status, 503); await refused.json();
+      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
+      await delay(1200);
+      state = await b.inspect(); assert.equal(state.operation.automaticEnabled, false); assert.equal(state.roles[0].status, 'revoked');
+      const posted = await call('POST'); assert.equal(posted.status, 200); assert.equal((await posted.json()).status, 'verified');
+      assert.equal((await b.inspect()).operation.automaticEnabled, true); await platform.admit(config, 'api');
+      const resumedB = callsB;
+      await until(() => callsB > resumedB, 'MANUAL_POST_MUST_RESUME_AUTOMATIC_REFRESH');
+      assert.equal(callsA, pausedA, 'OLD_TIMER_MUST_NOT_ADOPT_NEW_EPOCH');
+      await platform.admit(config, 'api');
+    } finally {
+      if (server) await new Promise(resolve => server.close(resolve));
+      await Promise.allSettled([a.close(), b.close()]);
+      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
+      await service.verify();
+    }
+  }
+  it('DELETE pauses two native service timers until a successful explicit HTTP POST', async function () {
+    await timerPauseOracle(platform);
+  });
+  it('detects the old timer calling public verification after DELETE and restores the private epoch path', async function () {
+    const broken = sourceControl('const pending = track(runVerification({ automatic: true, expectedEpoch }));', 'const pending = verify();');
+    await assert.rejects(timerPauseOracle(broken), error => error.name === 'AssertionError' && error.message.includes('AUTOMATIC_REPUBLISHED_AFTER_DELETE'));
+    console.log('    CONTROL RED: AUTOMATIC_REPUBLISHED_AFTER_DELETE');
+    await timerPauseOracle(platform);
+    console.log('    CONTROL RESTORED: operator pause retained until successful POST');
+  });
+  it('checks the durable pause before automatic target work without requiring an epoch change', async function () {
+    let calls = 0;
+    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
+      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; await target.check(); } }] });
+    try {
+      await worker.verify(); const before = calls;
+      await admin.query('UPDATE ' + quote(schema) + '.verification_control SET automatic_enabled=false WHERE singleton');
+      await delay(1300); assert.equal(calls, before, 'PAUSED_TIMER_MUST_NOT_ENTER_TARGET');
+      assert.equal((await worker.inspect()).operation.automaticEnabled, false);
+    } finally { await worker.close(); await service.verify(); }
+  });
+  it('keeps ordinary failed automatic refresh retry separate from an operator pause', async function () {
+    let calls = 0;
+    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
+      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; await target.check(); } }] });
+    try {
+      await worker.verify();
+      // Model unexpected drift rather than a supported platform mutation.
+      await admin.query('ALTER TABLE ' + quote(schema) + '.probe DISABLE ROW LEVEL SECURITY');
+      await until(async () => (await worker.inspect()).roles[0].status === 'revoked', 'AUTOMATIC_FAILURE_MUST_REVOKE');
+      assert.equal((await worker.inspect()).operation.automaticEnabled, true);
+      const failedAt = calls;
+      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
+      await until(async () => calls > failedAt && (await worker.inspect()).roles[0].status === 'verified', 'AUTOMATIC_FAILURE_MUST_RETRY_WITHOUT_MANUAL_POST');
+      await platform.admit(config, 'api');
+    } finally {
+      await worker.close(); await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY'); await service.verify();
+    }
+  });
+  it('fences an already entered automatic check and prevents its timer from resuming after DELETE', async function () {
+    let hold = false, release, entered, calls = 0;
+    const entry = new Promise(resolve => { entered = resolve; }), heldCheck = new Promise(resolve => { release = resolve; });
+    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
+      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; if (hold) { entered(); await heldCheck; } await target.check(); } }] });
+    try {
+      await worker.verify(); hold = true;
+      await Promise.race([entry, delay(6000).then(() => assert.fail('AUTOMATIC_CHECK_MUST_ENTER'))]);
+      await service.invalidate(); release();
+      await until(async () => (await service.inspect()).operation.status === 'FAILED', 'INVALIDATED_AUTOMATIC_CHECK_MUST_REFUSE');
+      const stoppedAt = calls;
+      await delay(1300); assert.equal(calls, stoppedAt, 'INVALIDATED_AUTOMATIC_TIMER_MUST_STOP');
+      const state = await service.inspect(); assert.equal(state.operation.automaticEnabled, false); assert.equal(state.roles[0].status, 'revoked');
+      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+    } finally { release(); await worker.close(); await service.verify(); }
+  });
   it('refreshes cheap serving health after revocation and restoration', async function () {
     const guard = await platform.guard(config, 'api', { intervalMs: 100 });
     try {
