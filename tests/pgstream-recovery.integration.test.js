@@ -79,7 +79,8 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
           await lab.admin.query('BEGIN');
           await lab.admin.query('UPDATE "'+lab.replayNamespace+'".tenant_consumer_checkpoint SET projection=projection WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName]);
           pending=worker.call('acquire',lab.A).then(value=>{result=value;finished=true;});
-          const prefix='SELECT checkpoint, contract_digest, jsonb_build_array(projection->0) AS projection FROM "'+lab.replayNamespace+'".';
+          // Observe the owned checkpoint relation and lock, independent of selected return columns.
+          const prefix='SELECT checkpoint, contract_digest, % FROM "'+lab.replayNamespace+'".';
           const observation=await wait(async()=>{
             if(finished)return {finished:true,blocked:false};
             await lab.admin.query('SELECT pg_stat_clear_snapshot()');

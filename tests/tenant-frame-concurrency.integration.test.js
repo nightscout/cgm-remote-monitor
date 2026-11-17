@@ -22,13 +22,17 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
     beforeEach(() => lab.seed());
     after(() => lab.close());
 
-    it('observes mixed collection generations across one atomically committed concurrent update', async function () {
+    async function concurrentFrame (bypassReadOnly=false) {
+      await lab.seed();
+      const connection=lab.base.workers[0].connection,readOnly=connection.readOnlyTransaction;
+      assert.equal(typeof readOnly,'function');
       const foreignBefore = await lab.rows('entries', lab.B);
       const foreignTreatmentsBefore = await lab.rows('treatments', lab.B);
       assert.deepEqual(values(await lab.http().expect(200)), { glucose: 101, carbs: 20, treatmentGeneration: 0 });
       const barrier = lab.barrier();
       let pending;
       try {
+        if(bypassReadOnly)connection.readOnlyTransaction=fn=>fn();
         pending = lab.http().then(response => response);
         await barrier.ready();
         assert.ok(barrier.observed.filter(read => read.logical === 'entries').every(read =>
@@ -39,19 +43,24 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
         barrier.release();
         const response = await pending;
         assert.equal(response.status, 200);
-        assert.deepEqual(values(response), { glucose: 101, carbs: 30, treatmentGeneration: 1 },
-          'the current multi-read loader can expose a pre-update entry and a post-update treatment');
+        assert.deepEqual(values(response), { glucose: 101, carbs: 20, treatmentGeneration: 0 },
+          'ADMITTED_COLLECTION_READS_KEEP_SNAPSHOT');
         const treatmentReads = barrier.observed.filter(read => read.logical === 'treatments' && read.documents.length);
-        assert.ok(treatmentReads.length > 0, 'an actual treatment SELECT returned the new generation');
-        assert.ok(treatmentReads.every(read => read.documents.every(doc => doc.frameGeneration === 1 && doc.carbs === 30)));
+        assert.ok(treatmentReads.length > 0, 'an actual treatment SELECT returned its admitted snapshot');
+        assert.ok(treatmentReads.every(read => read.documents.every(doc => doc.frameGeneration === 0 && doc.carbs === 20)));
       } finally {
         barrier.restore();
-        if (pending) await pending;
+        try { if (pending) await pending; } finally { connection.readOnlyTransaction=readOnly; }
       }
       assert.deepEqual(values(await lab.http().expect(200)), { glucose: 111, carbs: 30, treatmentGeneration: 1 });
       assert.deepEqual(values(await lab.http('/api/v2/ddata/at', lab.B).expect(200)), { glucose: 902, carbs: 920, treatmentGeneration: 9 });
       assert.deepEqual(await lab.rows('entries', lab.B), foreignBefore);
       assert.deepEqual(await lab.rows('treatments', lab.B), foreignTreatmentsBefore);
+    }
+    it('keeps admitted collection snapshots stable across one atomically committed concurrent update',()=>concurrentFrame());
+    it('control: bypassing read-only admission exposes mixed collection generations; restored source passes',async()=>{
+      await assert.rejects(concurrentFrame(true),/ADMITTED_COLLECTION_READS_KEEP_SNAPSHOT/);
+      await concurrentFrame();
     });
 
     for (const [kind, code, status, error] of [

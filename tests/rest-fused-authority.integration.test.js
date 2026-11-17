@@ -49,14 +49,14 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       }
     });
   }
-  function application ({ authorityStore = authority, credentials = verifiers, separateAdmission = false } = {}) {
+  function application ({ authorityStore = authority, credentials = verifiers, separateAdmission = false, beforeAdmission } = {}) {
     const access = require('../lib/server/tenant-app/data-access')({ authority: authorityStore, readConnection: f.lower, secrets: credentials,
       verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: DOMAINS, legacyCollections: DOMAINS });
     const unavailable = async () => { throw new Error('outside fixture'); };
     return require('../lib/server/tenant-app').createTenantApp({ resolver: { resolve: async req => req.hostname === 'a.example.test' ? f.A : f.B },
       verifyCredential: unavailable, authorizeRequest: unavailable, tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
       subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter: express.Router(), legacyRouter: graph.legacyRouter, dataAccess: access,
-      requestContext: admission.context, admitRequest: separateAdmission ? async (tenant,req,fn) => { await gate(tenant,req); return fn(); } : admission.request,
+      requestContext: admission.context, admitRequest: separateAdmission ? async (tenant,req,fn) => { await gate(tenant,req); return fn(); } : beforeAdmission ? async (...args) => { await beforeAdmission(args[0],args[1]); return admission.request(...args); } : admission.request,
       operationWindow: f.window });
   }
   const host = tenant => tenant === f.A ? 'a.example.test' : 'b.example.test';
@@ -73,13 +73,32 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     return carrier === 'token' ? call : call.set('api-secret', secrets[tenant]);
   };
   const count = (seen, pattern) => seen.filter(text => pattern.test(text)).length;
+  // D adds a short current-generation observation before the application scope.
+  // Classify that exact control-only transaction; retain physical fusion checks.
+  function applicationTransactions (seen) {
+    const groups=[];let current;
+    for(const text of seen){
+      if(typeof text!=='string')continue;
+      if(/^BEGIN/.test(text)){assert.equal(current,undefined,'NO_OVERLAPPING_TRANSACTION_IN_REQUEST');current=[];}
+      if(current)current.push(text);
+      if(['COMMIT','ROLLBACK'].includes(text)&&current){groups.push(current);current=undefined;}
+    }
+    assert.equal(current,undefined,'REQUEST_TRANSACTIONS_MUST_SETTLE');
+    return groups.filter(group=>{
+      if(!group.some(text=>text.includes('/* operation-window-snapshot */')))return true;
+      assert(group.every(text=>/^BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY$/.test(text)||['COMMIT','ROLLBACK'].includes(text)||text.includes('/* operation-window-snapshot */')),'CONTROL_OBSERVATION_HAS_NO_APPLICATION_READ');
+      return false;
+    });
+  }
   function oneAuthorityTransaction (seen, expectedTransactions, expectedChecks = 1) {
-    assert.equal(count(seen, /^BEGIN/), expectedTransactions, 'ONE_TRANSACTION_FOR_VERIFIER_AND_AUTHORITY');
+    const groups=applicationTransactions(seen);
+    assert.equal(groups.length, expectedTransactions, 'ONE_TRANSACTION_FOR_VERIFIER_AND_AUTHORITY');
+    const checked=groups.filter(group=>count(group,VERIFIER));
+    assert.equal(checked.length,expectedChecks,'EVERY_AUTHORITY_CHECK_HAS_ITS_VERIFIER_TRANSACTION');
+    for(const group of checked){assert.equal(count(group,VERIFIER),1);assert.equal(count(group,AUTHORITY),1,'VERIFIER_AND_AUTHORITY_SHARE_PHYSICAL_TRANSACTION');}
     assert.equal(count(seen, VERIFIER), expectedChecks, 'CURRENT_VERIFIER_READ_EVERY_REQUEST');
     assert.equal(count(seen, AUTHORITY), expectedChecks, 'CURRENT_AUTHORITY_READ_EVERY_REQUEST');
-    const begin = seen.findIndex(text => /^BEGIN/.test(text)), commit = seen.indexOf('COMMIT');
-    assert(begin < seen.findIndex(text => VERIFIER.test(text)) && seen.findIndex(text => AUTHORITY.test(text)) < commit,
-      'VERIFIER_AND_AUTHORITY_INSIDE_FIRST_TRANSACTION');
+
   }
   const refusedWithoutReads = async (app, tenant, carrier) => {
     const { result, seen } = await tap(() => get(app, tenant, carrier));
@@ -136,7 +155,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
   it('control: separate activity admission restores a second transaction and fails the budget', async function () {
     const app = application({ separateAdmission: true });
     const { seen } = await tap(() => get(app, f.A).expect(200));
-    assert.equal(count(seen, /^BEGIN/), 2, 'BROKEN_FUSION_WAS_EXERCISED');
+    assert.equal(applicationTransactions(seen).length, 2, 'BROKEN_FUSION_WAS_EXERCISED');
     assert.throws(() => oneAuthorityTransaction(seen, 1), /ONE_TRANSACTION_FOR_VERIFIER_AND_AUTHORITY/);
   });
 
@@ -215,33 +234,43 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     await request(app).get('/api/v1/entries/sgv.json?count=1&token='+tokens[f.A]).set('Host',host(f.B)).expect(401);
   });
 
-  it('refuses a maintenance-locked, suspended or regenerated tenant before any fused read while the other tenant continues', async function () {
+  it('refuses maintenance, suspension and a crossing generation before fused reads, then admits fresh generation work', async function () {
     const app = application();
     await get(app).expect(200);
     await f.admin(async holder => {
       assert.equal((await holder.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [f.locks[0].key])).rows[0].held, true);
       for (const carrier of ['token', 'secret']) {
         const refused = await refusedWithoutReads(app, f.A, carrier);
-        assert.equal(refused.status, 503); assert.deepEqual(refused.body, { error: 'AUTHORITY_UNAVAILABLE' });
+        assert.equal(refused.status, 503); assert.deepEqual(refused.body, { error: 'LIFECYCLE_WINDOW_SUSPENDED' }); assert.equal(refused.headers['retry-after'],'1');
       }
       await get(app, f.B).expect(200);
     });
     await get(app).expect(200);
     const window = f.control('tenant_lifecycle_windows');
     // The warm participant still accepts; the fused transaction's own fence refuses.
-    const changes = { suspended: ["phase='suspended',claim_id=$2,artifact_digest=$3", [crypto.randomUUID(), 'a'.repeat(64)]],
-      regenerated: ['generation=generation+1', []] };
+    const changes = { suspended: ["phase='suspended',claim_id=$2,artifact_digest=$3", [crypto.randomUUID(), 'a'.repeat(64)]] };
     for (const [change, [assignment, values]] of Object.entries(changes)) {
       const [before] = (await f.sql(`SELECT phase, generation FROM ${window} WHERE tenant_id=$1`, [f.A])).rows;
       await f.sql(`UPDATE ${window} SET ${assignment} WHERE tenant_id=$1`, [f.A, ...values]);
       try {
         for (const carrier of ['token', 'secret']) {
           const refused = await refusedWithoutReads(app, f.A, carrier);
-          assert.equal(refused.status, 503, change); assert.deepEqual(refused.body, { error: 'AUTHORITY_UNAVAILABLE' });
+          assert.equal(refused.status, 503, change); assert.deepEqual(refused.body, { error: 'LIFECYCLE_WINDOW_SUSPENDED' }); assert.equal(refused.headers['retry-after'],'1');
         }
         await get(app, f.B).expect(200);
       } finally { await f.sql(`UPDATE ${window} SET phase=$2, generation=$3, claim_id=NULL, artifact_digest=NULL WHERE tenant_id=$1`, [f.A, before.phase, before.generation]); }
       await get(app).expect(200);
     }
+    const [before]=(await f.sql(`SELECT generation FROM ${window} WHERE tenant_id=$1`,[f.A])).rows;
+    let crossed=false;
+    const crossing=application({beforeAdmission:async tenant=>{
+      if(tenant===f.A&&!crossed){crossed=true;await f.sql(`UPDATE ${window} SET generation=generation+1 WHERE tenant_id=$1`,[f.A]);}
+    }});
+    try{
+      const refused=await refusedWithoutReads(crossing,f.A,'token');assert.equal(crossed,true);
+      assert.equal(refused.status,503);assert.deepEqual(refused.body,{error:'LIFECYCLE_WINDOW_SUSPENDED'});assert.equal(refused.headers['retry-after'],'1');
+      // A new request captures the new active generation and must be admitted.
+      await get(app).expect(200);await get(app,f.B).expect(200);
+    }finally{await f.sql(`UPDATE ${window} SET generation=$2 WHERE tenant_id=$1`,[f.A,before.generation]);}
   });
 });
