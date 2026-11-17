@@ -29,6 +29,21 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.throws(()=>require('../lib/tenant-resolution')({aliases:[{host:'127.0.0.1',tenant:plan.A}]}),error=>error.code==='TENANT_HOST_INVALID','BOOTSTRAP_NUMERIC_HOST_REFUSED');
     fs.chmodSync(dir,0o755);assert.throws(()=>plan.parse(input),/INPUT_REFUSED/);
   });
+  it('grants only reader activity access to both the shared API and dedicated activity identities, with omission control',function(){
+    const layout=plan.layout('0123456789abcdef'),module=require('./fixtures/realtime-preview/bootstrap-grants');
+    const criterion=grants=>{
+      const statements=grants.grants(layout);
+      for(const who of ['api','activity_reader']){
+        const role=' TO "'+layout.roles[who]+'"',schema='"'+layout.namespaces.control+'"';
+        for(const sql of ['GRANT USAGE ON SCHEMA '+schema+role,'GRANT SELECT ON '+schema+'.schema_migrations'+role,'GRANT SELECT ON '+schema+'.tenant_activity'+role])assert(statements.includes(sql),'ACTUAL_ACTIVITY_READER_GRANT_REQUIRED: '+sql);
+        assert.equal(statements.some(sql=>sql.endsWith(role)&&sql.includes(schema+'.tenant_activity')&&!sql.startsWith('GRANT SELECT ON ')),false,'ACTIVITY_READER_MUST_NOT_GAIN_WRITE_OR_OWNER_GRANTS');
+      }
+    };
+    criterion(module);
+    const broken=require('./lib/clinical-working-set/control')('./fixtures/realtime-preview/bootstrap-grants',"for(const who of ['api','activity_reader'])","for(const who of ['activity_reader'])");
+    assert.throws(()=>criterion(broken),/ACTUAL_ACTIVITY_READER_GRANT_REQUIRED/);
+    criterion(module);
+  });
   it('feeds actual API RT and evaluator parsers with one metadata-linked config and no worker credentials in API',function(){
     const selected=plan.parse(input),layout=plan.layout('0123456789abcdef'),paths=Object.fromEntries(['api','realtime','evaluator','tenant-admin'].map(n=>[n,path.join(dir,n+'.json')]));
     const publicKeys=[plan.A,plan.B].map(tenant=>({tenant,kid:'key1',publicKey:Buffer.from(crypto.generateKeyPairSync('ed25519').publicKey.export({format:'jwk'}).x,'base64url').toString('base64')}));

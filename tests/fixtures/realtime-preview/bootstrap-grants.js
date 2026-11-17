@@ -28,7 +28,9 @@ function grants (layout) {
   sql.push(...require('../../../lib/trusted-worker/postgres').grants({namespaces:metadata,roles:[roles.evaluator,roles.realtime]}));
   sql.push(...require('../../../lib/server/ordinary-deployment-grants').registryGrants(layout));
   for(const name of ['display_settings','operator_policy']){schema(name,'display_reader');grant('SELECT',table(name,'schema_migrations'),'display_reader');grant('SELECT',table(name,name==='display_settings'?'tenant_settings':'tenant_operator_policy'),'display_reader');}
-  sql.push(...require('../../../lib/tenant-activity/postgres').grants({namespace:ns.control,reader:roles.activity_reader}));
+  // API activity borrows its serving connection; both actual reader identities
+  // need the same narrow SELECT grants under the existing tenant RLS.
+  for(const who of ['api','activity_reader'])sql.push(...require('../../../lib/tenant-activity/postgres').grants({namespace:ns.control,reader:roles[who]}));
   schema('alarm','suppression');grant('SELECT',table('alarm','tenant_alarm_suppression'),'suppression');grant('SELECT',table('alarm','schema_migrations'),'suppression');
   schema('outbox','outbox');grant('SELECT',table('outbox','schema_migrations'),'outbox');
   grant('SELECT,INSERT,UPDATE(request_id,blocked_until)',table('outbox','tenant_notification_heads'),'outbox');
