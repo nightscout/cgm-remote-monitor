@@ -1284,16 +1284,6 @@
           "type": "string",
           "pattern": "^(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
         },
-        "maxAgeMs": {
-          "type": "integer",
-          "minimum": 1000,
-          "maximum": 3600000
-        },
-        "refreshMs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 3599999
-        },
         "targets": {
           "type": "array",
           "minItems": 1,
@@ -1333,7 +1323,7 @@
           }
         }
       },
-      "description": "Admin-owned verification writer and exact configured role targets. Paths are normalized absolute files; role uniqueness and refreshMs below maxAgeMs are enforced by the runtime loader."
+      "description": "Admin-owned verification writer and exact configured role targets. Paths are normalized absolute files; role uniqueness is enforced by the runtime loader. The issued proof has no lease; serving roles check it once at start."
     }
   }
 }

@@ -306,7 +306,7 @@ describe('Production public API and internal listener isolation', function () {
       '../../tenant-authorization/postgres': async () => resource({ authorize: async () => false }),
       '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
       '../../secrets/component': { createSecrets: () => ({}) },
-      './postgres-domains': { async readiness () {}, assertServing: async () => ({ async ensure () {}, invalidateTenant () {} }) },
+      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { async readiness () {}, assertServing: async () => ({ async ensure () {}, invalidateTenant () {} }) },
       './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async initializeTenant () {} }),
       '../tenant-app/data-access': () => async () => ({ tenant, principal: 'synthetic', consumer: 'api' }),
       '../tenant-app/exchange': () => async () => null,
@@ -329,6 +329,9 @@ describe('Production public API and internal listener isolation', function () {
       await new Promise((resolve, reject) => { publicServer.once('error', reject); publicServer.listen(0, '127.0.0.1', resolve); });
       const publicEndpoint = { url: 'http://127.0.0.1:' + publicServer.address().port };
       assert.notEqual(new URL(publicEndpoint.url).port, new URL(f.options.url).port, 'Public and internal APIs must use separate listeners');
+      // Every API is platform-verified and starts cold: the first request warms the tenant.
+      assert.equal((await raw(publicEndpoint, '/api/v3/synthetic', '', { method: 'GET' })).status, 503);
+      await role.warmed();
       const publicPositive = await raw(publicEndpoint, '/api/v3/synthetic', '', { method: 'GET' });
       assert.equal(publicPositive.status, 200); assert.deepEqual(JSON.parse(publicPositive.body), { public: true });
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };

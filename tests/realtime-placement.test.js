@@ -105,7 +105,7 @@ describe('actual static realtime boot observations', function () {
       const noop = async () => {};
       const overrides = {
         '../../storage/connection-admission': {coldAdmission: () => null},
-        './evaluator-readiness': noop,
+        './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness': noop,
         '../../storage/postgres-connection': async () => ({end: noop}),
         '../../realtime-ownership/owner': {acquire: async ({shape}) => {
           assert.equal(shape.count, 2); assert.equal(shape.ordinal, 0);
@@ -185,7 +185,7 @@ describe('realtime staged warm metadata boundary', function () {
   const registrySet={tenants:new Map(),isActive:()=>true,follow:async value=>{follow=value;},drained:()=>held,close:noop,stats:()=>({})};
   const overrides={
    './evaluator-config':{registryEntry:tenant=>({tenant}),applySettings:(base,settings)=>({...base,identity:settings.settings+':'+settings.policy})},
-   '../../storage/connection-admission':{coldAdmission:()=>null},'./evaluator-readiness':noop,
+   '../../storage/connection-admission':{coldAdmission:()=>null},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':noop,
    '../../storage/postgres-connection':async()=>({end:noop}),
    '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
    './tenant-startup':{attempt:async(window,tenant,fn)=>{await fn();return true;},notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop,addTenant(){},ensure:noop,removeTenant:noop,isReady:()=>true})},

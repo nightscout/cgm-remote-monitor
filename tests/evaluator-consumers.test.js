@@ -216,6 +216,8 @@ describe('selected evaluator role consumes notification composition', function (
       if (name === '../../pgstream/evaluator') return {open:async()=>({store:{work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})};
       if (name === '../../migrations/postgres') return {run:async()=>{}};
       if (name === './tenant-startup') return {create:()=>({warm:async()=>{},close:async()=>{},health:()=>({})})};
+      // The role's one platform check is recorded as its startup readiness.
+      if (name === './platform-verification') return require('./fixtures/platform-proof')(undefined, async () => { calls.push('clinical-readiness'); });
       if (name === './evaluator-readiness') return Object.assign(async () => { calls.push('clinical-readiness'); }, {provisionTenant: async () => {}});
       if (name === './evaluator-runtime') return async () => { calls.push('clinical-start'); return runtime; };
       if (name === './evaluator-consumers') return { async prepare (input) {

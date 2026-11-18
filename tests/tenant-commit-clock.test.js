@@ -209,9 +209,11 @@ describe('tenant commit clock admitted-domain readiness source contract', functi
     });
   }
 
+  // The privilege screen is the admin pre-start step's (screenServing); a
+  // serving API checks only the issued platform proof.
   it('refuses unsafe clock privileges after the same all-domain setup succeeds', async function () {
     const f = fixture();
-    await domains.assertServing(f.config, f.connection);
+    await domains.screenServing(f.config, f.connection);
     const original = f.connection.query;
     f.connection.query = async (sql, values) => {
       if (sql.includes('FROM pg_class') && values[0] === 'test_clock.tenant_write_clock') {
@@ -219,6 +221,6 @@ describe('tenant commit clock admitted-domain readiness source contract', functi
       }
       return original(sql, values);
     };
-    await assert.rejects(domains.assertServing(f.config, f.connection), /unsafe write clock privileges/);
+    await assert.rejects(domains.screenServing(f.config, f.connection), /unsafe write clock privileges/);
   });
 });

@@ -77,7 +77,7 @@ describe('trusted worker metadata and operational scope', function () {
     assert.equal(f.reader.health().settingsReads, 2, 'TRUSTED_OLD_RESULT_NOT_CACHED');
     await f.reader.close();
   });
-  it('runs explicit operational verification outside the requesting tenant', async function () {
+  it('re-arms the serving reader outside the requesting tenant without catalogue SQL', async function () {
     const f = fixture();
     const lifecycle = await require('../lib/trusted-worker/lifecycle')(f.reader);
     const before = f.calls.length;
@@ -85,18 +85,24 @@ describe('trusted worker metadata and operational scope', function () {
     scope.setTenancyMode('multi');
     try { await scope.withTenant(A, async () => { await lifecycle.verify(); }); }
     finally { scope.setTenancyMode(previousMode); }
-    assert.equal(f.calls.length - before, 2);
-    assert.ok(f.calls.every(row => row.tenant === undefined), 'TRUSTED_OPERATIONAL_OUTSIDE_TENANT');
+    assert.equal(f.calls.length - before, 0, 'NO_CATALOGUE_SCREEN_WHILE_SERVING');
+    assert.equal(f.reader.health().available, true);
     await lifecycle.close(); await f.reader.close();
   });
-  it('fences an operational verification that began before invalidation', async function () {
-    const f = fixture(), held = deferred(), original = f.connection.readOnly;
-    await f.reader.verify();
-    f.connection.readOnly = async (...args) => { const result = await original(...args); if (/WHERE false/.test(args[0])) await held.promise; return result; };
-    const pending = f.reader.verify(); await new Promise(resolve => setImmediate(resolve));
-    f.reader.invalidate(); held.resolve(); await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/);
-    assert.equal(f.reader.health().available, false, 'TRUSTED_VERIFY_INVALIDATION_NOT_RESURRECTED');
-    await f.reader.close();
+  // Decision platform-application-boundary: the catalogue screen is the admin
+  // pre-start step's. It refuses RLS, ownership and write-privilege drift.
+  it('admin catalogue screen refuses RLS, ownership and write drift and accepts the reviewed shape', async function () {
+    for (const [drift, expected] of [[{}, null], [{ secured: false }, /TRUSTED_WORKER_UNAVAILABLE/], [{ owns: true }, /TRUSTED_WORKER_UNAVAILABLE/], [{ writes: true }, /TRUSTED_WORKER_UNAVAILABLE/]]) {
+      const calls = [];
+      const connection = { async readOnly (text, values) {
+        calls.push({ text, tenant: scope.currentTenant() });
+        if (/FROM pg_class/.test(text)) return { rows: values[0].map(() => ({ secured: true, owns: false, writes: false, ...drift })) };
+        return { rows: [] };
+      } };
+      const screened = worker.screen({ connection, namespaces: ns });
+      if (expected) await assert.rejects(screened, expected); else await screened;
+      assert(calls.every(row => row.tenant === undefined), 'ADMIN_SCREEN_OUTSIDE_TENANT');
+    }
   });
   it('does not share an older settings read across a newer version/recovery scan', async function () {
     const f = fixture(), held = deferred(), original = f.connection.readOnly;

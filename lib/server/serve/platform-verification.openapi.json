@@ -10,12 +10,12 @@
         "summary": "Read verification and current operation state",
         "responses": {
           "200": {
-            "description": "Safe role generations, expiries and operation status"
+            "description": "Safe role generations, verification times and operation status"
           }
         }
       },
       "post": {
-        "summary": "Verify configured platform schema and role privileges",
+        "summary": "Pre-start step: verify configured migrations, schema, ownership and role privileges once and issue the proof serving roles check at start",
         "requestBody": {
           "required": true,
           "content": {
@@ -29,7 +29,7 @@
         },
         "responses": {
           "200": {
-            "description": "Verified namespace, validityMs, refreshMs and per-role generation/expiresAt bind the receipt; successful explicit POST resumes automatic refresh"
+            "description": "Verified namespace and per-role generation bind the receipt; the proof has no lease and stays valid until invalidated or a later verification fails"
           },
           "409": {
             "description": "Verification already running"
@@ -54,7 +54,7 @@
         },
         "responses": {
           "200": {
-            "description": "Admission revoked, concurrent verification fenced and automatic refresh suspended until a successful explicit POST"
+            "description": "Proof revoked and concurrent verification fenced; a serving role that starts before the next successful POST refuses"
           },
           "503": {
             "description": "Invalidation failed; do not mutate platform state"

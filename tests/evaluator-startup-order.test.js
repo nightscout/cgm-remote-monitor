@@ -45,7 +45,8 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,registryError
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
-  './platform-verification':{operationProfileDigest:require('../lib/server/serve/platform-verification').operationProfileDigest,guard:async()=>({ready:()=>true,verify:async()=>{},health:()=>({ready:true}),close:async()=>{}})},
+  // The role's one platform check is its unconditional startup admission.
+  './platform-verification':require('./fixtures/platform-proof')(undefined,()=>readiness()),
   '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
   './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
   '../../trusted-worker/postgres':{create:()=>reader},
@@ -86,9 +87,12 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,registryError
  const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {blockSource:()=>blockSource(),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
+ return {blockSource:()=>blockSource(),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    startupPhase = 'DELIVERY_STARTUP';\n    {\n      consumers = await",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
+// Every evaluator is platform-verified and starts lazily (decision
+// platform-application-boundary). Fixtures without the explicit verified flag
+// model tenant A's addressed work arriving at startup: one clinical acquire.
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('binds the fixed assigned roster to the same clinical runtime and refuses an unprovisioned neighbor',async()=>{
@@ -187,7 +191,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
  it('reconciles a genuine pending hint during boot; delayed-scheduler control is red and restored source passes',async function(){
   this.timeout(10000);
   async function criterion(sourceTransform=text=>text,version='1'){
-  const f=fixture({pendingRace:true,sourceTransform}),boot=f.boot();boot.catch(()=>{});let service;
+  const f=fixture({platformVerification:true,pendingRace:true,sourceTransform}),boot=f.boot();boot.catch(()=>{});let service;
   try{
    for(let turn=0;turn<60&&!f.state().evaluatingEntered;turn++)await settle();
    assert(f.state().evaluatingEntered,'CLINICAL_STARTUP_SCHEDULER_MUST_PRECEDE_DELIVERY');
@@ -229,7 +233,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
     assert.equal(f.state().started,false);assert.equal(f.state().output,undefined);
    }finally{await f.window.close();}
   }
-  const remove=text=>{const needle="    const startupCause = ['PGSTREAM_REBOOTSTRAP_REQUIRED', 'PGSTREAM_SOURCE_REFUSED'].includes(error?.code) ? error.code : null;";assert.equal(text.split(needle).length,2);return text.replace(needle,'    const startupCause = null;');};
+  const remove=text=>{const needle="    const startupCause = ['PGSTREAM_REBOOTSTRAP_REQUIRED', 'PGSTREAM_SOURCE_REFUSED', ...platform.TERMINAL].includes(error?.code) ? error.code : null;";assert.equal(text.split(needle).length,2);return text.replace(needle,'    const startupCause = null;');};
   await criterion('PGSTREAM_REBOOTSTRAP_REQUIRED');
   await assert.rejects(criterion('PGSTREAM_REBOOTSTRAP_REQUIRED',remove),/ALLOWLISTED_EVALUATOR_BOOT_CAUSE_REQUIRED/);
   for(const code of ['PGSTREAM_REBOOTSTRAP_REQUIRED','PGSTREAM_SOURCE_REFUSED','UNKNOWN_PRIVATE_CODE','PGSTREAM_SOURCE_REFUSED PRIVATE_BOOT_DETAIL',undefined])await criterion(code);
@@ -247,6 +251,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
    if(deliveryError){
     for(let n=0;n<60&&!f.trace.includes('delivery-prepare');n++)await settle();
     assert(f.trace.includes('delivery-prepare'),'DELIVERY_STARTUP_MUST_BE_ENTERED');
+    for(let n=0;n<60&&!f.state().clinical?.ready;n++)await settle();
     f.prepare.reject(deliveryError);
    }
    await assert.rejects(pending,error=>{

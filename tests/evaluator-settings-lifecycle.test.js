@@ -156,7 +156,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
       '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
       '../../storage/postgres-durable-replay':()=>({configureStream:binding=>nativeBoot.replay({events:calls.native}).configureStream(binding),invalidateStream:async()=>{},acceptTransaction:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_SETTINGS_FIXTURE');}}),
       '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
-      './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
+      './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},
       './registry-tenant-set':{open:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},follow:async handlers=>{prepared=handlers;}})},
       '../../trusted-worker/postgres':{create:options=>{const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},

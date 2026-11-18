@@ -24,19 +24,20 @@ describe('Internal admin platform verification contract', function () {
     const names = require('../lib/server/serve/operation-cohort').protectedNamespaces({ namespaces: { entries: 'test_clinical' }, platformVerification: { namespace: 'test_platform', role: 'api' } });
     assert.deepEqual(names, ['test_clinical']);
   });
-  it('expires cached serving admission at its conservative monotonic deadline even during a held refresh', async function () {
-    let at = 0, held, release;
-    const selected = { platformVerification: { namespace: 'test_platform', role: 'api' } };
-    const guard = await platform.guard(selected, 'api', { now: () => at, read: async () => { if (held) await held; return { validityMs: 1000 }; } });
-    try {
-      assert.equal(guard.ready(), true);
-      held = new Promise(resolve => { release = resolve; });
-      const refreshing = guard.verify();
-      const refused = assert.rejects(refreshing, { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-      at = 1000; assert.equal(guard.ready(), false); assert.equal(guard.health().ready, false);
-      release(); await refused; held = null;
-      await guard.verify(); at = 1999; assert.equal(guard.ready(), true); at = 2000; assert.equal(guard.ready(), false);
-    } finally { release?.(); await guard.close(); }
+  it('refuses a serving role without a selected proof before any database read', async function () {
+    // Decision platform-application-boundary: the proof is mandatory for every
+    // serving role; there is no self-verification fallback.
+    for (const role of platform.ROLES) await assert.rejects(platform.admit({ connectionString: 'postgres://unused.invalid/none' }, role), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+    assert.deepEqual(platform.TERMINAL, ['PLATFORM_VERIFICATION_REQUIRED', 'PLATFORM_SERVING_IDENTITY_UNSAFE']);
+  });
+  it('binds the contract to role, selection and catalogues, not to runtime source files', function () {
+    const config = { connectionString: 'postgres://reader@localhost/synthetic', domains: ['entries'], namespaces: { entries: 'test_entries' }, platformVerification: { namespace: 'test_platform', role: 'api' } };
+    const digest = platform.contract(config, 'api');
+    assert.match(digest, /^[a-f0-9]{64}$/);
+    assert.equal(platform.contract({ ...config }, 'api'), digest);
+    assert.notEqual(platform.contract({ ...config, domains: ['entries', 'treatments'] }, 'api'), digest);
+    const source = require('node:fs').readFileSync(require.resolve('../lib/server/serve/platform-verification'), 'utf8');
+    assert.equal(/readFileSync|sourceGeneration/.test(source), false, 'NO_RUNTIME_SOURCE_HASHING');
   });
   it('retains only fixed target, phase and cause diagnostics', function () {
     const privateValue = 'PRIVATE_ERROR_PATH_OR_DATABASE_DETAIL';
@@ -113,13 +114,17 @@ native('Native PostgreSQL admin verification state', function () {
     await service.verify(); await platform.admit(config, 'api');
     assert(checks >= 3);
   });
-  it('refuses wrong schema contract, database birth and role replacement then restores', async function () {
-    for (const column of ['contract_digest', 'database_oid', 'database_name', 'database_birth', 'role_oid', 'role_name']) {
+  it('refuses wrong schema contract, database and role replacement then restores', async function () {
+    for (const column of ['contract_digest', 'database_oid', 'database_name', 'role_oid', 'role_name']) {
       await admin.query('UPDATE ' + quote(schema) + '.verified_role SET ' + column + "='foreign' WHERE role='api'");
       await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
       await service.verify(); await platform.admit(config, 'api');
     }
     await assert.rejects(platform.admit({ ...config, domains: ['entries', 'treatments'] }, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+    // A datastore restart is not authority drift: recover-in-place keeps
+    // serving and a role started afterwards still admits the same proof.
+    await admin.query('UPDATE ' + quote(schema) + ".verified_role SET database_birth='restarted' WHERE role='api'");
+    await platform.admit(config, 'api'); await service.verify();
     await admin.query('ALTER ROLE ' + quote(reader) + ' CREATEDB');
     await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
     await admin.query('ALTER ROLE ' + quote(reader) + ' NOCREATEDB');
@@ -145,16 +150,12 @@ native('Native PostgreSQL admin verification state', function () {
         await assert.rejects(platform.admit(config, 'api', next), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
       } finally { await faulty.close(); }
       await service.verify(); await platform.admit(config, 'api', next);
-      const guard = await platform.guard(config, 'api', { operationProfileDigest: next });
-      try { assert.equal(guard.ready(), true); await guard.verify(); } finally { await guard.close(); }
       assert.throws(() => platform.contract(config, 'api', 'invalid'), { code: 'PLATFORM_VERIFICATION_CONFIG' });
     } finally { operationProfileDigest = undefined; await service.verify(); }
     await platform.admit(config, 'api');
   });
-  it('keeps all serving admission paths bound to the actual selected operation window', async function () {
+  it('binds each serving role start check to the actual selected operation window', async function () {
     const windows = require('../lib/tenant-lifecycle/operation-window');
-    const domains = require('../lib/server/serve/postgres-domains');
-    const clinical = require('../lib/server/serve/evaluator-readiness');
     const makeWindow = generation => windows.create({ namespace: schema, lockRule: 'tenant-id-sha256-v1',
       pool: { options: { max: 1 }, connect: async () => { throw new Error('This certificate fixture never opens lifecycle sessions'); } },
       ...(generation ? { intakeProfile: require('../lib/tenant-lifecycle/native-selection').create({
@@ -162,22 +163,7 @@ native('Native PostgreSQL admin verification state', function () {
         source: { system_id: '123456789', timeline: 1, database: 'synthetic', slot: 'synthetic_slot' }
       }) } : {}) });
     const selected = makeWindow('selected_generation'), foreign = makeWindow('foreign_generation'), legacy = makeWindow();
-    const connection = { withTenant: async () => { assert.fail('Platform admission must not repeat clinical schema inspection'); } };
-    const component = (file, before, after) => {
-      const filename = require.resolve(file), source = require('node:fs').readFileSync(filename, 'utf8');
-      assert(source.includes(before));
-      const value = { exports: {} };
-      require('node:vm').runInThisContext('(function(require,module,exports){' + source.replace(before, after) + '\n})', { filename })(require('node:module').createRequire(filename), value, value.exports);
-      return value.exports;
-    };
-    const check = async (role, own, implementation = role === 'api' ? domains : clinical) => {
-      const value = { ...config, bindings: new Map(), platformVerification: { namespace: schema, role } };
-      if (role === 'api') {
-        await implementation.readiness(value, { operationWindow: own });
-        const startup = await implementation.assertServing(value, connection, { operationWindow: own, warm: false });
-        await startup.close();
-      } else await implementation(value, { operationWindow: own });
-    };
+    const check = (role, own) => platform.admit({ ...config, platformVerification: { namespace: schema, role } }, role, platform.operationProfileDigest(own));
     try {
       for (const role of platform.ROLES) {
         const roleConfig = { ...config, platformVerification: { namespace: schema, role } };
@@ -186,35 +172,11 @@ native('Native PostgreSQL admin verification state', function () {
           targets: [{ role, config: roleConfig, get operationProfileDigest () { return selectedDigest; }, check: target.check }] });
         try {
           await issuer.verify();
-          const guard = await platform.guard(roleConfig, role, { operationProfileDigest: selected.intakeProfileDigest });
-          try { assert.equal(guard.ready(), true); } finally { await guard.close(); }
-          // This call fails on the original source although the outer guard admitted the same certificate.
           await check(role, selected);
           await assert.rejects(check(role, undefined), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
           await assert.rejects(check(role, foreign), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-          await assert.rejects(check(role, { intakeProfileDigest: selected.intakeProfileDigest }), { code: 'PLATFORM_VERIFICATION_CONFIG' });
-          if (role === 'api') {
-            const wrong = component('../lib/server/serve/postgres-domains',
-              "platform.admit(config, 'api', platform.operationProfileDigest(operationWindow))",
-              "platform.admit(config, 'api')");
-            await assert.rejects(check(role, selected, wrong), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-            const wrongServing = component('../lib/server/serve/postgres-domains',
-              "await platform.admit(config, 'api', platform.operationProfileDigest(operationWindow))",
-              "await platform.admit(config, 'api')");
-            await wrongServing.readiness({ ...roleConfig, bindings: new Map() }, { operationWindow: selected });
-            await assert.rejects(wrongServing.assertServing({ ...roleConfig, bindings: new Map() }, connection,
-              { operationWindow: selected, warm: false }), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-          } else {
-            const wrong = component('../lib/server/serve/evaluator-readiness',
-              'platform.admit(config, config.platformVerification.role, platform.operationProfileDigest(options.operationWindow))',
-              'platform.admit(config, config.platformVerification.role)');
-            await assert.rejects(check(role, selected, wrong), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-          }
-          await check(role, selected);
+          assert.throws(() => platform.operationProfileDigest({ intakeProfileDigest: selected.intakeProfileDigest }), { code: 'PLATFORM_VERIFICATION_CONFIG' });
           await issuer.invalidate();
-          await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-          await issuer.verify(); await check(role, selected);
-          await admin.query('UPDATE ' + quote(schema) + ".verified_role SET expires_at=clock_timestamp()-interval '1 second' WHERE role=$1", [role]);
           await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
           await issuer.verify(); await check(role, selected);
           selectedDigest = undefined; await issuer.verify();
@@ -230,12 +192,16 @@ native('Native PostgreSQL admin verification state', function () {
     }
   });
 
-  it('refuses expired verification until an admin refresh', async function () {
-    await admin.query('UPDATE ' + quote(schema) + ".verified_role SET expires_at=clock_timestamp()-interval '1 second'");
-    await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+  it('has no lease: a proof verified long ago still admits a serving start', async function () {
+    // C-01 retired the expiring certificate and its 5 s poll. Old rows from the
+    // lease era carry an expires_at; it is ignored.
+    await admin.query('UPDATE ' + quote(schema) + ".verified_role SET verified_at=clock_timestamp()-interval '30 days',expires_at=clock_timestamp()-interval '29 days'");
+    await platform.admit(config, 'api');
+    assert.equal((await service.inspect()).roles[0].status, 'verified');
     await service.verify(); await platform.admit(config, 'api');
+    assert.equal((await admin.query('SELECT expires_at FROM ' + quote(schema) + ".verified_role WHERE role='api'")).rows[0].expires_at, null);
   });
-  it('keeps serving state read-only and retains an unexpired result during held re-verification', async function () {
+  it('keeps serving state read-only and retains the published proof during held re-verification', async function () {
     const own = new Client({ connectionString: readerUrl }); await own.connect();
     try { await assert.rejects(own.query('UPDATE ' + quote(schema) + ".verified_role SET status='verified'"), error => error.code === '42501'); } finally { await own.end(); }
     let release; held = new Promise(resolve => { release = resolve; });
@@ -246,8 +212,6 @@ native('Native PostgreSQL admin verification state', function () {
       await platform.admit(config, 'api');
       assert.equal((await service.inspect()).operation.status, 'RUNNING');
       await assert.rejects(service.verify(), { code: 'PLATFORM_VERIFICATION_IN_PROGRESS' });
-      await admin.query('UPDATE ' + quote(schema) + ".verified_role SET expires_at=clock_timestamp()-interval '1 second'");
-      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
     } finally { held = null; release(); await pending; }
     await platform.admit(config, 'api');
   });
@@ -295,113 +259,78 @@ native('Native PostgreSQL admin verification state', function () {
     } finally { await faulty.close(); await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY'); }
     await service.verify(); await platform.admit(config, 'api');
   });
-  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-  async function until (predicate, code) {
-    const deadline = Date.now() + 6000;
-    while (Date.now() < deadline) { if (await predicate()) return; await delay(25); }
-    assert.fail(code);
+});
+
+// Census A-13 control on real PostgreSQL. The trusted reader's catalogue screen
+// is part of the admin pre-start step: a trusted login with a write grant on the
+// clock table is refused there and gets no proof. Removing that screen from the
+// step lets the misgranted role through (red); restored source refuses again.
+native('Native PostgreSQL pre-start grant verification', function () {
+  this.timeout(30000);
+  const { Client } = require('pg');
+  const prefix = 'pg_' + crypto.randomBytes(5).toString('hex');
+  const id = prefix.slice(3), writer = 'pvg_' + id + '_writer', worker = 'pvg_' + id + '_worker', state = 'pvg_' + id + '_state';
+  const ns = { activity: 'pvg_' + id + '_activity', clock: 'pvg_' + id + '_clock', settings: 'pvg_' + id + '_settings', operatorPolicy: 'pvg_' + id + '_policy' };
+  const password = crypto.randomBytes(24).toString('hex');
+  const quote = name => '"' + name + '"';
+  const trusted = require('../lib/trusted-worker/postgres');
+  let admin, workerUrl, writerUrl;
+  const address = role => { const url = new URL(database); url.username = role; url.password = password; return url.toString(); };
+  // The pre-start target: the same screen the admin role runs for an evaluator
+  // or realtime target, through a read-only connection as that trusted login.
+  const step = implementation => {
+    const config = { connectionString: workerUrl, domains: ['entries'], namespaces: { entries: ns.activity }, platformVerification: { namespace: state, role: 'realtime' } };
+    return { config, service: platform.create({ namespace: state, connectionString: writerUrl, targets: [{ role: 'realtime', config, async check () {
+      const client = new Client({ connectionString: workerUrl }); await client.connect();
+      try { await implementation.screen({ connection: { readOnly: (text, values) => client.query(text, values) }, namespaces: ns }); } finally { await client.end(); }
+    } }] }) };
+  };
+  const screenWithoutGrantCheck = () => {
+    const file = require.resolve('../lib/trusted-worker/postgres'), source = require('node:fs').readFileSync(file, 'utf8');
+    const needle = 'if (rows.length !== expected.length || rows.some(row => !row.secured || row.owns || row.writes)) throw failure();';
+    assert.equal(source.split(needle).length, 2, 'GRANT_SCREEN_CONTROL_SEAM_REQUIRED');
+    const value = { exports: {} };
+    require('node:vm').runInThisContext('(function(require,module,exports){' + source.replace(needle, '') + '\n})', { filename: file })(require('node:module').createRequire(file), value, value.exports);
+    return value.exports;
+  };
+  before(async function () {
+    admin = new Client({ connectionString: database }); await admin.connect();
+    for (const role of [writer, worker]) await admin.query('CREATE ROLE ' + quote(role) + " LOGIN PASSWORD '" + password + "'");
+    await platform.install(admin, { namespace: state, writer, readers: [worker] });
+    for (const schema of Object.values(ns)) await admin.query('CREATE SCHEMA ' + quote(schema));
+    await admin.query('CREATE TABLE ' + quote(ns.activity) + '.tenant_activity (tenant_id uuid PRIMARY KEY, version bigint, paused boolean, suspended boolean)');
+    await admin.query('CREATE TABLE ' + quote(ns.clock) + '.tenant_write_clock (tenant_id uuid PRIMARY KEY, last_stamp bigint, last_delete_stamp bigint)');
+    await admin.query('CREATE TABLE ' + quote(ns.settings) + '.tenant_settings (tenant_id uuid PRIMARY KEY, version bigint, "values" jsonb)');
+    await admin.query('CREATE TABLE ' + quote(ns.operatorPolicy) + '.tenant_operator_policy (tenant_id uuid PRIMARY KEY, generation bigint, policy jsonb)');
+    for (const row of trusted.relations(ns)) { await admin.query('ALTER TABLE ' + row.name + ' ENABLE ROW LEVEL SECURITY'); await admin.query('ALTER TABLE ' + row.name + ' FORCE ROW LEVEL SECURITY'); }
+    for (const statement of trusted.grants({ namespaces: ns, roles: [worker] })) await admin.query(statement);
+    workerUrl = address(worker); writerUrl = address(writer);
+  });
+  after(async function () {
+    if (!admin) return;
+    for (const schema of [...Object.values(ns), state]) await admin.query('DROP SCHEMA IF EXISTS ' + quote(schema) + ' CASCADE');
+    for (const role of [writer, worker]) { await admin.query('DROP OWNED BY ' + quote(role)); await admin.query('DROP ROLE ' + quote(role)); }
+    await admin.end();
+  });
+  async function criterion (implementation) {
+    const { config, service } = step(implementation);
+    try {
+      await service.verify(); await platform.admit(config, 'realtime');
+      await admin.query('GRANT UPDATE (last_stamp) ON ' + quote(ns.clock) + '.tenant_write_clock TO ' + quote(worker));
+      try {
+        let issued = true;
+        try { await service.verify(); } catch (error) { assert.equal(error.code, 'PLATFORM_VERIFICATION_FAILED'); issued = false; }
+        assert.equal(issued, false, 'MISGRANTED_TRUSTED_LOGIN_MUST_NOT_RECEIVE_A_PROOF');
+        await assert.rejects(platform.admit(config, 'realtime'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      } finally { await admin.query('REVOKE UPDATE (last_stamp) ON ' + quote(ns.clock) + '.tenant_write_clock FROM ' + quote(worker)); }
+      await service.verify(); await platform.admit(config, 'realtime');
+    } finally { await service.close(); }
   }
-  async function timerPauseOracle (implementation) {
-    let callsA = 0, callsB = 0, server;
-    const own = check => ({ role: 'api', get config () { return config; }, check });
-    const a = implementation.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
-      targets: [own(async () => { callsA++; await target.check(); })] });
-    const b = implementation.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
-      targets: [own(async () => { callsB++; await target.check(); })] });
-    try {
-      await a.verify(); await b.verify(); await platform.admit(config, 'api');
-      server = http.createServer(api({ service: b, fallback: (_req, res) => { res.writeHead(404); res.end(); } }));
-      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-      const origin = 'http://127.0.0.1:' + server.address().port;
-      const call = method => fetch(origin + '/v1/platform-verification', { method, headers: { 'content-type': 'application/json' }, body: '{}' });
-      const deleted = await call('DELETE'); assert.equal(deleted.status, 200); await deleted.json();
-      await delay(2200); // Two scheduled refreshes, well before the old 10 s expiry.
-      let state = await b.inspect();
-      assert.equal(state.roles[0].status, 'revoked', 'AUTOMATIC_REPUBLISHED_AFTER_DELETE');
-      assert.equal(state.operation.automaticEnabled, false, 'AUTOMATIC_REENABLED_AFTER_DELETE');
-      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-      const pausedA = callsA;
-      // A failed explicit POST must not release the operator's pause.
-      await admin.query('ALTER TABLE ' + quote(schema) + '.probe DISABLE ROW LEVEL SECURITY');
-      const refused = await call('POST'); assert.equal(refused.status, 503); await refused.json();
-      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
-      await delay(1200);
-      state = await b.inspect(); assert.equal(state.operation.automaticEnabled, false); assert.equal(state.roles[0].status, 'revoked');
-      const posted = await call('POST'); assert.equal(posted.status, 200); assert.equal((await posted.json()).status, 'verified');
-      assert.equal((await b.inspect()).operation.automaticEnabled, true); await platform.admit(config, 'api');
-      const resumedB = callsB;
-      await until(() => callsB > resumedB, 'MANUAL_POST_MUST_RESUME_AUTOMATIC_REFRESH');
-      assert.equal(callsA, pausedA, 'OLD_TIMER_MUST_NOT_ADOPT_NEW_EPOCH');
-      await platform.admit(config, 'api');
-    } finally {
-      if (server) await new Promise(resolve => server.close(resolve));
-      await Promise.allSettled([a.close(), b.close()]);
-      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
-      await service.verify();
-    }
-  }
-  it('DELETE pauses two native service timers until a successful explicit HTTP POST', async function () {
-    await timerPauseOracle(platform);
-  });
-  it('detects the old timer calling public verification after DELETE and restores the private epoch path', async function () {
-    const broken = sourceControl('const pending = track(runVerification({ automatic: true, expectedEpoch }));', 'const pending = verify();');
-    await assert.rejects(timerPauseOracle(broken), error => error.name === 'AssertionError' && error.message.includes('AUTOMATIC_REPUBLISHED_AFTER_DELETE'));
-    console.log('    CONTROL RED: AUTOMATIC_REPUBLISHED_AFTER_DELETE');
-    await timerPauseOracle(platform);
-    console.log('    CONTROL RESTORED: operator pause retained until successful POST');
-  });
-  it('checks the durable pause before automatic target work without requiring an epoch change', async function () {
-    let calls = 0;
-    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
-      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; await target.check(); } }] });
-    try {
-      await worker.verify(); const before = calls;
-      await admin.query('UPDATE ' + quote(schema) + '.verification_control SET automatic_enabled=false WHERE singleton');
-      await delay(1300); assert.equal(calls, before, 'PAUSED_TIMER_MUST_NOT_ENTER_TARGET');
-      assert.equal((await worker.inspect()).operation.automaticEnabled, false);
-    } finally { await worker.close(); await service.verify(); }
-  });
-  it('keeps ordinary failed automatic refresh retry separate from an operator pause', async function () {
-    let calls = 0;
-    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
-      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; await target.check(); } }] });
-    try {
-      await worker.verify();
-      // Model unexpected drift rather than a supported platform mutation.
-      await admin.query('ALTER TABLE ' + quote(schema) + '.probe DISABLE ROW LEVEL SECURITY');
-      await until(async () => (await worker.inspect()).roles[0].status === 'revoked', 'AUTOMATIC_FAILURE_MUST_REVOKE');
-      assert.equal((await worker.inspect()).operation.automaticEnabled, true);
-      const failedAt = calls;
-      await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
-      await until(async () => calls > failedAt && (await worker.inspect()).roles[0].status === 'verified', 'AUTOMATIC_FAILURE_MUST_RETRY_WITHOUT_MANUAL_POST');
-      await platform.admit(config, 'api');
-    } finally {
-      await worker.close(); await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY'); await service.verify();
-    }
-  });
-  it('fences an already entered automatic check and prevents its timer from resuming after DELETE', async function () {
-    let hold = false, release, entered, calls = 0;
-    const entry = new Promise(resolve => { entered = resolve; }), heldCheck = new Promise(resolve => { release = resolve; });
-    const worker = platform.create({ namespace: schema, connectionString: writerUrl, maxAgeMs: 10000, refreshMs: 1000,
-      targets: [{ role: 'api', get config () { return config; }, async check () { calls++; if (hold) { entered(); await heldCheck; } await target.check(); } }] });
-    try {
-      await worker.verify(); hold = true;
-      await Promise.race([entry, delay(6000).then(() => assert.fail('AUTOMATIC_CHECK_MUST_ENTER'))]);
-      await service.invalidate(); release();
-      await until(async () => (await service.inspect()).operation.status === 'FAILED', 'INVALIDATED_AUTOMATIC_CHECK_MUST_REFUSE');
-      const stoppedAt = calls;
-      await delay(1300); assert.equal(calls, stoppedAt, 'INVALIDATED_AUTOMATIC_TIMER_MUST_STOP');
-      const state = await service.inspect(); assert.equal(state.operation.automaticEnabled, false); assert.equal(state.roles[0].status, 'revoked');
-      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-    } finally { release(); await worker.close(); await service.verify(); }
-  });
-  it('refreshes cheap serving health after revocation and restoration', async function () {
-    const guard = await platform.guard(config, 'api', { intervalMs: 100 });
-    try {
-      assert.equal(guard.ready(), true);
-      await admin.query('UPDATE ' + quote(schema) + ".verified_role SET status='revoked'");
-      await assert.rejects(guard.verify(), { code: 'PLATFORM_VERIFICATION_REQUIRED' }); assert.equal(guard.ready(), false);
-      await service.verify(); await guard.verify(); assert.equal(guard.ready(), true);
-    } finally { await guard.close(); }
+  it('refuses a trusted login with a clock write grant in the pre-start step; removing the screen is red', async function () {
+    await criterion(trusted);
+    await assert.rejects(criterion(screenWithoutGrantCheck()), /MISGRANTED_TRUSTED_LOGIN_MUST_NOT_RECEIVE_A_PROOF/);
+    console.log('    CONTROL RED: MISGRANTED_TRUSTED_LOGIN_MUST_NOT_RECEIVE_A_PROOF');
+    await criterion(trusted);
+    console.log('    CONTROL RESTORED: PLATFORM_VERIFICATION_FAILED, serving start refused');
   });
 });

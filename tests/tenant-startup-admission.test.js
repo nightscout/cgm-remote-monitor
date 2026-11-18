@@ -144,7 +144,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../../tenant-authorization/postgres':async()=>authority,
       '../../secrets/postgres':{createPostgresSecrets:async()=>resource({store:{get:async()=>({})}})},
       '../../secrets/component':{createSecrets:()=>({})},
-      './postgres-domains':{readiness:async()=>{},assertServing:async()=>({ensure:async tenant=>reads.push(['floor',tenant]),invalidateTenant:()=>{}})},
+      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains':{readiness:async()=>{},assertServing:async()=>({ensure:async tenant=>reads.push(['floor',tenant]),invalidateTenant:()=>{}})},
       './preview-domains':async()=>({initializeTenant:async tenant=>reads.push(['dates',tenant]),data:()=>{},safeRoutes:{}}),
       '../tenant-app/exchange':()=>()=>{},'../tenant-app/data-access':()=>()=>{},
       '../tenant-app':{createTenantApp:input=>{calls.http=input.prepareTenant;return (req,res,next)=>next();}},
@@ -181,7 +181,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     const boot=load('lib/server/serve/evaluator-preview.js',{
       ...nativeBoot.mocks({events:nativeEvents}),
       ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold,wrapClient:Client=>Client},'./tenant-startup':selectedStartup} : {}),
-      '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './evaluator-readiness':readiness,
+      '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':readiness,
       '../../storage/postgres-durable-replay':()=>nativeBoot.replay({events:nativeEvents}), '../../data/tenant-projection-evaluator':evaluator,
       './registry-tenant-set':{open:async()=>registry},
       './evaluator-config':{registryEntry:tenant=>entries.get(tenant),withSettings:async(base,entry,tenant)=>{reads.push(tenant);return entries.get(tenant);}},
@@ -212,7 +212,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       await role.close();role=null;
       for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,2,'BOTH_BOOT_GENERATIONS_CLOSE_NATIVE_PORTS:'+event);
     }finally{if(role)await role.close();await f.window.close();}
-    const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{open:async()=>registry},'./evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
+    const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{open:async()=>registry},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     const shared=fixture({phase:'suspended'});
     try{await assert.rejects(failed.boot(config,{operationWindow:shared.window}),/readiness or initialization refused/);}
     finally{await shared.window.close();if(cold)await cold.close();}
@@ -226,7 +226,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     for(const mutant of [true,false]) {
       const cold={synthetic:true};let seen=false,drained=false,endedBeforeDrain=false,ownerTimer,ownerTimerCleared=false;
       const boot=load('lib/server/serve/preview-realtime.js',{
-        '../../storage/connection-admission':{coldAdmission:()=>cold},'./evaluator-readiness':async()=>{},
+        '../../storage/connection-admission':{coldAdmission:()=>cold},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':async()=>{},
         '../../storage/postgres-connection':async()=>({end:async()=>{endedBeforeDrain=!drained;}}),
         '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
         './registry-tenant-set':{open:async()=>({tenants:new Map(),isActive:()=>false,close:async()=>{}})},

@@ -165,7 +165,7 @@ describe('preview API boot composes root subject administration only when select
       },
       '../tenant-app/data-access': () => () => null, '../tenant-app/exchange': () => async () => null,
       '../tenant-app': { createTenantApp: options => { seen.rootAdmin = options.rootAdmin; return express.Router(); } },
-      './postgres-domains': { readiness: async () => {}, assertServing: async () => ({ ensure: async () => {}, invalidateTenant () {} }) },
+      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { readiness: async () => {}, assertServing: async () => ({ ensure: async () => {}, invalidateTenant () {} }) },
       './preview-domains': async () => ({ data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, initializeTenant: async () => {} })
     };
     const oldLoad = Module._load;

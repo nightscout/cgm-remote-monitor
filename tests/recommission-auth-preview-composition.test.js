@@ -45,7 +45,7 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
     const legacy = compiled(require.resolve('../lib/secrets/legacy-postgres'), { '../storage/postgres-connection': noIO });
     window = require('../lib/tenant-lifecycle/operation-window').create({ namespace: profile.binding.lifecycleNamespace, lockRule: 'tenant-id-sha256-v1', intakeProfile: profile, pool: { connect: noIO, options: { max: 2 } }, leaseSessionCount: 1 });
     const preview = compiled(require.resolve('../lib/server/serve/preview-api'), {
-      './postgres-domains': { readiness: async () => {}, assertServing: async () => ({}) },
+      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { readiness: async () => {}, assertServing: async () => ({}) },
       './registry-tenants': { create: async () => ({ bindings: new Map(), providers: new Map(), environments: new Map(), close: async () => {} }) },
       '../../secrets/legacy-postgres': async options => { legacyOptions = options; try { return await legacy(options); } catch (error) { legacyFailure = error; throw error; } },
       '../../secrets/postgres': { createPostgresSecrets: async () => ({ store: { get: noIO, insert: noIO }, audit: async () => {}, close: async () => {} }) },

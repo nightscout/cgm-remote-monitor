@@ -49,7 +49,7 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
     './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
     './registry-tenant-set': { async open () { return { tenants, isActive:()=>true, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
-    './evaluator-readiness': readiness,
+    './platform-verification': require('./fixtures/platform-proof')(undefined, () => readiness()), './evaluator-readiness': readiness,
     '../../pool-membership': { async member () { return member; } },
     './evaluator-pool': { create: () => gate },
     './pool-config': { pool: () => ({ max: 2 }), tenantReadiness: () => 'serve', startupConcurrency: () => 1 },
@@ -89,15 +89,16 @@ describe('evaluator schema work bounds', function () {
   for (const selected of [false]) {
     const name = selected ? 'selected' : 'global';
     // Decision stable-evaluator-runtime: the preview has no schema callback.
-    // Startup verification (inside the source's baseline) checks clinical
-    // readiness once more; no schema event re-verifies or scans while serving.
+    // The platform proof is checked once at start (decision
+    // platform-application-boundary); no schema event or stream recovery
+    // re-verifies or scans while serving.
     for (const count of [1, 65, 500]) it(name + ' boot scans only once for durable recovery at cohort ' + count, async () => {
       const f = fixture(count, selected);
       const service = await f.boot(async () => {
         assert.equal(Object.hasOwn(f.callbacks(), 'onSchema'), false, 'NO_IN_PLACE_SCHEMA_CALLBACK');
-        assert.equal(f.calls.readiness, 1);
+        assert.equal(f.calls.readiness, 1, 'ONE_PLATFORM_CHECK_AT_START');
         await f.callbacks().onRecovered(f.store);
-        assert.equal(f.calls.readiness, 2, 'STARTUP_BASELINE_VERIFICATION_INCLUDES_CLINICAL_READINESS');
+        assert.equal(f.calls.readiness, 1, 'NO_PLATFORM_RECHECK_AFTER_STREAM_RECOVERY');
         console.log(JSON.stringify({ entry: name, cohort: count, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
         assert.equal(f.calls.scans.length, 1, 'RECOVERY_RECONCILES_ONCE');
         assert.equal(f.calls.scans.flat().length, count, 'RECOVERY_COVERS_ENTIRE_COHORT');
@@ -163,17 +164,23 @@ describe('evaluator schema work bounds', function () {
   async function readmissionCriterion (change = text => text) {
     const f = fixture(2, selected, 0, change, true), service = await f.boot();
     try {
-      const verified=f.calls.verify; f.reader().invalidate('query-refusal');
-      assert.equal(f.calls.verify,verified,'FAILURE_MUST_NOT_START_A_DISCOVERY_POLL');
+      // The reader re-arms on addressed work. Its catalogue screen is admin
+      // pre-start verification (decision platform-application-boundary): a
+      // serving reader never re-screens, so structural drift is not read here.
+      const checks=()=>f.reader().health().operationalChecks, screens=f.calls.verify;
+      const verified=checks(); f.reader().invalidate('query-refusal');
+      assert.equal(checks(),verified,'FAILURE_MUST_NOT_START_A_DISCOVERY_POLL');
+      await assert.rejects(f.reader().scan([f.ids[0]]),/TRUSTED_WORKER_UNAVAILABLE/);
       await f.schedulerOptions().scan([f.ids[0]]);
-      assert.equal(f.calls.verify,verified+1,'ADDRESSED_RETRY_REVALIDATES_WITHDRAWN_READER');
+      assert.equal(checks(),verified+1,'ADDRESSED_RETRY_REVALIDATES_WITHDRAWN_READER');
       assert.deepEqual(f.calls.scans.at(-1),[f.ids[0]],'RETRY_SCANS_ONLY_ADDRESSED_TENANT');
-      f.reader().invalidate('query-refusal'); f.state.secured=false;
-      await assert.rejects(f.schedulerOptions().scan([f.ids[0]]),/TRUSTED_WORKER_UNAVAILABLE/);
-      assert.equal(f.reader().state().available,false);
+      f.state.secured=false; f.reader().invalidate('query-refusal');
+      await f.schedulerOptions().scan([f.ids[0]]);
+      assert.equal(f.calls.verify,screens,'NO_CATALOGUE_SCREEN_WHILE_SERVING');
+      assert.equal(f.reader().state().available,true);
     } finally { await service.close(); }
   }
-  it(name+' revalidates unavailable metadata only when addressed work arrives and retains real structural refusal', () => readmissionCriterion());
+  it(name+' re-arms unavailable metadata only when addressed work arrives, without a serving catalogue screen', () => readmissionCriterion());
   it(name+' control: omitting work-triggered admission strands withdrawn authority; restored retries it', async () => {
     await assert.rejects(readmissionCriterion(text=>{
       const needle='if(!trusted.state().available)await operational.verify();';assert(text.includes(needle));return text.replace(needle,'');

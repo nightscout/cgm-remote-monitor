@@ -166,7 +166,7 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   Object.assign(env['tenant-admin'], { NS_OWNER_SETTINGS_PG: urls.owner_settings, NS_OWNER_ACTIVITY_PG: urls.owner_activity, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_VAULT_TOKEN: 'synthetic-placeholder' });
   const admin = docs.admin.config;
   for (const role of ['api', 'evaluator', 'realtime']) docs.configs[role].platformVerification = { namespace: named('platform_verification'), role };
-  admin.platformVerification = { connectionEnv: 'NS_PLATFORM_VERIFY_PG', namespace: named('platform_verification'), maxAgeMs: 300000, refreshMs: 60000,
+  admin.platformVerification = { connectionEnv: 'NS_PLATFORM_VERIFY_PG', namespace: named('platform_verification'),
     targets: ['api', 'evaluator', 'realtime'].map(role => ({ role, configFile: CONFIG_DIRECTORY + '/verification/' + role + '.config.json',
       operationConfigFile: CONFIG_DIRECTORY + '/verification/' + role + '.operation.json', environmentFile: CONFIG_DIRECTORY + '/verification/' + role + '.env.json' })) };
   docs.admin.environment.NS_PLATFORM_VERIFY_PG = urls.provisioner;
