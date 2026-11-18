@@ -7,6 +7,7 @@ function answer (sql, values, { position = '0/40', running = () => 0, snapshot =
     calls?.push('position');
     return Promise.resolve(typeof position === 'function' ? position() : position).then(value => ({ rows: [{ position: value }] }));
   }
+  if (sql === 'SELECT pg_current_xact_id()') return { rows: [{}] };
   if (sql.includes('pg_current_snapshot()')) { calls?.push('snapshot'); return { rows: [{ snapshot }] }; }
   if (sql.includes('pg_snapshot_xip')) {
     calls?.push('running');
