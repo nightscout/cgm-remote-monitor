@@ -83,6 +83,13 @@ describe('AGP report values and gaps', function () {
       }
     });
   }
+  it('positions every chart coordinate on whole pixels and styles only through classes', function () {
+    const {fractionalCoordinates, stylingAttributes} = require('./fixtures/svg-coordinates');
+    render(Array.from({length: 288}, (_, i) => record(Date.parse('2026-10-25T00:00:00Z') + i * 5 * 60000, 90 + (i * 37) % 113)));
+    assert.ok(env.document.querySelectorAll('#agp-chart path, #agp-daily path').length > 0);
+    assert.deepEqual(fractionalCoordinates(env.document), []);
+    assert.deepEqual(stylingAttributes(env.document), []);
+  });
   it('leaves missing AGP intervals empty and splits the daily trace', function () {
     render([record('2026-10-25T00:00:00+02:00'), record('2026-10-25T12:00:00+01:00')]);
     for (const path of $('#agp-chart path').toArray().filter(path => Array.isArray(path.__data__))) {
