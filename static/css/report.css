@@ -105,6 +105,11 @@ body {
   .report-chart-style { display: none; }
 }
 
+/* Progress bar shown while the day data loads (lib/report/progress-bar.js). */
+#report-progressbar { margin-top: 0.5em; max-width: 600px; }
+#report-progressbar[role="progressbar"] { height: 2em; overflow: hidden; border: 1px solid var(--border-bar); border-radius: 4px; }
+.report-progress-value { width: 0; height: 100%; background: var(--bg-progress-value); transition: width 0.15s ease; }
+
 #explanation {
   font: 11px verdana, arial, sans-serif;
 }
@@ -315,6 +320,19 @@ label {
 .tooltip.daytoday-reading-tooltip li > small, .tooltip.daytoday-reading-tooltip .daily-tooltip-detail { display: block; color: var(--text-tooltip-detail); font-size: 10px; overflow-wrap: anywhere; }
 .tooltip.daytoday-reading-tooltip .daily-tooltip-treatments > small { color: var(--text-tooltip-detail); font-size: 11px; }
 
+/* Printing: landscape pages; chrome around the report is hidden, and a day's chart and
+   insulin distribution (.single-page) are kept on one page. */
+@page { size: landscape; }
+@media print {
+  html, body { height: auto; min-height: 0; }
+  main { padding: 0; }
+  .no-print, .no-print *,
+  .report-page :is(#toolbar, .toolbar-title, .editor-navigation, #tabnav, .report-filter-panel, .report-filters, .report-divider, .authentication-status) { display: none !important; }
+  .single-page, .single-page tr { break-inside: avoid; page-break-inside: avoid; }
+  /* Scale the chart down to the page width; without max-width the fixed pixel size would be cut off. */
+  .daily-chart-svg { max-width: 100%; height: auto; }
+}
+
 /* Shared treatment report rules. */
 .border_bottom td {  border-bottom:1pt solid var(--border-agp-daily-cell);}
 #treatments-report .filterbar {  margin:0.6em 0;}
@@ -363,7 +381,7 @@ label {
 #success-placeholder table { width: 100%; }
 
 /* hourlystats report */
-#hourlystats-overviewchart { width: 100%; min-width: 6.5in; margin-bottom: 1em; }
+#hourlystats-overviewchart { position: relative; width: 100%; min-width: 6.5in; margin-bottom: 1em; }
 #hourlystats-overviewchart svg { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: block; }
 #hourlystats-overviewchart .hs-grid line { stroke: var(--stroke-grid); shape-rendering: crispEdges; }
 #hourlystats-overviewchart .hs-grid path { stroke: none; }
@@ -449,6 +467,7 @@ label {
 .daily-option-raw { color: var(--text-agp-faint); }
 .daily-option-predicted { color: var(--text-daily-option-predicted); }
 .daily-combo-hatch { fill: none; stroke: var(--stroke-basal); stroke-width: 2; }
+#daytodaycharts [id^="daytodaychart-"] { position: relative; }
 #daytodaycharts .axis { stroke: var(--stroke-axis); shape-rendering: crispEdges; fill: none; }
 #daytodaycharts .high-line { stroke-dasharray: 1, 5; }
 #daytodaycharts .high-line.daily-note-pointer { stroke-dasharray: 1, 7; }
@@ -521,7 +540,7 @@ label {
 #weektoweekcharts .wtw-target-band { fill: var(--fill-target-band); }
 #weektoweekcharts .axis { stroke: var(--stroke-axis); shape-rendering: crispEdges; fill: none; }
 #weektoweekcharts .axis text { stroke: none; fill: var(--fill-axis-text); }
-#weektoweekcharts .wtw-sample { opacity: 0.5; }
+#weektoweekcharts .wtw-sample { fill-opacity: 100%; }
 
 /* Calibrations report */
 #calibrations-chart .axis { stroke: var(--stroke-axis); shape-rendering: crispEdges; fill: none; }
@@ -580,8 +599,10 @@ label {
 :is(#calibrations-chart, #weektoweekcharts) .high-line { stroke: var(--stroke-grid); }
 #calibrations-chart .calibrations-point { r: 5px; stroke: var(--stroke-halo); stroke-width: 1; }
 #weektoweekcharts .wtw-target-band { stroke: none; }
-#weektoweekcharts .wtw-sample { stroke: var(--stroke-sample); stroke-width: 0; }
-#weektoweekcharts .wtw-sample.is-mbg { stroke-width: 2; }
+/* Samples: translucent fill with an opaque outline in the same weekday colour. */
+#weektoweekcharts .wtw-sample { stroke: var(--wtw-day); stroke-width: 1; }
+/* Meter readings keep their dark, thicker outline. */
+#weektoweekcharts .wtw-sample.is-mbg { opacity: 100%; stroke: var(--stroke-sample); stroke-width: 2; }
 #hourlystats-overviewchart .hs-hour :is(.hs-whisker, .hs-box, .hs-median) { stroke: var(--hs-stroke); stroke-width: 1.25; }
 #hourlystats-overviewchart .hs-hour .hs-median { stroke-width: 2; }
 #hourlystats-overviewchart .hs-hour .hs-box { fill: var(--hs-fill); }
@@ -616,11 +637,11 @@ label {
 #agp-daily .agp-daily-point { r: 1px; fill: var(--fill-basal); }
 
 /* Sample size grows with the selected chart width (2px at 800px, +1px per 400px). */
-:is(.daily-chart-svg, .wtw-chart-svg) { --report-sample-r: 2px; }
-:is(.daily-chart-svg, .wtw-chart-svg).chart-width-1000 { --report-sample-r: 2.5px; }
+:is(.daily-chart-svg, .wtw-chart-svg) { --report-sample-r: 3px; }
+:is(.daily-chart-svg, .wtw-chart-svg).chart-width-1000 { --report-sample-r: 3px; }
 :is(.daily-chart-svg, .wtw-chart-svg).chart-width-1200 { --report-sample-r: 3px; }
-:is(.daily-chart-svg, .wtw-chart-svg).chart-width-1550 { --report-sample-r: 3.875px; }
-:is(.daily-chart-svg, .wtw-chart-svg).chart-width-2400 { --report-sample-r: 6px; }
+:is(.daily-chart-svg, .wtw-chart-svg).chart-width-1550 { --report-sample-r: 3px; }
+:is(.daily-chart-svg, .wtw-chart-svg).chart-width-2400 { --report-sample-r: 3px; }
 
 /* Day to day samples: colour by reading type, hidden hover targets, highlight. */
 .daily-chart-svg .daytoday-sample { r: var(--report-sample-r); }
@@ -634,17 +655,17 @@ label {
 .daily-chart-svg .daytoday-sample.is-connected.is-highlighted { r: 4px; fill: var(--fill-surface); }
 
 /* Week to week: one colour per weekday, shared by samples and legend. */
-.wtw-day-0 { fill: var(--fill-wtw-day-0); }
-.wtw-day-1 { fill: var(--fill-wtw-day-1); }
-.wtw-day-2 { fill: var(--fill-wtw-day-2); }
-.wtw-day-3 { fill: var(--fill-wtw-day-3); }
-.wtw-day-4 { fill: var(--fill-wtw-day-4); }
-.wtw-day-5 { fill: var(--fill-wtw-day-5); }
-.wtw-day-6 { fill: var(--fill-wtw-day-6); }
+.wtw-day-0 { --wtw-day: var(--fill-wtw-day-0); fill: var(--wtw-day); }
+.wtw-day-1 { --wtw-day: var(--fill-wtw-day-1); fill: var(--wtw-day); }
+.wtw-day-2 { --wtw-day: var(--fill-wtw-day-2); fill: var(--wtw-day); }
+.wtw-day-3 { --wtw-day: var(--fill-wtw-day-3); fill: var(--wtw-day); }
+.wtw-day-4 { --wtw-day: var(--fill-wtw-day-4); fill: var(--wtw-day); }
+.wtw-day-5 { --wtw-day: var(--fill-wtw-day-5); fill: var(--wtw-day); }
+.wtw-day-6 { --wtw-day: var(--fill-wtw-day-6); fill: var(--wtw-day); }
 .wtw-legend-swatch circle { r: 40px; }
 #weektoweekcharts .wtw-sample { r: var(--report-sample-r); }
 #weektoweekcharts .wtw-sample.is-mbg { r: 4px; }
-#weektoweekcharts .wtw-sample.is-raw { fill: transparent; }
+#weektoweekcharts .wtw-sample.is-raw { fill: transparent; stroke: none; }
 
 /* d3 axis defaults, formerly written as SVG attributes by d3 (see lib/report/plain-axis.js).
    Kept at low specificity so each report's own axis rules still win. */
