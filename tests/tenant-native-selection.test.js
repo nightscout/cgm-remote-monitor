@@ -14,6 +14,14 @@ describe('private native lifecycle source selection',()=>{
     assert.throws(()=>selected.create({...options(),generation:'bad:unbounded-alias'}),{code:'LIFECYCLE_NATIVE_SELECTION_INVALID'});
     assert.throws(()=>selected.bind(selection,'foreign_control'),{code:'LIFECYCLE_NATIVE_SELECTION_INVALID'});
   });
+  it('binds the selection digest to current source and the full selected lifecycle catalogue separately from typed output',()=>{
+    const selection=selected.create(options()),canonical=require('../lib/server/serve/evaluator-runtime').canonical;
+    const expected=require('node:crypto').createHash('sha256').update(canonical(['native-lifecycle-v1',selection.binding,selected.catalogue(selection)])).digest('hex');
+    assert.equal(selection.selectionDigest,expected);assert.equal(selection.digest,selection.selectionDigest);
+    for(const changed of [{...options(),generation:'native-v2'},{...options(),source:{...options().source,system_id:'43'}}]){
+      const other=selected.create(changed);assert.notEqual(other.selectionDigest,selection.selectionDigest);assert.equal(other.contractDigest,selection.contractDigest);
+    }
+  });
   it('selects the actual evaluator checkpoint instance while refusing an output-only or wrong source catalogue',()=>{
     const selection=selected.create(options());
     const catalogues=[{kind:'checkpoint',namespace:'realtime_checkpoint',catalogue:output,tables:['tenant_consumer_checkpoint']},{kind:'evaluator_checkpoint',instanceOf:'checkpoint',namespace:'native_checkpoint',catalogue:typed,tables:['tenant_consumer_checkpoint']},{kind:'lifecycle',namespace:'native_control',catalogue:require('../lib/tenant-lifecycle/postgres-candidate.json'),tables:['tenant_lifecycle_windows']}];
