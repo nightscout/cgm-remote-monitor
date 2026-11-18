@@ -2,7 +2,7 @@
 
 // Private native fixture driver over the actual role composition, not a product
 // listener or control API. IPC is inherited only by the explicitly forked test.
-let held, release, armed = false, running, context, starting;
+let held, release, armed = false, armedTenant, armedExpected, armedNonce, running, context, starting;
 // Count actual role queries without changing their result or timing contract.
 const clinicalReads={snapshots:0,statistics:0,catalogue:0,exports:0,imports:0};
 for(const key of Object.keys(clinicalReads))clinicalReads[key+'Completed']=0;
@@ -54,7 +54,11 @@ require.cache[evaluatorPath].exports = Object.assign((...args) => {
   const engine = evaluator(...args);
   return Object.freeze({...engine, async evaluate(options) {
     let result;try{result=await engine.evaluate(options);}catch(error){process.send({clinicalFailure:failure(error)});throw error;}
-    if(armed){armed=false;held=true;process.send({held:true});await new Promise(done=>{release=done;});}
+    const reading=armedExpected&&result.frame?.sgvs?.find(row=>row._id===armedExpected.id&&row.mgdl===armedExpected.value);
+    if(armed && args[0].tenant === armedTenant && (!armedExpected||reading)){
+      armed=false;held=true;process.send({held:true,tenant:args[0].tenant,nonce:armedNonce,checkpoint:result.checkpoint,
+        reading:reading?{id:reading._id,value:reading.mgdl}:null});await new Promise(done=>{release=done;});
+    }
     return result;
   }});
 },evaluator);
@@ -64,7 +68,7 @@ const currentOutput = tenant => context.health().closed || running.operationCoho
 process.on('message', async request => {
   try {
     let value;
-    if (request.action === 'arm') { armed = true; value = true; }
+    if (request.action === 'arm') { armedTenant = request.tenant; armedExpected=request.hold?.expected;armedNonce=request.hold?.nonce;armed = true; value = true; }
     else if (request.action === 'release') { if (release) release(); value = !!held; }
     else if (request.action === 'acquire') { await context.acquire(request.tenant); value = await currentOutput(request.tenant); }
     else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }

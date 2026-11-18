@@ -136,6 +136,38 @@ describe('deployment plan contract', function () {
     }
   });
 
+  it('publishes exact platform verification fields and refuses unknown, malformed and wrong-role selections', function () {
+    for (const row of rows.filter(value => value.variant === 'full' && ['api', 'evaluator', 'realtime', 'admin'].includes(value.name))) {
+      const invalid = row.name === 'admin' ? [
+        doc => { doc.platformVerification.unknown = true; },
+        doc => { doc.platformVerification.targets[0].unknown = true; },
+        doc => { doc.platformVerification.targets[0].role = 'tenant-admin'; },
+        doc => { doc.platformVerification.targets[0].configFile = 'relative.json'; },
+        doc => { doc.platformVerification.maxAgeMs = 999; },
+        doc => { doc.platformVerification.refreshMs = -1; },
+        doc => { doc.platformVerification.targets = []; }
+      ] : [
+        doc => { doc.platformVerification.unknown = true; },
+        doc => { doc.platformVerification.role = row.name === 'api' ? 'evaluator' : 'api'; },
+        doc => { doc.platformVerification.namespace = 'public'; },
+        doc => { doc.platformVerification.namespace = 1; },
+        doc => { delete doc.platformVerification.role; }
+      ];
+      for (const mutate of invalid) {
+        const result = verdict(row, mutate);
+        assert.equal(result.shape, true, row.name + ': schema refusal');
+        assert.equal(result.loader, true, row.name + ': actual loader refusal');
+      }
+      const schema = clone(contract.schema(row.name)), set = documentSet(row.variant), document = set.processes[row.index].files[row.file];
+      const bad = clone(document); bad.platformVerification.unknown = true;
+      assert(jsonSchema.validate(schema, bad).length);
+      delete schema.properties.platformVerification.additionalProperties;
+      assert.throws(() => assert(jsonSchema.validate(schema, bad).length), { name: 'AssertionError' });
+      assert(jsonSchema.validate(contract.schema(row.name), bad).length);
+      assert.deepEqual(jsonSchema.validate(contract.schema(row.name), document), []);
+    }
+  });
+
   it('requires the maintained product paths and refuses retired discovery fields', function () {
     const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout) });
     const good = role => jsonSchema.validate(contract.schema(role), documents.configs[role]);

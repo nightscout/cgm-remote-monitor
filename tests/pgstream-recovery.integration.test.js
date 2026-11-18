@@ -5,11 +5,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { performance } = require('node:perf_hooks');
 const { optInSuite } = require('./support/opt-in');
+const selectedStartup = process.env.NS_PGSTREAM_SELECTED_STARTUP_TEST === '1';
 const enabled = process.env.NS_PGSTREAM_RECOVERY_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
 optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL plus canonical pgstream fixture inputs')(
   'actual role maintained-stream recovery fault points', function () {
     this.timeout(60000);
     const lab = require('./fixtures/evaluator-preview-registry-lab')();
+    const startupConfiguration = () => selectedStartup ? lab.configureSelectedStartup() : lab.configure();
     before(() => lab.open());
     beforeEach(() => lab.reset());
     after(() => lab.close());
@@ -26,15 +28,44 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       }
       throw new Error(symptom);
     }
+    async function firstUsefulOutput(worker, expected) {
+      if (!selectedStartup) return;
+      const started=performance.now();let observation;
+      assert.equal((await worker.call('health')).startup.warmOnStart,false,'SELECTED_ROLE_MUST_START_ON_DEMAND');
+      try { await wait(async()=>{
+        const health=await worker.call('health'),tenants=[];
+        for(const wanted of expected){
+          const resident=await worker.call('last',wanted.tenant),progress=health.tenants.find(row=>row.tenant===wanted.tenant)?.progress;
+          const input=await lab.checkpoint(lab.consumerName,wanted.tenant),accepted=input.projection?.[0];
+          const physical=(await lab.physical(wanted.tenant)).tables.entries.some(row=>row.doc._id===wanted.id&&row.doc.sgv===wanted.value);
+          const durable=await lab.previewCompleted(wanted.tenant),work=await state(wanted.tenant);
+          const predicates={eligible:resident?.eligible===true,currentProcessAcquisition:progress?.completedAcquisitions>0,physicalSeed:physical,
+            acceptedPosition:!!accepted?.stream?.accepted_position,
+            residentFrame:!!resident?.frame?.sgvs?.some(row=>row._id===wanted.id&&row.mgdl===wanted.value),
+            durableFrame:!!durable.projection?.[0]?.output?.frame?.sgvs?.some(row=>row._id===wanted.id&&row.mgdl===wanted.value),
+            noPending:work.work_pending_at===null,acceptedFloor:completed(durable,String(accepted?.floor||'0')),
+            observedCovered:work.work_observed.every((value,i)=>value===null||floor(work.work_completed[i])>=floor(value))};
+          tenants.push({wanted,predicates,progress,accepted,work,resident,durable});
+        }
+        observation={tenants,health};
+        return tenants.every(row=>Object.values(row.predicates).every(Boolean));
+      },10000,'SELECTED_ROLE_FIRST_USEFUL_OUTPUT'); }
+      catch(error){lab.tracePreview('selected-role-first-useful-output-refused',observation||{});throw error;}
+      lab.tracePreview('selected-role-first-useful-output',{elapsedMs:performance.now()-started,readiness:'serve',tenants:expected.map(row=>row.tenant),scope:'specified useful clinical obligations completed by this process; independent physical seed and matching resident/durable clinical frame; no whole-roster warm requirement'});
+    }
     async function write(value, id='synthetic-recovery', age=1000) {
       const at = Date.now();
       return lab.persistDomains({ entries:[{ _id:id, type:'sgv', sgv:value, date:at-age, dateString:new Date(at-age).toISOString(), direction:'Flat' }] });
     }
-    async function state() {
+    async function state(tenant=lab.A) {
       const table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint';
-      const rows=(await lab.admin.query('SELECT work_observed,work_completed,work_pending_at,work_due_at::text AS due_at,work_completed_at::text AS completed_at FROM '+table+' WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows;
+      const rows=(await lab.admin.query('SELECT work_observed,work_completed,work_pending_at,work_due_at::text AS due_at,work_completed_at::text AS completed_at FROM '+table+' WHERE tenant_id=$1 AND consumer=$2',[tenant,lab.consumerName+'-completed'])).rows;
       assert.equal(rows.length,1,'ONE_DURABLE_WORK_ROW');
       return {...rows[0],observed:require('../lib/pgstream/work-state').map(rows[0].work_observed),completed:require('../lib/pgstream/work-state').map(rows[0].work_completed)};
+    }
+    async function inputBookend() {
+      const rows=[];for(const tenant of [lab.A,lab.B])rows.push({tenant,clock:await lab.clock(tenant),tables:(await lab.physical(tenant)).tables});
+      return rows;
     }
     async function killWorker(worker) {
       assert.equal(worker.child.exitCode,null);assert.equal(worker.child.signalCode,null);
@@ -55,12 +86,18 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       },10000,'NATIVE_COHORT_INPUT_NOT_DURABLY_ACCEPTED');
     }
     async function holdNext(worker,value) {
-      await worker.call('arm');let entered=false;worker.held().then(()=>{entered=true;});
+      const nonce=require('node:crypto').randomUUID(),holding=worker.held();
+      await worker.call('arm',lab.A,{hold:{nonce,expected:{id:'synthetic-recovery',value}}});
       await write(value);
-      await wait(()=>entered,5000,'ACTUAL_CLINICAL_CYCLE_MUST_REACH_HOLD');
+      let timer;
+      const signal=await Promise.race([holding,new Promise((resolve,reject)=>{timer=setTimeout(()=>reject(new Error('ACTUAL_CLINICAL_CYCLE_MUST_REACH_HOLD')),5000);})]).finally(()=>clearTimeout(timer));
+      assert.equal(signal.tenant,lab.A,'HOLD_MUST_NAME_THE_SELECTED_TENANT');assert.equal(signal.nonce,nonce,'HOLD_MUST_NAME_THE_CURRENT_ARM');
+      assert.deepEqual(signal.reading,{id:'synthetic-recovery',value},'HOLD_MUST_COVER_THE_REQUESTED_INPUT');
       const accepted=await acceptedValue(value),held=await state();
+      assert(floor(signal.checkpoint)>=floor(accepted),'HELD_RESULT_MUST_COVER_ACCEPTED_INPUT');
       assert(floor(held.observed.bootstrap)>=floor(accepted),'RECEIPT_DURABLE_BEFORE_CLINICAL_HOLD');
       assert(floor(held.completed.bootstrap)<floor(accepted),'HELD_CYCLE_MUST_NOT_COMPLETE');
+      lab.tracePreview('actual-clinical-hold',{nonce,tenant:signal.tenant,checkpoint:signal.checkpoint,accepted,reading:signal.reading});
       return accepted;
     }
     function completed(row, accepted) {
@@ -189,7 +226,8 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     it('lets an unrelated tenant complete newly arriving input while the first tenant is held',async function(){
       await write(110);const at=Date.now();
       await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:210,date:at,dateString:new Date(at).toISOString()}]},lab.B);
-      const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110},{tenant:lab.B,id:'neighbor',value:210}]);
       try{
         const held=await holdNext(worker,131);
         const newer=Date.now();await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:241,date:newer,dateString:new Date(newer).toISOString()}]},lab.B);
@@ -227,40 +265,93 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       await lab.stopWorker(worker);
     });
     it('retains a newer observation across held completion and recovers pending clinical work after actual role process-group death',async function(){
-      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await write(110);const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110}]);
       await holdNext(worker,130);await write(149);const newer=await acceptedValue(149);
       await wait(async()=>floor((await state()).observed.bootstrap)>=floor(newer),5000,'NEWER_RECEIPT_MUST_COMMIT_WHILE_OLDER_CYCLE_HELD');
       await worker.call('release');
       await wait(async()=>floor((await state()).completed.bootstrap)>=floor(newer),10000,'NEWER_GENERATION_MUST_REMAIN_PENDING_UNTIL_COMPLETED');
       assert.equal((await lab.previewCompleted()).projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,149);
-      const pending=await holdNext(worker,171),held=await state(),clockBefore=(await lab.clock()).stamp;
+      const pending=await holdNext(worker,171),held=await state(),clockBefore=(await lab.clock()).stamp,inputBefore=await inputBookend();
+      assert(Number(held.work_pending_at)>0,'PENDING_AGE_ORIGIN_MUST_BE_DURABLE');
+      const pendingAgeBeforeDeathMs=Date.now()-Number(held.work_pending_at);assert(pendingAgeBeforeDeathMs>=0);
       const death=await killWorker(worker);
       const next=await lab.worker(config,{detached:true});assert.equal(next.startup.ready,true,'RESTARTED_ACTUAL_ROLE_READY');
       await wait(async()=>floor((await state()).completed.bootstrap)>=floor(pending),10000,'PROCESS_LOSS_MUST_RECOVER_DURABLE_PENDING');
+      await firstUsefulOutput(next,[{tenant:lab.A,id:'synthetic-recovery',value:171}]);
       const recovered=await lab.previewCompleted();assert.equal(recovered.projection[0].output.frame.sgvs.find(row=>row._id==='synthetic-recovery').mgdl,171);
       assert.equal((await lab.clock()).stamp,clockBefore,'RESTART_RECOVERY_NEEDS_NO_INPUT_WRITE');
-      lab.tracePreview('actual-role-held-generation-and-pending-crash-recovery',{death,held,newer,pending,recoveredCompleted:recovered.work_completed});
+      const inputAfter=await inputBookend();assert.deepEqual(inputAfter,inputBefore,'PENDING_RESTART_PHYSICAL_INPUT_AND_CLOCK_BOOKENDS_UNCHANGED');
+      const recoveredState=await state();assert.equal(recoveredState.work_pending_at,null);
+      const acceptedPendingToCompletedMs=Number(recoveredState.completed_at)-Number(held.work_pending_at);assert(acceptedPendingToCompletedMs>=pendingAgeBeforeDeathMs);
+      if(selectedStartup)assert.equal((await next.call('health')).startup.warmOnStart,false,'SELECTED_RESTART_MUST_KEEP_LAZY_TENANT_STARTUP');
+      lab.tracePreview('actual-role-held-generation-and-pending-crash-recovery',{selectedStartup,death,held,newer,pending,pendingAgeBeforeDeathMs,acceptedPendingToCompletedMs,inputBefore,inputAfter,recoveredCompleted:recovered.work_completed});
       await lab.stopWorker(next);
     });
     it('preserves completed output across process death and fires recovered future clinical due work without a new input write',async function(){
       await lab.setSettings({enable:['bgnow','delta','direction','simplealarms']});
       await write(50,'synthetic-recovery',600000-15000);
-      const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
-      const before=await state(),outputBefore=await lab.previewCompleted(),clockBefore=(await lab.clock()).stamp;
-      assert(Number(before.due_at)>Date.now(),'FUTURE_DUE_MUST_BE_DURABLE_BEFORE_DEATH');
+      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:50}]);
+      const before=await state(),outputBefore=await lab.previewCompleted(),clockBefore=(await lab.clock()).stamp,inputBefore=await inputBookend();
+      const remainingAtKillMs=Number(before.due_at)-Date.now();
+      assert(remainingAtKillMs>2000,'FUTURE_DUE_RESTART_FIXTURE_NEEDS_TWO_SECONDS_BUDGET');
       assert(Number(before.due_at)-Date.now()<20000,'BOUNDED_SYNTHETIC_DUE_REQUIRED');
       const death=await killWorker(worker),next=await lab.worker(config,{detached:true});assert.equal(next.startup.ready,true);
+      // A selected lazy role may keep this idle tenant cold until its durable
+      // deadline. Preserve output now; require this process's useful clinical
+      // completion when that original deadline is reached.
       const resumed=await state(),outputResumed=await lab.previewCompleted();
-      assert.equal(outputResumed.output_revision,outputBefore.output_revision,'SAME_COMMITTED_CONTENT_MUST_NOT_DUPLICATE_REVISION_AFTER_DEATH');
+      const dueAlreadyFired=Number(resumed.completed_at)>=Number(before.due_at)&&Number(outputResumed.projection[0].output.result.now)>=Number(before.due_at);
+      if(Number(outputResumed.projection[0].output.result.now)<Number(before.due_at))assert.equal(outputResumed.output_revision,outputBefore.output_revision,'PRE_DUE_COMMITTED_CONTENT_MUST_NOT_DUPLICATE_REVISION_AFTER_DEATH');
       assert(floor(require('../lib/pgstream/work-state').map(outputResumed.work_completed).bootstrap)>=floor(require('../lib/pgstream/work-state').map(outputBefore.work_completed).bootstrap),'REBOOTSTRAP_COMPLETION_MUST_COVER_PRIOR_WORK');
-      await wait(async()=>{const current=await state();return Number(current.completed_at)>Number(resumed.completed_at)&&Number(current.completed_at)>=Number(before.due_at);},25000,'RESTARTED_DUE_MUST_FIRE_WITHOUT_INPUT');
+      if(!dueAlreadyFired)await wait(async()=>{const current=await state(),output=await lab.previewCompleted();return Number(current.completed_at)>=Number(before.due_at)&&Number(output.projection[0].output.result.now)>=Number(before.due_at);},25000,'RESTARTED_DUE_MUST_FIRE_WITHOUT_INPUT');
+      await firstUsefulOutput(next,[{tenant:lab.A,id:'synthetic-recovery',value:50}]);
       const after=await state(),outputAfter=await lab.previewCompleted();
       assert.equal((await lab.clock()).stamp,clockBefore,'TIME_WORK_MUST_NOT_REQUIRE_OR_CREATE_INPUT_WRITE');
       assert(Number(outputAfter.projection[0].output.result.now)>=Number(before.due_at),'ACTUAL_DUE_CLINICAL_COMPLETION_REQUIRED');
-      assert.deepEqual(after.observed,resumed.observed,'DUE_ONLY_WORK_DOES_NOT_INVENT_INPUT_COVERAGE');
+      const {bootstrap:resumedBootstrap,...resumedVersions}=resumed.observed,{bootstrap:afterBootstrap,...afterVersions}=after.observed;
+      assert.deepEqual(afterVersions,resumedVersions,'DUE_RECOVERY_DOES_NOT_INVENT_METADATA_INPUT_COVERAGE');
+      const acceptedAfter=(await lab.checkpoint(lab.consumerName)).projection[0];
+      assert.equal(floor(afterBootstrap),floor(acceptedAfter.floor),'COLD_DUE_COMPLETION_COVERS_ACTUAL_ACCEPTED_BOOTSTRAP');
+      assert(floor(afterBootstrap)>=floor(resumedBootstrap),'DUE_RECOVERY_MUST_NOT_REGRESS_ACCEPTED_COVERAGE');
       assert.equal(after.work_pending_at,null);
-      lab.tracePreview('actual-role-completed-output-and-future-due-recovery',{death,before,resumed,after,clockBefore,outputRevision:outputAfter.output_revision});
+      const inputAfter=await inputBookend();assert.deepEqual(inputAfter,inputBefore,'DUE_RESTART_PHYSICAL_INPUT_AND_CLOCK_BOOKENDS_UNCHANGED');
+      lab.tracePreview('actual-role-completed-output-and-future-due-recovery',{selectedStartup,death,before,resumed,after,clockBefore,remainingAtKillMs,dueAlreadyFired,resumedBootstrap,afterBootstrap,inputBefore,inputAfter,outputRevision:outputAfter.output_revision});
       await lab.stopWorker(next);
+    });
+    (selectedStartup ? it : it.skip)('selected startup refuses actual revoked admin state before role admission, then restores the exact verified role',async function(){
+      await write(113);const config=await startupConfiguration();
+      await lab.verifyPlatform(config,'invalidate');
+      const refused=await lab.worker(config,{detached:true});
+      assert(refused.startup.bootError,'REVOKED_ADMIN_STATE_MUST_REFUSE_ROLE_BOOT');
+      assert(JSON.stringify(refused.startup.bootError).includes('PLATFORM_VERIFICATION_REQUIRED'));
+      await lab.stopWorker(refused);
+      await lab.verifyPlatform(config);
+      const restored=await lab.worker(config,{detached:true});
+      await firstUsefulOutput(restored,[{tenant:lab.A,id:'synthetic-recovery',value:113}]);
+      try {assert.equal(restored.startup.ready,true);await wait(async()=>!!(await restored.call('last',lab.A)),10000,'RESTORED_VERIFIED_ROLE_MUST_COMPLETE');assert.equal((await restored.call('health')).startup.warmOnStart,false);}
+      finally {await lab.stopWorker(restored);}
+    });
+    (selectedStartup ? it : it.skip)('selected startup refuses a held completion after actual lifecycle generation advance and keeps a healthy neighbor progressing',async function(){
+      await write(110);const now=Date.now();await lab.persistDomains({entries:[{_id:'generation-neighbor',type:'sgv',sgv:210,date:now,dateString:new Date(now).toISOString()}]},lab.B);
+      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
+      const table='"'+lab.registryNamespaces.control+'".tenant_lifecycle_windows';let advanced=false;
+      await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110},{tenant:lab.B,id:'generation-neighbor',value:210}]);
+      try {
+        const target=await holdNext(worker,181),before=await lab.previewCompleted(),failedBefore=(await worker.call('health')).tenants.find(row=>row.tenant===lab.A).progress.failedCompletions,generation=(await lab.admin.query('SELECT generation::text AS value FROM '+table+' WHERE tenant_id=$1',[lab.A])).rows[0].value;
+        await lab.admin.query('UPDATE '+table+" SET phase='suspended',generation=generation+1,claim_id=$2,artifact_digest=$3 WHERE tenant_id=$1",[lab.A,require('node:crypto').randomUUID(),'a'.repeat(64)]);advanced=true;
+        const advancedState=(await lab.admin.query('SELECT phase,generation::text AS generation FROM '+table+' WHERE tenant_id=$1',[lab.A])).rows[0];assert.equal(advancedState.phase,'suspended');assert.equal(BigInt(advancedState.generation),BigInt(generation)+1n);
+        await worker.call('release');
+        await wait(async()=>{const row=(await worker.call('health')).tenants.find(row=>row.tenant===lab.A);return row.progress.failedCompletions>failedBefore;},5000,'STALE_GENERATION_COMPLETION_MUST_BE_REFUSED');
+        const refused=await state(),output=await lab.previewCompleted();assert(floor(refused.completed.bootstrap)<floor(target),'OLD_GENERATION_INPUT_MUST_NOT_BE_CERTIFIED');assert.equal(output.output_revision,before.output_revision,'OLD_GENERATION_MUST_NOT_PUBLISH_NEW_OUTPUT');
+        const at=Date.now();await lab.persistDomains({entries:[{_id:'generation-neighbor',type:'sgv',sgv:241,date:at,dateString:new Date(at).toISOString()}]},lab.B);const neighbor=await acceptedValue(241,'generation-neighbor',lab.B);
+        await wait(async()=>completed(await lab.previewCompleted(lab.B),neighbor),10000,'SUSPENDED_NEIGHBOR_MUST_NOT_BLOCK_HEALTHY_TENANT');
+        lab.tracePreview('selected-lazy-generation-refusal-neighbor',{generation,advancedState,failedBefore,target,neighbor,refusedCompleted:refused.work_completed,unchangedOutputRevision:output.output_revision,scope:'actual generation/phase control-row intervention; no artifact data replacement or full restore campaign'});
+      } finally {
+        await worker.call('release');await lab.stopWorker(worker);
+        if(advanced)await lab.admin.query('UPDATE '+table+" SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1",[lab.A]);
+      }
     });
     it('preserves durable ACK refusal during an injected exact receiver grant failure and recovers without evaluator replacement',async function(){
       await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));const evaluator=identity(worker.child.pid);
