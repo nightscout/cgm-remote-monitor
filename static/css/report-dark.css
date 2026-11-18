@@ -248,10 +248,10 @@ input, select, textarea { background: var(--rd-surface-2); color: var(--rd-text)
 .tooltip.daytoday-reading-tooltip .daily-tooltip-basal strong { color: var(--rd-basal); }
 
 /* Week to week. Weekday 5 is lightened to reach 3:1 on the dark surface. */
-.wtw-day-5 { fill: var(--rd-fill-wtw-day-5); }
+.wtw-day-5 { --wtw-day: var(--rd-fill-wtw-day-5); }
 .wtw-combo-hatch { stroke: var(--rd-stroke-wtw-combo-hatch); }
 #weektoweekcharts .wtw-target-band { fill: var(--fill-target-band-dark); }
-#weektoweekcharts .wtw-sample { stroke: var(--rd-text); }
+#weektoweekcharts .wtw-sample.is-mbg { stroke: var(--rd-text); }
 
 /* Calibrations. */
 #calibrations-chart svg { background: var(--rd-surface); border-color: var(--rd-border); }
@@ -290,6 +290,7 @@ input, select, textarea { background: var(--rd-surface-2); color: var(--rd-text)
 .agp-cgmactive, .agp-stat-unit, .agp-stat-label, .agp-tir-range, .agp-daily-label { color: var(--rd-muted); }
 .agp-stat-hint, .agp-tir-time, .agp-agp-note, .agp-daily-caption, .agp-empty { color: var(--rd-faint); }
 .agp-tir-bar { border-color: var(--rd-faint); }
+#report-progressbar[role="progressbar"] { border-color: var(--rd-faint); }
 .agp-tir-swatch { box-shadow: inset 0 0 0 1px var(--rd-shadow-agp-tir-swatch); }
 .agp-tir-row.agp-target .agp-tir-name { color: var(--rd-text-is-positive-basal-net); }
 .agp-daily-cell { border-color: var(--rd-border); }

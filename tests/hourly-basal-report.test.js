@@ -33,6 +33,12 @@ describe('Hourly basal report without drawing Day to Day', function () {
   const selector = '#hourly-basal-adjustments';
   function cells () { return Array.from(env.document.querySelectorAll(selector + ' tbody tr:first-child td')); }
 
+  it('keeps a single hover tooltip inside the chart container when Show is pressed repeatedly', function () {
+    render(); render(); render();
+    assert.equal(env.document.querySelectorAll('.hourlystats-tooltip').length, 1);
+    assert.equal(env.document.querySelectorAll('#hourlystats-overviewchart > .hourlystats-tooltip').length, 1);
+  });
+
   it('opens directly with the new name and calculated values even when charts are hidden', function () {
     // Stale fields left by an older chart render must not control this report.
     data[DAY].netBasalPositive = Array(24).fill(99);

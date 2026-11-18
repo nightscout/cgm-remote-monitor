@@ -296,6 +296,22 @@ describe('day-to-day report: events with a duration', function () {
   }
 
   for (const theme of ['default', 'modern']) {
+    it('keeps each day\'s chart and insulin distribution together and scalable for printing in ' + theme, function () {
+      render([DAY1, DAY2], [], {theme, insulindistribution: true});
+      const cards = env.document.querySelectorAll('#daytodaycharts > table.daily-report-card.single-page');
+      assert.equal(cards.length, 2, 'one print unit per day');
+      cards.forEach(card => {
+        assert.ok(card.querySelector('svg.daily-chart-svg'), 'chart inside the print unit');
+        assert.ok(card.querySelector('.daily-insulin-card'), 'insulin distribution inside the print unit');
+      });
+      env.document.querySelectorAll('svg.daily-chart-svg').forEach(svg => {
+        assert.equal(svg.getAttribute('viewBox'), '0 0 ' + svg.getAttribute('width') + ' ' + svg.getAttribute('height'),
+          'the viewBox lets the chart shrink to the page width');
+      });
+      const averages = Array.from(env.document.querySelectorAll('#daytodaycharts > .no-print')).filter(node => /TDD average/.test(node.textContent));
+      assert.equal(averages.length, 1, 'the averages across days are not printed');
+    });
+
     it('positions every chart coordinate on whole pixels and styles only through classes in ' + theme, function () {
       const {fractionalCoordinates, stylingAttributes} = require('./fixtures/svg-coordinates');
       render([DAY1], [
@@ -316,6 +332,23 @@ describe('day-to-day report: events with a duration', function () {
       }
     });
   }
+
+  it('marks the report controls as screen only and defines the print rules', function () {
+    const plugin = require('../lib/report_plugins/daytoday')();
+    const markup = env.document.createElement('div');
+    markup.innerHTML = plugin.html({
+      translate: value => value
+    });
+    for (const selector of ['h2', '.daily-report-hint', '.daily-display-controls']) {
+      assert.ok(markup.querySelector(selector).classList.contains('no-print'), selector + ' is hidden when printing');
+    }
+    const css = require('fs').readFileSync(require('path').join(__dirname, '../static/css/report.css'), 'utf8');
+    const print = css.slice(css.indexOf('@media print {\n  html, body'));
+    assert.match(css, /@page \{ size: landscape; \}/);
+    assert.match(print, /\.no-print, \.no-print \*/);
+    assert.match(print, /\.single-page, \.single-page tr \{ break-inside: avoid/);
+    assert.match(print, /\.daily-chart-svg \{ max-width: 100%; height: auto; \}/);
+  });
 
   it('selects the new basal rate at a rate boundary and displays suspension as zero', function () {
     for (const basalRate of [undefined, 0]) {
@@ -342,12 +375,29 @@ describe('day-to-day report: events with a duration', function () {
     assert.equal(tooltip.querySelector('.daily-tooltip-basal strong').textContent, '0.5 U/h');
   });
 
+  it('keeps the hover tooltip inside each day\'s chart container and does not add more on every run', function () {
+    const readings = [sensor(0), sensor(5), sensor(10)];
+    render([DAY1, DAY2], [], {}, readings);
+    render([DAY1, DAY2], [], {}, readings);
+    const tooltips = env.document.querySelectorAll('.tooltip');
+    const own = Array.from(tooltips).filter(node => node.parentNode.id.startsWith('daytodaychart-'));
+    assert.equal(own.length, 2, 'one tooltip per day, inside its chart container');
+    assert.deepEqual(own.map(node => node.parentNode.id).sort(), ['daytodaychart-' + DAY1, 'daytodaychart-' + DAY2].sort());
+    const svg = env.document.querySelector('#daytodaychart-' + DAY1 + ' svg');
+    svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 200, clientY: 100}));
+    const shown = env.document.querySelectorAll('.daytoday-reading-tooltip');
+    assert.equal(shown.length, 1);
+    assert.equal(shown[0].parentNode.id, 'daytodaychart-' + DAY1);
+    svg.dispatchEvent(new env.window.MouseEvent('mouseleave'));
+    assert.equal(env.document.querySelectorAll('.daytoday-reading-tooltip').length, 0);
+  });
+
   it('keeps tooltip height fixed while following horizontal pointer movement', function () {
     render([DAY1], [], {theme: 'modern', basal: true}, [sensor(0), sensor(5), sensor(10)]);
     const svg = env.document.querySelector('#daytodaychart-' + DAY1 + ' svg');
     svg.getBoundingClientRect = () => ({left: 0, top: 100});
     Object.defineProperty(env.document.documentElement, 'clientWidth', {configurable: true, value: 1200});
-    const tooltip = env.window.Nightscout.client.tooltip.node();
+    const tooltip = env.document.querySelector('#daytodaychart-' + DAY1 + ' > .tooltip');
     let height = 100;
     tooltip.getBoundingClientRect = () => ({width: 240, height});
     svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 300, clientY: 160}));
