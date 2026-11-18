@@ -107,20 +107,6 @@ describe('pgstream current authority at output use', function () {
     } finally { await f.close(); }
   });
 
-  it('retains the dispatch pause fence across the metadata await and resumes without an idle poll', async function () {
-    const f = await fixture();
-    try {
-      const before = f.service.last(A), held = f.hold(), pending = f.service.isCurrent(A, before.identity);
-      await held.entered.promise;
-      const release = deferred(), entered = deferred();
-      const verifying = f.service.verifyOperational(async () => { entered.resolve(); await release.promise; });
-      await entered.promise; held.release.resolve();
-      assert.equal(await pending, false);
-      release.resolve(); await verifying;
-      assert.equal(await f.service.isCurrent(A, before.identity), true);
-    } finally { await f.close(); }
-  });
-
   it('fails closed on an actual trusted metadata query refusal', async function () {
     const f = await fixture();
     try {

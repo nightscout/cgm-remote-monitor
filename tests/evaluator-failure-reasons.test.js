@@ -74,8 +74,8 @@ describe('typed failed-completion reasons from their own fault arms', function (
   for (const [name, change, reason, predicate] of [
     ['reader unavailable', w => Object.assign(w, { available: false, readerAvailable: false, generation: 2, invalidation: 'query-refusal' }), 'worker-unavailable',
       { readerAvailable: false, platformReady: true, generationMatch: false, invalidation: 'query-refusal' }],
-    ['reader available at a changed generation', w => Object.assign(w, { generation: 2, invalidation: 'verify-refusal' }), 'worker-generation',
-      { readerAvailable: true, platformReady: true, generationMatch: false, invalidation: 'verify-refusal' }],
+    ['reader available at a changed generation', w => Object.assign(w, { generation: 2, invalidation: 'query-refusal' }), 'worker-generation',
+      { readerAvailable: true, platformReady: true, generationMatch: false, invalidation: 'query-refusal' }],
     ['metadata healthy but platform verification not ready', w => Object.assign(w, { available: false, platformReady: false }), 'platform-unready',
       { readerAvailable: true, platformReady: false, generationMatch: true, invalidation: null }]
   ]) it('worker recheck: ' + name + ' -> ' + reason, async () => {

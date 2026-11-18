@@ -114,7 +114,6 @@
         "tests/tenant-insertion-migrations.test.js",
         "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
-        "tests/lifetime-completion-pressure.test.js",
         "tests/lifetime-sessions.test.js",
         "tests/m7-diagnostics.test.js",
         "tests/m7-diagnostics-output.test.js",

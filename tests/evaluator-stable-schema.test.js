@@ -84,7 +84,7 @@ function fixture ({ count = 3, previewText = fs.readFileSync(PREVIEW, 'utf8'), s
   const loaded = new Module(PREVIEW, module); loaded.filename = PREVIEW; loaded.paths = Module._nodeModulePaths(path.dirname(PREVIEW));
   loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : Module.prototype.require.call(loaded, name);
   loaded._compile(previewText, PREVIEW);
-  const options = { operationWindow: { currentGeneration: () => 1, trustedWorker: false, async verifyOperational (fn) { await fn?.(); } } };
+  const options = { operationWindow: { currentGeneration: () => 1, trustedWorker: false } };
   async function send (body) {
     let status; const req = { method: 'POST', url: '/pgstream', async *[Symbol.asyncIterator] () { yield Buffer.from(JSON.stringify(body)); } };
     await handler(req, { writeHead (value) { status = value; return this; }, end () {} }); return status;

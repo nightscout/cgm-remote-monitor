@@ -58,6 +58,6 @@ function create(profile=profiles.create(options)){
   end(done){this._ending=true;this.emit('end');if(done)queueMicrotask(done);}
  }
  return {A,B,profile,built,rows,calls,clients,state,Client,window,canonical,
-  options:{connectionString:'synthetic-intake',Client,max:1,idleTimeoutMillis:0,connectionTimeoutMillis:50,admitBackend:async()=>{state.verify++;},operationWindow:window}};
+  options:{connectionString:'synthetic-intake',Client,max:1,idleTimeoutMillis:0,connectionTimeoutMillis:50,operationWindow:window}};
 }
 module.exports={create,options,A,B};
