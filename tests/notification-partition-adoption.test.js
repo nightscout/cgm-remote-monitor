@@ -27,7 +27,7 @@ function preparation(ordinal,{roster=ids,inactive=[],mutate}={}){
   '../../tenant-alarms/postgres':{createReader:()=>({read:async({tenant})=>{calls.reads.push(tenant);},allows:async()=>true})},
   '../../tenant-notifications/producer':()=>({close(){}}),
   '../../tenant-notifications/component':()=>({close:async()=>{}}),
-  '../realtime/alarm-transport':{createAdapter:()=>({send(){throw Error('NO_ADAPTER_EFFECT');}})},
+  '../realtime/alarm-transport':{createSliceAdapter:()=>({send(){throw Error('NO_ADAPTER_EFFECT');}})},
   './evaluator-consumer-readiness':{sameDatastore:async()=>{},suppression:async()=>{calls.suppression++;}},
   './tenant-startup':{...startup,attempt:async(_,id,fn)=>inactive.includes(id)?false:fn()}
  },mutate);

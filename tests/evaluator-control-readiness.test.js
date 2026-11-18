@@ -75,7 +75,7 @@ describe('Selected suppression control read scope source protocol',function(){
       return connection;
     },'../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.equal(effects,0);assert(outbox.calls.some(call=>call.sql?.includes('notification-readiness-role')),'COLD_OUTBOX_CHECK_PRECEDES_DEFAULT_OWN');assert.equal(outbox.calls.filter(call=>call.sql?.includes('notification-readiness-table')).length,4);storesOwned++;},close:async()=>{storesClosed++;}};},
       '../../tenant-alarms/postgres':{createReader:({connection})=>(reader={read:({tenant})=>scope.withTenant(tenant,()=>connection.snapshotTransaction(async()=>{effects++;return {};}))})},
-      '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createAdapter:()=>({send(){}})}},mutate);
+      '../../tenant-notifications/producer':()=>({close(){}}),'../../tenant-notifications/component':()=>({close:async()=>{}}),'../realtime/alarm-transport':{createSliceAdapter:()=>({send(){}})}},mutate);
     const config={tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>({}),consumers:{realtime:{outbox:{connectionString:'synthetic-outbox',namespace:'outbox',maxRows:10,maxBytes:10000},suppression:{connectionString:'synthetic-suppression',namespace:'alarm_test',maxRows:10,maxBytes:10000},route:{id:'synthetic',socketPath:'/synthetic/unused',maxBytes:10000,timeoutMs:1000},maxPayloadBytes:1000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:100}}};
     const jobContext = require('../lib/server/serve/evaluator-job-context').create('delivery');
     let composed;try{

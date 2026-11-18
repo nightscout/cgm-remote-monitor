@@ -402,14 +402,14 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         '../../storage/postgres-connection': { ...require('../lib/storage/postgres-connection'), installOperationWindow: () => () => {},
           cohortSnapshot: async () => ({ datastore: f.window.datastore, backends: [] }) },
         ...Object.fromEntries(['preview-api', 'evaluator-preview', 'preview-realtime', 'owner-preview'].map(name => ['./' + name, {
-          boot: async () => ({ close: async () => {}, invalidateTenant: async () => { invalidations++; },
+          boot: async () => ({ health: () => ({ownership:{resource:true}}), close: async () => {}, invalidateTenant: async () => { invalidations++; },
             invalidateAll: async () => { drops++; }, resume: () => { resumes++; } })
         }]))
       });
       const participant = require('../lib/server/serve/operation-cohort-manifest').validate([{ id: 'synthetic-all', roles, namespaces: ['clinical'],
         endpoint: { socketPath: '/synthetic/all.sock', maxBytes: 100000, timeoutMs: 1000 } }])[0];
       const cohort = await module.create({ window: f.window, names: roles, tenants: [A, B], namespaces: ['clinical'], participant });
-      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B] });
+      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B], ...(role === 'realtime' ? { ownership: require('../lib/realtime-ownership').create({count: 1, ordinal: 0}) } : {}) });
       cohort.complete();
       const control = module.controlOperations(cohort), before = await control.getStatus(null, { request: crypto.randomUUID() });
       options.datastore = RESTARTED;
@@ -524,9 +524,9 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         cohortSnapshot: async () => ({ datastore: f.window.datastore, backends: [] }) };
       const module = load('../lib/server/serve/operation-cohort.js', { '../../storage/postgres-connection': lower,
         ...Object.fromEntries(['preview-api', 'evaluator-preview', 'preview-realtime', 'owner-preview'].map((name, i) => ['./' + name, {
-          boot: async () => ({ close: async () => {}, invalidateTenant: async tenant => invalidations.push([roles[i], tenant]), invalidateAll: async () => {} }) }])) });
+          boot: async () => ({ health: () => ({ownership:{resource:true}}), close: async () => {}, invalidateTenant: async tenant => invalidations.push([roles[i], tenant]), invalidateAll: async () => {} }) }])) });
       const cohort = await module.create({ window: f.window, names: roles, tenants: [A, B], namespaces: ['clinical'] });
-      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B] });
+      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B], ...(role === 'realtime' ? { ownership: require('../lib/realtime-ownership').create({count: 1, ordinal: 0}) } : {}) });
       cohort.complete();
       return { f, module, cohort, invalidations };
     }

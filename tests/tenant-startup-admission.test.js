@@ -11,9 +11,9 @@ const fixture = require('./fixtures/operation-window-runtime-protocol');
 const realtime = require('../lib/server/realtime/runtime');
 const scope = require('../lib/storage/tenant-scope');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
-function load (relative, overrides, transform = source => source) {
+function load (relative, overrides, transform = source => source, timers = {}) {
   const filename = path.resolve(__dirname, '..', relative), local = createRequire(filename);
-  const sandbox = { process: {env:process.env}, module: { exports: {} }, setInterval: () => { throw new Error('SOURCE_TEST_TIMER_FORBIDDEN'); }, clearInterval: () => {}, console: {log () {}}, require: name => Object.hasOwn(overrides, name) ? overrides[name] : local(name) };
+  const sandbox = { process: {env:process.env}, module: { exports: {} }, setInterval: timers.setInterval || (() => { throw new Error('SOURCE_TEST_TIMER_FORBIDDEN'); }), clearInterval: timers.clearInterval || (() => {}), console: {log () {}}, require: name => Object.hasOwn(overrides, name) ? overrides[name] : local(name) };
   vm.runInNewContext(transform(fs.readFileSync(filename, 'utf8')), sandbox, {filename}); return sandbox.module.exports;
 }
 
@@ -224,7 +224,7 @@ describe('independent tenant startup admission (source protocol)', function () {
   });
   it('selected actual realtime boot passes the shared gate and awaits startup close before pool end', async function () {
     for(const mutant of [true,false]) {
-      const cold={synthetic:true};let seen=false,drained=false,endedBeforeDrain=false;
+      const cold={synthetic:true};let seen=false,drained=false,endedBeforeDrain=false,ownerTimer,ownerTimerCleared=false;
       const boot=load('lib/server/serve/preview-realtime.js',{
         '../../storage/connection-admission':{coldAdmission:()=>cold},'./evaluator-readiness':async()=>{},
         '../../storage/postgres-connection':async()=>({end:async()=>{endedBeforeDrain=!drained;}}),
@@ -233,10 +233,11 @@ describe('independent tenant startup admission (source protocol)', function () {
         '../../tenant-registry/postgres':{create:()=>({})},'../../tenant-registry/resolver':{createRegistryResolver:()=>({start:async()=>{},resolve:async()=>{},close(){}})},
         '../../trusted-worker/postgres':{create:()=>({scan:async()=>new Map(),current:()=>null,state:()=>({available:true,generation:1}),close:async()=>{}})},
         '../../trusted-worker/lifecycle':async()=>({close:async()=>{}}),
+        '../../realtime-ownership/owner':{acquire:async()=>({available:true,check:async()=>{},close:async()=>{}})},
         './tenant-startup':{notReadyRetry:()=>({}),create:(tenants,window,initialize,options)=>{assert.equal(options.coldAdmission,cold);seen=true;return {warm:async()=>{throw Error('stop after actual composition');},close:async()=>{await new Promise(resolve=>setImmediate(resolve));drained=true;}};}}
-      },mutant?source=>source.replace('await startup?.close();','startup?.close();'):undefined);
-      await assert.rejects(boot.boot({registry:{namespace:'synthetic_registry'},trustedWorker:{},completedOutput:{namespace:'synthetic_completed',consumer:'evaluator-test'},tenants:new Map(),operationTimeoutMs:100}),/readiness or initialization refused/);
-      assert.equal(seen,true);assert.equal(endedBeforeDrain,mutant,'RT_STARTUP_DRAIN_PRECEDES_POOL_END');
+      },mutant?source=>source.replace('await startup?.close();','startup?.close();'):undefined,{setInterval(fn,ms){assert.equal(ms,1000,'ONLY_STATIC_OWNER_HEALTH_TIMER');ownerTimer={unref(){}};return ownerTimer;},clearInterval(timer){assert.equal(timer,ownerTimer);ownerTimerCleared=true;}});
+      await assert.rejects(boot.boot({ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0}),registry:{namespace:'synthetic_registry'},trustedWorker:{},completedOutput:{namespace:'synthetic_completed',consumer:'evaluator-test'},tenants:new Map(),operationTimeoutMs:100}),/readiness or initialization refused/);
+      assert.equal(seen,true);assert.equal(ownerTimerCleared,true,'STATIC_OWNER_TIMER_CLOSED');assert.equal(endedBeforeDrain,mutant,'RT_STARTUP_DRAIN_PRECEDES_POOL_END');
     }
   });
   it('actual consumer prepare uses metadata-only sameDB challenge and screens shared ACL even with every tenant paused', async function () {
@@ -265,7 +266,7 @@ describe('independent tenant startup admission (source protocol)', function () {
         '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>{throw new Error('PAUSED_TENANT_READER_ENTERED');}})},
         '../../tenant-notifications/producer':()=>({select:async()=>{},close:()=>{}}),
         '../../tenant-notifications/component':()=>({retry:async()=>({results:[]}),close:async()=>{}}),
-        '../realtime/alarm-transport':{createAdapter:()=>({send:()=>{}})}
+        '../realtime/alarm-transport':{createSliceAdapter:()=>({send:()=>{}})}
       });
       const selected={outbox:{namespace:'synthetic_outbox'},suppression:{namespace:'synthetic_suppression'},route:{id:'synthetic'},pollIntervalMs:100,retryIntervalMs:100};
       const jobs=require('../lib/server/serve/evaluator-job-context').create('delivery');
