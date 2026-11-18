@@ -178,9 +178,10 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       ]) {
         const isVault = image === VAULT_IMAGE;
         const container = execFileSync('docker', ['run', '--name', name, '--label', 'nightscout.test=tenant-recommission', '--label', 'org.nightscout.test.owner=' + prefix,
-          '-d', '-p', '127.0.0.1::' + (isVault ? '8200' : '5432'), ...args, image, ...(isVault ? ['server', '-dev'] : ['-c','wal_level=logical','-c','max_replication_slots=16'])],
+          '-d',...(native?['--memory','768m','--cpus','1','--pids-limit','192']:[]), '-p', '127.0.0.1::' + (isVault ? '8200' : '5432'), ...args, image, ...(isVault ? ['server', '-dev'] : ['-c','wal_level=logical','-c','max_replication_slots=16'])],
         { env: { ...process.env, ...env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 }).trim();
         assert.match(container, /^[a-f0-9]{64}$/); containers.push(container);
+        if(native)console.log('NATIVE_RECOMMISSION_RESOURCE '+JSON.stringify({id:container,name,image,owner:prefix}));
         spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), container], { detached: true, stdio: 'ignore' }).unref();
       }
       adminURI = 'postgres://bootstrap:' + pgPassword + '@127.0.0.1:' + docker(['port', containers[0], '5432/tcp']).split(':').pop() + '/nightscout_recommission_test';
