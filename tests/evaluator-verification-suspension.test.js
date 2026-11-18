@@ -239,6 +239,30 @@ describe('opt-in verification suspension branch prototype',function(){
    assert.throws(()=>require('../lib/server/internal-api/schema').validate(require('../lib/server/internal-api/contracts').evaluatorInspection.operations.inspectEvaluator.response,changed),{code:'INTERNAL_API_SCHEMA_REFUSED'});
   }finally{await cleanup(p,f);}
  });
+ it('notifies completed verification and resumes only the bounded parked set',async()=>{
+  const p=fixture({trustedWorker:true});let verified=0;
+  const f=await lab.create({window:p.window,tenants:[A,B],options:{verificationSuspension:{ready:()=>f.sourceReady,onVerified:tenant=>{assert.equal(tenant,A);verified++;return Promise.reject(Error('synthetic lost disposable wake'));}}}});
+  try{
+   f.behavior=tenant=>p.window.currentGeneration(tenant);await f.begin(A);await f.verify();await f.releaseCycle();
+   f.sourceReady=false;await f.finishVerification();assert.equal(verified,1);
+   await f.runtime.resumeVerifications();assert.equal(row(f).progress.completedAcquisitions,0);
+   f.sourceReady=true;await f.runtime.resumeVerifications();assert.equal(row(f).progress.completedAcquisitions,1);
+   assert.equal(f.runtime.health([B]).tenants[0].progress.completedAcquisitions,0);
+  }finally{await cleanup(p,f);}
+ });
+ it('keeps one active resume sweep and one trailing notification during fresh work',async()=>{
+  const {p,f}=await setup(),startup=require('../lib/server/serve/tenant-startup'),original=startup.settleLimited;
+  let active=0,peak=0,calls=0;
+  try{
+   f.behavior=tenant=>p.window.currentGeneration(tenant);await f.begin(A);await f.verify();await f.releaseCycle();await f.finishVerification();
+   startup.settleLimited=(...args)=>{active++;calls++;peak=Math.max(peak,active);return original(...args).finally(()=>{active--;});};
+   f.hold={entered:lab.hold(),release:lab.hold()};const first=f.runtime.resumeVerifications();await f.hold.entered.promise;
+   for(let i=0;i<20;i++)assert.equal(f.runtime.resumeVerifications(),first);
+   f.hold.release.resolve();await first;await turn();
+   assert.equal(peak,1,'READY_SWEEPS_MUST_BE_SINGLE_FLIGHT');assert.equal(calls,2,'ONE_TRAILING_READY_NOTIFICATION');
+   assert.equal(row(f).progress.completedAcquisitions,1);assert.equal(row(f).progress.failedCompletions,0);
+  }finally{startup.settleLimited=original;await cleanup(p,f);}
+ });
  it('keeps original hard-failure accounting when the prototype is not selected',async()=>{
   const {p,f}=await setup({},false);try{
    f.behavior=tenant=>p.window.currentGeneration(tenant);await f.begin(A);await f.verify();await f.releaseCycle();
