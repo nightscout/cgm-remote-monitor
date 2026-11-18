@@ -165,7 +165,8 @@ native('Native PostgreSQL admin verification state', function () {
     const selected = makeWindow('selected_generation'), foreign = makeWindow('foreign_generation'), legacy = makeWindow();
     const check = (role, own) => platform.admit({ ...config, platformVerification: { namespace: schema, role } }, role, platform.operationProfileDigest(own));
     try {
-      for (const role of platform.ROLES) {
+      // vcpool has no tenant generation scope (decision vcpool-proof-role).
+      for (const role of platform.ROLES.filter(role => role !== 'vcpool')) {
         const roleConfig = { ...config, platformVerification: { namespace: schema, role } };
         let selectedDigest = selected.intakeProfileDigest;
         const issuer = platform.create({ namespace: schema, connectionString: writerUrl,

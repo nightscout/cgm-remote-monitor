@@ -510,6 +510,7 @@
     "integration": {
       "files": [
         "tests/platform-verification.test.js",
+        "tests/vcpool-platform-proof.test.js",
         "tests/clinical-working-set.integration.test.js",
         "tests/postgres-imported-snapshot.test.js",
         "tests/pgstream-receipt-authority.integration.test.js",
