@@ -10,6 +10,42 @@ async function setup(options={},enabled=true){const p=fixture({trustedWorker:tru
 async function cleanup(p,f){await f.close();await p.window.close();}
 
 describe('opt-in verification suspension branch prototype',function(){
+ it('suspends an own admitted physical acquisition refusal before a lease exists',async()=>{
+  const {p,f}=await setup();try{
+   await f.runtime.acquire(A);const before=row(f).progress;f.sourceReady=false;
+   f.behavior=async tenant=>{const lease=await p.window.acquireClient(p.client,tenant);lease.close();};
+   await f.begin(A);await f.verify();await f.releaseCycle();await turn();
+   assert.equal(row(f).progress.failedCompletions,before.failedCompletions,'OWN_PHYSICAL_PENDING_MUST_SUSPEND');
+   assert.equal(row(f).progress.completedAcquisitions,before.completedAcquisitions);
+   assert.equal(row(f).progress.verificationPending,true);assert.equal(row(f).jobs.running,false);
+   await f.finishVerification();assert.equal(await f.runtime.resumeVerification(A),false);
+   f.sourceReady=true;assert.equal(await f.runtime.resumeVerification(A),true);
+   assert.equal(row(f).progress.failedCompletions,before.failedCompletions);
+   assert.equal(row(f).progress.completedAcquisitions,before.completedAcquisitions+1);
+  }finally{await cleanup(p,f);}
+ });
+ for(const [name,behavior]of [
+  ['foreign physical tenant',(p,f)=>()=>p.window.acquireClient(p.client,B)],
+  ['missing physical scope',(p,f)=>()=>f.job.run(()=>p.window.acquireClient(p.client,A))],
+  ['unadmitted physical backend',(p,f)=>()=>p.window.acquireClient({processID:p.client.processID},A)],
+  ['invalidated physical scope',(p,f)=>()=>{p.window.invalidateTenant(A);return p.window.acquireClient(p.client,A);}]
+ ])it('keeps '+name+' hard during pending physical acquisition',async()=>{
+  const {p,f}=await setup();try{
+   f.behavior=behavior(p,f);await f.begin(A);await f.verify();await f.releaseCycle();
+   assert.equal(row(f).progress.failedCompletions,1);assert.equal(row(f).progress.verificationSuspensions,0);
+   assert.equal(row(f).progress.completedAcquisitions,0);
+   await f.finishVerification();assert.equal(await f.runtime.resumeVerification(A),false);
+  }finally{await cleanup(p,f);}
+ });
+ it('does not brand a physical refusal from an authority epoch that already failed',async()=>{
+  const {p,f}=await setup();try{
+   f.behavior=async tenant=>{const lease=await p.window.acquireClient(p.client,tenant);lease.close();};
+   await f.begin(A);await assert.rejects(p.window.verifyOperational(()=>{throw Error('synthetic authority refusal');}));
+   await f.verify();await f.releaseCycle();
+   assert.equal(row(f).progress.failedCompletions,1);assert.equal(row(f).progress.verificationSuspensions,0);
+   await f.finishVerification();assert.equal(await f.runtime.resumeVerification(A),false);
+  }finally{await cleanup(p,f);}
+ });
  it('releases cycle and scope, stays unavailable through downstream schema work, then freshly acquires without failed credit',async()=>{
   const {p,f}=await setup();
   try{
@@ -65,10 +101,10 @@ describe('opt-in verification suspension branch prototype',function(){
    assert.equal(row(f).progress.failedCompletions,1);assert.equal(row(f).progress.verificationSuspensions,0);
   }finally{lease?.close();await cleanup(p,f);}}
  });
- it('rejects a genuine pending error replayed from a different admitted scope',async()=>{
+ for(const physical of [false,true])it('rejects a genuine pending error replayed from a different admitted scope at '+(physical?'physical acquisition':'current scope'),async()=>{
   const {p,f}=await setup();let captured,release,captureCheck,receipt;try{
    const entered=lab.hold(),body=lab.hold(),checked=lab.hold();captureCheck=lab.hold();
-   const running=p.window.run(A,async()=>{entered.resolve();await body.promise;try{p.window.currentGeneration(A);}catch(error){captured=error;}},{onScope:value=>{receipt=value;}}).catch(()=>{});
+   const running=p.window.run(A,async()=>{entered.resolve();await body.promise;try{if(physical)await p.window.acquireClient(p.client,A);else p.window.currentGeneration(A);}catch(error){captured=error;}},{onScope:value=>{receipt=value;}}).catch(()=>{});
    await entered.promise;release=p.window.verifyOperational(async()=>{checked.resolve();await captureCheck.promise;});await checked.promise;body.resolve();await running;captureCheck.resolve();await release;
    assert.equal(windows.failureGuard(p.window,captured),'verification-pending');
    assert(windows.verificationSuspension(p.window,A,captured,receipt),'ORIGINAL_SCOPE_HAS_REAL_SUSPENSION_PROVENANCE');
@@ -129,9 +165,9 @@ describe('opt-in verification suspension branch prototype',function(){
    await f.finishVerification();await f.runtime.resumeVerification(A);assert.equal(row(f).progress.completedAcquisitions,1);
   }finally{await cleanup(p,f);}
  });
- it('keeps borrowed work with its parent and provides no independent retry',async()=>{
+ for(const physical of [false,true])it('keeps borrowed work with its parent and provides no independent retry at '+(physical?'physical acquisition':'current scope'),async()=>{
   const {p,f}=await setup();let outer;try{
-   f.behavior=tenant=>p.window.currentGeneration(tenant);f.hold={entered:lab.hold(),release:lab.hold()};
+   f.behavior=physical?async tenant=>{const lease=await p.window.acquireClient(p.client,tenant);lease.close();}:tenant=>p.window.currentGeneration(tenant);f.hold={entered:lab.hold(),release:lab.hold()};
    outer=p.window.run(A,()=>f.runtime.acquire(A));const ended=outer.catch(error=>error);
    await f.hold.entered.promise;await f.verify();f.hold.release.resolve();
    assert.equal((await ended).code,'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');

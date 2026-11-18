@@ -10,6 +10,25 @@ const hold = () => { let resolve; const promise = new Promise(done => { resolve 
 const refusal = fn => { try { fn(); } catch (error) { return error; } assert.fail('expected refusal'); };
 
 describe('operation-window refusal provenance', function () {
+  for (const closing of [false, true]) it('keeps a pending physical refusal hard in a '+(closing ? 'closing' : 'finished')+' scope', async function () {
+    const f = fixture({trustedWorker:true}), later = hold(), entered = hold(), checked = hold(), check = hold();
+    let lease, receipt, refused, verifying;
+    const running = f.window.run(A, async () => {
+      if (closing) lease = await f.window.acquireClient(f.client,A);
+      refused = (async () => { await later.promise; try { await f.window.acquireClient(f.client,A); }
+        catch (error) { return error; } assert.fail('expected pending physical refusal'); })();
+      entered.resolve();
+    }, {onScope:value => { receipt=value; }}).catch(error => error);
+    try {
+      await entered.promise; await new Promise(resolve => setImmediate(resolve));
+      verifying = f.window.verifyOperational(async () => { checked.resolve(); await check.promise; });
+      await checked.promise; later.resolve(); const error = await refused;
+      assert.equal(error.code,'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');
+      assert.equal(windows.failureGuard(f.window,error),'verification-pending');
+      assert.equal(windows.verificationSuspension(f.window,A,error,receipt),null,'EXPIRED_PHYSICAL_SCOPE_STAYS_HARD');
+      lease?.close(); await running;
+    } finally { later.resolve(); lease?.close(); check.resolve(); await verifying?.catch(() => {}); await running; await f.window.close(); }
+  });
   it('binds original errors to their own window and rejects copied or fabricated provenance', async function () {
     const own = fixture({ trustedWorker: true }), foreign = fixture({ trustedWorker: true });
     try {
