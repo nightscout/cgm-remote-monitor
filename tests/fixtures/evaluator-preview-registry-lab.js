@@ -234,7 +234,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
   // The deployment's pre-start step before each fixture role start. A refused
   // step leaves no proof; the role then refuses at start, as in a deployment.
   lab.preStart = async config => {
-    if (config.verified || !config.document.platformVerification) return;
+    if (config.verified || !config.document?.platformVerification) return;
     try { await lab.verifyPlatform(config); } catch (error) { lab.tracePreview('pre-start-refused', { code: error.code || null }); }
   };
   lab.provisionPreview = async () => {
