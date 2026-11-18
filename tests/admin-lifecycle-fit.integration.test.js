@@ -179,10 +179,12 @@ optInSuite(process.env.NS_ADMIN_LIFECYCLE_DOCKER_TEST === '1',
     }
     // Synthetic lifecycle-participant peers on real Unix sockets.
     const entries = manifest.validate(this.remote.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces,
-      endpoint: { socketPath: path.join(socketDir, peer.id + '.sock'), maxBytes: 1048576, timeoutMs: 5000 } })));
+      ...(peer.slice ? { slice: peer.slice } : {}), endpoint: { socketPath: path.join(socketDir, peer.id + '.sock'), maxBytes: 1048576, timeoutMs: 5000 } })));
     for (const entry of entries) {
       const incarnation = crypto.randomUUID(), backend = participants.find(row => row.participant === entry.roles[0]).backend;
-      const status = request => ({ version: 1, participant: entry.id, incarnation, namespace: ns.control, roles: [...entry.roles],
+      // Use the current status/static ownership contract so the real census and
+      // physical authority controls below are reached before any restore effect.
+      const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: ns.control, roles: [...entry.roles],
         tenants: [A, B].sort(), namespaces: [...entry.namespaces], identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: { ...datastoreRow }, backends: [backend], request });
       peers.push(await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
         getStatus: async (ctx, body) => status(body.request),
