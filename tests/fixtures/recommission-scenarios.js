@@ -383,7 +383,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       });
       const url=new URL(adminURI);url.username=logicalRole;url.password=password;
       const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,drainTimeoutMs:10000,nativeSelection:profile});
-      const queues=()=>admin(async client=>Object.fromEntries(await Promise.all(['tenant_notification_heads','tenant_notification_requests','tenant_notification_state'].map(async name=>[name,artifacts.digestRows((await client.query('SELECT * FROM '+table('notification_outbox',name)+' WHERE tenant_id=$1',[A])).rows)]))));
+      const queues=()=>admin(async client=>{const result={};for(const name of ['tenant_notification_heads','tenant_notification_requests','tenant_notification_state'])result[name]=artifacts.digestRows((await client.query('SELECT * FROM '+table('notification_outbox',name)+' WHERE tenant_id=$1',[A])).rows);return result;});
       try{
         const artifact=await life.exportTenant(port,{tenant:A,namespaces:ns,sourceCommit}),before=await queues();
         const alarms=await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]));
@@ -394,6 +394,15 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         assert.deepEqual((await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]))).rows,alarms.rows);
         const restored=await admin(client=>client.query('SELECT doc FROM '+table('entries','entries')+' WHERE tenant_id=$1 ORDER BY "_id"',[A]));
         assert(restored.rows.every(row=>row.doc.value!==555));
+        // Re-establish the original independent hole after logical restore's
+        // fresh insertion sequence; recommission must retain this exact floor.
+        await admin(async client=>{await client.query('BEGIN');try{
+          await client.query("SELECT set_config('app.current_tenant_id',$1,true)",[A]);
+          for(const kind of ordered){const id='post-restore-hole-'+kind;
+            await client.query('INSERT INTO '+table(kind,kind)+' (tenant_id,id_kind,doc) VALUES($1,\'string\',$2)',[A,JSON.stringify({_id:id,identifier:id,value:99})]);
+            await client.query('DELETE FROM '+table(kind,kind)+' WHERE tenant_id=$1 AND "_id"=$2',[A,id]);
+          }
+          await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');throw error;}});
         assert.deepEqual(await snapshot(B),beforeB);
       }finally{await logicalController.close();await logicalPool.end();}
     });
