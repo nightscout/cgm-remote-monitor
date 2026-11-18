@@ -120,6 +120,28 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         return rows;
       });
     }
+    async function logicalControllerFor (tenant) {
+      const logicalRole=prefix+'_logical_'+crypto.randomBytes(2).toString('hex'),password=crypto.randomBytes(24).toString('hex');
+      await admin(async client=>{
+        await client.query('CREATE ROLE '+q(logicalRole)+" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '"+password+"'");
+        for(const entry of admission.catalogues){
+          await client.query('GRANT USAGE ON SCHEMA '+q(entry.namespace)+' TO '+q(logicalRole));
+          await client.query('GRANT SELECT ON '+q(entry.namespace)+'.schema_migrations TO '+q(logicalRole));
+          for(const name of entry.tables)await client.query('GRANT SELECT ON '+q(entry.namespace)+'.'+q(name)+' TO '+q(logicalRole));
+        }
+        for(const kind of clinical)for(const sql of require('../../lib/server/ordinary-deployment-grants').insertionGrants({namespace:ns[kind],domain:kind,role:logicalRole,mode:'restore'}))await client.query(sql);
+        await client.query('GRANT UPDATE(last_stamp) ON '+table('clock','tenant_write_clock')+' TO '+q(logicalRole));
+        for(const sql of maintenance.operatorGrants({namespace:ns.lifecycle,role:logicalRole,nativeSelection:profile}))await client.query(sql);
+        await client.query('GRANT UPDATE(phase,restored_at) ON '+table('lifecycle','tenant_lifecycle_key_retention')+' TO '+q(logicalRole));
+        await client.query('GRANT USAGE ON SCHEMA '+q(registryNamespace)+' TO '+q(logicalRole));
+        await client.query('GRANT SELECT ON '+q(registryNamespace)+'.tenant_registry_keys TO '+q(logicalRole));
+        await client.query('GRANT pg_read_all_stats TO '+q(logicalRole));
+        await client.query('INSERT INTO '+table('lifecycle','tenant_lifecycle_restore_authority')+' (tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)',[tenant,logicalRole]);
+      });
+      const url=new URL(adminURI);url.username=logicalRole;url.password=password;
+      const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,drainTimeoutMs:10000,nativeSelection:profile});
+      return {logicalPool,logicalController};
+    }
     async function resumeFailedClaim () {
       const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: ns.lifecycle, locks, pool, cohort, ...selectionOptions() });
       try {
@@ -293,7 +315,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       await vaultRequest('sys/policies/acl/native-recommission-custodian', { policy: keysOf(A).map(key => 'path "transit/keys/' + key.name + '" { capabilities=["read","delete"] }\npath "transit/keys/' + key.name + '/config" { capabilities=["update"] }').join('\n') });
       custodianToken = (await vaultRequest('auth/token/create', { policies: ['native-recommission-custodian'], no_default_policy: true, ttl: '1h' })).auth.client_token;
       const setup = new Client({ connectionString: roleURI }); await setup.connect();
-      try { identity = await require('../../lib/tenant-lifecycle/operation-window-readiness').admit(setup, ns.lifecycle, { maintenance: true, ...(native?{}:{intakeProfile:profile}) }); }
+      try { identity = await require('../../lib/tenant-lifecycle/operation-window-readiness').admit(setup, ns.lifecycle, {maintenance:true,intakeProfile:profile}); }
       finally { await setup.end(); }
       const entries = manifests.validate(['api', 'realtime', 'evaluator', 'tenant-admin'].map(name => ({ id: name, roles: [name],
         namespaces: admission.catalogues.filter(entry => entry.kind !== 'lifecycle').map(entry => entry.namespace),
@@ -304,12 +326,12 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const row = (await client.query('SELECT pg_backend_pid() AS pid,current_user AS role,extract(epoch from backend_start)::text AS birth,' + datastore.SQL + ' FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
         const incarnation = crypto.randomUUID();
         const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
-          namespaces: [...entry.namespaces], identity, ...(native?{}:{intakeProfileDigest: profile.digest}), datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
+          namespaces: [...entry.namespaces], identity, intakeProfileDigest:profile.digest, datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
         peers.push(await transport.open(entry.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (_ctx, body) => status(body.request),
           invalidateTenant: async (_ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
           getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (_ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] }) })));
       }
-      cohort = await cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: entries, ...(native?{}:{intakeProfile:profile}) });
+      cohort = await cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: entries, intakeProfile:profile });
       pool = new Pool({ connectionString: roleURI, max: 1 });
       controller = maintenance.create({ namespace: ns.lifecycle, locks, pool, cohort, drainTimeoutMs: 10000, ...selectionOptions() });
       life = admission.lifecycle.withCapabilities({
@@ -359,30 +381,48 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       }
     });
 
+    if(native)it('admits the selected native ledger to restricted physical serving ports and blocks replacement until COMMIT',async function(){
+      const lifetime=prefix+'_life',data=prefix+'_data',password=crypto.randomBytes(24).toString('hex');
+      const nativeSelection=require('../../lib/tenant-lifecycle/native-selection'),windows=require('../../lib/tenant-lifecycle/operation-window');
+      await admin(async client=>{
+        for(const role of [lifetime,data]){
+          await client.query('CREATE ROLE '+q(role)+" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '"+password+"'");
+          await client.query('GRANT USAGE ON SCHEMA '+q(ns.lifecycle)+' TO '+q(role));
+          for(const name of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])await client.query('GRANT SELECT ON '+table('lifecycle',name)+' TO '+q(role));
+          for(const sql of nativeSelection.servingGrants({namespace:ns.lifecycle,role}))await client.query(sql);
+        }
+        await client.query('GRANT INSERT(tenant_id,operation_id,generation),UPDATE(finished) ON '+table('lifecycle','tenant_lifecycle_operations')+' TO '+q(lifetime));
+        await client.query('GRANT EXECUTE ON FUNCTION '+q(ns.lifecycle)+'.tenant_lifecycle_backend_birth() TO '+q(lifetime));
+      });
+      const uri=role=>{const value=new URL(adminURI);value.username=role;value.password=password;return value.toString();};
+      const lifetimePool=new Pool({connectionString:uri(lifetime),max:1});
+      const window=windows.create({namespace:ns.lifecycle,locks,pool:lifetimePool,intakeProfile:profile});let lower;
+      try{
+        await window.ready();assert.deepEqual(windows.catalogue(window),nativeSelection.catalogue(profile));
+        lower=await require('../../lib/storage/postgres-connection')({connectionString:uri(data),max:1,operationWindow:window});
+        for(const tenant of [A,B])await window.run(tenant,()=>lower.withTenant(tenant,async()=>assert.deepEqual((await lower.query('SELECT tenant_id FROM '+table('lifecycle','tenant_lifecycle_windows'))).rows,[{tenant_id:tenant}])));
+        let unlock,entered,physicalReady;const held=new Promise(resolve=>{physicalReady=resolve;}),gate=new Promise(resolve=>{unlock=resolve;});
+        const transaction=lower.withTenant(A,async()=>{await lower.query('SELECT 1');physicalReady();await gate;});
+        await held;
+        const replacement=controller.withRestore(A,{artifactDigest:'b'.repeat(64)},async()=>{entered=true;});
+        try{await sleep(150);assert.equal(entered,undefined,'checked native DATA transaction must block replacement');}finally{unlock();}
+        await transaction;await replacement;assert.equal(entered,true);
+        await admin(client=>client.query('REVOKE SELECT(generation) ON '+table('lifecycle','tenant_lifecycle_recommission')+' FROM '+q(lifetime)));
+        const refused=windows.create({namespace:ns.lifecycle,locks,pool:lifetimePool,intakeProfile:profile});
+        try{await assert.rejects(refused.ready(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});}finally{await refused.close();}
+        await admin(async client=>{for(const sql of nativeSelection.servingGrants({namespace:ns.lifecycle,role:lifetime}))await client.query(sql);});
+      }finally{if(lower)await lower.end();await window.close();await lifetimePool.end();}
+    });
+
     if(native)it('restores seven clinical domains through the native source guard while preserving pending and accepted queue identities',async function(){
-      const beforeB=await snapshot(B),logicalRole=prefix+'_logical',password=crypto.randomBytes(24).toString('hex');
+      const beforeB=await snapshot(B);
       const values=require('./tenant-deployment-notifications').notificationInputs({tenants:[A,B],now:BASE,outboxRole:prefix+'_one',checkpointWriterRole:prefix+'_two',ackReaderRole:prefix+'_three'}).rows;
       await admin(async client=>{
         for(const [name,rows]of Object.entries(values))for(const row of rows.filter(value=>value.consumer==='synthetic_realtime'&&value.tenant_id===A)){
           const keys=Object.keys(row);await client.query('INSERT INTO '+table('notification_outbox',name)+' ('+keys.map(q).join(',')+') VALUES('+keys.map((_,i)=>'$'+(i+1)).join(',')+')',keys.map(key=>row[key]));
         }
-        await client.query('CREATE ROLE '+q(logicalRole)+" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '"+password+"'");
-        for(const entry of admission.catalogues){
-          await client.query('GRANT USAGE ON SCHEMA '+q(entry.namespace)+' TO '+q(logicalRole));
-          await client.query('GRANT SELECT ON '+q(entry.namespace)+'.schema_migrations TO '+q(logicalRole));
-          for(const name of entry.tables)await client.query('GRANT SELECT ON '+q(entry.namespace)+'.'+q(name)+' TO '+q(logicalRole));
-        }
-        for(const kind of clinical)for(const sql of require('../../lib/server/ordinary-deployment-grants').insertionGrants({namespace:ns[kind],domain:kind,role:logicalRole,mode:'restore'}))await client.query(sql);
-        await client.query('GRANT UPDATE(last_stamp) ON '+table('clock','tenant_write_clock')+' TO '+q(logicalRole));
-        for(const sql of maintenance.operatorGrants({namespace:ns.lifecycle,role:logicalRole,nativeSelection:profile}))await client.query(sql);
-        await client.query('GRANT UPDATE(phase,restored_at) ON '+table('lifecycle','tenant_lifecycle_key_retention')+' TO '+q(logicalRole));
-        await client.query('GRANT USAGE ON SCHEMA '+q(registryNamespace)+' TO '+q(logicalRole));
-        await client.query('GRANT SELECT ON '+q(registryNamespace)+'.tenant_registry_keys TO '+q(logicalRole));
-        await client.query('GRANT pg_read_all_stats TO '+q(logicalRole));
-        await client.query('INSERT INTO '+table('lifecycle','tenant_lifecycle_restore_authority')+' (tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)',[A,logicalRole]);
       });
-      const url=new URL(adminURI);url.username=logicalRole;url.password=password;
-      const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,drainTimeoutMs:10000,nativeSelection:profile});
+      const {logicalPool,logicalController}=await logicalControllerFor(A);
       const queues=()=>admin(async client=>{const result={};for(const name of ['tenant_notification_heads','tenant_notification_requests','tenant_notification_state'])result[name]=artifacts.digestRows((await client.query('SELECT * FROM '+table('notification_outbox',name)+' WHERE tenant_id=$1',[A])).rows);return result;});
       try{
         const artifact=await life.exportTenant(port,{tenant:A,namespaces:ns,sourceCommit}),before=await queues();
@@ -448,10 +488,9 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           const secrets = (await client.query('SELECT id,ciphertext FROM ' + table('secrets', 'secret_records') + ' WHERE tenant_id=$1 ORDER BY id', [A])).rows;
           assert.equal(hash(secrets), hash(captured.tables['secrets.secret_records'].map(row => ({ id: row.id, ciphertext: row.ciphertext })).sort((a, b) => a.id.localeCompare(b.id))), 'ciphertext bytes are recovered exactly');
           const state = (await client.query('SELECT phase,generation::text FROM ' + table('lifecycle', 'tenant_lifecycle_windows') + ' WHERE tenant_id=$1', [A])).rows[0]; assert.equal(state.phase, 'active');
-          if(!native){
           const links = (await client.query('SELECT activated FROM ' + table('lifecycle', 'tenant_lifecycle_recommission') + ' WHERE tenant_id=$1', [A])).rows;
           assert.equal(links.length, cycle + 1); assert(links.every(link => link.activated));
-          }else{
+          if(native){
             const retained=(await client.query('SELECT phase FROM '+table('lifecycle','tenant_lifecycle_key_retention')+' WHERE tenant_id=$1',[A])).rows;assert.equal(retained.length,cycle+1);assert(retained.every(row=>row.phase==='restored'));
             assert.equal((await client.query('SELECT count(*)::int AS n FROM pg_tables WHERE schemaname=$1 AND tablename=\'pgstream_intake_profile\'',[profile.binding.namespace])).rows[0].n,0,'native successor installs no pool intake profile');
             const work=(await client.query('SELECT work_version,work_observed,work_completed FROM '+'\"'+profile.binding.namespace+'\".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,profile.binding.consumer+'-completed'])).rows[0];assert.equal(work.work_version,2);assert.equal(work.work_observed[5],'1');assert.equal(work.work_completed[5],null);
@@ -544,6 +583,34 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       assert.deepEqual(await snapshot(B), beforeB);
       const bytes = await provider(B).decrypt((await admin(client => client.query('SELECT ciphertext FROM ' + table('secrets', 'secret_records') + ' WHERE tenant_id=$1', [B]))).rows[0].ciphertext);
       try { assert(Buffer.isBuffer(bytes) && bytes.length > 0); } finally { bytes.fill(0); }
+    });
+    if(native)it('keeps an executed deletion suspended after ordinary logical-only restore and data-replaced resume',async function(){
+      const beforeA=await snapshot(A),at=BASE+4000;
+      const artifact=await life.exportTenant(port,{tenant:B,namespaces:ns,sourceCommit,now:()=>at-10});
+      await lifecycle.saveTenantArtifact(artifact,{directory:artifactDirectory});
+      const options={tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,artifact,now:()=>at};
+      const request=await life.requestDeletion(port,options);
+      await life.confirmDeletion(port,{...options,requestId:request.requestId});
+      await life.executeDeletionWithMaintenance(port,{...options,requestId:request.requestId,controller});
+      const {logicalPool,logicalController}=await logicalControllerFor(B);
+      try{
+        await assert.rejects(logicalController.withRestore(B,{artifactDigest:artifact.digest},async ({connection,maintenanceClaim})=>{
+          await life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim});
+          maintenance.registerAfterCommit(maintenanceClaim,{connection,tenant:B,artifactDigest:artifact.digest},()=>{throw new Error('NATIVE_LOGICAL_AFTER_DATA_INTERRUPT');});
+        }),/NATIVE_LOGICAL_AFTER_DATA_INTERRUPT/);
+        const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,nativeSelection:profile});
+        try{const inspection=await recovery.inspect(B);assert.equal(inspection.interrupted,'data-replaced');await recovery.resume(B,{claimId:inspection.claimId});}finally{await recovery.close();}
+        await admin(async client=>{
+          const activity=(await client.query('SELECT suspended,deletion_request_id FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[B])).rows[0];
+          assert.equal(activity.suspended,true,'NATIVE_LOGICAL_RESTORE_MUST_NOT_RECOMMISSION');assert.equal(activity.deletion_request_id,request.requestId);
+          assert.equal((await client.query('SELECT count(*)::int AS n FROM '+table('lifecycle','tenant_lifecycle_recommission')+' WHERE tenant_id=$1',[B])).rows[0].n,0);
+          for(const kind of clinical)assert((await client.query('SELECT count(*)::int AS n FROM '+table(kind,kind)+' WHERE tenant_id=$1',[B])).rows[0].n>0);
+        });
+        await logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
+        const stillClosed=await admin(client=>client.query('SELECT suspended,deletion_request_id FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[B]));
+        assert.equal(stillClosed.rows[0].suspended,true,'NATIVE_LOGICAL_RESTORE_MUST_NOT_RECOMMISSION');assert.equal(stillClosed.rows[0].deletion_request_id,request.requestId);
+        assert.deepEqual(await snapshot(A),beforeA);
+      }finally{await logicalController.close();await logicalPool.end();}
     });
   });
 
