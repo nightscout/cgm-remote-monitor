@@ -111,7 +111,7 @@ describe('evaluator partitioning: private contracts', function () {
   const refused = fn => assert.throws(fn, error => error.code === 'INTERNAL_API_SCHEMA_REFUSED');
   it('fixes the evaluator inspection read: configured beside observed, codes and counts only', function () {
     const inspect = contracts.evaluatorInspection.operations.inspectEvaluator;
-    assert.equal(contracts.evaluatorInspection.version,2);
+    assert.equal(contracts.evaluatorInspection.version,3);
     validate(inspect.request, {});validate(inspect.request,{tenants:[]});validate(inspect.request,{tenants:[A]});
     refused(()=>validate(inspect.request,{tenants:[A,A]}));
     refused(()=>validate(inspect.request,{tenants:Array.from({length:129},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111')}));
@@ -128,6 +128,12 @@ describe('evaluator partitioning: private contracts', function () {
     validate(inspect.response,bounded);assert(Buffer.byteLength(JSON.stringify(bounded))<1024*1024,'SELECTED_DTO_BELOW_UNCHANGED_CLIENT_CAP');
     validate(inspect.response, { ...response, configured: { mode: 'standalone', ordinal: 0, rule: null, leaseMs: null, configuredTenants: 1 },
       observed: null, gate: { ...response.gate, heartbeats: null } });
+    // Static ownership reports configured ordinals, without claiming live peers.
+    const fixed={...response,configured:{mode:'static',count:2,ordinal:1,rule:'sha256-modulo-v1',leaseMs:null,configuredTenants:1},observed:null};
+    validate(inspect.response,fixed);
+    const missingCount={...fixed.configured};delete missingCount.count;
+    refused(()=>validate(inspect.response,{...fixed,configured:missingCount}));
+    refused(()=>validate(inspect.response,{...fixed,configured:{...fixed.configured,placement:{}}}));
     refused(() => validate(inspect.response, { ...response, tenants: [{ ...response.tenants[0], endpoint: 'postgres://x' }] }));
     refused(() => validate(inspect.response, { ...response, observed: { ...response.observed, memberId: A } }));
   });
