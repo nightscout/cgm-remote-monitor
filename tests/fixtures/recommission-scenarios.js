@@ -93,8 +93,9 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         signingKey: rules.vaultKey(tenant, 'signing'), signingVersion: 1 });
     }
     const replay = () => ({ consumer: profile.binding.consumer, projectionVersion: 'native-recommission-v1',
-      checkpointTable: ns.checkpoint + '.tenant_consumer_checkpoint', clockTable: ns.clock + '.tenant_write_clock',
+      checkpointTable: (native?ns.evaluator_checkpoint:ns.checkpoint) + '.tenant_consumer_checkpoint', clockTable: ns.clock + '.tenant_write_clock',
       domains: Object.fromEntries(clinical.map(kind => [kind, ns[kind] + '.' + kind])), pageSize: 100, maxRows: 1000 });
+    const replays=()=>native?[replay(),{...replay(),consumer:'realtime-native-recommission',checkpointTable:ns.checkpoint+'.tenant_consumer_checkpoint'}]:[replay()];
     async function currentConfiguration ({ tenant, connection }) {
       if (configMissing) return undefined;
       const keys = (await connection.query('SELECT purpose,kid,public_key FROM ' + q(registryNamespace) + '.tenant_registry_keys WHERE tenant_id=$1', [tenant])).rows;
@@ -107,7 +108,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         ownerCatalogue: ['*'], ownerActors: [{ principal: 'subject_a', consumer: 'native_owner', active: true, canUpdate: true, delegable: ['api:*:read'] }],
         ownerConfiguration: [{ principal: 'subject_a', consumer: 'native_owner', active: true, canConfigure: true }],
         operatorPolicy: { deployment: {}, overrides: {} }, subjectPolicy: { grants, code: grants, operator: grants },
-        access: { active: true, keys: selected.map(key => ({ purpose: key.purpose, kid: key.kid, publicKey: key.public_key })) }, replays: [replay()], ...(native?{nativeSource:{source:profile.binding.source,generation:profile.binding.generation}}:{}) };
+        access: { active: true, keys: selected.map(key => ({ purpose: key.purpose, kid: key.kid, publicKey: key.public_key })) }, replays: replays(), ...(native?{nativeSource:{source:profile.binding.source,generation:profile.binding.generation}}:{}) };
     }
     async function snapshot (tenant) {
       return admin(async client => {
@@ -187,12 +188,12 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       adminURI = 'postgres://bootstrap:' + pgPassword + '@127.0.0.1:' + docker(['port', containers[0], '5432/tcp']).split(':').pop() + '/nightscout_recommission_test';
       vault = { address: 'http://127.0.0.1:' + docker(['port', containers[1], '8200/tcp']).split(':').pop() + '/', token: vaultToken };
       await ready(() => admin(async () => {})); await ready(() => vaultRequest('sys/health'));
-      const kinds = [...lifecycle.admittedCatalogue().map(entry => entry.kind), 'lifecycle', 'alarm_suppression', 'notification_outbox'];
+      const kinds = [...lifecycle.admittedCatalogue().map(entry => entry.kind), 'lifecycle', 'alarm_suppression', 'notification_outbox',...(native?['evaluator_checkpoint']:[])];
       ns = Object.fromEntries(kinds.map(kind => [kind, prefix + '_' + kind]));
       profile = native ? await admin(async client=>{
         const slot='nrc_'+id;await client.query("SELECT pg_create_logical_replication_slot($1,'pgoutput')",[slot]);
         const row=(await client.query('SELECT s.system_identifier::text AS system_id,c.timeline_id::integer AS timeline,current_database() AS database FROM pg_control_system() s CROSS JOIN pg_control_checkpoint() c')).rows[0];
-        return require('../../lib/tenant-lifecycle/native-selection').create({namespace:ns.checkpoint,lifecycleNamespace:ns.lifecycle,consumer:'evaluator-native-recommission',source:{...row,slot},generation:'native-recommission-v1'});
+        return require('../../lib/tenant-lifecycle/native-selection').create({namespace:ns.evaluator_checkpoint,lifecycleNamespace:ns.lifecycle,consumer:'evaluator-native-recommission',source:{...row,slot},generation:'native-recommission-v1'});
       }) : require('../../lib/pgstream/pool-intake-profile').create({ namespace: ns.checkpoint, membershipNamespace: prefix + '_membership',
         lifecycleNamespace: ns.lifecycle, role: intakeRole, operatorRole: assignmentRole, consumer: 'evaluator-native-recommission',
         codec: require('../../lib/pgstream/pool-intake-profile').CODEC, generationDomain: require('../../lib/pgstream/pool-intake-profile').GENERATION_DOMAIN,
@@ -203,7 +204,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const outbox = require('./tenant-deployment-notifications').notificationInputs({ tenants: [A, B], now: BASE,
         outboxRole: prefix + '_outbox', checkpointWriterRole: prefix + '_checkpoint_writer', ackReaderRole: prefix + '_ack_reader' });
       admission = require('../../lib/tenant-operations/catalogues').deploymentAdmission({ namespaces: ns, ...selectionOptions(), notificationBindings: bindings,
-        selection: {...Object.fromEntries(['treatments', 'devicestatus', 'profile'].map(kind => [kind, 'migrations/candidates/postgres-' + kind + '-socket-order-v1.json'])),...(native?{checkpoint:'migrations/candidates/postgres-evaluator-work-v2.json'}:{})}, extensions: [alarm.extension, outbox.extension] });
+        selection: {...Object.fromEntries(['treatments', 'devicestatus', 'profile'].map(kind => [kind, 'migrations/candidates/postgres-' + kind + '-socket-order-v1.json'])),...(native?{checkpoint:'migrations/candidates/postgres-realtime-output-v2.json',evaluator_checkpoint:'migrations/candidates/postgres-evaluator-work-v2.json'}:{})}, extensions: [alarm.extension, outbox.extension],...(native?{instances:[{kind:'evaluator_checkpoint',of:'checkpoint'}]}:{}) });
       const rolePassword = crypto.randomBytes(24).toString('hex'), peerPassword = crypto.randomBytes(24).toString('hex');
       const url = new URL(adminURI); url.username = role; url.password = rolePassword; roleURI = url.toString();
       let peerURI, identity;
@@ -237,7 +238,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const lab = await require('./provisioned-tenants').create({ admin: client, adminURI, owner, vault,
           namespaces: { ...Object.fromEntries(['authorization', 'secrets', 'legacy', 'access', 'clock'].map(kind => [kind, ns[kind]])),
             control: ns.lifecycle, settings: ns.tenant_settings, operatorPolicy: ns.operator_policy },
-          checkpoints: [{ namespace: ns.checkpoint, consumer: profile.binding.consumer, digest: require('../../lib/storage/postgres-durable-replay')({ ...replay(), connection: { query () {}, snapshotTransaction () {} } }).digest }] });
+          checkpoints: replays().map(input=>({namespace:input.checkpointTable.split('.')[0],consumer:input.consumer,digest:require('../../lib/storage/postgres-durable-replay')({...input,connection:{query(){},snapshotTransaction(){}}}).digest})) });
         for (const tenant of [A, B]) roots.set(tenant, (await lab.provision({ id: tenant, hosts: [tenant === A ? 'one.example.test' : 'two.example.test'], issueRootSecret: true })).rootSecret);
         registryNamespace = lab.namespaces.registry;
         await lab.release(); // suite-owned Vault deliberately remains running.
@@ -331,8 +332,8 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         await maintenance.assertHeld(maintenanceClaim, { connection, tenant, artifactDigest: 'a'.repeat(64) });
         const generation = (await connection.query('SELECT generation::text AS generation FROM ' + table('lifecycle', 'tenant_lifecycle_windows') + ' WHERE tenant_id=$1', [tenant])).rows[0].generation;
         if(native){
-          await connection.query('DELETE FROM '+table('checkpoint','tenant_consumer_checkpoint')+' WHERE tenant_id=$1',[tenant]);
-          const descriptor=require('../../lib/tenant-lifecycle/recommission-checkpoints').describe({nativeSelection:profile,replays:[replay()],namespaces:ns,catalogues:life.CATALOGUE});
+          for(const entry of life.CATALOGUE.filter(value=>value.tables.includes('tenant_consumer_checkpoint')))await connection.query('DELETE FROM \"'+ns[entry.kind]+'\".tenant_consumer_checkpoint WHERE tenant_id=$1',[tenant]);
+          const descriptor=require('../../lib/tenant-lifecycle/recommission-checkpoints').describe({nativeSelection:profile,replays:replays(),namespaces:ns,catalogues:life.CATALOGUE});
           await require('../../lib/tenant-lifecycle/recommission-checkpoints').provision(connection.query.bind(connection),descriptor,{tenant,generation,connection,maintenanceClaim,artifactDigest:'a'.repeat(64)});
         }else await require('../../lib/pgstream/pool-checkpoint-provision').provisionCheckpoint(connection.query.bind(connection), profile, { tenant, generation, enabled: false });
       });
@@ -360,7 +361,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       assert.deepEqual(await snapshot(B), beforeB);
       await refusedRestore(first, { code: 'LIFECYCLE_RETENTION_EXPIRED' }, { now: () => first.at + 30 * DAY });
       configMissing = true;
-      try { await refusedRestore(first, { code: 'LIFECYCLE_RECOMMISSION_REPLAY_REQUIRED' }); }
+      try { await refusedRestore(first, { code: native?'LIFECYCLE_NATIVE_SOURCE_CHANGED':'LIFECYCLE_RECOMMISSION_REPLAY_REQUIRED' }); }
       finally { configMissing = false; }
       for (let cycle = 0, record = first; cycle < 2; cycle++) {
         const captured = record.artifact, oldKey = captured.tables['legacy.legacy_data_keys'].find(key => key.signing), config = captured.tables['legacy.legacy_credential_config'][0];
@@ -395,8 +396,8 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           assert.equal(links.length, cycle + 1); assert(links.every(link => link.activated));
           }else{
             const retained=(await client.query('SELECT phase FROM '+table('lifecycle','tenant_lifecycle_key_retention')+' WHERE tenant_id=$1',[A])).rows;assert.equal(retained.length,cycle+1);assert(retained.every(row=>row.phase==='restored'));
-            assert.equal((await client.query('SELECT count(*)::int AS n FROM pg_tables WHERE schemaname=$1 AND tablename=\'pgstream_intake_profile\'',[ns.checkpoint])).rows[0].n,0,'native successor installs no pool intake profile');
-            const work=(await client.query('SELECT work_version,work_observed,work_completed FROM '+table('checkpoint','tenant_consumer_checkpoint')+' WHERE tenant_id=$1 AND consumer=$2',[A,profile.binding.consumer+'-completed'])).rows[0];assert.equal(work.work_version,2);assert.equal(work.work_observed[5],'1');assert.equal(work.work_completed[5],null);
+            assert.equal((await client.query('SELECT count(*)::int AS n FROM pg_tables WHERE schemaname=$1 AND tablename=\'pgstream_intake_profile\'',[profile.binding.namespace])).rows[0].n,0,'native successor installs no pool intake profile');
+            const work=(await client.query('SELECT work_version,work_observed,work_completed FROM '+'\"'+profile.binding.namespace+'\".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,profile.binding.consumer+'-completed'])).rows[0];assert.equal(work.work_version,2);assert.equal(work.work_observed[5],'1');assert.equal(work.work_completed[5],null);
           }
           for (const [kind, name] of [['access', 'access_sessions'], ['human_session', 'human_sessions'], ['human_session', 'human_access_tokens']]) {
             if (!cycle) assert(captured.tables[kind + '.' + name].length > 0, 'nonempty captured sessions make the reset oracle meaningful');
