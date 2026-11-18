@@ -290,7 +290,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const client = new Client({ connectionString: peerURI }); await client.connect(); backends.push(client);
         const row = (await client.query('SELECT pg_backend_pid() AS pid,current_user AS role,extract(epoch from backend_start)::text AS birth,' + datastore.SQL + ' FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
         const incarnation = crypto.randomUUID();
-        const status = request => ({ version: 1, participant: entry.id, incarnation, namespace: ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
+        const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
           namespaces: [...entry.namespaces], identity, intakeProfileDigest: profile.digest, datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
         peers.push(await transport.open(entry.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (_ctx, body) => status(body.request),
           invalidateTenant: async (_ctx, body) => ({ ...status(body.request), tenant: body.tenant }),

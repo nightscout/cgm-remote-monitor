@@ -100,7 +100,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     const status = await clients.lifecycleParticipant(participants[0].endpoint).getStatus({ request: crypto.randomUUID() });
     for (const peer of participants.slice(2)) {
       const incarnation = crypto.randomUUID();
-      const response = request => ({ ...status, participant: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces], incarnation, backends: [], request });
+      const response = request => ({ ...status, participant: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces], incarnation, backends: [], ownership: peer.roles.includes('realtime') ? { ...peer.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, request });
       peers.push(await transport.open(peer.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (ctx, body) => response(body.request),
         invalidateTenant: async (ctx, body) => ({ ...response(body.request), tenant: body.tenant }),
         getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: peer.id, incarnation, operations: [] }) })));
