@@ -59,7 +59,7 @@ optInSuite(process.env.NS_API_ROSTER_DOCKER_TEST === '1',
   // One synthetic lifecycle participant: its own incarnation, reporting its one real backend.
   async function startPeer (entry) {
     const incarnation = crypto.randomUUID(), backend = backends[entry.id];
-    const status = request => ({ version: 1, participant: entry.id, incarnation, namespace: ns.control, roles: [...entry.roles],
+    const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: ns.control, roles: [...entry.roles],
       tenants: [A, B].sort(), namespaces: [...entry.namespaces], identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: { ...datastoreRow }, backends: [backend], request });
     calls[entry.id] = { getStatus: 0, invalidateTenant: 0 };
     peers[entry.id] = await ipc.open(entry.endpoint, contracts.lifecycleParticipant, () => ({
