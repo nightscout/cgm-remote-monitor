@@ -141,6 +141,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
 // The `full` variant: each optional field the contract names, with a value its loader accepts.
 function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, envName, protects, tokenFiles, selectedPool }) {
   const ns = l.namespaces, { api, realtime, evaluator } = docs.configs, owner = docs.configs['tenant-admin'], env = docs.environments;
+  evaluator.pgstream.startupTransport={timeoutMs:30000,retryIntervalMs:50};
   for (const role of [evaluator, realtime]) role.trustedWorker = { activity: ns.control, clock: ns.clock, settings: named('display_settings'), operatorPolicy: named('operator_policy') };
   // Exactly one credential source per Vault block: a token file, or an environment reference.
   const tokenVault = { address: vaultAddress, mount: l.mount, timeoutMs: 5000, allowInsecureLoopback: false,

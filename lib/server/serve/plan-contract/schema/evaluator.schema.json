@@ -571,6 +571,26 @@
             }
           },
           "description": "Bounded native snapshot recovery; only the evaluator resolves this environment reference."
+        },
+        "startupTransport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "timeoutMs",
+            "retryIntervalMs"
+          ],
+          "properties": {
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854
+            },
+            "retryIntervalMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854
+            }
+          }
         }
       },
       "dependentRequired": {
