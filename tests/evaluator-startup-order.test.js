@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,startupError,registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({assignedTenants,openingSchema,startupError,registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
@@ -51,7 +51,9 @@ function fixture({assignedTenants,startupError,registryError,cleanupError,platfo
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
-  '../../pgstream/evaluator':{open:async({onCommit,onInput,schemaStartup,assignment})=>{if(startupError)throw startupError;selectedAssignment=assignment;schemaEvent=held=>schemaStartup.schema(async()=>{schemaAvailable=false;trace.push('schema-event');await held;schemaAvailable=true;});commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});return {store,ready:async()=>{},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
+  '../../pgstream/evaluator':{open:async({onCommit,onInput,schemaStartup,assignment})=>{if(startupError)throw startupError;selectedAssignment=assignment;schemaEvent=held=>schemaStartup.schema(async()=>{schemaAvailable=false;trace.push('schema-event');await held;schemaAvailable=true;});commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
+    if (openingSchema) schemaEvent(openingSchema).catch(() => {});
+    return {store,async ready(){if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
   './registry-tenant-set':{open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
   './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){trace.push('delivery-prepare');await prepare.promise;assertOperational();return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
@@ -322,6 +324,38 @@ async function previewSchemaCriterion(sourceTransform=text=>text){
 }
 describe('actual preview startup schema boundary',()=>{
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
+ for (const refuse of [false, true]) {
+  it(refuse ? 'refuses startup when the schema check at receiver opening fails'
+    : 'waits for the schema check active when the receiver opens', async () => {
+   const verification = deferred();
+   const f = fixture({openingSchema: verification.promise});
+   f.prepare.resolve();
+   const boot = f.boot();
+   let settled = false;
+   boot.then(() => { settled = true; }, () => { settled = true; });
+   let service;
+   try {
+    await settle();
+    assert(f.trace.includes('schema-event'));
+    assert.equal(settled, false, 'receiver opening must join in-flight schema verification');
+    assert.equal(f.state().started, false);
+    if (refuse) {
+     const failure = new Error('schema verification refused');
+     verification.reject(failure);
+     await assert.rejects(boot, error => error.cause === failure);
+     assert.equal(f.state().started, false);
+    } else {
+     verification.resolve();
+     service = await boot;
+     assert.equal(f.state().started, true);
+    }
+   } finally {
+    verification.resolve();
+    await (service || await boot.catch(() => null))?.close();
+    await f.window.close();
+   }
+  });
+ }
  it('reconciles consumer construction interrupted by the receiver schema gate',()=>previewSchemaCriterion());
  it('control: omitted preview preparation gate goes red and restored source passes',async()=>{
   await assert.rejects(previewSchemaCriterion(text=>text.replace('await schemaStartup.prepare(async () => {','await (async () => {').replace('    });\n    if (consumers)', '    })();\n    if (consumers)')),/PREVIEW_MUST_RECOVER_SCHEMA_INTERRUPTED_PREPARATION/);
