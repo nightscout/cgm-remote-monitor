@@ -408,8 +408,8 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         try{await sleep(150);assert.equal(entered,undefined,'checked native DATA transaction must block replacement');}finally{unlock();}
         await transaction;await replacement;assert.equal(entered,true);
         await admin(client=>client.query('REVOKE SELECT(generation) ON '+table('lifecycle','tenant_lifecycle_recommission')+' FROM '+q(lifetime)));
-        const refused=windows.create({namespace:ns.lifecycle,locks,pool:lifetimePool,intakeProfile:profile});
-        try{await assert.rejects(refused.ready(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});}finally{await refused.close();}
+        const refusedPool=new Pool({connectionString:uri(lifetime),max:1}),refused=windows.create({namespace:ns.lifecycle,locks,pool:refusedPool,intakeProfile:profile});
+        try{await assert.rejects(refused.ready(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});}finally{await refused.close();await refusedPool.end();}
         await admin(async client=>{for(const sql of nativeSelection.servingGrants({namespace:ns.lifecycle,role:lifetime}))await client.query(sql);});
       }finally{if(lower)await lower.end();await window.close();await lifetimePool.end();}
     });

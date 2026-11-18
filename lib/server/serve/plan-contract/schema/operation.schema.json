@@ -214,7 +214,8 @@
             }
           }
         }
-      }
+      },
+      "description": "Explicit native source declaration. Mutually exclusive with intakeProfile; the operation loader enforces that relation."
     }
   },
   "dependentRequired": {
@@ -223,12 +224,6 @@
     ],
     "participants": [
       "participantId"
-    ]
-  },
-  "not": {
-    "required": [
-      "nativeSelection",
-      "intakeProfile"
     ]
   }
 }
