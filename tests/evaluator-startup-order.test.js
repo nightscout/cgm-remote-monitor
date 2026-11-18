@@ -6,10 +6,15 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,sourceBlocked=false,startupError,registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors={},registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,blockSource;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+ const streamTrace=[];
+ function streamStep (step) {
+  streamTrace.push(step);
+  if (Object.hasOwn(streamErrors, step)) throw streamErrors[step];
+ }
  const connection={async end(){closed=true;if(cleanupError)throw cleanupError;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
@@ -39,8 +44,12 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,registryError
  const filename=require.resolve('../lib/server/serve/evaluator-preview'),loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=module.paths;
  const fakeEvaluator=()=>({async evaluate({at}){assert(trace.includes('tenant-admitted'));if(pendingRace&&cycle===0){evaluatingEntered=true;evaluating.resolve();await finishCycle.promise;}return {now:at,checkpoint:1,signature:{stamp:1,deleted:0},properties:{syntheticCycle:++cycle},emitted:notificationStartup?[require('./fixtures/tenant-notifications').notification()]:[],requested:notificationStartup?[{...require('./fixtures/tenant-notifications').notification(),kind:'notify'}]:[],due:{dueAt:pendingRace?Date.now()+3600000:null,slow:[]}};},close(){componentClosed=true;}});fakeEvaluator.domains=['entries'];
  const mocks={
-  'pg':{Client:class {async connect(){} async end(){} async query(){return {rows:[{systemid:'123',timeline:1,dbname:'synthetic'}]};}}},
-  '../../pgstream/snapshot-recovery':{lockKey:()=> '123',create:()=>({close:async()=>{}})},
+  'pg':{Client:class {
+   async connect(){streamStep('connect');}
+   async query(sql){assert.equal(sql,'IDENTIFY_SYSTEM');streamStep('identify');return {rows:[{systemid:'123',timeline:1,dbname:'synthetic'}]};}
+   async end(){streamStep('close');}
+  }},
+  '../../pgstream/snapshot-recovery':{lockKey:()=> '123',create:()=>{streamStep('recovery');return {close:async()=>{}};}},
   './evaluator-runtime':async options=>{runtime=await runtimeFactory(options);return runtime;},
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
@@ -52,12 +61,12 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,registryError
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
-  '../../pgstream/evaluator':{open:async({onCommit,onInput,assignment,schemaStartup})=>{if(startupError)throw startupError;if(schemaStartup!==undefined)throw Error('RETIRED_SCHEMA_STARTUP_OPTION');selectedAssignment=assignment;blockSource=()=>{schemaAvailable=false;trace.push('source-blocked');};commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
+  '../../pgstream/evaluator':{open:async({onCommit,onInput,assignment,schemaStartup})=>{streamStep('open');if(startupError)throw startupError;if(schemaStartup!==undefined)throw Error('RETIRED_SCHEMA_STARTUP_OPTION');selectedAssignment=assignment;blockSource=()=>{schemaAvailable=false;trace.push('source-blocked');};commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
     if (sourceBlocked) blockSource();
-    return {store,async ready(){if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
+    return {store,async ready(){streamStep('ready');if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
   './registry-tenant-set':{open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
-  './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){trace.push('delivery-prepare');await prepare.promise;assertOperational();return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
+  './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){streamTrace.push('delivery-prepare');trace.push('delivery-prepare');await prepare.promise;assertOperational();return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
   './evaluator-inspection':()=>()=>({}), '../../language':()=>({set(){}})
  };
  if(notificationStartup){
@@ -87,7 +96,7 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,registryError
  const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {blockSource:()=>blockSource(),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
+ return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    startupPhase = 'DELIVERY_STARTUP';\n    {\n      consumers = await",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 // Every evaluator is platform-verified and starts lazily (decision
@@ -238,9 +247,9 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   await assert.rejects(criterion('PGSTREAM_REBOOTSTRAP_REQUIRED',remove),/ALLOWLISTED_EVALUATOR_BOOT_CAUSE_REQUIRED/);
   for(const code of ['PGSTREAM_REBOOTSTRAP_REQUIRED','PGSTREAM_SOURCE_REFUSED','UNKNOWN_PRIVATE_CODE','PGSTREAM_SOURCE_REFUSED PRIVATE_BOOT_DETAIL',undefined])await criterion(code);
  });
- async function startupDiagnosticCriterion({startupError,registryError,deliveryError,cleanupError,loggerFails=false,sourceTransform=text=>text,phase,causeCode}){
-  const original=startupError||registryError||deliveryError;
-  const f=fixture({startupError,registryError,cleanupError,sourceTransform}),lines=[],previous=console.error;
+ async function startupDiagnosticCriterion({startupError,streamErrors={},registryError,deliveryError,cleanupError,loggerFails=false,sourceTransform=text=>text,phase,causeCode,expectedStreamTrace,refusalCause}){
+  const original=refusalCause||Object.values(streamErrors)[0]||startupError||registryError||deliveryError;
+  const f=fixture({startupError,streamErrors,registryError,cleanupError,sourceTransform}),lines=[],previous=console.error;
   console.error=(...args)=>{
    assert.equal(f.state().closed,false,'DIAGNOSTIC_MUST_PRECEDE_CLEANUP');
    lines.push(args);
@@ -268,31 +277,65 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
    const retained=lines.filter(args=>args[0]==='Evaluator startup refused');
    assert.equal(retained.length,1,'SAFE_EVALUATOR_STARTUP_DIAGNOSTIC_REQUIRED');
    assert.equal(retained[0].length,2);
-   assert.deepEqual(JSON.parse(retained[0][1]),{targetRole:'evaluator',checkPhase:phase,causeCode});
+   const record=JSON.parse(retained[0][1]),expected={targetRole:'evaluator',checkPhase:phase,causeCode};
+   assert.deepEqual(record,expected);
+   assert.deepEqual(require('../lib/server/serve/platform-verification-diagnostic').read({verificationDiagnostic:record}),expected);
+   if(expectedStreamTrace)assert.deepEqual(f.streamTrace,expectedStreamTrace);
    assert(!JSON.stringify(retained).includes('PRIVATE_'));
    if(!registryError)assert.equal(f.state().closed,true,'FAILED_BOOT_MUST_ATTEMPT_CONNECTION_DRAIN');
    if(deliveryError)assert.equal(f.state().componentClosed,true,'FAILED_DELIVERY_PREPARATION_MUST_DRAIN_CLINICAL_RUNTIME');
    assert.equal(f.state().started,false,'STARTUP_FAILURE_MUST_NOT_START_DELIVERY_EFFECTS');
   }finally{console.error=previous;await f.window.close();}
  }
+ const streamStartup=[
+  ['connect','STREAM_REPLICATION_CONNECT',['connect','close']],
+  ['identify','STREAM_IDENTIFY_SYSTEM',['connect','identify','close']],
+  ['close','STREAM_REPLICATION_CLOSE',['connect','identify','close']],
+  ['recovery','STREAM_RECOVERY_SETUP',['connect','identify','close','recovery']],
+  ['open','STREAM_OPEN',['connect','identify','close','recovery','open']],
+  ['ready','STREAM_READY',['connect','identify','close','recovery','open','ready']]
+ ];
+ for(const [step,phase,expectedStreamTrace] of streamStartup){
+  it('attributes stream startup failure at '+step,async()=>{
+   const error=Object.assign(Error('PRIVATE_STREAM_DETAIL'),{code:'ECONNRESET',detail:'PRIVATE_DRIVER_DETAIL'});
+   await startupDiagnosticCriterion({streamErrors:{[step]:error},phase,causeCode:'CONNECTION_RESET',expectedStreamTrace});
+  });
+ }
+ it('reports the connect failure if replication close also fails',async()=>{
+  const connect=Object.assign(Error('PRIVATE_CONNECT_DETAIL'),{code:'ECONNREFUSED'});
+  const close=Object.assign(Error('PRIVATE_CLOSE_DETAIL'),{code:'ETIMEDOUT'});
+  await startupDiagnosticCriterion({streamErrors:{connect,close},phase:'STREAM_REPLICATION_CONNECT',
+   causeCode:'CONNECTION_REFUSED',expectedStreamTrace:['connect','close'],refusalCause:close});
+ });
+ it('starts stream components in order before delivery preparation',async()=>{
+  const f=fixture({platformVerification:true});
+  f.prepare.resolve();
+  let service;
+  try{
+   service=await f.boot();
+   assert.deepEqual(f.streamTrace,['connect','identify','close','recovery','open','ready','delivery-prepare']);
+   assert.equal(f.state().started,true);
+  }finally{await service?.close();await f.window.close();}
+ });
+ // Existing open faults now expect STREAM_OPEN because the fixture fails inside pgstream.open.
  it('retains only source-owned startup phase and fixed cause codes before cleanup',async()=>{
   const privateError=code=>Object.assign(new Error('PRIVATE_URL_PASSWORD_TOKEN_QUERY_DETAIL'),{code,detail:'PRIVATE_DRIVER_DETAIL',config:'PRIVATE_CONFIG'});
-  await startupDiagnosticCriterion({startupError:privateError('42501'),phase:'STREAM_STARTUP',causeCode:'PG_PRIVILEGE_REFUSED'});
+  await startupDiagnosticCriterion({startupError:privateError('42501'),phase:'STREAM_OPEN',causeCode:'PG_PRIVILEGE_REFUSED'});
   await startupDiagnosticCriterion({registryError:privateError('UNREVIEWED_PRIVATE_CODE'),phase:'REGISTRY_DISCOVERY',causeCode:'UNCLASSIFIED'});
-  await startupDiagnosticCriterion({startupError:privateError('PGSTREAM_SOURCE_REFUSED'),phase:'STREAM_STARTUP',causeCode:'PGSTREAM_SOURCE_REFUSED'});
-  await startupDiagnosticCriterion({startupError:privateError('PGSTREAM_SOURCE_REFUSED PRIVATE_CODE'),phase:'STREAM_STARTUP',causeCode:'UNCLASSIFIED'});
+  await startupDiagnosticCriterion({startupError:privateError('PGSTREAM_SOURCE_REFUSED'),phase:'STREAM_OPEN',causeCode:'PGSTREAM_SOURCE_REFUSED'});
+  await startupDiagnosticCriterion({startupError:privateError('PGSTREAM_SOURCE_REFUSED PRIVATE_CODE'),phase:'STREAM_OPEN',causeCode:'UNCLASSIFIED'});
   const injected=privateError('PRIVATE_UNKNOWN');injected.verificationDiagnostic={targetRole:'PRIVATE_ROLE',checkPhase:'PRIVATE_PHASE',causeCode:'PRIVATE_CODE'};
-  await startupDiagnosticCriterion({startupError:injected,phase:'STREAM_STARTUP',causeCode:'UNCLASSIFIED'});
+  await startupDiagnosticCriterion({startupError:injected,phase:'STREAM_OPEN',causeCode:'UNCLASSIFIED'});
  });
  it('preserves the original startup refusal when clinical drain or diagnostic output fails',async()=>{
   const deliveryError=Object.assign(new Error('PRIVATE_DELIVERY_DETAIL'),{code:'42P01'}),cleanupError=Error('PRIVATE_CLEANUP_DETAIL');
   await startupDiagnosticCriterion({deliveryError,cleanupError,phase:'DELIVERY_STARTUP',causeCode:'PG_RELATION_MISSING'});
-  await startupDiagnosticCriterion({startupError:Error('PRIVATE_ORIGINAL'),cleanupError:Error('PRIVATE_CLOSE'),loggerFails:true,phase:'STREAM_STARTUP',causeCode:'UNCLASSIFIED'});
+  await startupDiagnosticCriterion({startupError:Error('PRIVATE_ORIGINAL'),cleanupError:Error('PRIVATE_CLOSE'),loggerFails:true,phase:'STREAM_OPEN',causeCode:'UNCLASSIFIED'});
  });
  it('detects a removed safe startup observation and restores the original refusal',async()=>{
-  const input={startupError:Object.assign(Error('PRIVATE_ORIGINAL'),{code:'ECONNRESET'}),phase:'STREAM_STARTUP',causeCode:'CONNECTION_RESET'};
+  const input={startupError:Object.assign(Error('PRIVATE_ORIGINAL'),{code:'ECONNRESET'}),phase:'STREAM_OPEN',causeCode:'CONNECTION_RESET'};
   const remove=source=>{
-   const needle="    try { console.error('Evaluator startup refused', JSON.stringify(diagnostics.classify(error, 'evaluator', startupPhase))); } catch { /* observation cannot replace refusal */ }";
+   const needle="    try { console.error('Evaluator startup refused', JSON.stringify(startupDiagnostic || diagnostics.classify(error, 'evaluator', startupPhase))); } catch { /* observation cannot replace refusal */ }";
    assert.equal(source.split(needle).length,2);return source.replace(needle,'');
   };
   await startupDiagnosticCriterion(input);
