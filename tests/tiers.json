@@ -666,6 +666,7 @@
         "tests/preview-entries-acquisition.integration.test.js",
         "tests/rest-fused-authority.integration.test.js",
         "tests/realtime-completed-readiness.integration.test.js",
+        "tests/native-operation-control-readiness.integration.test.js",
         "tests/pgstream-assigned-worker.integration.test.js",
         "tests/tenant-api-write-cost.integration.test.js"
       ],
