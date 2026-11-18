@@ -11,14 +11,14 @@ describe('actual controlled consumer sink provenance protocol',function(){
     try {
       await lab.open();await lab.openSink();
       lab.requests=async()=>[{request_id:id,state:'attempting'}];
-      const body={tenant:lab.A,id,attempt:1,notification:{title:'Synthetic alarm',level:2},receipts:[]};
+      const body={tenant:lab.A,id,slice:{count:1,ordinal:0},attempt:1,notification:{title:'Synthetic alarm',level:2},receipts:[]};
       lab.sinkMode='lost-response';
       await assert.rejects(routes.deliverAlarm({transport:token},body),/lost response/);
       lab.sinkMode='accept';await routes.deliverAlarm({transport:token},{...body,attempt:2});
       assert.equal(lab.sinkEffects.filter(row=>row.id===id).length,2,'CONSUMER_SINK_SAME_UUID_PROVENANCE');
       assert.deepEqual(lab.sinkEffects.map(row=>row.notification),[body.notification,body.notification]);
       assert.equal(lab.observations.find(row=>row.id===lab.sinkEffects[0].id).ownRow.state,'attempting');
-      const real=require('../lib/server/realtime/alarm-transport').operations({token,deliver:async operation=>{
+      const real=require('../lib/server/realtime/alarm-transport').operations({token,ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0}),deliver:async operation=>{
         assert.deepEqual(Object.keys(operation).sort(),['notification','tenant'],'unchanged actual realtime delivery shape');
       }});await real.deliverAlarm({transport:token},body);
     } finally {await lab.close();}
