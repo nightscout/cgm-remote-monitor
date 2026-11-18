@@ -178,6 +178,8 @@ const INVENTORY = [
     note: 'trusted evaluator scheduling, one physical lifetime client, durable outbox accepted handoff/repeat, nested admission, pause/suspend and late callback controls; owns pinned PostgreSQL and cleanup' },
   { file: 'tests/postgres-cohort-snapshot.integration.test.js', flags: { NS_COHORT_SNAPSHOT_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'bounded constructor admission cuts, continuous independent constructor stream, timeout and native role/datastore refusal; own pinned PostgreSQL and cleanup' },
+  { file: 'tests/datastore-probe.integration.test.js', flags: { NS_DATASTORE_RECOVERY_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
+    note: 'decision datastore-loss-before-window-retirement: plain connection probe without an operation window, with probe-removed red control' },
   { file: 'tests/datastore-recovery.integration.test.js', flags: { NS_DATASTORE_RECOVERY_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'PostgreSQL restart, stop/start and backend termination under the actual operation window, lifetime sessions, storage pool and recovery supervisor; own pinned PostgreSQL on a fixed loopback port and cleanup' },
   { file: 'tests/operation-window-epoch.integration.test.js', flags: { NS_OPERATION_WINDOW_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,

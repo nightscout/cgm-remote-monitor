@@ -245,6 +245,7 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
     const evaluator=cfg('eval_checkpoint'); evaluator.consumers={outbox:{namespace:'outbox'},suppression:{namespace:'suppression'}};
     const running=await serve.start(['realtime','evaluator','api','tenant-admin'],{},null,{}, {
       operationConfig:{namespace:'control',poolOptions:{},locks:[{tenant:A,key:'17'}]},
+      datastoreProbe:{probe:async()=>{},readmit:async()=>({restarted:false}),adopt(){}},
       preview:cfg('api'),ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:cfg('rt_checkpoint')
     });
     assert.ok(events.indexOf('boot:api')<events.indexOf('boot:realtime'));
@@ -272,7 +273,8 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
       './datastore-recovery': { settings: () => ({}), create: () => ({ start () {}, close: async () => { events.push('recovery-close'); throw failure; } }) },
       './evaluator-preview': {}
     });
-    const running = await serve.start(['evaluator'], {}, null, {}, { evaluatorPreview: {}, operationConfig: { namespace: 'control', poolOptions: {}, locks: [] } });
+    const running = await serve.start(['evaluator'], {}, null, {}, { evaluatorPreview: {}, operationConfig: { namespace: 'control', poolOptions: {}, locks: [] },
+      datastoreProbe: { probe: async () => {}, readmit: async () => ({ restarted: false }), adopt () {} } });
     await assert.rejects(running.stop(), error => error instanceof globalThis.AggregateError && error.errors.includes(failure));
     assert(events.includes('context-close')); assert(events.includes('cohort-close')); assert(events.includes('pool-end'));
     assert.equal(events.at(-1), 'retire:false', 'UNCONFIRMED_RECOVERY_CANNOT_ACK_RETIREMENT');
