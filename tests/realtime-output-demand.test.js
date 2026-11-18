@@ -25,9 +25,9 @@ describe('addressed realtime output demand',function(){
    const row={tenant,contract_digest:digest,work_version:2,work_enabled:true,
      output_identity:identity,output_digest:'a'.repeat(64),output_revision:'4',
      output_restore_generation:'7',output_summary:summary,frame_at:100};
-   let generation='7',physical=0,snapshots=0,entered=false;
+   let generation='7',isolation='repeatable read',physical=0,snapshots=0,entered=false;
    const connection={
-     async snapshotTransaction(fn){
+     async readOnlyTransaction(fn){
        snapshots++;entered=true;
        try{return await fn();}finally{entered=false;}
      },
@@ -35,7 +35,7 @@ describe('addressed realtime output demand',function(){
        assert.equal(entered,true,'NATIVE_FRAME_REQUIRES_SNAPSHOT');
        assert.equal(scope.currentTenant(),tenant);
        assert.deepEqual(args,[tenant,consumer+'-completed']);
-       if(sql.includes(' AS output_summary'))return {rows:[row]};
+       if(sql.includes(' AS output_summary')){assert(sql.includes("current_setting('transaction_isolation') AS output_read_isolation"),'NATIVE_FRAME_REQUIRES_ISOLATION_OBSERVATION');return {rows:[{...row,output_read_isolation:isolation}]};}
        assert.match(sql,/^SELECT /);
        physical++;
        return {rows:[{output:{...summary,frame}}]};
@@ -55,6 +55,11 @@ describe('addressed realtime output demand',function(){
      generation='8';
      await assert.rejects(reader.acquire(),/REALTIME_COMPLETED_OUTPUT_RESTORE_GENERATION/);
      generation='7';
+     assert.equal(await reader.acquire(),current);
+     isolation='read committed';await assert.rejects(reader.acquire(),/EVALUATOR_OUTPUT_REPEATABLE_READ_REQUIRED/);assert.equal(physical,1,'WEAK_OUTER_TRANSACTION_MUST_NOT_FETCH_OR_REUSE_FRAME');
+     isolation='serializable';assert.equal(await reader.acquire(),current);
+     const readOnly=connection.readOnlyTransaction;connection.readOnlyTransaction=async fn=>fn();
+     try{await assert.rejects(reader.acquire(),/NATIVE_FRAME_REQUIRES_SNAPSHOT/);}finally{connection.readOnlyTransaction=readOnly;}
      assert.equal(await reader.acquire(),current);
    }finally{scope.setTenancyMode(previous);}
  });

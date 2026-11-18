@@ -35,7 +35,13 @@ function fixture({ordinal=0,partitioned=true,enforceOldWriter=true,boundary=true
    if(sql.includes('FROM "'+MEMBERSHIP+'".pool_desired'))return {rows:[{...identity,members:2,revision:REV,rule:RULE}]};
    if(sql.includes('json_agg(json_build_object'))return {rows:[{...identity,members:[0,1].map(index=>({ordinal:index,memberId:ids[index],rule:RULE,live,appliedMembers:2}))}]};
    if(sql.startsWith("SELECT set_config('app.pgstream_partition_effect'")){active.context=JSON.parse(values[0]);events.push('CONTEXT');return {rows:[]};}
-   if(sql.startsWith('SELECT tenant_id')){events.push('LOCK_ROW');return {rows:[metadata(selectedRows().get(values[0]))]};}
+   if(sql.startsWith('SELECT tenant_id')){
+    events.push('LOCK_ROW');assert.match(sql,/AS previous_output/);assert.equal(values.length,5);
+    const row=selectedRows().get(values[0]),result=metadata(row),body=copy(row.projection[0].output);delete result.projection;
+    const matches=row.output_digest===values[2]&&row.output_restore_generation===values[3],hint=values[4];assert.equal(typeof hint,'boolean');
+    if(!matches||!hint){result.output_summary=null;result.frame_at=null;}
+    return {rows:[{...result,previous_output:matches&&!hint?body:null}]};
+   }
    if(sql.startsWith("SELECT projection->0->'output'"))return {rows:[{output:copy(selectedRows().get(values[0]).projection[0].output)}]};
    if(sql.startsWith('UPDATE')){const row=selectedRows().get(values[0]);trigger(row);
     if(sql.includes('SET checkpoint=')){Object.assign(row,{checkpoint:values[2],work_completed:values[3],work_due_at:values[4]===null?null:String(values[4]),work_pending_at:values[5]===null?null:String(values[5]),work_completed_at:String(values[6]),output_identity:values[7],output_digest:values[8],output_revision:String(values[9]),output_restore_generation:values[10],delivery_revision:String(BigInt(row.delivery_revision)+BigInt(values[11]))});if(sql.includes('projection=$13'))row.projection=JSON.parse(values[12]);}

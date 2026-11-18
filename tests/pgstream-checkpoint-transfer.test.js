@@ -11,7 +11,18 @@ function fixture(maxBytes=1024*1024,creator=create){
   async query(text,values){
    assert.equal(values[0],A);
    if(text.startsWith("SELECT projection->0->'output'")){fallbacks++;return {rows:[{output:copy(row.projection[0].output)}]};}
-   if(text.startsWith('SELECT')){assert.match(text,/CASE WHEN jsonb_typeof\(projection->0->'output'\)='object' THEN .* ELSE NULL END AS output_summary/,'COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR');const summary=copy(row.projection[0].output);if(summary){delete summary.rows;delete summary.frame;}return {rows:[{...copy(row),output_summary:summary,frame_at:row.projection[0].output?.frame?.lastUpdated??null}]};}
+   if(text.startsWith('SELECT')){
+    assert.equal(values.length,5);assert.equal(typeof values[4],'boolean');
+    assert.match(text,/CASE WHEN output_digest=\$3 AND output_restore_generation IS NOT DISTINCT FROM \$4::bigint AND \$5::boolean THEN \(projection->0->'output'\)-'rows'-'frame' END AS output_summary/,'COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR');
+    assert.match(text,/CASE WHEN output_digest=\$3 AND output_restore_generation IS NOT DISTINCT FROM \$4::bigint AND NOT \$5::boolean THEN projection->0->'output' END AS previous_output/);
+    const metadata=copy(row),body=metadata.projection[0].output;delete metadata.projection;
+    const matches=row.output_digest===values[2]&&row.output_restore_generation===values[3];
+    const summary=matches&&values[4]?copy(body):null;if(summary){delete summary.rows;delete summary.frame;}
+    // A missing hint transfers the physical body in the locked SELECT itself;
+    // invalid supplied hints use the explicit fallback query above.
+    const previous=matches&&!values[4]?copy(body):null;if(previous)fallbacks++;
+    return {rows:[{...metadata,output_summary:summary,frame_at:matches&&values[4]?body?.frame?.lastUpdated??null:null,previous_output:previous}]};
+   }
    if(text.startsWith('UPDATE')){row.checkpoint=values[2];const patch={completed:values[3],due:values[4],pending:values[5]};if(values[12])patch.output=JSON.parse(values[12])[0].output;patches.push(patch);row.work_completed=values[3];row.work_due_at=values[4];row.work_pending_at=values[5];row.output_identity=values[7];row.output_digest=values[8];row.output_revision=String(values[9]);row.output_restore_generation=values[10];row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(values[11]));if(values[12])row.projection=JSON.parse(values[12]);return {rowCount:1};}
    throw Error('UNEXPECTED_SQL');
   }};
@@ -33,6 +44,12 @@ describe('completed checkpoint retained-output transfer contract',function(){
  });
 
  async function seed(f){await f.store.own(()=>{});return f.store.complete(A,{observed:{clock:'1'},identity,result:f.result()});}
+ it('control: removing the conditional payload guard fails cold-output safety, then restored SQL passes',async()=>{
+  const fs=require('node:fs'),Module=require('node:module'),path=require('node:path'),file=require.resolve('../lib/pgstream/typed-checkpoint'),source=fs.readFileSync(file,'utf8');
+  const needle='const matchingOutput="output_digest=$3 AND output_restore_generation IS NOT DISTINCT FROM $4::bigint";';assert.equal(source.split(needle).length,2);
+  const altered=new Module(file,module);altered.filename=file;altered.paths=Module._nodeModulePaths(path.dirname(file));altered._compile(source.replace(needle,'const matchingOutput="true";'),file);
+  await assert.rejects(seed(fixture(1024*1024,altered.exports.create)),/COLD_NULL_OUTPUT_MUST_NOT_DELETE_JSONB_SCALAR/);await seed(fixture());
+ });
  it('patches only metadata for unchanged TIME content while preserving current due and completed versions',async()=>{
   const f=fixture(),first=await seed(f);f.observe();const result=f.result();result.frame.lastUpdated=50;result.due.dueAt=200;
   const hint={...first.output,runtimeId:'same-runtime'},next=await f.store.complete(A,{observed:{clock:'2'},identity,result,retainedOutput:hint});
