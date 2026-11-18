@@ -65,14 +65,13 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     './tenant-startup': { create: () => ({ async warm () {}, async close () {}, isReady: () => true }) },
     './evaluator-consumers': { async prepare () { return { start () {}, async recover () { calls.deliveryRecovery++; }, async close () {} }; } },
     '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, wakeDelivery () {}, wake: (...args) => (args[1]==='startup'?calls.startup:calls.wakes).push(args), async close () {} }); } },
-    '../internal-api/clients': { completedOutput: () => ({ hintCompletedOutput () {} }), pgstreamInput: () => ({}) },
+    '../internal-api/clients': { completedOutput: () => ({ hintCompletedOutput () {} }) },
     './evaluator-inspection': () => () => ({}),
     '../../pgstream/intake-profile': { validate: () => profile },
     '../../tenant-lifecycle/operation-window': { isWindow: () => true },
     './operation-cohort-manifest': { isParticipant: () => true },
     './evaluator-consumer-config': { endpoint: () => 'synthetic' },
-    '../../pgstream/checkpoint': { create: () => store },
-    '../../pgstream/input-hints': { router: () => () => {}, handler: () => () => {} }
+    '../../pgstream/checkpoint': { create: () => store }
   };
   const filename = require.resolve('../lib/server/serve/evaluator-' + (selected ? 'selected-' : '') + 'preview');
   const loaded = new Module(filename, module); loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
