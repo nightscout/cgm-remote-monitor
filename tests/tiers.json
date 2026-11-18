@@ -93,6 +93,7 @@
         "tests/tenant-pool-authority.test.js",
         "tests/tenant-recommission-plan.test.js",
         "tests/tenant-recommission-control.test.js",
+        "tests/tenant-native-selection.test.js",
         "tests/tenant-recommission-retention.test.js",
         "tests/tenant-recommission-commissioning.test.js",
         "tests/tenant-recommission-secrets.test.js",

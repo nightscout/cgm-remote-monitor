@@ -154,6 +154,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         }
         const retained = (await client.query('SELECT phase,artifact_digest,retain_until FROM ' + table('lifecycle', 'tenant_lifecycle_key_retention') + ' WHERE request_id=$1', [request.requestId])).rows[0];
         assert.equal(retained.phase, 'retained'); assert.equal(retained.artifact_digest, artifact.digest);
+        if(native){const activity=(await client.query('SELECT suspended,deletion_request_id FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[A])).rows[0];assert.equal(activity.suspended,true,'NATIVE_ERASURE_MUST_STAY_SUSPENDED');assert.equal(activity.deletion_request_id,request.requestId);}
       });
       return { artifact, requestId: request.requestId, at };
     }
@@ -182,7 +183,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           '-d',...(native?['--memory','768m','--cpus','1','--pids-limit','192']:[]), '-p', '127.0.0.1::' + (isVault ? '8200' : '5432'), ...args, image, ...(isVault ? ['server', '-dev'] : ['-c','wal_level=logical','-c','max_replication_slots=16'])],
         { env: { ...process.env, ...env }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 }).trim();
         assert.match(container, /^[a-f0-9]{64}$/); containers.push(container);
-        if(native)console.log('NATIVE_RECOMMISSION_RESOURCE '+JSON.stringify({id:container,name,image,owner:prefix}));
+        console.log('NATIVE_RECOMMISSION_RESOURCE '+JSON.stringify({id:container,name,image,owner:prefix}));
         spawn('sh', ['-c', 'while kill -0 "$1" 2>/dev/null; do sleep 2; done; docker rm -f -v "$2" >/dev/null 2>&1', 'reaper', String(process.pid), container], { detached: true, stdio: 'ignore' }).unref();
       }
       adminURI = 'postgres://bootstrap:' + pgPassword + '@127.0.0.1:' + docker(['port', containers[0], '5432/tcp']).split(':').pop() + '/nightscout_recommission_test';
@@ -362,7 +363,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const beforeB=await snapshot(B),logicalRole=prefix+'_logical',password=crypto.randomBytes(24).toString('hex');
       const values=require('./tenant-deployment-notifications').notificationInputs({tenants:[A,B],now:BASE,outboxRole:prefix+'_one',checkpointWriterRole:prefix+'_two',ackReaderRole:prefix+'_three'}).rows;
       await admin(async client=>{
-        for(const [name,rows]of Object.entries(values))for(const row of rows.filter(value=>value.consumer==='synthetic_realtime')){
+        for(const [name,rows]of Object.entries(values))for(const row of rows.filter(value=>value.consumer==='synthetic_realtime'&&value.tenant_id===A)){
           const keys=Object.keys(row);await client.query('INSERT INTO '+table('notification_outbox',name)+' ('+keys.map(q).join(',')+') VALUES('+keys.map((_,i)=>'$'+(i+1)).join(',')+')',keys.map(key=>row[key]));
         }
         await client.query('CREATE ROLE '+q(logicalRole)+" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '"+password+"'");
@@ -386,7 +387,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       try{
         const artifact=await life.exportTenant(port,{tenant:A,namespaces:ns,sourceCommit}),before=await queues();
         const alarms=await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]));
-        await admin(client=>client.query('UPDATE '+table('entries','entries')+" SET doc=jsonb_set(doc,'{value}','555'::jsonb) WHERE tenant_id=$1",[A]));
+        await admin(async client=>{await client.query('BEGIN');try{await client.query("SELECT set_config('app.current_tenant_id',$1,true)",[A]);await client.query('UPDATE '+table('entries','entries')+" SET doc=jsonb_set(doc,'{value}','555'::jsonb) WHERE tenant_id=$1",[A]);await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');throw error;}});
         const result=await logicalController.withRestore(A,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:A,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
         assert.equal(result.result.tables,7);assert(result.result.replaced>0);
         assert.deepEqual(await queues(),before,'pending, uncertain and accepted request/producer rows retain their exact IDs and payloads');
