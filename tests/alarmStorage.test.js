@@ -1,0 +1,209 @@
+'use strict';
+require('should');
+
+describe('alarmStorage', function () {
+  var alarmStorage;
+
+  beforeEach(function () {
+    delete require.cache[require.resolve('../lib/storage/alarmStorage')];
+    alarmStorage = require('../lib/storage/alarmStorage');
+  });
+
+  it('exports a factory function', function () {
+    alarmStorage.should.be.a.Function();
+  });
+
+  it('factory returns an object with getSnooze, setSnooze, ensureIndexes methods', function () {
+    var storage = alarmStorage({});
+    storage.getSnooze.should.be.a.Function();
+    storage.setSnooze.should.be.a.Function();
+    storage.ensureIndexes.should.be.a.Function();
+  });
+
+  describe('ALARM_SNOOZE_SHARING setting', function () {
+    function readSetting (value) {
+      var saved = process.env.ALARM_SNOOZE_SHARING;
+      if (value === undefined) delete process.env.ALARM_SNOOZE_SHARING;
+      else process.env.ALARM_SNOOZE_SHARING = value;
+      try {
+        return require('../lib/server/env')().alarm_snooze_sharing;
+      } finally {
+        if (saved === undefined) delete process.env.ALARM_SNOOZE_SHARING;
+        else process.env.ALARM_SNOOZE_SHARING = saved;
+      }
+    }
+
+    it('is on by default and for unrecognised values', function () {
+      readSetting(undefined).should.equal(true);
+      readSetting('maybe').should.equal(true);
+      readSetting('on').should.equal(true);
+    });
+
+    it('is off for off and false in any case', function () {
+      readSetting('off').should.equal(false);
+      readSetting('FALSE').should.equal(false);
+    });
+  });
+
+  describe('hasSharedNameHazard', function () {
+    var defaults = { entries_collection: 'entries', treatments_collection: 'treatments',
+      profile_collection: 'profile', devicestatus_collection: 'devicestatus',
+      alarmsnooze_collection: 'alarmsnooze' };
+
+    it('is false when every collection has its default name', function () {
+      alarmStorage.hasSharedNameHazard(defaults).should.equal(false);
+    });
+
+    it('is true when a data collection is renamed but the snooze collection is not', function () {
+      alarmStorage.hasSharedNameHazard(Object.assign({}, defaults, { treatments_collection: 'site_b_treatments' }))
+        .should.equal(true);
+    });
+
+    it('is false once the snooze collection has its own name', function () {
+      alarmStorage.hasSharedNameHazard(Object.assign({}, defaults,
+        { treatments_collection: 'site_b_treatments', alarmsnooze_collection: 'site_b_alarmsnooze' }))
+        .should.equal(false);
+    });
+  });
+
+  describe('collection name', function () {
+    function nameUsed (env) {
+      var used = null;
+      var storage = alarmStorage({ store: { collection: function (name) {
+        used = name;
+        return { findOne: function () { return Promise.resolve(null); } };
+      } } }, env);
+      return storage.getSnooze(2, 'default').then(function () { return used; });
+    }
+
+    it('defaults to alarmsnooze', async function () {
+      (await nameUsed(undefined)).should.equal('alarmsnooze');
+      (await nameUsed({})).should.equal('alarmsnooze');
+    });
+
+    it('uses env.alarmsnooze_collection so sites sharing a database stay apart', async function () {
+      (await nameUsed({ alarmsnooze_collection: 'siteb_alarmsnooze' })).should.equal('siteb_alarmsnooze');
+    });
+  });
+
+  describe('getSnooze', function () {
+    it('resolves to null when store is unavailable', async function () {
+      var storage = alarmStorage({ store: null });
+      var doc = await storage.getSnooze(2, 'default');
+      (doc === null).should.equal(true);
+    });
+
+    it('returns the unexpired doc for level+group with expiresAt filter', async function () {
+      var future = Date.now() + 60000;
+      var fakeDoc = {
+        _id: '2-default', level: 2, group: 'default',
+        lastAckTime: 1000, silenceTime: 30 * 60 * 1000,
+        expiresAt: new Date(future)
+      };
+      var captured = null;
+      var fakeCollection = {
+        findOne: function (q) {
+          captured = q;
+          return Promise.resolve(fakeDoc);
+        }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      var doc = await storage.getSnooze(2, 'default');
+      captured._id.should.equal('2-default');
+      captured.expiresAt.$gt.should.be.an.instanceOf(Date);
+      doc.should.deepEqual(fakeDoc);
+    });
+
+    it('normalizes undefined group to "default"', async function () {
+      var captured = null;
+      var fakeCollection = {
+        findOne: function (q) { captured = q; return Promise.resolve(null); }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      await storage.getSnooze(2, undefined);
+      captured._id.should.equal('2-default');
+    });
+  });
+
+  describe('setSnooze', function () {
+    it('upserts with conditional aggregation pipeline (only-if-newer)', async function () {
+      var captured = null;
+      var fakeCollection = {
+        updateOne: function (filter, update, opts) {
+          captured = { filter: filter, update: update, opts: opts };
+          return Promise.resolve({ matchedCount: 0, upsertedCount: 1 });
+        }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      var lastAckTime = 1000;
+      var silenceTime = 30 * 60 * 1000;
+      await storage.setSnooze(2, 'default', lastAckTime, silenceTime);
+
+      captured.filter.should.deepEqual({ _id: '2-default' });
+      captured.opts.should.deepEqual({ upsert: true });
+      captured.update.should.be.an.Array();
+      captured.update[0].should.have.property('$set');
+      var setStage = captured.update[0].$set;
+      setStage.expiresAt.$cond[0].$gt[0].getTime().should.equal(lastAckTime + silenceTime);
+      setStage.lastAckTime.$cond[1].should.equal(lastAckTime);
+      setStage.silenceTime.$cond[1].should.equal(silenceTime);
+    });
+
+    it('wraps the group in $literal so a leading dollar sign is not an expression', async function () {
+      var captured = null;
+      var fakeCollection = {
+        updateOne: function (f, update) { captured = update; return Promise.resolve({}); }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      await storage.setSnooze(2, '$$ROOT', 1000, 60000);
+      captured[0].$set.group.should.deepEqual({ $literal: '$$ROOT' });
+    });
+
+    it('normalizes undefined group to "default"', async function () {
+      var captured = null;
+      var fakeCollection = {
+        updateOne: function (f) { captured = f; return Promise.resolve({}); }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      await storage.setSnooze(2, undefined, 1000, 60000);
+      captured._id.should.equal('2-default');
+    });
+
+    it('is a no-op when store is unavailable', async function () {
+      var storage = alarmStorage({ store: null });
+      await storage.setSnooze(2, 'default', 1000, 60000);
+    });
+
+    it('rejects with an error when the driver rejects', async function () {
+      var fakeCollection = {
+        updateOne: function () { return Promise.reject(new Error('mongo blip')); }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      var thrown = null;
+      try { await storage.setSnooze(2, 'default', 1000, 60000); } catch (e) { thrown = e; }
+      thrown.should.be.an.Error();
+      thrown.message.should.equal('mongo blip');
+    });
+  });
+
+  describe('ensureIndexes', function () {
+    it('creates a TTL index on expiresAt', async function () {
+      var captured = null;
+      var fakeCollection = {
+        createIndex: function (spec, opts) {
+          captured = { spec: spec, opts: opts };
+          return Promise.resolve('expiresAt_1');
+        }
+      };
+      var storage = alarmStorage({ store: { collection: function () { return fakeCollection; } } });
+      await storage.ensureIndexes();
+      captured.spec.should.deepEqual({ expiresAt: 1 });
+      captured.opts.expireAfterSeconds.should.equal(0);
+    });
+
+    it('is a no-op when store is unavailable', async function () {
+      var storage = alarmStorage({ store: null });
+      await storage.ensureIndexes();
+    });
+  });
+});

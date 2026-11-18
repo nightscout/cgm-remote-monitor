@@ -341,7 +341,7 @@ IP-based progressive delay for failed authentication attempts:
 ### 9.2 Scalability Concerns
 
 1. **Single-threaded:** No clustering support out of box
-2. **In-memory state:** Notifications, alarms stored in memory
+2. **In-memory state:** Notifications and alarm state are held in memory. Alarm snoozes are also stored in MongoDB (`alarmsnooze`) so instances share them, unless `ALARM_SNOOZE_SHARING=off`
 3. **Poll-based updates:** Heartbeat-driven data loading
 4. **Large client bundle:** ~1MB+ JavaScript payload
 

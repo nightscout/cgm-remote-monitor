@@ -191,9 +191,11 @@ function load (env, ctx, spec, now, info, tamper, done) {
 
 // bootevent.js setupListeners 'data-loaded': serverInit, setProperties,
 // initRequests, checkNotifications, process, with a fresh notifications
-// service and bus so no ack or snooze carries between evaluations.
+// service and bus so no ack or snooze carries between evaluations. The shared
+// snooze storage is left out too: with it, the first emit waits on a database
+// read, and the view reports what a service with no earlier snoozes would emit.
 function evaluate (env, ctx, ddata, now) {
-  const ectx = Object.assign({}, ctx, { ddata, bus: new EventEmitter(), runtimeState: 'loaded' });
+  const ectx = Object.assign({}, ctx, { ddata, bus: new EventEmitter(), runtimeState: 'loaded', alarmStorage: undefined });
   const emitted = [];
   const requested = [];
   ectx.bus.on('notification', n => emitted.push(n));
