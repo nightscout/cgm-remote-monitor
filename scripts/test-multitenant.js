@@ -56,6 +56,10 @@ const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
   { file: 'tests/platform-verification.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'strict admin verification, source/catalogue selection binding, serving expiry/revocation and actual failure controls' },
+  { file: 'tests/vcpool-platform-proof.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'vcpool start check and admin pool privilege screen with red controls (decision vcpool-proof-role)' },
+  { file: 'tests/connection-pool-bound.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'configured pool size bounds serving backends after connection admission retired (census C-06)' },
   { file: 'tests/pgstream-assigned-worker.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent fixed-roster worker processes, native held-backend replacement and stale completion refusal' },
   { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

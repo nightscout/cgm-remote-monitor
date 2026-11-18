@@ -19,7 +19,7 @@ function load (relative, overrides, mutate) {
 module.exports = function fixture (options = {}) {
   const log = [], clients = [], vaultCalls = [];
   const data = { registered: options.fresh ? false : true, settings: !options.missingSettings, keys: keyRows(), events: [], history: options.fresh ? [] : [{version:1,values:{SHOW_SECONDS:true}}], protected: {clinical:'unchanged',credentialGeneration:9,revoked:true,checkpoint:123},residues:options.residues || [] };
-  let selected = null, sessionOwner = new Map(), serial = 0, constructors = 0;
+  let sessionOwner = new Map(), serial = 0, constructors = 0;
   const copy = value => JSON.parse(JSON.stringify(value));
   class Client extends require('node:events').EventEmitter {
     constructor (purpose) { super(); this.purpose=purpose; this.id = ++serial; this.processID=100+this.id; clients.push(this); }
@@ -121,7 +121,7 @@ module.exports = function fixture (options = {}) {
     const bytes = Buffer.from(JSON.stringify({data:{type:options.wrongType ? 'wrong' : type,exportable:false,keys:{'1':{public_key:options.publicOverride?.[purpose] || publicOf(purpose)}}}}));
     return {status:200,ok:true,body:(async function * () { yield bytes; })()};
   };
-  const common = { ...(options.vaultKeys ? {'./vault-keys':options.vaultKeys} : {}), 'pg':{Pool,Client},'../storage/connection-admission':{health:()=>selected,wrapPool:()=>Pool,poolOptions:(_name,v)=>v}};
+  const common = { ...(options.vaultKeys ? {'./vault-keys':options.vaultKeys} : {}), 'pg':{Pool,Client}};
   const provision = load('lib/tenant-registry/provision.js',{...common,'../diagnostics/m7':{observePool:()=>{}},'../secrets/vault-transit':{createVaultTransit:()=>({encrypt:async()=> 'vault:v1:synthetic'})}},options.mutateProvision);
   const ensure = load('lib/tenant-registry/ensure.js',{...common,'./provision':provision,'./ensure-readiness':Object.assign(async()=>{},{admit:async()=>{}})},options.mutateEnsure);
   const config = {connectionString:'postgres://synthetic:synthetic@localhost/synthetic',namespaces:ns,ledgerNamespace:'ensure_ledger',checkpoints:[],actor:{principal:'operator',consumer:'ensure'},vault:{address:'http://127.0.0.1/',mount:'transit',getToken:async()=> 'synthetic',allowInsecureLoopback:true,fetchImpl},fetchImpl};
@@ -135,6 +135,6 @@ module.exports = function fixture (options = {}) {
   config.requireCompleteDependencies=options.requireCompleteDependencies!==false;
   const input = {operationId:OP,id:A,hosts:['one.example.test']};
   return {A,OP,ns,pub,data,log,clients,vaultCalls,config,input,ensure,provision,
-    set selected(value) { selected = value; }, get constructors () { return constructors; }, load,
+    get constructors () { return constructors; }, load,
     create: () => ensure.createEnsure(config), fresh: () => provision.createProvisioning(config)};
 };

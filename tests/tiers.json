@@ -114,7 +114,6 @@
         "tests/tenant-insertion-migrations.test.js",
         "tests/tenant-insertion-readiness.test.js",
         "tests/tenant-operation-window.test.js",
-        "tests/lifetime-completion-pressure.test.js",
         "tests/lifetime-sessions.test.js",
         "tests/m7-diagnostics.test.js",
         "tests/m7-diagnostics-output.test.js",
@@ -150,8 +149,6 @@
         "tests/pgstream-schema-baseline.test.js",
         "tests/pgstream-source-ready.test.js",
         "tests/pgstream-startup-transport.test.js",
-        "tests/cold-start-admission.test.js",
-        "tests/connection-admission.test.js",
         "tests/tenant-startup-admission.test.js",
         "tests/operation-cohort-peers.test.js",
         "tests/tenant-operation-window-readiness.test.js",
@@ -511,6 +508,8 @@
     "integration": {
       "files": [
         "tests/platform-verification.test.js",
+        "tests/vcpool-platform-proof.test.js",
+        "tests/connection-pool-bound.test.js",
         "tests/clinical-working-set.integration.test.js",
         "tests/postgres-imported-snapshot.test.js",
         "tests/pgstream-receipt-authority.integration.test.js",

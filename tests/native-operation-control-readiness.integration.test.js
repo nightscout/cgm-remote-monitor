@@ -86,7 +86,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
         await admin.query('GRANT SELECT,INSERT,UPDATE(revision,config_identity,producer) ON ' + quote(namespace) + '.tenant_notification_state TO ' + quote(name));
       } else await admin.query('GRANT SELECT ON ' + quote(namespace) + '.tenant_alarm_suppression,' + quote(namespace) + '.schema_migrations TO ' + quote(name));
     }
-    operationConfig = {namespace: ns.control, poolOptions: {connectionString: urls[lifetime]}, intakeProfile: selected};
+    operationConfig = {namespace: ns.control, poolOptions: {connectionString: urls[lifetime]}, nativeSelection: selected};
     lifecycle = await lifecycleCheck.inspect(operationConfig);
     reader = new Client({connectionString: urls[role]});
     await reader.connect();
@@ -111,7 +111,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await check();
     const allowed = await lifecycle.controlReads(reader);
     assert.deepEqual(allowed, ['schema_migrations', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations', 'tenant_lifecycle_recommission'].map(name => ns.control + '.' + name));
-    await assert.rejects(lifecycleCheck.inspect({...operationConfig, intakeProfile: undefined}), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await assert.rejects(lifecycleCheck.inspect({...operationConfig, nativeSelection: undefined}), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
     await assert.rejects(readiness.screen(reader, config), /unsafe evaluator scope/);
     await assert.rejects(reader.query('SELECT claim_id FROM ' + table('control', 'tenant_lifecycle_recommission')), {code: '42501'});
   });

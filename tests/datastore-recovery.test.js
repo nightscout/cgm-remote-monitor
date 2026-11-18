@@ -117,7 +117,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
   });
 
   describe('supervisor', function () {
-    function harness ({ mutate, bound = 60000, selected = false, timeout = 1000 } = {}) {
+    function harness ({ mutate, bound = 60000, timeout = 1000 } = {}) {
       const timers = [], events = [];
       const state = { clock: 0, probe: null, recover: null, restarted: true, available: true, exhausted: [] };
       const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); }, resume: () => events.push('resume-a') },
@@ -132,7 +132,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         readmit: async () => { events.push('recover'); if (state.recover) throw state.recover; return { restarted: state.restarted, current: {} }; },
         adopt: () => events.push('adopt')
       };
-      const module = load(SUPERVISOR, { '../../storage/connection-admission': { health: () => selected ? {} : null } }, mutate);
+      const module = load(SUPERVISOR, {}, mutate);
       const supervisor = module.create({ target, probe, intervalMs: 5000, boundMs: bound, baseDelayMs: 250, maxDelayMs: 5000, attemptTimeoutMs: timeout,
         exhausted: code => state.exhausted.push(code),
         now: () => state.clock, random: () => 1, log: () => {},
@@ -199,14 +199,6 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       assert(!h.events.includes('adopt'));
       await h.supervisor.close();
     });
-    it('refuses to adopt a new resource epoch under a selected admission ticket', async function () {
-      const h = harness({ selected: true });
-      h.state.probe = lost();
-      await h.supervisor.tick();
-      assert.equal(h.supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_REBIND_REQUIRED');
-      assert.deepEqual(h.events, ['probe', 'unavailable', 'recover']);
-      await h.supervisor.close();
-    });
     for (const [needle, symptom] of [['target.datastoreUnavailable();', 'available'], ['if (seen.restarted) await bounded(invalidateAll);', 'stale cache']]) {
       it('control: observes ' + symptom + ' after removal of its recovery transition', async function () {
         const h = harness({ mutate: source => source.replace(needle, '') });
@@ -263,15 +255,13 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       assert.equal(initialized, 4); assert.equal(cells.health().ready, true); assert.equal(cells.isReady(A), true);
       cells.close();
     });
-    for (const selected of [false, true]) it('removes queued warm work during recovery with cold admission ' + selected, async function () {
-      const cold = selected ? require('../lib/server/serve/cold-start-admission').create({ activeLimit: 1, pendingLimit: 4,
-        minDelayMs: 0, maxDelayMs: 0, schedule: fn => queueMicrotask(fn), cancel: () => {} }) : undefined;
+    it('removes queued warm work during recovery', async function () {
       const calls = []; let release, started;
       const firstStarted = new Promise(resolve => { started = resolve; });
       const held = new Promise(resolve => { release = resolve; });
       const cells = startup.create([A, B], undefined, async tenant => {
         calls.push(tenant); if (tenant === A) { started(); await held; }
-      }, { readiness: 'serve', concurrency: 1, coldAdmission: cold, alert: () => {}, drainedLog: () => {} });
+      }, { readiness: 'serve', concurrency: 1, alert: () => {}, drainedLog: () => {} });
       try {
         await cells.warm(); await firstStarted;
         cells.invalidateTenant(B, { warm: false }); release(); await cells.drained();
@@ -279,26 +269,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
         assert.equal(cells.isReady(B), false);
         await cells.warm(); await cells.drained();
         assert.deepEqual(calls, [A, B], 'RECOVERY_RESUME_EXPLICITLY_REWARMS');
-      } finally { release(); await cells.close(); await cold?.close(); }
-    });
-    it('a later recovery invalidation cancels an older pending cold rewarm callback', async function () {
-      const cold = require('../lib/server/serve/cold-start-admission').create({ activeLimit: 1, pendingLimit: 4,
-        minDelayMs: 0, maxDelayMs: 0, schedule: fn => queueMicrotask(fn), cancel: () => {} });
-      let release, started, calls = 0;
-      const firstStarted = new Promise(resolve => { started = resolve; });
-      const held = new Promise(resolve => { release = resolve; });
-      const cells = startup.create([A], undefined, async () => {
-        calls++; if (calls === 1) { started(); await held; }
-      }, { readiness: 'serve', concurrency: 1, coldAdmission: cold, alert: () => {}, drainedLog: () => {} });
-      try {
-        await cells.warm(); await firstStarted;
-        cells.invalidateTenant(A); cells.invalidateTenant(A, { warm: false }); release();
-        for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve));
-        await cells.drained();
-        assert.equal(calls, 1, 'RECOVERY_INVALIDATES_OLDER_REWARM_CALLBACK');
-        assert.equal(cells.isReady(A), false);
-        await cells.warm(); await cells.drained(); assert.equal(calls, 2);
-      } finally { release(); await cells.close(); await cold.close(); }
+      } finally { release(); await cells.close(); }
     });
     it('control: the default invalidation queues the warm at once, which fails while the datastore is down and holds the tenant failed', async function () {
       let available = true;

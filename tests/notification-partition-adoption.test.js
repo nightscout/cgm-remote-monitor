@@ -55,9 +55,11 @@ async function startupCheck(ordinal,options){
 describe('notification partition source adoption boundaries',function(){
  let mode;beforeEach(()=>{mode=scope.getTenancyMode();scope.setTenancyMode('multi');});afterEach(()=>scope.setTenancyMode(mode));
  for(const ordinal of [0,1])it('prepares only ordinal '+ordinal+' from the complete two-slice config and skips known foreign dynamic tenants',()=>startupCheck(ordinal));
- it('retains unconditional role/catalogue checks when every local tenant is inactive',async function(){
+ // Decisions catalogue-verification-admin-owned and platform-application-boundary:
+ // the admin pre-start step screens the outbox and suppression stores, not serving.
+ it('keeps catalogue and suppression screens off the serving path when every local tenant is inactive',async function(){
   const lab=preparation(0,{inactive:ids.filter(id=>assignment.owner(id)===0)}),result=await lab.prepare();
-  try{assert.equal(lab.calls.ready.length,0);assert.equal(lab.calls.reads.length,0);assert.equal(lab.calls.catalogue,1);assert.equal(lab.calls.suppression,1);assert.equal(lab.calls.owners,1);assert.equal(lab.config.tenants.size,ids.length);}finally{await result.close();}
+  try{assert.equal(lab.calls.ready.length,0);assert.equal(lab.calls.reads.length,0);assert.equal(lab.calls.catalogue,0);assert.equal(lab.calls.suppression,0);assert.equal(lab.calls.owners,1);assert.equal(lab.config.tenants.size,ids.length);}finally{await result.close();}
  });
  it('refuses missing assignments and invalid owner ordinals rather than silently selecting a slice',async function(){
   const lab=preparation(0,{roster:[...ids,'ffffffff-ffff-4fff-8fff-ffffffffffff']});

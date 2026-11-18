@@ -158,16 +158,17 @@ native('Native PostgreSQL admin verification state', function () {
     const windows = require('../lib/tenant-lifecycle/generation-scope');
     const makeWindow = generation => windows.create({ namespace: schema, lockRule: 'tenant-id-sha256-v1',
       pool: { options: { max: 1 }, connect: async () => { throw new Error('This certificate fixture never opens lifecycle sessions'); } },
-      ...(generation ? { intakeProfile: require('../lib/tenant-lifecycle/native-selection').create({
+      ...(generation ? { nativeSelection: require('../lib/tenant-lifecycle/native-selection').create({
         namespace: prefix + '_checkpoint', lifecycleNamespace: schema, consumer: 'evaluator-synthetic', generation,
         source: { system_id: '123456789', timeline: 1, database: 'synthetic', slot: 'synthetic_slot' }
       }) } : {}) });
     const selected = makeWindow('selected_generation'), foreign = makeWindow('foreign_generation'), legacy = makeWindow();
     const check = (role, own) => platform.admit({ ...config, platformVerification: { namespace: schema, role } }, role, platform.operationProfileDigest(own));
     try {
-      for (const role of platform.ROLES) {
+      // vcpool has no tenant generation scope (decision vcpool-proof-role).
+      for (const role of platform.ROLES.filter(role => role !== 'vcpool')) {
         const roleConfig = { ...config, platformVerification: { namespace: schema, role } };
-        let selectedDigest = selected.intakeProfileDigest;
+        let selectedDigest = selected.selectionDigest;
         const issuer = platform.create({ namespace: schema, connectionString: writerUrl,
           targets: [{ role, config: roleConfig, get operationProfileDigest () { return selectedDigest; }, check: target.check }] });
         try {
@@ -175,7 +176,7 @@ native('Native PostgreSQL admin verification state', function () {
           await check(role, selected);
           await assert.rejects(check(role, undefined), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
           await assert.rejects(check(role, foreign), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-          assert.throws(() => platform.operationProfileDigest({ intakeProfileDigest: selected.intakeProfileDigest }), { code: 'PLATFORM_VERIFICATION_CONFIG' });
+          assert.throws(() => platform.operationProfileDigest({ selectionDigest: selected.selectionDigest }), { code: 'PLATFORM_VERIFICATION_CONFIG' });
           await issuer.invalidate();
           await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
           await issuer.verify(); await check(role, selected);

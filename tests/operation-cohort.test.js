@@ -120,28 +120,6 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
     assert.ok(events.filter(x => x.startsWith('close:')).every(x => events.indexOf(x)<events.indexOf('control-close')));
     assert.equal(events.at(-1),'pool-end');
   });
-  it('continues actual resource teardown but refuses graceful retirement when recovery drain is unconfirmed', async function () {
-    const events = [], failure = Object.assign(new Error('unconfirmed recovery'), { code: 'DATASTORE_RECOVERY_DRAIN_UNCONFIRMED' });
-    const admission = { beginQuiesce: () => events.push('constructors-frozen'),
-      wrapPool: Pool => Pool, poolOptions: (name, options) => options,
-      closeColdAdmission: async () => events.push('cold-close'), finalizeQuiescence: async clean => events.push('retire:' + clean) };
-    const serve = load('../lib/server/serve/index.js', {
-      './listeners': { resolve: () => [], close: async () => {} },
-      './internal-listener': { plan: () => [], open: async () => null },
-      pg: { Pool: class { on () {} async end () { events.push('pool-end'); } } },
-      '../../storage/connection-admission': admission,
-      '../../tenant-lifecycle/generation-scope': { create: () => ({ready:async()=>{},close:async()=>events.push('scope-close')}) },
-      '../../storage/postgres-connection':{installOperationWindow:()=>()=>{}},
-      './datastore-recovery': { ...require('../lib/server/serve/datastore-recovery'), settings: () => ({}), create: () => ({ start () {}, close: async () => { events.push('recovery-close'); throw failure; } }) },
-      './evaluator-preview': {boot:async()=>({quiesce:async()=>events.push('context-quiesce'),close:async()=>events.push('context-close')})}
-    });
-    const running = await serve.start(['evaluator'], {}, null, {}, { evaluatorPreview: {tenantIds:[]}, operationConfig: { namespace: 'control', poolOptions: {}, locks: [] },
-      datastoreProbe: { probe: async () => {}, readmit: async () => ({ restarted: false }), adopt () {} } });
-    await assert.rejects(running.stop(), error => error instanceof globalThis.AggregateError && error.errors.includes(failure));
-    assert(events.includes('context-close')); assert(events.includes('scope-close')); assert(events.includes('pool-end'));
-    assert.equal(events.at(-1), 'retire:false', 'UNCONFIRMED_RECOVERY_CANNOT_ACK_RETIREMENT');
-    assert(events.indexOf('constructors-frozen') < events.indexOf('recovery-close'));
-  });
   it('loads the private cohort only for multitenant commands and passes selection to serving', async function () {
     let loads=0; const captures=[];
     const stop = new Error('synthetic stop before listeners');

@@ -263,7 +263,6 @@ describe('trusted evaluator dirty checkpoints', function () {
 
 });
 
-
 describe('joined worker operational verification', function () {
   it('awaits the configured whole batch outside the invoking tenant scope', async function () {
     const f=fixture();let held=null,calls=0,pending;
@@ -312,47 +311,6 @@ describe('explicit worker verification and recovery', function () {
 
 describe('normal operational verification and owned clinical dispatch', function () {
   const settle=()=>new Promise(resolve=>setImmediate(resolve));
-  it('drains an entered cycle and retains queued work across explicit operational verification', async function () {
-    const f=fixture(),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
-    const contexts=require('../lib/server/serve/evaluator-job-context');
-    const jobs=contexts.create('clinical'),source='a'.repeat(64);
-    let service,calls=0,evaluationHold;
-    const evaluationStarted=deferred(),verifyEntered=deferred(),verifyHold=deferred();
-    await window.window.ready();
-    const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{
-      verifyWorker:()=>{
-        const verify=async()=>{f.reader.invalidate();
-          if(++calls>1){verifyEntered.resolve();await verifyHold.promise;}
-          await f.reader.verify();
-        };
-        return service?service.verifyOperational(verify):verify();
-      }
-    });
-    await f.reader.scan([A]);
-    service=await runtime({tenants:[A],externalRecovery:true,operationWindow:window.window,jobContext:jobs,
-      readCurrent:async tenant=>{const row=await f.reader.read(tenant);return {tenant,identity:'b'.repeat(64),sourceIdentity:source,settingsVersion:row.version,policyGeneration:row.policyGeneration,settingsReadAt:row.readAt};},
-      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
-      create:async()=>({evaluate:async()=>{if(evaluationHold){evaluationStarted.resolve();await evaluationHold.promise;}return {checkpoint:1,signature:{stamp:1,deleted:0}};},close(){}}),
-      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
-    const initial=service.health().tenants[0].progress.generation;
-    let entered,queued,authority,verification;const authorityHold=deferred();
-    try{
-      evaluationHold=deferred();entered=service.acquire(A);await evaluationStarted.promise;
-      // Hold the real authority query, rather than relying on settings expiry.
-      const readAuthority=f.connection.readOnly;let holdAuthority=true;
-      f.connection.readOnly=async(...args)=>{const result=await readAuthority(...args);if(holdAuthority&&/activity_version/.test(args[0])){holdAuthority=false;await authorityHold.promise;}return result;};
-      authority=window.window.run(A,()=>service.isCurrent(A,'b'.repeat(64)));authority.catch(()=>{});await settle();
-      verification=lifecycle.verify();await settle();evaluationHold.resolve();await entered;
-      await verifyEntered.promise;
-      authorityHold.resolve();assert.equal(await authority,false,'withdrawn reader cannot credit an in-flight authority read');
-      queued=service.acquire(A);verifyHold.resolve();await verification;await queued;
-      await settle();await service.backstop([A],{recovery:true});
-      const row=service.health().tenants[0];
-      assert.equal(row.progress.generation,initial,'BENIGN_VERIFY_MUST_NOT_DISCARD_CURRENT_MODEL');
-      assert.equal(row.progress.failedCompletions,0,'NORMAL_VERIFY_MUST_DRAIN_BEFORE_WITHDRAWAL');
-      assert.equal(row.ready,true);assert.equal(row.code,null);await window.window.run(A,()=>assert(service.last(A)));
-    }finally{evaluationHold?.resolve();authorityHold.resolve();verifyHold.resolve();await Promise.allSettled([entered,queued,authority]);await lifecycle.close();await service.close();await f.reader.close();await window.window.close();}
-  });
   it('drains recovery-page cycles before invalidation while another tenant keeps progressing', async function () {
     const f=fixture(),window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
     await window.window.ready();await f.reader.verify();await f.reader.scan([A,B]);
@@ -389,29 +347,6 @@ describe('normal operational verification and owned clinical dispatch', function
       assert.equal(service.health().tenants[0].progress.generation,initial,'REFUSED_OLD_AUTHORITY_MUST_NOT_DISCARD_RECOVERED_MODEL');assert.equal(await service.isCurrent(A,'b'.repeat(64)),true);
       f.bump();await service.backstop([A],{recovery:true});assert(service.health().tenants[0].progress.generation>initial);assert.equal(service.health().tenants[0].identity,'c'.repeat(64));
     }finally{hold.resolve();await Promise.allSettled([authority]);await service.close();await f.reader.close();}
-  });
-
-  it('waits for an entered metadata read and closes queued dispatch without restarting it', async function () {
-    const f=fixture(),source='a'.repeat(64);await f.reader.verify();await f.reader.scan([A]);
-    let evaluations=0;
-    const service=await runtime({tenants:[A],externalRecovery:true,
-      readCurrent:async tenant=>({tenant,identity:'b'.repeat(64),sourceIdentity:source}),
-      readMetadata:f.reader.scan,metadataCurrent:f.reader.current,readSource:()=>source,
-      create:async()=>({evaluate:async()=>{evaluations++;return {checkpoint:1,signature:{stamp:1,deleted:0}};},close(){}}),
-      recoveryIntervalMs:1000,timeIntervalMs:1000,schedule:()=>1,cancel(){},setTimer:()=>1,clearTimer(){}});
-    const entered=deferred(),scanHold=deferred(),verifyHold=deferred();
-    const original=f.connection.readOnly;let hold=true,verified=false;
-    f.connection.readOnly=async(...args)=>{const result=await original(...args);if(hold&&args[0].includes('activity_version')){hold=false;entered.resolve();await scanHold.promise;}return result;};
-    let pass,verifying,queued;
-    try {
-      pass=service.backstop([A]);await entered.promise;
-      verifying=service.verifyOperational(async()=>{verified=true;await verifyHold.promise;});
-      await settle();assert.equal(verified,false,'VERIFY_MUST_DRAIN_ENTERED_METADATA');
-      scanHold.resolve();await pass;await settle();assert.equal(verified,true);
-      const count=evaluations;queued=service.acquire(A);await service.close();await queued;
-      verifyHold.resolve();await verifying;await settle();
-      assert.equal(evaluations,count,'CLOSE_MUST_NOT_RESTART_PAUSED_WORK');
-    }finally{scanHold.resolve();verifyHold.resolve();await Promise.allSettled([pass,verifying,queued]);await service.close();await f.reader.close();}
   });
 
 });

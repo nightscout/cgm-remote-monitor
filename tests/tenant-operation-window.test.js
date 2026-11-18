@@ -65,7 +65,6 @@ describe('Tenant generation scope source protocol', function () {
   });
 });
 
-
 describe('Tenant-scoped HTTP, evaluator, realtime and notification consumers', function () {
   const request = require('supertest');
   function app (window, handler) {
@@ -162,7 +161,6 @@ describe('Tenant-scoped HTTP, evaluator, realtime and notification consumers', f
   });
 });
 
-
 describe('PostgreSQL pools enforce the selected tenant generation scope', function () {
   function lowerModule (f, options = {}) {
     const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
@@ -180,28 +178,11 @@ describe('PostgreSQL pools enforce the selected tenant generation scope', functi
     body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
     return output.exports;
   }
-  it('runs constructor-only screening on each physical backend and reuses startup screening',async function () {
-    const options={},f=fixture(options),lower=lowerModule(f),scope=require('../lib/storage/tenant-scope');
-    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
-    await f.window.ready();const release=lower.installOperationWindow(f.window);let store,calls=0;
-    try {
-      store=await lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async client=>{
-        assert.equal(client,f.client);calls++;
-      }});
-      assert.equal(calls,1);
-      await scope.withTenant(A,()=>store.query('SELECT synthetic_screened_body'));
-      await scope.withTenant(B,()=>store.query('SELECT synthetic_screened_body'));
-      assert.equal(calls,1,'same physical backend reuses startup screening');
-      f.client.processID=789;options.sqlPid=789;
-      await scope.withTenant(A,()=>store.query('SELECT synthetic_screened_body'));
-      assert.equal(calls,2,'different physical backend screened before body');
-    } finally {if(store)await store.end();release();await f.window.close();scope.setTenancyMode(previous);}
-  });
-  it('refuses a constructor callback failure without admitting a lower pool',async function () {
+  // Decision catalogue-verification-admin-owned: no per-backend catalogue screen.
+  it('refuses a per-backend admission callback before constructing a pool',async function () {
     const f=fixture(),lower=lowerModule(f);await f.window.ready();const release=lower.installOperationWindow(f.window);
     try {
-      await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async()=>{throw new Error('SYNTHETIC_BACKEND_SCREEN_REFUSED');}}),/SYNTHETIC_BACKEND_SCREEN_REFUSED/);
-      assert.doesNotThrow(release, 'failed pool construction releases the process binding');
+      await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async()=>{}}),/Per-backend admission was retired/);
     } finally {release();await f.window.close();}
   });
   it('keeps lifecycle catalogue checks in admin pre-start verification and out of serving transactions', async function () {

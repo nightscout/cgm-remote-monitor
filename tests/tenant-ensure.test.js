@@ -4,11 +4,6 @@ const assert = require('node:assert/strict');
 const fixture = require('./fixtures/tenant-ensure-recording');
 
 describe('explicit ensure: actual modules with recording SQL/driver (not native evidence)', function () {
-  it('rejects an installed profile before constructor or credential effects', async function () {
-    const f = fixture(); f.selected = {};
-    await assert.rejects(f.create(),{code:'TENANT_ENSURE_SELECTED_UNSUPPORTED'});
-    assert.equal(f.constructors,0); assert.equal(f.vaultCalls.length,0);
-  });
   it('records an intact observation, replays operation ID and refuses a changed digest', async function () {
     const f = fixture(), s = await f.create(); const first = await s.ensure(f.input);
     assert.equal(first.outcome,'complete'); const reads = f.vaultCalls.length;
