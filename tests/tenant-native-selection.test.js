@@ -43,9 +43,15 @@ describe('private native lifecycle source selection',()=>{
     const source={MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgres://synthetic:synthetic@127.0.0.1/synthetic'};
     try{
       fs.writeFileSync(file,JSON.stringify(raw));const value=config.load(source);
-      assert.equal(selected.isNative(value.intakeProfile),true);
-      assert.deepEqual(value.intakeProfile.binding,selected.create(options()).binding);
-      assert.deepEqual(require('../lib/tenant-lifecycle/generation-domain').catalogue(value.intakeProfile),selected.catalogue(value.intakeProfile));
+      // The native selection has its own key; intakeProfile is legacy only.
+      assert.equal(selected.isNative(value.nativeSelection),true);
+      assert.equal(Object.hasOwn(value,'intakeProfile'),false,'NATIVE_SELECTION_NOT_UNDER_INTAKE_PROFILE');
+      assert.deepEqual(value.nativeSelection.binding,selected.create(options()).binding);
+      assert.deepEqual(require('../lib/tenant-lifecycle/generation-domain').catalogue(value.nativeSelection),selected.catalogue(value.nativeSelection));
+      const scope=require('../lib/tenant-lifecycle/generation-scope'),pool={connect:async()=>{throw new Error('unused');}};
+      assert.throws(()=>scope.create({namespace:'native_control',locks:raw.locks,pool,intakeProfile:value.nativeSelection}),/LIFECYCLE_NATIVE_SELECTION_KEY_REQUIRED/);
+      const window=scope.create({namespace:'native_control',locks:raw.locks,pool,nativeSelection:value.nativeSelection});
+      assert.equal(window.selectionDigest,value.nativeSelection.digest);assert.equal(window.intakeProfileDigest,undefined);
       for(const mutate of [v=>{delete v.nativeSelection.source;},v=>{delete v.nativeSelection.generation;},v=>{v.nativeSelection.lifecycleNamespace='foreign_control';},v=>{v.nativeSelection.source.extra=true;},v=>{v.intakeProfile={};}]){
         const changed=structuredClone(raw);mutate(changed);fs.writeFileSync(file,JSON.stringify(changed));assert.throws(()=>config.load(source),/invalid explicit/);
       }
