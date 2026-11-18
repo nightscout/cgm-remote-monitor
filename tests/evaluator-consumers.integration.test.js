@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 const scope = require('../lib/storage/tenant-scope');
 const {optInSuite} = require('./support/opt-in');
 const createLab = require('./fixtures/evaluator-consumers-native');
@@ -32,11 +33,33 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       }
       throw new Error('Consumer due-state watchdog');
     }
+    it('refuses a missing or foreign static slice before sink effects and accepts the exact default receiver identity', async function () {
+      await lab.openSink();
+      // Direct synthetic protocol probes are distinct from the actual durable
+      // producer assertions below. No producer or clinical cycle runs here.
+      const request = { tenant: lab.A, id: randomUUID(), attempt: 1,
+        notification: { title: 'synthetic static ownership probe', originGeneration: '1' }, receipts: [] };
+      const missing = { ...request }, wrongCount = { ...request, slice: { count: 2, ordinal: 0 } },
+        wrongOrdinal = { ...request, slice: { count: 1, ordinal: 1 } };
+      for (const [body, code] of [[missing, 'REALTIME_ALARM_SLICE_REFUSED'], [wrongCount, 'REALTIME_WRONG_OWNER'], [wrongOrdinal, 'REALTIME_WRONG_OWNER']]) {
+        await assert.rejects(lab.deliverToSink(body), /SOCKET_IPC_UNAVAILABLE/);
+        assert.equal(lab.observations.at(-1).phase, 'sink-refused');
+        assert.equal(lab.observations.at(-1).code, code, 'M5_CONSUMER_STATIC_RECEIVER_REFUSAL');
+        assert.equal(lab.sinkEffects.length, 0, 'M5_CONSUMER_STATIC_REFUSED_BEFORE_EFFECT');
+      }
+      assert.deepEqual(await lab.requests(lab.A), []);
+      assert.deepEqual(await lab.requests(lab.B), []);
+      assert.deepEqual(await lab.deliverToSink({ ...request, slice: { count: 1, ordinal: 0 } }),
+        { accepted: true, receipt: null, clearedRequestIds: [] });
+      assert.deepEqual(lab.sinkEffects, [{ id: request.id, tenant: request.tenant, notification: request.notification }]);
+      assert.deepEqual(await lab.requests(lab.A), [], 'the protocol probe does not claim a durable enqueue');
+    });
     it('commits immutable tenant intent before actual adapter handoff and admits same-output once plus a repeat on the heartbeat clock', async function () {
       // Tenant heartbeat (single-site setting, seconds) shortened so the repeat arrives in the test.
       const epoch=await reading(50); await reading(111,lab.B); await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], heartbeat: 3 }); const worker=await boot();
       const first=lab.sinkEffects.filter(row=>row.tenant===lab.A); lab.traceConsumer('first-output-before-verdict',{effects:first,requests:await lab.requests(),state:await lab.producerState(),health:await worker.call('health')}); assert.equal(first.length,1,'M5_CONSUMER_COMMIT_BEFORE_SINK');
       const capture=lab.observations.find(row=>row.phase==='sink-before-accept' && row.id===first[0].id);
+      assert.deepEqual(capture.slice,{count:1,ordinal:0},'M5_CONSUMER_ACTUAL_STATIC_ROUTE');
       assert.equal(capture.ownRow.request_id,first[0].id); assert.equal(capture.ownRow.state,'attempting','M5_CONSUMER_COMMIT_BEFORE_SINK');
       const before=await lab.requests(); lab.traceConsumer('committed-before-verdict',{rows:before,state:await lab.producerState(),foreign:await lab.requests(lab.B)}); assert.equal(before[0].state,'accepted'); assert.ok(Number(before[0].created_at)>=epoch);
       const producerBefore = await lab.producerState();

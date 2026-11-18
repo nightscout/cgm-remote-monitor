@@ -12,6 +12,8 @@ const { createReceiver } = require('../../lib/tenant-alarms/composition');
 const { createForwarder } = require('../../lib/server/tenant-socket-forwarding');
 const ipc = require('../../lib/server/internal-api/transport');
 const transport = require('../../lib/server/realtime/alarm-transport');
+const clients = require('../../lib/server/internal-api/clients');
+const ownership = require('../../lib/realtime-ownership').create({ count: 1, ordinal: 0 });
 const parser = require('../../lib/server/serve/evaluator-config');
 module.exports = function consumersLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
@@ -98,17 +100,23 @@ module.exports = function consumersLab () {
   lab.requests = async (tenant = lab.A) => (await lab.admin.query(`SELECT * FROM "${namespaces.outbox}".tenant_notification_requests WHERE tenant_id=$1 ORDER BY created_at,request_id`, [tenant])).rows;
   lab.suppressions = async (tenant = lab.A) => (await lab.admin.query(`SELECT * FROM "${namespaces.alarm}".tenant_alarm_suppression WHERE tenant_id=$1 ORDER BY alarm_group,alarm_level`, [tenant])).rows;
   lab.traceConsumer = (phase, value) => { const data = lab.encode({ phase, ...value }); lab.observations.push(data); console.log('M5_CONSUMER_OBSERVATION ' + JSON.stringify(data)); return data; };
+  lab.deliverToSink = body => clients.alarmDelivery({ socketPath: source.NS_REALTIME_INTERNAL_SOCKET, maxBytes: 131072, timeoutMs: 1000 }).deliverAlarm(body);
   lab.openSink = async () => {
     if (sink) return;
     sink = await ipc.open({ socketPath: source.NS_REALTIME_INTERNAL_SOCKET, maxBytes: 131072, timeoutMs: 1000 }, require('../../lib/server/internal-api/contracts').alarmDelivery, token => {
       return { async deliverAlarm (request, body) {
         const rows = await lab.requests(body.tenant);
-        lab.traceConsumer('sink-before-accept', { id: body.id, tenant: body.tenant, notification: body.notification,
+        lab.traceConsumer('sink-before-accept', { id: body.id, tenant: body.tenant, slice: body.slice, notification: body.notification,
           ownRow: rows.find(row => row.request_id === body.id) || null });
         // Correlate the accepted incoming boundary with actual delivery. The
         // product fanout intentionally carries only tenant + notification.
-        const real = transport.operations({ token, deliver: async operation => { lab.sinkEffects.push({ id: body.id, ...operation }); } });
-        const accepted = await real.deliverAlarm(request, body);
+        // This fixture has one realtime receiver, matching the actual default
+        // static routing contract. The receiver checks the producer's slice
+        // before any controlled fanout effect; it never strips that identity.
+        const real = transport.operations({ token, ownership, deliver: async operation => { lab.sinkEffects.push({ id: body.id, ...operation }); } });
+        let accepted;
+        try { accepted = await real.deliverAlarm(request, body); }
+        catch (error) { lab.traceConsumer('sink-refused', { id: body.id, code: error.code || error.message }); throw error; }
         if (lab.sinkMode === 'hold') await new Promise(resolve => held.push(resolve));
         if (lab.sinkMode !== 'accept') throw new Error('Synthetic accepted handoff with lost response');
         return accepted;
