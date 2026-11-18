@@ -16,8 +16,7 @@ const suspended = state => ({ window: { lock_key: '41', phase: 'suspended', gene
   audit: { generation: '2', artifact_digest: DIGEST, state, owner_pid: 100, owner_birth: 'operator-birth' }, resumes: [], clearance: [] });
 const record = (id, gone) => ({ operation_id: id, generation: '1', owner_pid: 7, owner_birth: 'role-birth', gone });
 
-// `mutate` rewrites the module source for a control; the cohort module is the
-// protocol model used by tests/tenant-maintenance-window.test.js.
+// `mutate` rewrites the module source for a control.
 function fixture (options = {}, mutate) {
   const m = { authority: true, ownerPresent: false, auditVisible: true, pending: [], running: [], trace: [], durable: suspended('suspended'), ...options };
   const metadata = protocol(require('./fixtures/lifecycle-domain-profile').metadata(options.intakeProfile));
@@ -50,7 +49,7 @@ function fixture (options = {}, mutate) {
     if (text.startsWith('UPDATE ') && text.includes('tenant_lifecycle_windows')) {
       const w = target().window;
       if (w.phase !== 'suspended' || w.generation !== values[1] || w.claim_id !== values[2] || w.artifact_digest !== values[3]) return { rows: [], rowCount: 0 };
-      if (target().audit.state === 'restored') assert.equal(m.invalidated, true, 'RESUME_INVALIDATES_BEFORE_ACTIVATION');
+      assert.equal(m.lockAttempts, 1, 'activation must hold the exclusive tenant key');
       w.phase = 'active'; w.claim_id = null; w.artifact_digest = null; return { rows: [], rowCount: 1 };
     }
     if (text.startsWith('INSERT INTO ') && text.includes('tenant_lifecycle_restore_resume')) {
@@ -65,58 +64,43 @@ function fixture (options = {}, mutate) {
     throw new Error('Unexpected simulated query: ' + text);
   };
   client.release = error => { m.released = true; m.releaseError = error; };
-  const cohort = {}, pin = {};
-  const original = Module._load;
-  let api;
-  try {
-    Module._load = function (request, ...rest) {
-      if (request === '../server/serve/operation-cohort') return {
-        async pin (given, tenant, options) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(options.client, client); if (m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); m.pinned = true; m.acknowledged = (m.acknowledged || 0) + 1; return pin; },
-        async releasePin (given) { assert.equal(given, pin); assert(m.pinned); m.pinned = false; m.pinReleased = true; },
-        assertComplete (given, tenant, options) { assert.equal(options.client, client); assert(m.pinned); if (m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); m.acknowledged++; },
-        async invalidate (given, tenant) { assert.equal(tenant, A); assert(m.pinned); assert.equal(m.durable.window.phase, 'suspended'); await new Promise(resolve => setImmediate(resolve)); if (m.invalidateFails) throw Object.assign(new Error('lost'), { code: 'SOCKET_IPC_UNAVAILABLE' }); m.invalidated = true; },
-        async operations (given, tenant) { assert.equal(tenant, A); assert(m.pinned); return { participants: 4, operations: [...m.running] }; }
-      };
-      return original.call(this, request, ...rest);
-    };
-    let exported;
-    if (mutate) {
-      const source = fs.readFileSync(FILE, 'utf8'), changed = mutate(source);
-      assert.notEqual(changed, source, 'the control must change the source');
-      const loaded = new Module(FILE, module); loaded.filename = FILE; loaded.paths = Module._nodeModulePaths(require('node:path').dirname(FILE));
-      loaded._compile(changed, FILE); exported = loaded.exports;
-    } else exported = require(FILE);
-    api = exported.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-      pool: { connect: async () => { m.connected = true; return client; } }, cohort, lockWaitMs: 0, intakeProfile:options.intakeProfile });
-  } finally { Module._load = original; }
+  let exported;
+  if (mutate) {
+    const source = fs.readFileSync(FILE, 'utf8'), changed = mutate(source);
+    assert.notEqual(changed, source, 'the control must change the source');
+    const loaded = new Module(FILE, module); loaded.filename = FILE; loaded.paths = Module._nodeModulePaths(require('node:path').dirname(FILE));
+    loaded._compile(changed, FILE); exported = loaded.exports;
+  } else exported = require(FILE);
+  const api = exported.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
+    pool: { connect: async () => { m.connected = true; return client; } }, lockWaitMs: 0, intakeProfile:options.intakeProfile });
   return { m, api };
 }
 const wrote = m => m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO '));
 
-describe('restore resume and operation clearance (simulated backend protocol)', function () {
+describe('restore resume and historical operation inspection (simulated backend protocol)', function () {
   it('inspect names the two interrupted cases and writes nothing', async function () {
     for (const [state, interrupted] of [['suspended', 'before-data'], ['restored', 'data-replaced']]) {
       const { m, api } = fixture({ durable: suspended(state), pending: [record('p1', true)] });
       const seen = await api.inspect(A);
       assert.deepEqual(seen, { tenant: A, phase: 'suspended', generation: '2', claimId: CLAIM, artifactDigest: DIGEST, restore: { state, ownerPresent: false }, interrupted,
         operations: { unfinished: 1, ownerGone: 1 }, resumable: true, reasons: [] });
-      assert(!wrote(m) && !m.trace.includes('COMMIT') && !m.pinned && m.acknowledged === undefined, 'inspect neither writes nor asks the cohort');
+      assert(!wrote(m) && !m.trace.includes('COMMIT'), 'inspect only reads');
       await api.close();
     }
     const open = fixture({ durable: { ...suspended('suspended'), window: { lock_key: '41', phase: 'active', generation: '2', claim_id: null, artifact_digest: null } } });
     assert.deepEqual((await open.api.inspect(A)).reasons, ['LIFECYCLE_RESUME_NOT_SUSPENDED']);
   });
 
-  it('closed before data replacement: retires old-generation process state before reopening', async function () {
+  it('closed before data replacement: reopens the durable generation under the tenant lock', async function () {
     const { m, api } = fixture();
     const result = await api.resume(A, { claimId: CLAIM });
     assert.equal(result.interrupted, 'before-data'); assert.equal(result.state, 'active'); assert.equal(result.generation, '2');
     assert.deepEqual(m.durable.window, { lock_key: '41', phase: 'active', generation: '2', claim_id: null, artifact_digest: null });
     assert.deepEqual(m.durable.resumes, [{ claim_id: CLAIM, generation: '2', interrupted: 'before-data' }]);
     assert.equal(m.durable.audit.state, 'suspended', 'the restore audit row is never rewritten');
-    assert(m.acknowledged >= 3, 'RESUME_FRESH_ACKNOWLEDGEMENT pin, census before and census after'); assert(m.invalidated && m.lockAttempts === 1);
+    assert.equal(m.lockAttempts, 1);
     assert.match(m.trace.find(sql => sql.includes('resume-window')), /FOR NO KEY UPDATE NOWAIT$/);
-    assert(m.released && m.pinReleased); assert.equal(m.releaseError, true, 'operator backend is destroyed after use'); await api.close();
+    assert(m.released); assert.equal(m.releaseError, true, 'operator backend is destroyed after use'); await api.close();
   });
 
   it('resumes across a held transport callback after both interruption stages', async function () {
@@ -124,15 +108,15 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
       const { m, api } = fixture({ durable: suspended(state), running: ['held-provider'], pending: [record('old-operation', true)] });
       assert.equal((await api.resume(A, { claimId: CLAIM })).state, 'active');
       assert.deepEqual(m.running, ['held-provider']);
-      assert(m.invalidated && m.lockAttempts === 1);
+      assert(m.lockAttempts === 1);
       assert(!m.trace.some(sql => sql.includes('resume-pending')));
       await api.close();
     }
   });
-  it('data already replaced: exclusive key, awaited invalidation, then activation in one transaction with its record', async function () {
+  it('data already replaced: exclusive key, then activation in one transaction with its record', async function () {
     const { m, api } = fixture({ durable: suspended('restored') });
     const result = await api.resume(A, { claimId: CLAIM });
-    assert.equal(result.interrupted, 'data-replaced'); assert.equal(m.invalidated, true); assert.equal(m.lockAttempts, 1);
+    assert.equal(result.interrupted, 'data-replaced'); assert.equal(m.lockAttempts, 1);
     assert.equal(m.durable.window.phase, 'active'); assert.deepEqual(m.durable.resumes, [{ claim_id: CLAIM, generation: '2', interrupted: 'data-replaced' }]);
     const update = m.trace.findIndex(sql => sql.startsWith('UPDATE ')), insert = m.trace.findIndex(sql => sql.startsWith('INSERT INTO ')), commit = m.trace.indexOf('COMMIT');
     assert(update > 0 && update < insert && insert < commit && m.trace.filter(sql => sql === 'COMMIT').length === 1, 'RESUME_ONE_TRANSACTION');
@@ -142,17 +126,15 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
   for (const [label, options, expected, state = 'suspended'] of [
     ['a restore whose owner backend is still present', { ownerPresent: true }, 'LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT'],
     ['an owner backend whose birth cannot be read', { ownerPresent: null }, 'LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT'],
-    ['a participant that does not answer', { incomplete: true }, 'COHORT_INCOMPLETE'],
     ['a revoked operator', { authority: false }, 'LIFECYCLE_RESUME_AUTHORITY_REFUSED'],
     ['a claim made by another database role', { auditVisible: false }, 'LIFECYCLE_RESUME_AUDIT_UNAVAILABLE'],
     ['a competing restore or resume holding the window row', { rowLocked: true }, '55P03'],
     ['replaced data while the tenant key is held', { busy: true }, 'LIFECYCLE_RESUME_LOCK_BUSY', 'restored'],
-    ['replaced data when a participant loses the invalidation', { invalidateFails: true }, 'SOCKET_IPC_UNAVAILABLE', 'restored']
   ]) it('refuses ' + label + ' and leaves the tenant closed', async function () {
     const { m, api } = fixture({ durable: suspended(state), ...options });
     await assert.rejects(api.resume(A, { claimId: CLAIM }), code(expected));
     assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.window.claim_id, CLAIM); assert.deepEqual(m.durable.resumes, []);
-    assert(!m.trace.includes('COMMIT')); assert(m.released && !m.pinned); await api.close();
+    assert(!m.trace.includes('COMMIT')); assert(m.released); await api.close();
   });
 
   it('refuses a claim the operator did not inspect, a tenant that is open, and a claim already resumed', async function () {
@@ -175,31 +157,11 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
     assert.equal((await api.inspect(A)).phase, 'active'); await api.close();
   });
 
-  it('clears only a record with no owner backend that no participant is running', async function () {
-    const pending = [record('orphan', true), record('owner-present', false), record('still-running', true)];
-    const { m, api } = fixture({ durable: { ...suspended('suspended'), window: { lock_key: '41', phase: 'active', generation: '2', claim_id: null, artifact_digest: null } }, pending, running: ['still-running'] });
-    assert.deepEqual(await api.clearOperations(A), { tenant: A, cleared: ['orphan'],
-      retained: [{ operation: 'owner-present', reason: 'OWNER_BACKEND_PRESENT' }, { operation: 'still-running', reason: 'OWNER_PROCESS_RUNNING' }] });
-    assert.deepEqual(m.durable.clearance, [{ operation_id: 'orphan', generation: '1', marker_pid: 7, marker_birth: 'role-birth' }]);
-    assert.equal((await api.inspect(A)).operations.unfinished, 2, 'a cleared record is no longer unfinished');
-    assert(!m.trace.some(sql => /^(UPDATE|DELETE)\b/.test(sql)), 'CLEARANCE_APPENDS_ONLY the operation record itself is never changed');
-    const none = fixture({ pending: [record('owner-present', false)] });
-    assert.deepEqual((await none.api.clearOperations(A)).cleared, []); assert(!none.m.trace.includes('COMMIT'));
-    const down = fixture({ pending: [record('orphan', true)], incomplete: true });
-    await assert.rejects(down.api.clearOperations(A), code('COHORT_INCOMPLETE')); assert.deepEqual(down.m.durable.clearance, []);
-  });
-
-  it('retains operation markers when backend liveness is unknown and refuses foreign unprovisioned tenants before connecting', async function () {
-    for (const gone of [null, undefined, false, 'true', 1]) {
-      const { m, api } = fixture({ pending: [record('unknown-owner', gone)] });
-      assert.deepEqual(await api.clearOperations(A), { tenant: A, cleared: [], retained: [{ operation: 'unknown-owner', reason: 'OWNER_BACKEND_PRESENT' }] });
-      assert(!wrote(m)); assert.deepEqual(m.durable.clearance, []); await api.close();
-    }
-    for (const operation of ['inspect', 'clearOperations']) {
-      const { m, api } = fixture();
-      await assert.rejects(api[operation](OTHER), code('LIFECYCLE_RESUME_INPUT_INVALID'));
-      assert(!m.connected && !wrote(m)); await api.close();
-    }
+  it('refuses an unprovisioned tenant before acquiring a backend', async function () {
+    const { m, api } = fixture();
+    await assert.rejects(api.inspect(OTHER), code('LIFECYCLE_RESUME_INPUT_INVALID'));
+    assert(!m.connected && !wrote(m));
+    await api.close();
   });
 
   // Controls: each removes one guard from the module source and shows the
@@ -210,15 +172,6 @@ describe('restore resume and operation clearance (simulated backend protocol)', 
       .replace('again.restore?.owner_present !== false || ', ''));
     await api.resume(A, { claimId: CLAIM });
     assert.equal(m.durable.window.phase, 'active', 'mutant opens the tenant while its restore backend is alive');
-  });
-  it('control: without the participant answer a record whose body is still running is cleared', async function () {
-    const { m, api } = fixture({ pending: [record('still-running', true)], running: ['still-running'] }, source => source
-      .replace("else if (running.has(row.operation_id)) retained.push({ operation: row.operation_id, reason: 'OWNER_PROCESS_RUNNING' });", ''));
-    assert.deepEqual((await api.clearOperations(A)).cleared, ['still-running']); assert.equal(m.durable.clearance.length, 1);
-  });
-  it('control: without the awaited invalidation the model refuses activation of replaced data', async function () {
-    const { m, api } = fixture({ durable: suspended('restored') }, source => source.replace('      await cohorts.invalidate(cohort, tenant);\n', ''));
-    await assert.rejects(api.resume(A, { claimId: CLAIM }), /RESUME_INVALIDATES_BEFORE_ACTIVATION/); assert.equal(m.durable.window.phase, 'suspended');
   });
 });
 

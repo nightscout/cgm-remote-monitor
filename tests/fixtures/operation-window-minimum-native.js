@@ -32,6 +32,11 @@ function create ({ receiptPrefix = '' } = {}) {
     const client = new Client({ connectionString: bootstrapURI }); await client.connect();
     try { return await fn(client); } finally { await client.end(); }
   }
+  async function prestart() {
+    const platform = require('../../lib/server/serve/platform-verification-lifecycle');
+    const inspection = await platform.inspect({namespace:ns.control,poolOptions:{connectionString:urls.lifetime_api}}, counter.Client);
+    await platform.withClient({connectionString:urls.api}, inspection.controlReads, counter.Client);
+  }
   async function start () {
     assert.match(IMAGE, /^postgres@sha256:[a-f0-9]{64}$/, 'digest-pinned disposable image');
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
@@ -85,6 +90,7 @@ function create ({ receiptPrefix = '' } = {}) {
       for (const row of locks) await admin.query('INSERT INTO ' + control('tenant_lifecycle_windows') + "(tenant_id,lock_key,phase,generation) VALUES($1,$2,'active',1)", [row.tenant, row.key]);
     });
     lifetimePool = new Pool({ connectionString: urls.lifetime_api, max: 1, Client: counter.Client, options: '-c search_path=pg_catalog' });
+    await prestart();
     window = windows.create({ namespace: ns.control, locks, pool: lifetimePool });
     await window.ready();
     releaseWindow = connect.installOperationWindow(window);
@@ -107,7 +113,7 @@ function create ({ receiptPrefix = '' } = {}) {
       }
     }
   }
-  return { start: () => counter.phase('setup-admission', start), close, counter, A, B, l, ns, q, control, locks, urls,
+  return { start: () => counter.phase('setup-admission', start), close, prestart, counter, A, B, l, ns, q, control, locks, urls,
     admin: fn => counter.phase('admin-control', () => asBootstrap(fn)),
     sql: (text, values) => counter.phase('admin-control', () => asBootstrap(c => c.query(text, values))),
     get window () { return window; }, get lower () { return lower; },

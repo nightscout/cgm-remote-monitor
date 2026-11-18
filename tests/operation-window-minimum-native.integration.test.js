@@ -105,10 +105,10 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
   });
 
-  it('refuses elevated principal flags at backend re-admission and restores safely', async function () {
+  it('refuses elevated principal flags at admin pre-start and restores safely', async function () {
     await active();
     await f.sql('ALTER ROLE ' + f.q(f.l.roles.api) + ' CREATEDB');
-    try { await assert.rejects(f.openLower(), error => ['LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code)); }
+    try { await assert.rejects(f.prestart(), error => ['LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code)); }
     finally { await f.sql('ALTER ROLE ' + f.q(f.l.roles.api) + ' NOCREATEDB'); }
     await active();
   });
@@ -121,7 +121,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
       await refuseBody(fn => f.window.run(f.A, fn));
       await refuseBody(fn => f.lower.withTenant(f.A, fn));
       await f.operation(f.B);
-    } finally { await f.window.drainTenant(f.A); await f.window.invalidateTenant(f.A); await resetWindow(); }
+    } finally { await resetWindow(); }
     await active();
   });
 
@@ -145,14 +145,13 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     f.counter.assertHot('warm-bodies-only', 4);
   });
 
-  it('re-admits a new physical connection and rejects unsafe structure until restored', async function () {
-    // Trusted-admin contract: no promise of next-transaction detection on an
-    // already admitted backend. A newly opened backend MUST perform full admission.
+  it('admin pre-start rejects unsafe structure until restored', async function () {
     await active();
     await f.sql('ALTER TABLE ' + f.control('tenant_lifecycle_windows') + ' NO FORCE ROW LEVEL SECURITY');
     try {
-      await assert.rejects(f.openLower());
+      await assert.rejects(f.prestart());
     } finally { await f.sql('ALTER TABLE ' + f.control('tenant_lifecycle_windows') + ' FORCE ROW LEVEL SECURITY'); }
+    await f.prestart();
     const fresh = await f.openLower();
     try { await fresh.withTenant(f.A, () => fresh.query('SELECT 1')); }
     finally { await fresh.end(); }
@@ -168,11 +167,10 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
         return result;
       };
     });
-    const window = windows.create({ namespace: f.ns.control, locks: f.locks, pool, leaseSessionCount: 1 });
+    const window = windows.create({ namespace: f.ns.control, locks: f.locks, pool });
     try {
       await refuseBody(fn => window.run(f.A, fn));
-      await assert.rejects(window.probe(), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
-      assert.deepEqual(window.inflight(f.A), []);
+      await refuseBody(fn => window.run(f.A, fn));
     } finally { await window.close(); await pool.end(); }
   });
 

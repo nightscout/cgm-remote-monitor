@@ -63,8 +63,8 @@ require.cache[evaluatorPath].exports = Object.assign((...args) => {
   }});
 },evaluator);
 const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(Array.isArray(error.predicates)?{predicates:error.predicates}:{}), ...(depth<3&&error.cause?{cause:failure(error.cause,depth+1)}:{}), ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
-const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
-  : running.operationCohort.window.run(tenant, () => context.last(tenant));
+const currentOutput = tenant => context.health().closed || running.generationScope.closed ? null
+  : running.generationScope.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
   try {
     let value;

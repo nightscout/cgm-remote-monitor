@@ -24,7 +24,7 @@ const address = name => {
   return transport.options(process.env[prefix + 'URL'] ? { url: process.env[prefix + 'URL'], trust: 'network', ...LIMITS } : { socketPath: process.env[prefix + 'SOCKET'], ...LIMITS });
 };
 const ep = Object.fromEntries(['api', 'realtime', 'evaluator', 'tenant-admin'].map(name => [name, address(name)]));
-const lifecycle = Object.fromEntries(Object.entries(ep).map(([name, value]) => [name, clients.lifecycleParticipant(value)]));
+const lifecycle = Object.fromEntries(Object.entries(ep).map(([name, value]) => [name, clients.roleHealth(value)]));
 const authority = clients.socketAuthority(ep.api);
 const authorizeBody = tenant => ({ host: tenant === A ? 'one.example.test' : 'two.example.test', tenant, namespace: '/', credential: {} });
 function raw (target, requestPath, service, body) {
@@ -65,17 +65,18 @@ async function scenario () {
   write('authority.json', { [A]: 'allow', [B]: 'allow' });
 
   // Suspend A in the shared phase row: A application work refuses in every component,
-  // B progresses, lifecycle status/invalidation stays callable on each participant.
+  // B progresses, role health stays callable on each participant.
   write('phases.json', { [A]: 'suspended' }); mark = Date.now(); await delay(50);
   const suspended = await cyclesAfter(mark);
   const directA = await authority.authorizeSocket(authorizeBody(A)).then(() => 'admitted', e => e.message);
   const directB = await authority.authorizeSocket(authorizeBody(B)).then(v => v.denied ? 'denied' : 'admitted', e => e.message);
   const control = {};
   for (const [name, client] of Object.entries(lifecycle)) {
-    const step = async (label, fn) => { try { return await fn(); } catch (error) { throw new Error('lifecycle ' + label + ' of suspended A on ' + name + ': ' + error.message, { cause: error }); } };
-    const current = await step('status', () => client.getStatus({ request: randomUUID() }));
-    const reply = await step('invalidation', () => client.invalidateTenant({ request: randomUUID(), tenant: A, incarnation: current.incarnation, identity: current.identity }));
-    control[name] = { participant: current.participant, roles: current.roles, statusOk: true, invalidated: reply.tenant, invalidationLog: lines(name + '-invalidated.jsonl').map(r => r.tenant) };
+    const request = randomUUID();
+    const current = await client.getStatus({ request });
+    assert.equal(current.request, request);
+    control[name] = { participant: current.participant, roles: current.roles, ready: current.ready };
+
   }
   results.phases.suspendedA = { A: summary(suspended[A]), B: summary(suspended[B]), directA, directB, control };
   write('phases.json', {}); mark = Date.now(); await delay(50);
@@ -84,10 +85,10 @@ async function scenario () {
 
   // Route ownership across the network on composed listeners.
   results.phases.routes = {
-    foreignOnApi: (await raw(ep.api, '/cohort/status', 'socket-authority', { request: randomUUID() })).status,
+    foreignOnApi: (await raw(ep.api, '/role/health', 'socket-authority', { request: randomUUID() })).status,
     unregisteredOnApi: (await raw(ep.api, '/alarm', 'alarm-delivery', { tenant: A })).status,
-    foreignOnRealtime: (await raw(ep.realtime, '/cohort/status', 'alarm-delivery', { request: randomUUID() })).status,
-    lifecycleOnRealtime: (await raw(ep.realtime, '/cohort/status', 'lifecycle-participant', { request: randomUUID() })).status
+    foreignOnRealtime: (await raw(ep.realtime, '/role/health', 'alarm-delivery', { request: randomUUID() })).status,
+    healthOnRealtime: (await raw(ep.realtime, '/role/health', 'role-health', { request: randomUUID() })).status
   };
   write('results-scenario.json', results);
   const p = results.phases;
@@ -95,9 +96,11 @@ async function scenario () {
   assert(p.revokedA.A.ok === 0 && p.revokedA.A.refused >= 3 && p.revokedA.B.refused === 0, 'revoked A refuses at current API authority, B delivers');
   assert(p.suspendedA.A.ok === 0 && p.suspendedA.B.refused === 0 && p.suspendedA.B.ok >= 3, 'suspended A refuses, B progresses');
   assert.equal(p.suspendedA.directA, 'SOCKET_IPC_UNAVAILABLE'); assert.equal(p.suspendedA.directB, 'admitted');
-  for (const row of Object.values(p.suspendedA.control)) { assert.equal(row.invalidated, A); assert.deepEqual(row.invalidationLog, [A]); }
+  for (const [name, row] of Object.entries(p.suspendedA.control)) {
+    assert.equal(row.ready, true); assert.equal(row.participant, name); assert.deepEqual(row.roles, [name]);
+  }
   assert(p.resumed.A.refused === 0 && p.resumed.A.ok >= 3, 'resumed A delivers');
-  assert.deepEqual(p.routes, { foreignOnApi: 503, unregisteredOnApi: 503, foreignOnRealtime: 503, lifecycleOnRealtime: 200 });
+  assert.deepEqual(p.routes, { foreignOnApi: 503, unregisteredOnApi: 503, foreignOnRealtime: 503, healthOnRealtime: 200 });
   console.log('SCENARIO_PASS', JSON.stringify(results.phases));
 }
 // Hold one A application call open at the API; run.sh then SIGTERMs the API.

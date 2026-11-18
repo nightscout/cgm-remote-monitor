@@ -33,7 +33,7 @@ async function arm ({ fault, createFault, windowOptions = {}, before, impl = run
   const worker = { available: true, readerAvailable: true, platformReady: true, generation: 1, invalidation: null };
   let service, armed = false, identity = 'a'.repeat(64);
   try {
-    await f.window.ready(); await f.window.verifyOperational();
+    await f.window.ready();
     service = await impl({ tenants: [A], operationWindow: f.window, jobContext: contexts.create('clinical'),
       recoveryIntervalMs: 60000, timeIntervalMs: 60000, schedule: () => 1, cancel () {}, setTimer: () => 1, clearTimer () {},
       workerState: () => ({ ...worker }),
@@ -91,18 +91,13 @@ describe('typed failed-completion reasons from their own fault arms', function (
     const result = await arm({ fault: ({ window }) => window.assertCurrent(B) });
     only(result, 'scope-mismatch'); assert.equal(result.failures[0].innerGuard, 'scope-tenant-mismatch');
   });
-  it('CREATEROLE-style authority drift found by operational verification stays hard -> authority', async () => {
-    let drift = false;
-    const result = await arm({ windowOptions: { catalogueMutate: (kind, rows) => { if (drift && kind === 'role') rows[0].elevated = true; } },
-      before: async ({ window }) => { drift = true; await assert.rejects(window.verifyOperational(), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' }); } });
-    assert.equal(result.credited, 0, 'AUTHORITY_DRIFT_MUST_REFUSE');
-    only(result, 'authority'); assert.equal(result.failures.at(-1).site, 'dispatch-exception');
-  });
-  it('structural (non-authority) verification failure -> platform-unready, still hard', async () => {
-    let drift = false;
-    const result = await arm({ windowOptions: { catalogueMutate: (kind, rows) => { if (drift && kind === 'ledger') rows.pop(); } },
-      before: async ({ window }) => { drift = true; await assert.rejects(window.verifyOperational(), { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' }); } });
-    only(result, 'platform-unready');
+  it('classifies an unavailable platform before output credit',async()=>{
+    let available=true;
+    const result=await arm({windowOptions:{available:()=>available},fault:({window})=>{
+      available=false;
+      try { window.assertCurrent(A); } finally { available=true; }
+    }});
+    only(result,'platform-unready');
   });
   it('an unrecognized refusal -> unknown', async () => {
     only(await arm({ fault: () => { throw fail('PRIVATE_UNCLASSIFIED_REFUSAL'); } }), 'unknown');
@@ -150,36 +145,6 @@ describe('typed failed-completion reasons from their own fault arms', function (
 
 // Enter an admitted body, start a held operational verification, then let the
 // body assert its own scope while verification is pending.
-async function pendingRefusal ({ receipt = true } = {}) {
-  const f = fixture({ trustedWorker: true });
-  await f.window.ready(); await f.window.verifyOperational();
-  let go, release, entered, error;
-  const proceed = new Promise(resolve => { go = resolve; }), held = new Promise(resolve => { release = resolve; });
-  const inside = new Promise(resolve => { entered = resolve; });
-  const body = f.window.run(A, async () => { entered(); await proceed; try { f.window.assertCurrent(A); } catch (e) { error = e; } }, receipt ? { onScope () {} } : undefined);
-  await inside;
-  const verifying = f.window.verifyOperational(() => held);
-  go(); await body.catch(() => {}); release(); await verifying;
-  assert(error, 'PENDING_REFUSAL_OBSERVED');
-  return { f, error };
-}
-describe('own-scope verification-pending is bound to the refusing scope', function () {
-
-  it('own admitted scope during verification -> verification-pending; replayed into another tenant -> hard', async () => {
-    const { f, error } = await pendingRefusal();
-    try {
-      assert.equal(error.code, 'LIFECYCLE_WINDOW_SCOPE_INVALID');
-      assert.equal(reasons.classify(error, { window: f.window, tenant: A }), 'verification-pending');
-      assert.equal(reasons.classify(error, { window: f.window, tenant: B }), 'platform-unready', 'FOREIGN_SCOPE_NEVER_TRANSIENT');
-      assert.equal(reasons.classify(fail(error.code), { window: f.window, tenant: A }), 'unknown', 'COPIED_CODE_HAS_NO_PROVENANCE');
-    } finally { await f.window.close(); }
-  });
-  it('a pending refusal without a scope receipt cannot be proven own -> hard', async () => {
-    const { f, error } = await pendingRefusal({ receipt: false });
-    try { assert.equal(reasons.classify(error, { window: f.window, tenant: A }), 'platform-unready'); } finally { await f.window.close(); }
-  });
-});
-
 // Break-it controls: ablate one classifier branch in a compiled copy; the arm
 // that depends on it goes red; the restored module passes.
 function ablated (change) {
@@ -197,20 +162,10 @@ describe('typed reason controls', function () {
     await assert.rejects(criterion(output.exports), /CREDIT_RESOLVES_FAILURE/);
     await criterion(runtime);
   });
-  it('control: dropping the own-scope binding types a foreign replay as transient; restored source refuses', async () => {
-    const needle = "return windows.ownVerificationRefusal(window, error, tenant) ? 'verification-pending' : 'platform-unready';";
-    const broken = ablated(text => { assert.equal(text.split(needle).length, 2); return text.replace(needle, "return 'verification-pending';"); });
-    const { f, error } = await pendingRefusal();
-    try {
-      const criterion = module => assert.notEqual(module.classify(error, { window: f.window, tenant: B }), 'verification-pending', 'FOREIGN_SCOPE_NEVER_TRANSIENT');
-      assert.throws(() => criterion(broken), /FOREIGN_SCOPE_NEVER_TRANSIENT/);
-      criterion(reasons);
-    } finally { await f.window.close(); }
-  });
   it('control: dropping the scope-guard branch loses scope-mismatch; restored source keeps it', async () => {
     const needle = "    if (SCOPE_GUARDS.has(guard)) return 'scope-mismatch';\n";
     const broken = ablated(text => { assert.equal(text.split(needle).length, 2); return text.replace(needle, ''); });
-    const f = fixture({ trustedWorker: true }); await f.window.ready(); await f.window.verifyOperational();
+    const f = fixture({ trustedWorker: true }); await f.window.ready();
     let error; await f.window.run(A, () => { try { f.window.assertCurrent(B); } catch (e) { error = e; } });
     try {
       assert.notEqual(broken.classify(error, { window: f.window, tenant: A }), 'scope-mismatch');

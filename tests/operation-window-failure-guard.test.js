@@ -6,29 +6,9 @@ const windows = require('../lib/tenant-lifecycle/operation-window');
 const diagnostic = require('../lib/diagnostics/evaluator-failure');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
-const hold = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const refusal = fn => { try { fn(); } catch (error) { return error; } assert.fail('expected refusal'); };
 
 describe('operation-window refusal provenance', function () {
-  for (const closing of [false, true]) it('keeps a pending physical refusal hard in a '+(closing ? 'closing' : 'finished')+' scope', async function () {
-    const f = fixture({trustedWorker:true}), later = hold(), entered = hold(), checked = hold(), check = hold();
-    let lease, receipt, refused, verifying;
-    const running = f.window.run(A, async () => {
-      if (closing) lease = await f.window.acquireClient(f.client,A);
-      refused = (async () => { await later.promise; try { await f.window.acquireClient(f.client,A); }
-        catch (error) { return error; } assert.fail('expected pending physical refusal'); })();
-      entered.resolve();
-    }, {onScope:value => { receipt=value; }}).catch(error => error);
-    try {
-      await entered.promise; await new Promise(resolve => setImmediate(resolve));
-      verifying = f.window.verifyOperational(async () => { checked.resolve(); await check.promise; });
-      await checked.promise; later.resolve(); const error = await refused;
-      assert.equal(error.code,'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');
-      assert.equal(windows.failureGuard(f.window,error),'verification-pending');
-      assert.equal(windows.verificationSuspension(f.window,A,error,receipt),null,'EXPIRED_PHYSICAL_SCOPE_STAYS_HARD');
-      lease?.close(); await running;
-    } finally { later.resolve(); lease?.close(); check.resolve(); await verifying?.catch(() => {}); await running; await f.window.close(); }
-  });
   it('binds original errors to their own window and rejects copied or fabricated provenance', async function () {
     const own = fixture({ trustedWorker: true }), foreign = fixture({ trustedWorker: true });
     try {
@@ -51,88 +31,14 @@ describe('operation-window refusal provenance', function () {
     } finally { await Promise.all([own.window.close(), foreign.window.close()]); }
   });
 
-  it('records pending verification at issuance, preserves scope-fault precedence and never makes scope errors retryable', async function () {
-    const f = fixture({ trustedWorker:true }), body = hold(), entered = hold(), checked = hold(), check = hold();
-    let verifying, inner;
-    const running = f.window.run(A, async () => {
-      entered.resolve(); await body.promise;
-      const foreign = refusal(() => f.window.assertCurrent(B));
-      assert.equal(windows.failureGuard(f.window, foreign), 'scope-tenant-mismatch');
-      inner = refusal(() => f.window.currentGeneration(A));
-      assert.equal(inner.code, 'LIFECYCLE_WINDOW_SCOPE_INVALID');
-      assert.equal(windows.failureGuard(f.window, inner), 'verification-pending');
-      assert.equal(windows.isPendingVerification(f.window, inner), false, 'diagnostic provenance adds no retry classification');
-    });
-    const ended = running.catch(error => error);
-    try {
-      await entered.promise;
-      verifying = f.window.verifyOperational(async () => { checked.resolve(); await check.promise; });
-      await checked.promise; body.resolve();
-      const outer = await ended;
-      assert.equal(outer.code, 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');
-      assert.equal(windows.failureGuard(f.window, outer), 'verification-pending');
-      check.resolve(); await verifying;
-      assert.equal(windows.failureGuard(f.window, inner), 'verification-pending', 'provenance describes issuance, not present health');
-      await f.window.run(A, () => f.window.assertCurrent(A));
-    } finally { body.resolve(); check.resolve(); await verifying?.catch(() => {}); await ended; await f.window.close(); }
-  });
-
-  it('keeps a failed verification withdrawn and never labels concurrent failed admission as pending', async function () {
-    const f = fixture({trustedWorker:true}), body = hold(), entered = hold(), check = hold(), checked = hold();
-    let verifying;
-    const running = f.window.run(A, async () => {
-      entered.resolve(); await body.promise;
-      const error = refusal(() => f.window.assertCurrent(A));
-      assert.equal(windows.failureGuard(f.window, error), 'admission-withdrawn');
-    });
-    const ended = running.catch(error => error);
-    try {
-      await entered.promise;
-      verifying = f.window.verifyOperational(async () => { checked.resolve(); await check.promise; });
-      await checked.promise;
-      await assert.rejects(f.window.verifyOperational(() => { throw Error('synthetic authority refusal'); }), /authority refusal/);
-      body.resolve(); assert.equal(windows.failureGuard(f.window, await ended), 'admission-withdrawn');
-      check.resolve(); await verifying;
-      await assert.rejects(f.window.run(A, () => assert.fail('failed admission body')), error => windows.failureGuard(f.window, error) === 'admission-withdrawn');
-      await f.window.verifyOperational(); await f.window.run(A, () => {});
-    } finally { body.resolve(); check.resolve(); await verifying?.catch(() => {}); await ended; await f.window.close(); }
-  });
-
-  it('retains restore invalidation and expired-scope refusals', async function () {
+  it('retains source provenance for an expired scope', async function () {
     const f = fixture({trustedWorker:true}); let late;
     try {
       await f.window.run(A, async () => {
         late = new Promise(resolve => setImmediate(() => resolve(refusal(() => f.window.assertCurrent(A)))));
       });
       assert.equal(windows.failureGuard(f.window, await late), 'scope-inactive');
-      await f.window.run(A, () => {
-        f.window.invalidateTenant(A);
-        const error = refusal(() => f.window.assertCurrent(A));
-        assert.equal(error.code, 'LIFECYCLE_WINDOW_SUSPENDED');
-        assert.equal(windows.failureGuard(f.window, error), 'tenant-invalidated');
-        assert.equal(windows.isSuspension(error), true);
-      });
     } finally { await f.window.close(); }
-  });
-
-  it('keeps a lost session from being labelled as an otherwise unfailed verification', async function () {
-    const f = fixture({trustedWorker:true}), body = hold(), entered = hold(), checked = hold(), check = hold();
-    let verifying;
-    const running = f.window.run(A, async () => {
-      entered.resolve(); await body.promise;
-      assert.equal(windows.failureGuard(f.window, refusal(() => f.window.assertCurrent(A))), 'scope-inactive');
-    });
-    const ended = running.catch(error => error);
-    try {
-      await entered.promise;
-      verifying = f.window.verifyOperational(async () => { checked.resolve(); await check.promise; });
-      await checked.promise;
-      const failure = new Error('synthetic lost lifetime session');
-      f.client.emit('error', failure);
-      await assert.rejects(f.window.run(B, () => assert.fail('lost session admission')), error =>
-        windows.failureGuard(f.window, error) === 'admission-withdrawn');
-      body.resolve(); assert.equal(await ended, failure);
-    } finally { body.resolve(); check.resolve(); await verifying?.catch(() => {}); await ended; await f.window.close(); }
   });
 
   it('reports a scope that has stopped accepting children while its admitted child drains', async function () {
@@ -145,7 +51,7 @@ describe('operation-window refusal provenance', function () {
           lease.close(); resolve(error);
         }));
       });
-      assert.equal(windows.failureGuard(f.window, await later), 'scope-closing');
+      assert.equal(windows.failureGuard(f.window, await later), 'scope-inactive');
     } finally { lease?.close(); await f.window.close(); }
   });
 

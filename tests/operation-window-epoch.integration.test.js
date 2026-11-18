@@ -1,23 +1,15 @@
 'use strict';
 
-// covers: lib/tenant-lifecycle/operation-window.js, lib/tenant-lifecycle/operation-window-readiness.js, lib/storage/postgres-connection.js
-
-// Restore fences and physical-backend structural admission on disposable PG,
-// using the deployment catalogue/grants. The historical filename is retained for
-// enabled-corpus compatibility. Warm-backend next-transaction DBA digest refusal
-// is deliberately retired. Structural tamper cases below now exercise explicit
-// fresh backend admission, retaining exact grant/shape/helper/ledger coverage.
-// Current role/tenant/restore checks still execute on each actual transaction.
-// Synthetic tenants and data only.
+// covers: lib/server/serve/platform-verification-lifecycle.js, lib/server/serve/evaluator-consumer-readiness.js
+// Admin pre-start checks against the deployment catalogue and grants. Keep the
+// historical suite entry and its owned Docker fixture for enabled-corpus runs.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { Client, Pool } = require('pg');
+const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const plan = require('./fixtures/multitenant-plan');
-const windows = require('../lib/tenant-lifecycle/operation-window');
-const connect = require('../lib/storage/postgres-connection');
-const scope = require('../lib/storage/tenant-scope');
+const catalogue = require('../lib/server/serve/platform-verification-lifecycle');
 const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
 const { optInSuite } = require('./support/opt-in');
 
@@ -80,50 +72,25 @@ done
  return {start,close};
 }
 
-const { A, B } = plan;
 const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
-  'NS_OPERATION_WINDOW_DOCKER_TEST=1')('operation-window fence and backend admission (disposable PostgreSQL, deployment grants)', function () {
+  'NS_OPERATION_WINDOW_DOCKER_TEST=1')('admin pre-start lifecycle and suppression checks (disposable PostgreSQL, deployment grants)', function () {
   this.timeout(120000);
   const container = (process.env.NS_OPERATION_WINDOW_PG_CONTAINER_PREFIX || 'ns-window-epoch-') + crypto.randomBytes(6).toString('hex');
   const l = plan.layout('nswep'), ns = l.namespaces, q = plan.quote;
   const control = name => q(ns.control) + '.' + q(name);
-  const locks = [{ tenant: A, key: '830001' }, { tenant: B, key: '830002' }];
   const urls = {};
   const custody=fixtureCustody(container,IMAGE,'operation-window-epoch','epoch');
-  let previousMode, bootstrapURI, lifetimePool, window, lower, releaseWindow, suppression;
+  let bootstrapURI;
 
   async function asBootstrap (fn) {
     const client = new Client({ connectionString: bootstrapURI }); await client.connect();
     try { return await fn(client); } finally { await client.end(); }
   }
   const sql = text => asBootstrap(client => client.query(text));
-  // One tenant data transaction (lower, api identity) and one serving operation
-  // (lifetime identity) wrapping a data transaction. `called` proves the body ran.
-  async function data (tenant) {
-    let called = false;
-    await lower.withTenant(tenant, async () => { await lower.query('SELECT 1 AS x'); called = true; });
-    return called;
-  }
-  async function operation (tenant) {
-    let called = false;
-    await window.run(tenant, async () => { called = await data(tenant); });
-    return called;
-  }
-  async function refused (fn, codes) {
-    let ran = false;
-    await assert.rejects(fn(() => { ran = true; }), error => codes.includes(error.code) || assert.fail('unexpected refusal ' + (error.code || error.message)));
-    assert.equal(ran, false, 'body must not run');
-  }
-  const refuseData = (tenant, codes) => refused(mark => lower.withTenant(tenant, async () => { mark(); }), codes);
-  // Warm process participation does not query SQL. Real effects still cross the
-  // current lower transaction fence, including while an exclusive key is held.
-  const refuseOperation = (tenant, codes) => refused(mark => window.run(tenant, () => lower.withTenant(tenant, async () => { mark(); })), codes);
-
   before(async function () {
-    previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const password = crypto.randomBytes(24).toString('hex');
     await custody.start(password,'nightscout_epoch_test');
     const port = docker(['port', container, '5432/tcp']).split(':').pop();
@@ -157,82 +124,31 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
         await admin.query('ALTER SCHEMA ' + q(namespace) + ' OWNER TO ' + q(l.owner));
       }
       for (const statement of plan.grants(l)) await admin.query(statement);
-      for (const row of locks) await admin.query('INSERT INTO ' + control('tenant_lifecycle_windows') + "(tenant_id,lock_key,phase,generation) VALUES($1,$2,'active',1)", [row.tenant, row.key]);
     });
-    lifetimePool = new Pool({ connectionString: urls.lifetime_api, max: 2, options: '-c search_path=pg_catalog' });
-    window = windows.create({ namespace: ns.control, locks, pool: lifetimePool });
-    await window.ready();
-    releaseWindow = connect.installOperationWindow(window);
-    lower = await connect({ connectionString: urls.api, operationWindow: window, max: 2 });
-    const calls = [];
-    const reader = await connect({ connectionString: urls.suppression, operationWindow: window, max: 1,
-      admitBackend: async client => {
-        // Raw admitted client is the only source of the control-read exemption.
-        await readiness.suppression(client, ns.alarm, {operationWindow:window});
-        calls.push('evaluator-consumer-suppression-role');
-      } });
-    suppression = {connection:reader,calls};
   });
+  after(async function () { await custody.close(); });
 
-  after(async function () {
-    try {
-      try { if (lower) await lower.end(); if (suppression) await suppression.connection.end(); }
-      finally { if (releaseWindow) releaseWindow(); try { if (window) await window.close(); } finally { if (lifetimePool) await lifetimePool.end(); } }
-    } finally {
-      scope.setTenancyMode(previousMode);
-      await custody.close();
-    }
-  });
-
-  it('admits data transactions and operations of an active tenant', async function () {
-    assert.equal(await data(A), true);
-    assert.equal(await operation(A), true);
-    assert.equal(await operation(B), true);
-  });
-
-  it('refuses a tenant whose window was closed after its admission was cached; the other tenant continues', async function () {
-    assert.equal(await operation(A), true, 'cached admission');
-    await sql('UPDATE ' + control('tenant_lifecycle_windows') + " SET phase='suspended',generation=generation+1,claim_id='" + crypto.randomUUID() +
-      "',artifact_digest='" + 'a'.repeat(64) + "' WHERE tenant_id='" + A + "'");
-    try {
-      await window.drainTenant(A);
-      await refuseData(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
-      await refuseOperation(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
-      assert.equal(await operation(B), true);
-    } finally {
-      await window.invalidateTenant(A);
-      await sql('UPDATE ' + control('tenant_lifecycle_windows') + " SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id='" + A + "'");
-    }
-    assert.equal(await operation(A), true, 'reopened window admits again');
-  });
-
-  it('refuses while the restore holds the tenant lock exclusively', async function () {
-    const holder = new Client({ connectionString: bootstrapURI }); await holder.connect();
-    try {
-      assert.equal((await holder.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [locks[0].key])).rows[0].held, true);
-      await refuseData(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
-      await refuseOperation(A, ['LIFECYCLE_WINDOW_SUSPENDED']);
-      assert.equal(await data(B), true);
-    } finally { await holder.end(); }
-    assert.equal(await data(A), true);
-  });
-
-  // Each administrator change is refused on fresh backend admission. The
-  // warm-backend immediate-digest expectation is intentionally retired; native
-  // DML privilege revocation and live principal checks have separate controls.
-  async function freshAdmission (path) {
-    if (path === 'lifetime') {
-      const client = new Client({connectionString:urls.lifetime_api}); await client.connect();
-      try { await require('../lib/tenant-lifecycle/operation-window-readiness').admit(client,ns.control,{lifetime:true,identity:window.identity}); }
-      finally {await client.end();}
-      return;
-    }
-    const connection = await connect({connectionString:path === 'suppression' ? urls.suppression : urls.api,
-      operationWindow:window,max:1,...(path === 'suppression' ? {
-        admitBackend:client => readiness.suppression(client,ns.alarm,{operationWindow:window})
-      } : {})});
-    await connection.end();
+  async function preStart (path) {
+    const lifecycle = await catalogue.inspect({ namespace: ns.control, poolOptions: {connectionString: urls.lifetime_api} });
+    if (path === 'lifetime') return;
+    const suppression = path === 'suppression';
+    await catalogue.withClient({connectionString: suppression ? urls.suppression : urls.api}, client => suppression
+      ? readiness.suppression(client, ns.alarm, {lifecycle})
+      : lifecycle.controlReads(client));
   }
+  it('checks tenant-admin lifecycle grants on its own reader and writer before boot', async function () {
+    const owner = { accessConnectionString: urls.owner_reader, writerConnectionString: urls.owner_writer,
+      namespaces: {authorization: ns.authorization, access: ns.access, credentials: ns.legacy} };
+    const selected = {namespace: ns.control, poolOptions: {connectionString: urls.lifetime_tenant_admin}};
+    const check = () => require('../lib/server/serve/owner-preview').readiness(owner, selected);
+    await check();
+    for (const role of [l.roles.owner_reader, l.roles.owner_writer]) {
+      await sql('GRANT UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' TO ' + q(role));
+      try { await assert.rejects(check(), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'}); }
+      finally { await sql('REVOKE UPDATE (phase) ON ' + control('tenant_lifecycle_windows') + ' FROM ' + q(role)); }
+      await check();
+    }
+  });
   const birth = () => control('tenant_lifecycle_backend_birth') + '()';
   const drift = [
     ['table UPDATE on windows', 'lower', who => 'GRANT UPDATE ON ' + control('tenant_lifecycle_windows') + ' TO ' + who, who => 'REVOKE UPDATE ON ' + control('tenant_lifecycle_windows') + ' FROM ' + who],
@@ -268,67 +184,34 @@ optInSuite(process.env.NS_OPERATION_WINDOW_DOCKER_TEST === '1',
   const statements = (value, who) => [].concat(value(who));
   const roleFor = path => q(path === 'lifetime' ? l.roles.lifetime_api : l.roles.api);
   for (const [label, path, change, revert] of drift) {
-    it('fresh backend admission refuses ' + label + ', and admits after the revert', async function () {
-      assert.equal(await operation(A), true, 'cached admission before the change');
+    it('pre-start refuses ' + label + ', and admits after the revert', async function () {
+      await preStart(path === 'both' ? 'lower' : path);
       for (const text of statements(change, roleFor(path))) await sql(text);
       try {
         const codes = ['LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'];
-        if (path !== 'lifetime') await assert.rejects(freshAdmission('lower'), error => codes.includes(error.code));
-        if (path !== 'lower') await assert.rejects(freshAdmission('lifetime'), error => codes.includes(error.code));
+        if (path !== 'lifetime') await assert.rejects(preStart('lower'), error => codes.includes(error.code));
+        if (path !== 'lower') await assert.rejects(preStart('lifetime'), error => codes.includes(error.code));
       } finally { for (const text of statements(revert, roleFor(path))) await sql(text); }
-      if (path !== 'lifetime') await freshAdmission('lower');
-      if (path !== 'lower') await freshAdmission('lifetime');
-      assert.equal(await operation(A), true, 'healthy existing operation after the revert');
+      if (path !== 'lifetime') await preStart('lower');
+      if (path !== 'lower') await preStart('lifetime');
     });
   }
 
-  // Suppression admission now runs in the constructor-only raw backend
-  // callback. Existing snapshots do not reconstruct global catalogue hashes.
   const suppressionCases = [...drift.filter(([label]) => label !== 'a foreign function executable by the lifetime identity'),
     ['a foreign table read for the suppression identity', 'suppression', who => 'GRANT SELECT ON ' + q(ns.entries) + '.entries TO ' + who, who => 'REVOKE SELECT ON ' + q(ns.entries) + '.entries FROM ' + who],
     ['a changed suppression policy', 'suppression', () => 'CREATE POLICY epoch_extra ON ' + q(ns.alarm) + '.tenant_alarm_suppression FOR SELECT USING (true)', () => 'DROP POLICY epoch_extra ON ' + q(ns.alarm) + '.tenant_alarm_suppression'],
     ['a changed suppression ledger', 'suppression', () => 'INSERT INTO ' + q(ns.alarm) + ".schema_migrations (name,checksum) VALUES ('9999_epoch_synthetic','" + '0'.repeat(64) + "')", () => 'DELETE FROM ' + q(ns.alarm) + ".schema_migrations WHERE name='9999_epoch_synthetic'"]];
-  const snapshot = () => scope.withTenant(A, () => suppression.connection.snapshotTransaction(() => suppression.connection.query('SELECT * FROM '+q(ns.alarm)+'.tenant_alarm_suppression')));
-  const fullChecks = () => suppression.calls.filter(text => text.includes('evaluator-consumer-suppression-role')).length;
-  it('suppression warm snapshots skip structural re-admission', async function () {
-    await snapshot(); const before = fullChecks();
-    await snapshot(); await snapshot();
-    assert.equal(fullChecks(), before);
-  });
   for (const [label, , change, revert] of suppressionCases) {
-    it('suppression fresh backend admission refuses ' + label.replace('the lifetime identity', 'the suppression identity') + ', and admits again after the revert', async function () {
-      await snapshot();
+    it('suppression pre-start refuses ' + label.replace('the lifetime identity', 'the suppression identity') + ', and admits again after the revert', async function () {
+      await preStart('suppression');
       const who = q(l.roles.suppression);
       for (const text of statements(change, who)) await sql(text);
       try {
-        await assert.rejects(freshAdmission('suppression'), error => ['EVALUATOR_CONSUMER_READINESS_REFUSED', 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code || error.message) ||
+        await assert.rejects(preStart('suppression'), error => ['EVALUATOR_CONSUMER_READINESS_REFUSED', 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE', 'LIFECYCLE_WINDOW_ROLE_UNSAFE'].includes(error.code || error.message) ||
           assert.fail('unexpected refusal ' + (error.code || error.message)));
       } finally { for (const text of statements(revert, who)) await sql(text); }
-      await freshAdmission('suppression'); await snapshot();
+      await preStart('suppression');
     });
   }
 
-  it('documents the warm DBA-drift boundary and rejects the same expansion on fresh admission', async function () {
-    await data(A);
-    await sql('GRANT UPDATE ON '+control('tenant_lifecycle_windows')+' TO '+q(l.roles.api));
-    try {
-      assert.equal(await data(A),true,'warm backend has no broad next-transaction catalogue proof');
-      await assert.rejects(freshAdmission('lower'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-    } finally {await sql('REVOKE UPDATE ON '+control('tenant_lifecycle_windows')+' FROM '+q(l.roles.api));}
-    await freshAdmission('lower');
-  });
-  // The census observes a reconnect as a different physical backend.
-  it('re-reads the backend identity after a reconnect to a different backend', async function () {
-    const before = connect.cohortBackends(window).map(row => row.pid);
-    assert.equal(await data(A), true);
-    const pids = (await asBootstrap(client => client.query("SELECT pid FROM pg_stat_activity WHERE usename=$1", [l.roles.api]))).rows.map(row => row.pid);
-    assert.ok(pids.length >= 1);
-    await asBootstrap(client => client.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename=$1', [l.roles.api]));
-    await new Promise(resolve => setTimeout(resolve, 200));
-    for (let i = 0; i < 3; i++) { try { if (await data(A)) break; } catch { /* the terminated client is discarded on its first use */ } }
-    assert.equal(await data(A), true);
-    const after = connect.cohortBackends(window).map(row => row.pid);
-    const fresh = (await asBootstrap(client => client.query("SELECT pid FROM pg_stat_activity WHERE usename=$1", [l.roles.api]))).rows.map(row => row.pid);
-    assert.ok(fresh.some(pid => !before.includes(pid) && after.includes(pid)), 'the new backend is in the census');
-  });
 });

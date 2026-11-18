@@ -1,5 +1,5 @@
 'use strict';
-const assert = require('node:assert/strict'), path = require('node:path'), { Pool } = require('pg');
+const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), { Pool } = require('pg');
 const { create } = require('../lib/diagnostics/m7');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
 const { optInSuite } = require('./support/opt-in');
@@ -51,10 +51,12 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         // controlled lifetime ON/OFF rather than inferring elapsed time from it.
         await new Promise(resolve => setTimeout(resolve, 1100));
         if (enabled) {
-          await f.base.until(async () => { held = captured(f.current.get('api-1')).slice(initialSnapshots).findLast(row => row.gauges['window.outer_bodies'].value > 0 && row.pools.storage.activeSQL === 0 && row.pools.operation.activeSQL === 0); return !!held; }, 'held response diagnostic snapshot');
+          await f.base.until(() => fs.existsSync(f.mark('held', 'api-1')), 'wire response held');
+          assert.equal(responseFinished, false);
+          await f.base.until(async () => { held = captured(f.current.get('api-1')).slice(initialSnapshots).findLast(row => row.pools.storage.activeSQL === 0 && row.pools.operation.activeSQL === 0); return !!held; }, 'held response diagnostic snapshot');
           assert.equal(held.pools.operation.status, 'MEASURED'); assert.equal(held.pools.operation.sqlStatus, 'MEASURED'); assert.equal(held.pools.storage.sqlStatus, 'MEASURED');
           assert(held.durations['window.admission'].count > 0); assert(held.durations['api.authorize'].count > 0);
-          assert.equal(held.gauges['lifetime.critical_active'].value, 0); assert(Buffer.byteLength(JSON.stringify(held)) < 8192);
+          assert(Buffer.byteLength(JSON.stringify(held)) < 8192);
           assert(!JSON.stringify(held).includes(a)); assert(!JSON.stringify(held).includes(A)); assert(!JSON.stringify(held).includes(identifier));
         } else { assert.equal(captured(f.current.get('api-1')).length, 0); }
         const before = await f.restoreState();
@@ -70,7 +72,6 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
       const response = await pending;
       assert.equal(response.error, undefined); assert.equal(response.value.status, 201);
       const denied = await call('api-1', B, 'GET', '/api/v3/entries', a); assert.equal(denied.status, 401);
-      if (enabled) await f.base.until(async () => captured(f.current.get('api-1')).some(row => row.gauges['window.outer_bodies'].value === 0 && row.durations['window.body_response_inclusive'].maxMs >= 900), 'completion duration observed after actual response drain');
       outcomes.push({ storedSGV: stored.sgv, write: response.value.status, B: Bstatus, wrongTenant: denied.status, restore: restored.state });
       if (outcomes.length === 2) assert.deepEqual(outcomes[1], outcomes[0], 'SAME_SOURCE_ON_OFF_RESULTS_AND_RESTORE');
     });

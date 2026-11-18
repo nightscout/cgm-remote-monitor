@@ -11,8 +11,8 @@ require.cache[receiverPath].exports={...receiver,create(options){
   const receive=receiver.create(options);
   return async event=>{try{return await receive(event);}catch(error){if(process.connected)process.send({nativeFailure:failure(error)});throw error;}};
 }};
-const currentOutput = tenant => context.health().closed || running.operationCohort.window.closed ? null
-  : running.operationCohort.window.run(tenant, () => context.last(tenant));
+const currentOutput = tenant => context.health().closed || running.generationScope.closed ? null
+  : running.generationScope.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
   try {
     let value;

@@ -23,7 +23,7 @@ describe('selected lifecycle generation domain source capability',function(){
   const p=helper.profile(), forged={...p,assignment:{owner:()=>0}};
   const f=fixture({intakeProfile:forged,lockRule:'tenant-id-sha256-v1',key:rule.lockKey(A)});
   try {
-   await f.window.run(A,()=>{});await f.window.verifyOperational();
+   await f.window.run(A,()=>{});
    await assert.rejects(f.window.run(C,()=>assert.fail('UNKNOWN_BODY')),{code:'LIFECYCLE_WINDOW_TENANT_UNKNOWN'});
    const admissions=f.log.filter(([sql])=>sql.includes('/* operation-window-snapshot */'));
    assert.deepEqual(admissions.map(([,values])=>values),[[A,rule.lockKey(A)]]);
@@ -40,11 +40,4 @@ describe('selected lifecycle generation domain source capability',function(){
  });
  it('actual operation config loader preserves registry manifest and returns regenerated profile',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lifecycle-domain-config-')),file=path.join(dir,'config.json'),config=require('../lib/server/serve/operation-cohort-config'),p=helper.profile(),value={version:1,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',registry:{namespace:'synthetic_registry'},intakeProfile:copy(p)};try{fs.writeFileSync(file,JSON.stringify(value));const selected=config.load({MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test'});assert.equal(selected.lockRule,'tenant-id-sha256-v1');assert.deepEqual(selected.tenantIds,['registry:synthetic_registry']);assert.equal(selected.intakeProfile.digest,p.digest);assert.throws(()=>selected.intakeProfile.assignment.owner(C));assert(Object.isFrozen(selected.intakeProfile));}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 
-});
-
-
-describe('selected direct readiness control read propagation',()=>{
- it('admits the actual direct client through the window selected catalogue, records its birth and removes it on end',async()=>{
-  const f=require('./fixtures/operation-window-runtime-protocol')({intakeProfile:helper.profile()});try{const rows=await require('../lib/storage/postgres-operation-control')(f.client,f.window);assert(rows.includes('synthetic_window.tenant_lifecycle_windows'));assert.equal(f.window.isAdmittedClient(f.client),true);f.client.emit('end');assert.equal(f.window.isAdmittedClient(f.client),false);}finally{await f.window.close();}
- });
 });

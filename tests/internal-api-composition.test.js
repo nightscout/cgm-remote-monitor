@@ -21,7 +21,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const REQUEST = '00000000-0000-4000-8000-000000000001';
 const TRANSPORT_FILE = require.resolve('../lib/server/internal-api/transport');
-const LIFECYCLE_WIRE_VERSION = String(contracts.lifecycleParticipant.version);
+const HEALTH_WIRE_VERSION = String(contracts.roleHealth.version);
 
 function mutated (mutate) {
   const source = fs.readFileSync(TRANSPORT_FILE, 'utf8'), changed = mutate(source);
@@ -61,22 +61,17 @@ function refused (reply, label) {
   assert.equal(reply.status, 503, label);
   assert.deepEqual(JSON.parse(reply.body), { error: 'SOCKET_IPC_UNAVAILABLE' }, label);
 }
-function status (extra = {}) {
-  return { version: 4, ownership: null, participant: 'api_1', incarnation: REQUEST, namespace: 'synthetic_window', roles: ['api'], tenants: [A, B], namespaces: ['clinical'],
-    identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
-    backends: [{ pid: 123, role: 'synthetic_api', birth: '1700000001.0' }], ...extra };
-}
 // Recording application/lifecycle handlers against the actual checked-in contracts.
 function recordingModules (calls) {
   return [
     { service: contracts.socketAuthority, create: () => ({
       async authorizeSocket (ctx, body) { calls.push(['authorize', body.tenant]); return { denied: true }; },
       async executeSocketMutation (ctx, body) { calls.push(['mutate', body.envelope.tenant]); return { replyArgs: [] }; } }) },
-    { service: contracts.lifecycleParticipant, create: () => ({
-      async getStatus (ctx, body) { calls.push(['status']); return { ...status(), request: body.request }; },
-      async invalidateTenant (ctx, body) { calls.push(['invalidate', body.tenant]); return { ...status(), request: body.request, tenant: body.tenant }; },
-      async getApiHealth (ctx, body) { return {request:body.request,ready:true,storageReady:true}; },
-      async getOperations (ctx, body) { calls.push(['operations', body.tenant]); const current = status(); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }) }
+    { service: contracts.roleHealth, create: () => ({
+      async getStatus (ctx, body) {
+        calls.push(['status']);
+        return { participant: 'api_1', roles: ['api'], ready: true, request: body.request };
+      } }) }
   ];
 }
 const authorizeBody = tenant => ({ host: 'synthetic.example.test', tenant, namespace: '/', credential: {} });
@@ -87,13 +82,12 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
     const e = await endpoint(kind); const calls = []; let listener;
     try {
       listener = await transport.compose(e.options, recordingModules(calls));
-      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /cohort/status', 'POST /cohort/invalidate', 'POST /cohort/operations', 'POST /cohort/api-health']);
+      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /role/health']);
       const authority = transport.client(e.options, contracts.socketAuthority);
-      const lifecycle = transport.client(e.options, contracts.lifecycleParticipant);
+      const lifecycle = transport.client(e.options, contracts.roleHealth);
       assert.deepEqual(await authority.authorizeSocket(authorizeBody(A)), { denied: true });
       assert.equal((await lifecycle.getStatus({ request: REQUEST })).request, REQUEST);
-      assert.equal((await lifecycle.invalidateTenant({ request: REQUEST, tenant: A, incarnation: REQUEST, identity: require('./fixtures/operation-window-admission-protocol').identity })).tenant, A);
-      assert.deepEqual(calls, [['authorize', A], ['status'], ['invalidate', A]]);
+      assert.deepEqual(calls, [['authorize', A], ['status']]);
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });
   it('refuses a request naming a foreign or unregistered service before dispatch', async function () {
@@ -102,26 +96,23 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
       listener = await transport.compose(e.options, recordingModules(calls));
       // Registered elsewhere on this listener, but not the owner of the route.
       // Match the owning route's wire version so only the service fence refuses.
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority', version: LIFECYCLE_WIRE_VERSION }), 'foreign co-resident service');
-      refused(await raw(e.options, '/authorize', authorizeBody(A), { service: 'lifecycle-participant' }), 'foreign co-resident service');
+      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'socket-authority', version: HEALTH_WIRE_VERSION }), 'foreign co-resident service');
+      refused(await raw(e.options, '/authorize', authorizeBody(A), { service: 'role-health' }), 'foreign co-resident service');
       // A real contract not composed here.
       refused(await raw(e.options, '/alarm', { request: REQUEST }, { service: 'alarm-delivery' }), 'unregistered service');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'alarm-delivery', version: LIFECYCLE_WIRE_VERSION }), 'unregistered service');
+      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'alarm-delivery', version: HEALTH_WIRE_VERSION }), 'unregistered service');
       await assert.rejects(transport.client(e.options, contracts.alarmDelivery).deliverAlarm({ tenant: A, id: REQUEST, attempt: 1, notification: {}, receipts: [] }));
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION, method: 'GET' }), 'unregistered method');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '1' }), 'old lifecycle wire version');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '2' }), 'earlier lifecycle identity contract');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '3' }), 'earlier ownership contract');
-      refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: '4' }), 'earlier dynamic placement contract');
+      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION, method: 'GET' }), 'unregistered method');
+      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: '0' }), 'old health wire version');
       assert.deepEqual(calls, [], 'No foreign or unregistered service may invoke a composed handler');
-      assert.equal((await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION })).status, 200);
+      assert.equal((await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION })).status, 200);
       assert.deepEqual(calls, [['status']], 'Positive control reaches the route owner');
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });
   it('refuses a duplicate method/path or duplicate service registration before binding', async function () {
     const e = await endpoint(kind);
     const colliding = { id: 'synthetic-colliding', version: 1, operations: {
-      shadow: { path: '/cohort/status', request: { type: 'object' }, response: { type: 'object' } } } };
+      shadow: { path: '/role/health', request: { type: 'object' }, response: { type: 'object' } } } };
     try {
       for (const [modules, code] of [
         [[...recordingModules([]), { service: colliding, create: () => ({ async shadow () { return {}; } }) }], 'INTERNAL_API_ROUTE_DUPLICATE'],
@@ -134,7 +125,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
           });
         } finally { if (leaked) await leaked.close(); }
         if (kind === 'uds') assert.equal(fs.existsSync(e.options.socketPath), false, 'A refused composition must not publish an endpoint');
-        else await assert.rejects(raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'lifecycle-participant', version: LIFECYCLE_WIRE_VERSION }), { code: 'ECONNREFUSED' });
+        else await assert.rejects(raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION }), { code: 'ECONNREFUSED' });
       }
     } finally { e.cleanup(); }
   });
@@ -163,7 +154,7 @@ describe('Composition registration rules', function () {
   it('control: duplicate-route refusal goes red when the collision check is removed', async function () {
     const broken = mutated(source => source.replace(
       "      if (table.has(route)) registration('INTERNAL_API_ROUTE_DUPLICATE', route + ' (' + table.get(route).service.id + ', ' + service.id + ')');\n", ''));
-    const colliding = { id: 'synthetic-colliding', version: 1, operations: { shadow: { path: '/cohort/status', request: { type: 'object' }, response: { type: 'object' } } } };
+    const colliding = { id: 'synthetic-colliding', version: 1, operations: { shadow: { path: '/role/health', request: { type: 'object' }, response: { type: 'object' } } } };
     async function check (implementation) {
       const e = await endpoint('uds'); let listener;
       try {
@@ -181,7 +172,7 @@ describe('Composition registration rules', function () {
       const e = await endpoint('uds'); const calls = []; let listener;
       try {
         listener = await implementation.compose(e.options, recordingModules(calls));
-        refused(await raw(e.options, '/cohort/status', { request: REQUEST }, { service: 'socket-authority', version: LIFECYCLE_WIRE_VERSION }), 'foreign co-resident service');
+        refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'socket-authority', version: HEALTH_WIRE_VERSION }), 'foreign co-resident service');
         assert.deepEqual(calls, []);
       } finally { if (listener) await listener.close(); e.cleanup(); }
     }
@@ -254,35 +245,11 @@ describe('Per-operation media, byte and deadline bounds', function () {
   });
 });
 
-// Actual operation-cohort lifecycle handlers and actual operation window (over
-// the recording PG protocol) composed with an application contract that runs
-// inside that window.
-function cohortModule () {
-  const file = path.resolve(__dirname, '../lib/server/serve/operation-cohort.js'), output = { exports: {} };
-  const original = Module.createRequire(file);
-  const DATA = { database: 'disposable_test', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.000000' };
-  const invalidated = [];
-  const backends = [{ pid: 101, role: 'synthetic_api', birth: '1700000000.1' }];
-  const overrides = {
-    '../../storage/postgres-connection': { installOperationWindow: () => () => {}, cohortBackends: () => backends, cohortDatastore: () => DATA,
-      cohortSnapshot: async () => ({ datastore: DATA, backends }) },
-    './preview-api': { boot: async () => ({ close: async () => {}, invalidateTenant: async tenant => invalidated.push(tenant) }) }
-  };
-  vm.runInThisContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', { filename: file })(
-    name => Object.hasOwn(overrides, name) ? overrides[name] : original(name), output, output.exports);
-  return { cohorts: output.exports, invalidated };
-}
 async function lifecycleLab (implementation, kind = 'uds') {
   // The fixture reads options.phases on every lifecycle-window query.
   const options = { phases: {} }, f = windowFixture(options);
-  const { cohorts, invalidated } = cohortModule();
+
   const e = await endpoint(kind);
-  const participant = require('../lib/server/serve/operation-cohort-manifest').validate([
-    { id: 'api_1', roles: ['api'], namespaces: ['clinical'], endpoint: e.options },
-    ...['evaluator', 'realtime', 'tenant-admin'].map((role, index) => ({ id: 'peer_' + index, roles: [role], namespaces: ['clinical'],
-      endpoint: { socketPath: '/synthetic/peer_' + index + '.sock', maxBytes: 1000, timeoutMs: 1000 } }))])[0];
-  const cohort = await cohorts.create({ window: f.window, names: ['api'], tenants: [A, B], namespaces: ['clinical'], participant });
-  await cohort.boot('api', { tenantIds: [A, B], namespaces: { clinical: 'clinical' } }); cohort.complete();
   const app = [], held = new Map();
   const listener = await implementation.compose(e.options, [
     { service: contracts.socketAuthority, lifetime: { operationWindow: f.window, resolveTenant: async body => body.tenant || body.envelope.tenant }, create: () => ({
@@ -292,83 +259,41 @@ async function lifecycleLab (implementation, kind = 'uds') {
         return { denied: true };
       },
       async executeSocketMutation () { return { replyArgs: [] }; } }) },
-    { service: contracts.lifecycleParticipant, create: () => cohorts.controlOperations(cohort) }
+    recordingModules([])[1]
   ]);
   const hold = tenant => { let release; const promise = new Promise(resolve => { release = resolve; }); held.set(tenant, { promise }); return () => { held.delete(tenant); release(); }; };
-  return { f, e, app, invalidated, hold,
+  return { f, e, app, hold,
     authority: transport.client(e.options, contracts.socketAuthority),
-    lifecycle: transport.client(e.options, contracts.lifecycleParticipant),
+    lifecycle: transport.client(e.options, contracts.roleHealth),
     suspend: tenant => { options.phases[tenant] = 'suspended'; },
-    async close () { try { await listener.close(); await cohort.close(); } finally { e.cleanup(); } } };
+    async close () { try { await listener.close(); await f.window.close(); } finally { e.cleanup(); } } };
 }
 
-async function suspendedScenario (implementation, kind, { drain = true } = {}) {
-  const lab = await lifecycleLab(implementation, kind);
-  try {
-    assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(A)), { denied: true }, 'A application work admitted while active');
-    lab.suspend(A);
-    // The maintenance controller closes warm process participation through its
-    // pinned census RPC before it can enter the exclusive DATA window. Changing
-    // the SQL row alone is not that protocol barrier.
-    if (drain) {
-      const pinned = await lab.lifecycle.getStatus({ request: REQUEST });
-      let draining;
-      try { draining = await lab.lifecycle.getOperations({ request: REQUEST, tenant: A, incarnation: pinned.incarnation, identity: pinned.identity }); }
-      catch (error) { assert.fail('lifecycle drain of suspended A must stay callable: ' + error.message); }
-      assert.equal(draining.tenant, A, 'the pinned drain applies only to A');
-    }
-    await assert.rejects(lab.authority.authorizeSocket(authorizeBody(A)), /SOCKET_IPC_UNAVAILABLE/, 'A application work must refuse while suspended');
-    assert.deepEqual(lab.app, [['authorize', A]], 'Suspended A application handler must not run');
-    assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(B)), { denied: true }, 'B keeps progressing while A is suspended');
-    const current = await lab.lifecycle.getStatus({ request: REQUEST });
-    assert.equal(current.request, REQUEST, 'lifecycle status must stay callable while A is suspended');
-    let reply;
-    try { reply = await lab.lifecycle.invalidateTenant({ request: REQUEST, tenant: A, incarnation: current.incarnation, identity: current.identity }); }
-    catch (error) { assert.fail('lifecycle invalidation of suspended A must stay callable: ' + error.message); }
-    assert.equal(reply.tenant, A);
-    assert.deepEqual(lab.invalidated, [A], 'Only A was invalidated');
-    assert.deepEqual(lab.app, [['authorize', A], ['authorize', B]]);
-  } finally { await lab.close(); }
-}
-
-describe('Per-module lifetime on a composed listener', function () {
+describe('Per-module generation scope on a composed listener', function () {
   this.timeout(10000);
   for (const kind of ['uds', 'http']) {
-    it('keeps lifecycle status/invalidation callable for suspended A while A application work refuses and B progresses over ' + kind,
-      () => suspendedScenario(transport, kind));
+    it('keeps role health and B callable while suspended A refuses over ' + kind, async function () {
+      const lab = await lifecycleLab(transport, kind);
+      try {
+        assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(A)), { denied: true });
+        lab.suspend(A);
+        await assert.rejects(lab.authority.authorizeSocket(authorizeBody(A)), /SOCKET_IPC_UNAVAILABLE/);
+        assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(B)), { denied: true });
+        assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).request, REQUEST);
+        assert.deepEqual(lab.app, [['authorize', A], ['authorize', B]]);
+      } finally { await lab.close(); }
+    });
   }
-  it('drains a held A application response before the window closes, while lifecycle status stays callable', async function () {
+  it('serves role health during a held tenant response', async function () {
     const lab = await lifecycleLab(transport);
+    const release = lab.hold(A);
     try {
-      const release = lab.hold(A);
       const pending = lab.authority.authorizeSocket(authorizeBody(A));
       while (!lab.app.length) await new Promise(resolve => setImmediate(resolve));
-      assert.equal(lab.f.pending.size, 0, 'the held response has no durable restore marker');
-      assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).request, REQUEST, 'lifecycle status during a held A response');
-      let drained = false; const closing = lab.f.window.close().then(() => { drained = true; });
-      await new Promise(resolve => setTimeout(resolve, 50));
-      assert.equal(drained, false, 'window drain must wait for the held application response');
+      assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).ready, true);
       release();
       assert.deepEqual(await pending, { denied: true });
-      await closing;
-      assert.equal(drained, true); assert.equal(lab.f.pending.size, 0);
-    } finally { await lab.close(); }
-  });
-  it('refuses suspended application work with the lifecycle control drain omitted', async function () {
-    await suspendedScenario(transport, 'uds', { drain: false });
-  });
-  it('control: a blanket listener-wide window mutant fails the lifecycle invalidation assertion', async function () {
-    const broken = mutated(source => source
-      .replace('  const table = routeTable(modules, { maxBytes, timeoutMs });\n',
-        '  const table = routeTable(modules, { maxBytes, timeoutMs });\n  const blanket = [...table.values()].find(entry => entry.lifetime)?.lifetime;\n')
-      .replace('      if (route.lifetime) await route.lifetime.operationWindow.run(await route.lifetime.resolveTenant(body)',
-        "      const lifetime = route.lifetime || (typeof body.tenant === 'string' ? blanket : null);\n      if (lifetime) await lifetime.operationWindow.run(await lifetime.resolveTenant(body)"));
-    await assert.rejects(suspendedScenario(broken, 'uds'), error => {
-      assert.equal(error.code, 'ERR_ASSERTION');
-      assert.match(error.message, /^lifecycle drain of suspended A must stay callable: SOCKET_IPC_UNAVAILABLE$/);
-      return true;
-    });
-    await suspendedScenario(transport, 'uds');
+    } finally { release(); await lab.close(); }
   });
 });
 

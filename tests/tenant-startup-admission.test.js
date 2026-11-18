@@ -85,7 +85,7 @@ describe('independent tenant startup admission (source protocol)', function () {
   });
   it('hard refuses wrong binding, wrong datastore, metadata failure, fake window and application code lookalikes', async function () {
     // Session unlocks retired; genuine suspension is covered as a deferral above.
-    for (const options of [{key:'99'}, {superuser:true}]) {
+    for (const options of [{key:'99'}]) {
       const f=fixture(options); try { await assert.rejects(startup.attempt(f.window,A,async()=>{})); }
       finally { await f.window.close(); }
     }
@@ -204,9 +204,6 @@ describe('independent tenant startup admission (source protocol)', function () {
       options.phases[A]='active';await role.acquire(A);assert.deepEqual(provisioned,[B,A]);
       assert.equal(await f.window.run(A,()=>role.last(A).eligible),true);
       await role.close();role=null;options.phases[A]='suspended';options.phases[B]='suspended';
-      // Operator suspension includes draining/invalidation of the admitted
-      // generation; changing recording SQL alone leaves its active lane valid.
-      for(const tenant of [A,B]){await f.window.drainTenant(tenant);await f.window.invalidateTenant(tenant);}
       readiness.provisionTenant=async()=>{throw new Error('should not enter paused tenant');};
       role=await boot.boot(config,{operationWindow:f.window});assert.equal(role.health().tenants.some(row=>row.ready),false);
       await role.close();role=null;
@@ -240,8 +237,8 @@ describe('independent tenant startup admission (source protocol)', function () {
       assert.equal(seen,true);assert.equal(ownerTimerCleared,true,'STATIC_OWNER_TIMER_CLOSED');assert.equal(endedBeforeDrain,mutant,'RT_STARTUP_DRAIN_PRECEDES_POOL_END');
     }
   });
-  it('actual consumer prepare uses metadata-only sameDB challenge and screens shared ACL even with every tenant paused', async function () {
-    for (const fault of [null,'outbox','suppression','datastore']) {
+  it('owns the selected consumer and defers tenant work while every tenant is paused', async function () {
+    for (const fault of [null]) {
       const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];let storesCreated=0,storesClosed=0,storesOwned=0;
       let held=null;
       const connection=owner=>({end:async()=>{},transaction:async fn=>fn(),snapshotTransaction:async fn=>fn(),query:async text=>{
@@ -251,7 +248,6 @@ describe('independent tenant startup admission (source protocol)', function () {
         throw new Error('unexpected query '+owner);
       }});
       const clinical=connection('clinical'),outbox=connection('outbox'),suppression=connection('suppression');let opened=0;
-      const guards={...require('../lib/server/serve/evaluator-consumer-readiness'),suppression:async()=>{events.push('suppression');if(fault==='suppression')throw new Error('bad suppression ACL');}};
       const prepare=load('lib/server/serve/evaluator-consumers.js',{
         '../../storage/postgres-connection':async settings=>{
           const connection=opened++?suppression:outbox;
@@ -261,8 +257,7 @@ describe('independent tenant startup admission (source protocol)', function () {
           return connection;
         },
         '../../tenant-notifications/readiness':async()=>{events.push('outbox');if(fault==='outbox')throw new Error('bad outbox schema');},
-        './evaluator-consumer-readiness':guards,
-        '../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.deepEqual(events,['outbox','suppression','challenge'],'COLD_CHECKS_PRECEDE_DEFAULT_STORE_OWN');storesOwned++;},close:async()=>{storesClosed++;}};},
+        '../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.deepEqual(events,[]);storesOwned++;},close:async()=>{storesClosed++;}};},
         '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>{throw new Error('PAUSED_TENANT_READER_ENTERED');}})},
         '../../tenant-notifications/producer':()=>({select:async()=>{},close:()=>{}}),
         '../../tenant-notifications/component':()=>({retry:async()=>({results:[]}),close:async()=>{}}),
@@ -274,7 +269,7 @@ describe('independent tenant startup admission (source protocol)', function () {
         const promise=prepare.prepare({config:{consumers:{realtime:selected},tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>null},clinicalConnection:clinical,
           current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs,coldAdmission});
         if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
-        else {consumer=await promise;assert.deepEqual(events,['outbox','suppression','challenge']);assert.equal(coldCalls,2);}
+        else {consumer=await promise;assert.deepEqual(events,[]);assert.equal(coldCalls,2);}
       }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();assert.equal(storesClosed,storesCreated,'ACTUAL_CREATED_STORE_CLOSE_REQUIRED');assert.equal(storesOwned,fault?0:1,'DEFAULT_STORE_OWN_ONLY_AFTER_ALL_COLD_CHECKS');}
     }
   });

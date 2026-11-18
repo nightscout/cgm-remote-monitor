@@ -65,36 +65,14 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       console.log('SHARD_RAW_STORAGE_PROOF '+JSON.stringify({oldPublicIdentity:old.doc.identifier,foodPublicIdentity:meal.doc.identifier,transports:clients.map(c=>c.transport),freshCountsAfterExpiry:fresh.map(c=>c.events.length),expiry:{stamp,before:entering,after},foreignEvents:foreign.events.length,pauseFenced:true}));
     } finally {for(const socket of sockets)socket.close();for(const agent of agents)agent.destroy();await f.cleanup();}
   });
-  it('SHARD_REGISTRY_STATUS: actual unsharded registry API lifecycle status preserves its one exact registry cohort label', async function () {
-    const f = require('./fixtures/realtime-sharding-native')();
+  it('SHARD_REGISTRY_STATUS: the selected registry API reports its own readiness',async function(){
+    const f=require('./fixtures/realtime-sharding-native')();
     try {
-      await f.setup({ operation: true, apiOnly: true });
-      const request = randomUUID(), status = await require('../lib/server/internal-api/clients').lifecycleParticipant(f.apiInternal).getStatus({request});
-      assert.equal(status.request,request); assert.equal(status.version,4); assert.equal(status.ownership,null);
-      assert.deepEqual(status.tenants,['registry:'+f.lab.namespaces.registry]); assert.equal(status.participant,'api');
-      assert.ok(status.backends.length>0,'actual API backend census accompanies legitimate registry status');
+      await f.setup({operation:true,apiOnly:true});
+      const request=randomUUID();
+      const reply=await require('../lib/server/internal-api/clients').roleHealth(f.apiInternal).getStatus({request});
+      assert.deepEqual(reply,{request,participant:'api',roles:['api'],ready:true});
     } finally { await f.cleanup(); }
-  });
-  it('SHARD_ACTUAL_CENSUS: real API and two realtime cohort producers include held ownership backends; missing worker and unknown clinical actor refuse', async function () {
-    const f=require('./fixtures/realtime-sharding-native')();let remote,pin,unknown;
-    const cohorts=require('../lib/server/serve/operation-cohort');
-    try {
-      const {ns}=await f.setup({operation:'sharded'});await f.closeProvisioner();
-      const participants=require('../lib/server/serve/operation-cohort-manifest').validate(f.cohortParticipants),A=f.tenants[0];
-      remote=await cohorts.createRemote({namespace:f.lab.namespaces.control,tenants:['registry:'+f.lab.namespaces.registry],participants});
-      pin=await cohorts.pin(remote,A,{client:f.lab.admin});
-      const census=await cohorts.assertComplete(remote,A,{client:f.lab.admin});assert.ok(census.backends>2);
-      const owners=(await f.lab.admin.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND application_name='nightscout-realtime-owner'",[f.lab.roles.realtime])).rows.map(row=>row.pid);
-      assert.equal(owners.length,2);
-      const states=await Promise.all(participants.filter(peer=>peer.roles.includes('realtime')).map(peer=>require('../lib/server/internal-api/clients').lifecycleParticipant(peer.endpoint).getStatus({request:randomUUID()})));
-      const known=new Set(states.flatMap(state=>state.backends.map(row=>row.pid)));assert.ok(owners.every(pid=>known.has(pid)),'SHARD_ACTUAL_CENSUS actual held resource backends observed, not inferred from labels');
-      await assert.rejects(cohorts.createRemote({namespace:f.lab.namespaces.control,tenants:['registry:'+f.lab.namespaces.registry],participants:participants.filter(peer=>peer.slice?.ordinal!==0)}),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
-      unknown=new Client({connectionString:f.evaluator.url});await unknown.connect();
-      const capability=(await unknown.query("SELECT has_schema_privilege(current_user,$1,'USAGE') AS usage,has_table_privilege(current_user,$2,'SELECT') AS clinical",[ns.entries,ns.entries+'.entries'])).rows[0];
-      assert.deepEqual(capability,{usage:true,clinical:true},'SHARD_UNKNOWN_BACKEND_IS_ACTUAL_CLINICAL_READER');
-      await assert.rejects(cohorts.assertComplete(remote,A,{client:f.lab.admin}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
-      await unknown.end();unknown=null;await cohorts.assertComplete(remote,A,{client:f.lab.admin});
-    }finally{await unknown?.end().catch(()=>{});if(pin)await cohorts.releasePin(pin);await remote?.close();await f.cleanup();}
   });
   it('SHARD_ALL_PAUSED: real owners boot and inspect honestly without projection work; one resumed tenant warms while the other stays quiet', async function () {
     const f=require('./fixtures/realtime-sharding-native')();let socket,agent;
@@ -164,9 +142,10 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       await f.until(async()=>BigInt((await checkpoints())[0]?.checkpoint||'0')>0n,'durable output acknowledgement');const before=await checkpoints();assert.equal(before.length,1);
       const baseline=await f.request(A,'GET','/api/v3/entries');assert.equal(baseline.status,200);const removed=baseline.body.result[0].identifier;
       const old=f.workers.get('a'),oldFrameCount=a.frames.length,oldStorageAcks=storage.acks.length,oldAlarmAcks=alarmA.acks.length,stoppedAt=Date.now();
-      const status=await require('../lib/server/internal-api/clients').lifecycleParticipant({socketPath:f.map.workers[0].address.socket,maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});
-      const owners=(await f.lab.admin.query("SELECT pid FROM pg_stat_activity WHERE usename=$1 AND application_name='nightscout-realtime-owner'",[f.lab.roles.realtime])).rows;
-      const ownerPid=owners.find(row=>status.backends.some(backend=>backend.pid===row.pid))?.pid;assert(ownerPid,'STATIC_ACTUAL_OWNER_BACKEND_IDENTIFIED');
+      const {owner}=require('../lib/realtime-ownership/owner').keys('realtime-sharding-native',{count:2,ordinal:0});
+      const owners=(await f.lab.admin.query("SELECT l.pid FROM pg_locks l JOIN pg_stat_activity a USING(pid) WHERE a.datname=current_database() AND a.usename=$2 AND l.locktype='advisory' AND l.objsubid=1 AND l.granted AND l.mode='ExclusiveLock' AND l.classid=($1::bigint>>32 & 4294967295)::oid AND l.objid=($1::bigint & 4294967295)::oid",[owner,f.lab.roles.realtime])).rows;
+      assert.equal(owners.length,1,'STATIC_ACTUAL_OWNER_BACKEND_IDENTIFIED');
+      const ownerPid=owners[0].pid;
       await f.lab.admin.query('SELECT pg_terminate_backend($1)',[ownerPid]);await f.until(()=>old.exit,'actual lost owner process exits for platform replacement');assert.equal(old.exit.code,1);await f.stop(old);
       await f.until(()=>!a.socket.connected&&!storage.socket.connected,'old transports closed');
       await assert.rejects(alarm(adapter,A,'synthetic while absent'),/REALTIME_HANDOFF_UNAVAILABLE/);assert.equal(alarmA.alarms.length,1);

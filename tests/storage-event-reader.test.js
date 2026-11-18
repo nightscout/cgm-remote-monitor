@@ -110,7 +110,7 @@ describe('addressed raw journal reader and current-worker fence',()=>{
     await protocol.storage({tenant:A,tail:retained});
     assert.equal(socket.sent[0].event,'create');assert.equal(socket.sent[0].value.doc.identifier,'public-scope-row');
     options.phase='suspended';options.generation=String(Number(options.generation)+1);
-    await f.window.drainTenant(A);await f.window.invalidateTenant(A);options.phase='active';
+    options.phase='active';
     await assert.rejects(protocol.storage({tenant:A,tail:retained}),/STORAGE_EVENT_RESTORE_CHANGED/,'PUBLICATION_MUST_REJECT_CHANGED_RESTORE_GENERATION');
     assert.equal(socket.sent.length,1,'STALE_GENERATION_MUST_NOT_SEND');
    }finally{protocol.close();}

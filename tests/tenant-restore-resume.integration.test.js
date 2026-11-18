@@ -1,8 +1,6 @@
 'use strict';
 // Native lab for decision restore-resume-and-precheck: real PostgreSQL row
-// security and advisory locks, two actual API CLI processes with real operation
-// windows, the real restore controller and the real resume module. Evaluator,
-// realtime and tenant-admin are synthetic lifecycle-only peers, and the
+// security and advisory locks, two API CLI processes, the restore controller and the resume module. The
 // "replaced rows" are rows in a probe table the restore transaction writes, so
 // this is the control protocol, not a full artifact restore.
 // covers: lib/tenant-lifecycle/restore-resume.js
@@ -11,7 +9,6 @@ const { randomUUID } = require('node:crypto');
 const { Pool } = require('pg');
 const { optInSuite } = require('./support/opt-in');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
-const cohorts = require('../lib/server/serve/operation-cohort');
 const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
 const recovery = require('../lib/tenant-lifecycle/restore-resume');
 const entry = identifier => ({ identifier, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-resume', sgv: 125 });
@@ -24,13 +21,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     let a, b, observer, sequence = 0;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(f.current.get(id), tenant, method, path, token, body, headers);
     const operatorPool = () => { const pool = new Pool({ connectionString: f.operatorPool.options.connectionString, max: 1 }); pool.on('error', () => {}); pools.push(pool); return pool; };
-    // Every admin session is a superuser backend the cohort census refuses, so
-    // wait until it has left the server's session list before the next operator call.
-    async function admin (fn) {
-      const value = await f.withAdmin(fn);
-      await f.base.until(async () => (await observer.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename='operator' AND backend_type='client backend'")).rows[0].n === 0, 'admin session gone');
-      return value;
-    }
+    const admin = f.withAdmin;
     const state = () => admin(async client => ({
       window: (await client.query('SELECT phase,generation::text,claim_id FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [A])).rows[0],
       audit: (await client.query('SELECT claim_id,state FROM preview_control.tenant_lifecycle_restore_audit WHERE tenant_id=$1 ORDER BY started_at DESC LIMIT 1', [A])).rows[0],
@@ -39,14 +30,13 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       unfinished: (await client.query('SELECT operation_id,owner_pid FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND finished=false ORDER BY operation_id', [A])).rows,
       cleared: (await client.query('SELECT operation_id FROM preview_control.tenant_lifecycle_operation_clearance WHERE tenant_id=$1 ORDER BY operation_id', [A])).rows.map(row => row.operation_id)
     }));
-    // One fresh cohort (every participant answers now) and one operator pool per operation.
+    // The operator uses its own backend for each operation.
     async function operator (fn, { controller = maintenance, drainTimeoutMs = 300 } = {}) {
-      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants });
       const pool = operatorPool();
-      const restore = controller.create({ namespace: f.namespace, locks: f.locks, pool, cohort, drainTimeoutMs });
-      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool, cohort });
+      const restore = controller.create({ namespace: f.namespace, locks: f.locks, pool, drainTimeoutMs });
+      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool });
       try { return await fn({ restore, resume }); }
-      finally { await restore.close(); await resume.close(); await cohort.close(); await pool.end(); }
+      finally { await restore.close(); await resume.close(); await pool.end(); }
     }
     const bWrites = async stage => {
       const identifier = 'resume-b-' + stage + '-' + (++sequence);
@@ -96,18 +86,6 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
             context.connection.afterCommit(async () => { await observer.query('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename=current_user AND pid<>pg_backend_pid()'); });
           }));
         } },
-      { name: 'a cohort role is killed during the restore', audit: 'suspended', interrupted: 'before-data', replaced: false, roleDown: true,
-        async interrupt (restore) {
-          await assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async context => {
-            await probe('role-killed')(context); await f.base.kill(f.current.get('api-2')); f.current.delete('api-2');
-          }));
-        } },
-      { name: 'a cohort role loses the acknowledgement after the data commit', audit: 'restored', interrupted: 'data-replaced', replaced: 'ack-lost',
-        async interrupt (restore) {
-          fs.writeFileSync(f.mark('drop-invalidation', 'api-2'), '1', { mode: 0o600 });
-          await assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, probe('ack-lost')));
-          assert(fs.existsSync(f.mark('lost-invalidation', 'api-2')), 'the role completed its handler and the reply was lost');
-        } }
     ];
     for (const kind of kinds) it('resume reopens A after: ' + kind.name, async function () {
       const before = await state();
@@ -119,13 +97,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert(refused >= 400, 'A is refused while closed'); await bWrites('while-closed');
       // What J offered: a second restore refuses, and the tenant stays closed.
       const again = operator(({ restore }) => assert.rejects(restore.withRestore(A, { artifactDigest: DIGEST }, async () => assert.fail('must not run')), { code: 'LIFECYCLE_RESTORE_ALREADY_SUSPENDED' }));
-      if (kind.roleDown) {
-        // Fresh acknowledgement from every role: with api-2 down no cohort can be formed.
-        await assert.rejects(again, /^Error: SOCKET_IPC_UNAVAILABLE$/);
-        await assert.rejects(operator(({ resume }) => resume.resume(A, { claimId: closed.window.claim_id })), /^Error: SOCKET_IPC_UNAVAILABLE$/);
-        assert.equal((await state()).window.phase, 'suspended', 'RESUME_REQUIRES_EVERY_ROLE');
-        await f.start('api-2', { readinessTenant: B });
-      } else await again;
+      await again;
       const seen = await operator(({ resume }) => resume.inspect(A));
       assert.equal(seen.interrupted, kind.interrupted); assert.equal(seen.claimId, closed.window.claim_id); assert.deepEqual(seen.reasons, []);
       const result = await operator(({ resume }) => resume.resume(A, { claimId: seen.claimId }));
@@ -143,16 +115,15 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     it('refuses a resume while the restore that holds A is still running, and a mislabelled resume record', async function () {
       let release; const gate = new Promise(resolve => { release = resolve; });
       let entered; const inside = new Promise(resolve => { entered = resolve; });
-      const cohort = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants });
-      const pool = operatorPool(), restore = maintenance.create({ namespace: f.namespace, locks: f.locks, pool, cohort, drainTimeoutMs: 300 });
+      const pool = operatorPool(), restore = maintenance.create({ namespace: f.namespace, locks: f.locks, pool, drainTimeoutMs: 300 });
       const running = restore.withRestore(A, { artifactDigest: DIGEST }, async context => { await probe('running')(context); entered(); await gate; });
       try {
         await inside;
         const claim = (await state()).window.claim_id;
-        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool: other, cohort: await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: f.participants }) });
+        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool: other });
         assert.deepEqual((await resume.inspect(A)).reasons, ['LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT']);
-        // The pin belongs to the running restore: a second operator cannot take it over.
-        await assert.rejects(resume.resume(A, { claimId: claim }), error => ['LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT', 'RESTORE_COHORT_UNKNOWN_BACKEND'].includes(error.code));
+        // The original restore backend is still alive.
+        await assert.rejects(resume.resume(A, { claimId: claim }), { code: 'LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT' });
         // Row policy of migration 0009, on the database itself: the operator role
         // cannot record a resume whose label contradicts the audit state.
         const client = await observer.connect();
@@ -164,13 +135,13 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
         assert.equal((await state()).window.phase, 'suspended');
       } finally { release(); }
       assert.equal((await running).state, 'activated', 'the running restore completes on its own');
-      await restore.close(); await cohort.close();
+      await restore.close();
       assert.equal((await state()).window.phase, 'active');
     });
 
-    it('retains legacy clearance evidence independently of restore admission', async function () {
+    it('reports historical operation markers independently of restore admission', async function () {
       // Create an old-format marker through its real narrow owner; release that
-      // backend so inspect and explicit clearance can report its known outcome.
+      // backend so inspect and the audit can report its known outcome.
       const operation = randomUUID();
       const legacy = new Pool({ connectionString: f.lifetimeConnectionString, max: 1 });
       const owner = await legacy.connect();
@@ -183,7 +154,6 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       const result = await operator(({ restore }) => restore.withRestore(A, { artifactDigest: DIGEST }, probe('legacy-marker')));
       assert.equal(result.state, 'activated');
       assert.deepEqual((await operator(({ resume }) => resume.inspect(A))).operations, { unfinished: 1, ownerGone: 1 });
-      assert.deepEqual(await operator(({ resume }) => resume.clearOperations(A)), { tenant: A, cleared: [operation], retained: [] });
       assert((await state()).unfinished.some(row => row.operation_id === operation));
       await bWrites('after-clearance');
     });

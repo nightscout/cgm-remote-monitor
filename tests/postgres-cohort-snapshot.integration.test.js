@@ -65,12 +65,11 @@ done
 }
 
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-function latch(){let resolve;const promise=new Promise(done=>{resolve=done;});return {promise,resolve};}
-optInSuite(process.env.NS_COHORT_SNAPSHOT_DOCKER_TEST==='1','NS_COHORT_SNAPSHOT_DOCKER_TEST=1')('native cohort constructor admission cuts',function(){
+optInSuite(process.env.NS_COHORT_SNAPSHOT_DOCKER_TEST==='1','NS_COHORT_SNAPSHOT_DOCKER_TEST=1')('native generation datastore and pre-start role admission',function(){
  this.timeout(60000);
  const container='ns-cohort-snapshot-'+crypto.randomBytes(6).toString('hex'),namespace='snapshot_control';
  const custody=fixtureCustody(container,IMAGE,'cohort-constructor','cohort');
- let adminURI,lowerURI,lifetimeURI,pool,window,releaseWindow,baseline,original;
+ let adminURI,lowerURI,lifetimeURI,pool,window,releaseWindow;
  const stores=[],q=name=>'"'+name+'"';
  async function open(name='snapshot-native-normal',connectionString=lowerURI){const store=await connect({connectionString,application_name:name,max:1});stores.push(store);return store;}
  before(async function(){
@@ -98,38 +97,25 @@ optInSuite(process.env.NS_COHORT_SNAPSHOT_DOCKER_TEST==='1','NS_COHORT_SNAPSHOT_
    await admin.query('GRANT INSERT(tenant_id,operation_id,generation),UPDATE(finished) ON '+q(namespace)+'.tenant_lifecycle_operations TO snapshot_lifetime');
    await admin.query('GRANT EXECUTE ON FUNCTION '+q(namespace)+'.tenant_lifecycle_backend_birth() TO snapshot_lifetime');
   }finally{await admin.end();}
-  pool=new Pool({connectionString:lifetimeURI,max:2});window=require('../lib/tenant-lifecycle/operation-window').create({namespace,lockRule:'tenant-id-sha256-v1',pool});await window.ready();releaseWindow=connect.installOperationWindow(window);baseline=await open();original=Pool.prototype.connect;
+  pool=new Pool({connectionString:lifetimeURI,max:2});window=require('../lib/tenant-lifecycle/operation-window').create({namespace,lockRule:'tenant-id-sha256-v1',pool});await window.ready();releaseWindow=connect.installOperationWindow(window);await open();
  });
  after(async function(){
-  try{if(original)Pool.prototype.connect=original;
+  try{
    try{for(const store of stores.reverse())await store.end();}finally{releaseWindow?.();await window?.close();await pool?.end();}
   }finally{await custody.close();}
  });
- it('waits for every captured real backend while a continuous B-like constructor stream remains independent',async function(){
-  const entered=latch(),gate=latch(),opening=[];let candidate,timer;
-  Pool.prototype.connect=async function(...args){const client=await original.apply(this,args);if(this.options.application_name==='snapshot-native-held'){entered.resolve();await gate.promise;}else if(this.options.application_name==='snapshot-native-stream')await delay(30);return client;};
-  try{
-   candidate=open('snapshot-native-held');await entered.promise;const snapshot=connect.cohortSnapshot(window);
-   timer=setInterval(()=>opening.push(open('snapshot-native-stream')),3);await delay(15);gate.resolve();await candidate;
-   const result=await snapshot;assert.deepEqual(result.datastore,window.datastore);assert.equal(result.backends.length,2,'both actual backends captured before stream starts');assert(opening.length>0);
-   assert.throws(()=>connect.cohortDatastore(window),/datastore unavailable/,'later pending resources are still fail-closed');
-  }finally{clearInterval(timer);gate.resolve();Pool.prototype.connect=original;await candidate;await Promise.all(opening);}
- });
- it('keeps an unadmitted physical backend refused at a bounded timeout',async function(){
-  const entered=latch(),gate=latch();let candidate;
-  Pool.prototype.connect=async function(...args){const client=await original.apply(this,args);if(this.options.application_name==='snapshot-native-timeout'){entered.resolve();await gate.promise;}return client;};
-  try{candidate=open('snapshot-native-timeout');await entered.promise;await assert.rejects(connect.cohortSnapshot(window,{timeoutMs:20}),{code:'POSTGRES_COHORT_INITIALIZATION_TIMEOUT'});assert.throws(()=>connect.cohortDatastore(window),/datastore unavailable/);}
-  finally{gate.resolve();Pool.prototype.connect=original;await candidate;}
- });
- it('refuses a native elevated role and a foreign database before either backend enters the cohort',async function(){
-  // Cold structural admission now rejects before the later generic role check
-  // or cohort capture. The other database has no admitted control schema.
-  await assert.rejects(open('snapshot-native-superuser',adminURI),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+ it('refuses a native elevated role and a foreign database during role connection startup',async function(){
+  await assert.rejects(open('snapshot-native-superuser',adminURI), /NOSUPERUSER NOBYPASSRLS/);
   const url=new URL(lowerURI);url.pathname='/postgres';
-  await assert.rejects(open('snapshot-native-wrong-database',url.toString()),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-  assert.deepEqual((await connect.cohortSnapshot(window)).datastore,window.datastore);
+  await assert.rejects(open('snapshot-native-wrong-database',url.toString()),{code:'POSTGRES_GENERATION_DATASTORE_MISMATCH'});
  });
- it('admits only the reader control SELECT surface, refuses a revoked read, and restores cold admission',async function(){
+ it('admits only the reader control SELECT surface, refuses a revoked read, and restores pre-start admission',async function(){
+  const verified=await require('../lib/server/serve/platform-verification-lifecycle').inspect({namespace,poolOptions:{connectionString:lifetimeURI}});
+  async function verifyReader() {
+   const reader=new Client({connectionString:lowerURI});await reader.connect();
+   try { return await verified.controlReads(reader); } finally {await reader.end();}
+  }
+  assert((await verifyReader()).includes(namespace+'.tenant_lifecycle_windows'));
   const reader=new Client({connectionString:lowerURI});await reader.connect();
   try{
    const row=(await reader.query("SELECT has_schema_privilege(current_user,$1,'USAGE') AS uses_schema,has_table_privilege(current_user,$2,'SELECT') AS reads,has_table_privilege(current_user,$3,'INSERT,UPDATE,DELETE') OR has_any_column_privilege(current_user,$3,'INSERT,UPDATE,REFERENCES') AS writes,pg_has_role(current_user,'snapshot_owner','MEMBER') AS owns",[namespace,namespace+'.schema_migrations',namespace+'.tenant_lifecycle_operations'])).rows[0];
@@ -138,9 +124,8 @@ optInSuite(process.env.NS_COHORT_SNAPSHOT_DOCKER_TEST==='1','NS_COHORT_SNAPSHOT_
   const admin=new Client({connectionString:adminURI});await admin.connect();
   try{
    await admin.query('REVOKE SELECT ON '+q(namespace)+'.schema_migrations FROM snapshot_reader');
-   await assert.rejects(open('snapshot-native-revoked-read'),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+   await assert.rejects(verifyReader(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
   }finally{try{await admin.query('GRANT SELECT ON '+q(namespace)+'.schema_migrations TO snapshot_reader');}finally{await admin.end();}}
-  const restored=await open('snapshot-native-restored-read');await restored.end();
-  assert.deepEqual((await connect.cohortSnapshot(window)).datastore,window.datastore);
+  assert((await verifyReader()).includes(namespace+'.tenant_lifecycle_windows'));
  });
 });

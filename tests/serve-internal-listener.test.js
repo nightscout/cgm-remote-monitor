@@ -108,7 +108,7 @@ describe('serve.internal: one private listener per role process', function () {
   });
   it('plans contracts from role code only, refusing a contract on a role that does not own it', function () {
     const participant = { roles: ['evaluator'], endpoint: { socketPath: '/srv/e.sock', maxBytes: 1000, timeoutMs: 1000 } };
-    assert.deepEqual(internalListener.plan(['evaluator'], { participant }).map(row => row.id), ['lifecycle-participant']);
+    assert.deepEqual(internalListener.plan(['evaluator'], { participant }).map(row => row.id), ['role-health']);
     assert.deepEqual(internalListener.plan(['evaluator'], {}), []);
     // The evaluator's inspection read follows its own parsed settings (evaluator-config inspectionFor).
     assert.deepEqual(internalListener.plan(['evaluator'], { evaluatorPreview: { inspection: true } }).map(row => row.id), ['evaluator-inspection','evaluator-readiness-witness']);

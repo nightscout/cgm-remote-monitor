@@ -1,5 +1,5 @@
 'use strict';
-// covers: lib/server/serve/datastore-recovery.js, lib/tenant-lifecycle/operation-window.js, lib/tenant-lifecycle/lifetime-sessions.js, lib/server/serve/operation-cohort.js, lib/server/serve/tenant-startup.js
+// covers: lib/server/serve/datastore-recovery.js, lib/server/serve/datastore-probe.js, lib/server/serve/tenant-startup.js
 // Source protocol and break-it controls for decision datastore-loss-recover-in-place.
 // Recording clients only: tests/datastore-recovery.integration.test.js holds the PostgreSQL evidence.
 const assert = require('node:assert/strict');
@@ -7,11 +7,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
-const fixture = require('./fixtures/operation-window-runtime-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
-const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
-const RESTARTED = { postmaster_birth: '1700000999.000000' };
 
 function load (relative, overrides = {}, mutate) {
   const file = path.resolve(__dirname, relative), output = { exports: {} };
@@ -23,210 +20,126 @@ function load (relative, overrides = {}, mutate) {
     name => Object.hasOwn(overrides, name) ? overrides[name] : original(name), output, output.exports);
   return output.exports;
 }
-const WINDOW = '../lib/tenant-lifecycle/operation-window.js', SUPERVISOR = '../lib/server/serve/datastore-recovery.js';
+const SUPERVISOR = '../lib/server/serve/datastore-recovery.js';
 
 describe('Datastore recovery in place: source protocol and controls (not PostgreSQL evidence)', function () {
-  describe('operation window', function () {
-    async function restartedWindow (create) {
-      const options = {}, f = fixture(options, create);
-      assert.equal(await f.window.run(A, () => 1), 1);
-      await f.window.probe();
-      const before = f.window.datastore;
-      options.datastore = RESTARTED;
-      // Physical restart normally emits error/end. This recording double instead
-      // exposes the changed postmaster through the operational health probe.
-      await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
-      return { f, options, before };
-    }
-    it('withdraws process admission after a health probe observes the changed postmaster, until recovery', async function () {
-      const { f, before } = await restartedWindow();
-      for (let attempt = 0; attempt < 3; attempt++) {
-        await assert.rejects(f.window.run(A, () => assert.fail('body ran on an unadmitted datastore')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
-        await assert.rejects(f.window.probe(), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+  describe('plain role connection probe', function () {
+    function fixture (mutate) {
+      const observed = { database: 'test', database_oid: '16384', server_address: '127.0.0.1/32', server_port: 5432, postmaster_birth: '100' };
+      const state = { cluster: '7100000000000000001' };
+      class Driver extends EventEmitter {
+        async connect () {}
+        async end () {}
+        async query (sql) { return { rows: [sql.includes('pg_control_system') ? { cluster: state.cluster } : { ...observed }] }; }
       }
-      assert.deepEqual(f.window.datastore, before, 'no operation adopts a datastore');
-      let dropped = 0;
-      const result = await f.window.recover({ beforeAdopt: async () => { dropped++; assert.deepEqual(f.window.datastore, before, 'cached state is dropped before adoption'); } });
-      assert.deepEqual({ ...result }, { restarted: true, sessionsReplaced: 1 }); assert.equal(dropped, 1);
-      assert.equal(f.window.datastore.postmaster_birth, RESTARTED.postmaster_birth);
-      await f.window.probe(); assert.equal(await f.window.run(A, () => 2), 2);
-    });
-    async function recoveryWithHeldBody (create) {
-      const options = {}, f = fixture(options, create); let entered, release;
-      const started = new Promise(resolve => { entered = resolve; }), held = new Promise(resolve => { release = resolve; });
-      const body = f.window.run(A, () => { entered(); return held; }); const ended = body.catch(error => error);
-      try {
-        await started; const original = f.window.datastore;
-        f.client.emit('error', Error('synthetic old-owner loss')); options.datastore = RESTARTED;
-        await assert.rejects(f.window.recover(), {code:'LIFECYCLE_WINDOW_DRAIN_REQUIRED'});
-        assert.deepEqual(f.window.datastore, original, 'FAILED_DRAIN_MUST_NOT_PUBLISH_ADOPTION');
-        release(); await ended;
-        assert.equal((await f.window.recover()).restarted, true, 'retry retains the actual restart obligation');
-        await f.window.run(A, () => 3);
-      } finally { release(); await ended; await f.window.close().catch(() => {}); }
+      const path = '../lib/server/serve/datastore-probe.js';
+      return { observed, state, probe: load(path, {}, mutate).create({ options: {}, Driver }) };
     }
-    it('keeps datastore adoption unpublished while a failed owner still has a real callback', () => recoveryWithHeldBody());
-    it('control: premature adoption fails the held-body recovery oracle; restored source passes', async () => {
-      const broken = load(WINDOW, {}, source => source.replace('if ([...activeBodies].some', 'database = nextDatabase; if ([...activeBodies].some'));
-      await assert.rejects(recoveryWithHeldBody(broken.create), /FAILED_DRAIN_MUST_NOT_PUBLISH_ADOPTION/);
-      await recoveryWithHeldBody();
-    });
-    it('does not adopt when recovery is cancelled while old tenant state is being dropped', async function () {
-      const { f, before } = await restartedWindow(); let release, entered;
-      const held = new Promise(resolve => { release = resolve; });
-      const started = new Promise(resolve => { entered = resolve; });
-      const controller = new AbortController();
-      const pending = f.window.recover({ signal: controller.signal, beforeAdopt: async () => { entered(); await held; } });
-      await started; controller.abort(); release();
-      await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
-      assert.deepEqual(f.window.datastore, before, 'CANCELLED_RECOVERY_CANNOT_ADOPT');
-      await assert.rejects(f.window.run(A, () => assert.fail('cancelled recovery served')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
-      await f.window.close();
-    });
-    it('does not adopt after cancellation while the supplemental cluster read is pending', async function () {
-      const { f, options, before } = await restartedWindow(); let release, entered;
-      const pendingRead = new Promise(resolve => { release = resolve; });
-      const reading = new Promise(resolve => { entered = resolve; });
-      options.clusterRead = () => { entered(); return pendingRead; };
-      const controller = new AbortController(), pending = f.window.recover({ signal: controller.signal });
-      await reading; controller.abort(); release({ rows: [{ cluster: '7000000000000000001' }] });
-      await assert.rejects(pending, { code: 'LIFECYCLE_WINDOW_RECOVERY_CANCELLED' });
-      assert.deepEqual(f.window.datastore, before); await f.window.close();
-    });
-    it('runs the full catalogue admission again before adopting', async function () {
-      const { f } = await restartedWindow();
-      const before = f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length;
-      await f.window.recover();
-      assert.equal(f.log.filter(row => typeof row[0] === 'string' && row[0].includes('operation-window-role')).length, before + 1);
-    });
-    it('does not drop cached state when the postmaster is the same one', async function () {
-      const f = fixture(); await f.window.run(A, () => 1);
-      const result = await f.window.recover({ beforeAdopt: () => assert.fail('same postmaster') });
-      assert.equal(result.restarted, false);
-      const before = f.log.length; await f.window.run(A, () => 2);
-      assert(f.log.slice(before).some(([sql]) => sql.includes('operation-window-current')), 'same-datastore recovery still checks current serving generation');
-      await f.window.close();
-    });
-    for (const change of [{ server_address: '127.0.0.2' }, { server_port: 5433 }]) {
-      it('re-admits the same cluster after an unselected endpoint change', async function () {
-        const options = {}, f = fixture(options); await f.window.run(A, () => 1);
-        const before = f.window.datastore; options.datastore = { ...RESTARTED, ...change };
-        let dropped = 0;
-        await f.window.recover({ beforeAdopt: () => { dropped++; assert.deepEqual(f.window.datastore, before); } });
-        assert.equal(dropped, 1); assert.equal(f.window.datastore.server_address, change.server_address || before.server_address);
-        assert.equal(f.window.datastore.server_port, change.server_port || before.server_port);
-        await f.window.run(A, () => 2);
+    for (const [field, change] of [['database', 'other'], ['database_oid', '16500'], ['cluster', '7200000000000000001']]) {
+      it('refuses a different ' + field + ' before adopting or serving', async function () {
+        const f = fixture();
+        const initial = await f.probe.probe();
+        if (field === 'cluster') f.state.cluster = change; else f.observed[field] = change;
+        await assert.rejects(f.probe.readmit(), { code: 'DATASTORE_PROBE_REPLACED' });
+        assert.deepEqual(f.probe.admitted, initial);
       });
     }
-    for (const [label, datastore, cluster] of [['another database', { database_oid: '16999' }], ['another database name', { database: 'other' }],
-      ['another cluster', { server_address: '127.0.0.2' }, '7000000000000000002']]) {
-      it('refuses to adopt ' + label + ' in place', async function () {
-        const options = {}, f = fixture(options); await f.window.run(A, () => 1);
-        const before = f.window.datastore; options.datastore = { ...RESTARTED, ...datastore }; options.cluster = cluster;
-        await assert.rejects(f.window.recover({ beforeAdopt: () => assert.fail('nothing is dropped for a refused datastore') }), { code: 'LIFECYCLE_WINDOW_DATASTORE_REPLACED' });
-        assert.deepEqual(f.window.datastore, before);
-        await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
-        await assert.rejects(f.window.run(A, () => assert.fail('served another datastore')), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
-      });
-    }
-    it('control: without the lineage comparison another cluster is adopted', async function () {
-      const mutate = source => source.replace('!same(lineage(nextDatabase, nextCluster), lineage(database, cluster)) || ', '');
-      const broken = load(WINDOW, {}, mutate);
-      const options = {}, f = fixture(options, broken.create); await f.window.run(A, () => 1);
-      options.cluster = '7000000000000000002'; options.datastore = { ...RESTARTED, server_address: '127.0.0.2' };
-      await f.window.recover();
-      assert.equal(f.window.datastore.server_address, '127.0.0.2', 'broken source adopted another cluster');
+    it('control: removes cluster comparison and observes a different cluster accepted', async function () {
+      const f = fixture(source => source.replace('system !== admittedCluster || ', ''));
+      await f.probe.probe();
+      f.state.cluster = '7200000000000000001';
+      assert.equal((await f.probe.readmit()).restarted, false);
     });
-    for (const change of [RESTARTED, { server_address: '127.0.0.2' }, { server_port: 5433 }]) {
-      it('direct selected recovery cannot adopt a changed resource even without a supervisor callback', async function () {
-        const selected = load(WINDOW, { '../storage/connection-admission': { health: () => ({ pgResourceId: 'selected-old-epoch' }) } });
-        const options = {}, f = fixture(options, selected.create); await f.window.ready();
-        const before = f.window.datastore; options.datastore = change;
-        await assert.rejects(f.window.recover(), { code: 'DATASTORE_RECOVERY_REBIND_REQUIRED' });
-        assert.deepEqual(f.window.datastore, before);
-        await f.window.close();
-      });
-    }
-    it('control: without recover the window stays refused however often it is asked (the J behaviour)', async function () {
-      const { f } = await restartedWindow();
-      for (let attempt = 0; attempt < 20; attempt++) await assert.rejects(f.window.run(B, () => 1), { code: 'LIFECYCLE_WINDOW_SESSION_LOST' });
+    it('re-admits a moved endpoint on the same database and cluster', async function () {
+      const f = fixture();
+      const initial = await f.probe.probe();
+      f.observed.server_address = '127.0.0.2/32';
+      await assert.rejects(f.probe.probe(), { code: 'DATASTORE_PROBE_RESTARTED' });
+      const seen = await f.probe.readmit();
+      assert.equal(seen.restarted, true);
+      assert.deepEqual(f.probe.admitted, initial);
+      f.probe.adopt(seen.current);
+      assert.deepEqual(await f.probe.probe(), seen.current);
     });
   });
 
-  describe('lifetime sessions', function () {
-    function pool () {
-      const clients = [];
-      return { clients, options: { max: 4, connectionTimeoutMillis: 0 }, connect: async () => {
-        const client = new EventEmitter(); client.released = null; client.release = error => { client.released = error || true; };
-        clients.push(client); return client;
-      } };
+  describe('generation admissions across a datastore withdrawal', function () {
+    const recovery = require('../lib/server/serve/datastore-recovery');
+    const protocol = require('./fixtures/operation-window-runtime-protocol');
+    const refused = { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' };
+    function fixture () {
+      const target = recovery.availability(() => [], () => undefined);
+      const { window, client } = protocol({ available: () => target.available, availabilityEpoch: () => target.epoch });
+      return { target, window, client };
     }
-    it('keeps a lane whose backend was lost refused, counts it, and replaces it on reset', async function () {
-      const p = pool(), sessions = require('../lib/tenant-lifecycle/lifetime-sessions').create({ pool: p, size: 1 });
-      const first = await sessions.acquire(A);
-      assert.equal(sessions.failed(), 0);
-      const loss = Object.assign(new Error('terminating connection'), { code: '57P01' });
-      first.client.emit('error', loss);
-      assert.equal(sessions.failed(), 1);
-      for (let attempt = 0; attempt < 3; attempt++) await assert.rejects(sessions.acquire(A), error => error === loss);
-      assert.equal(p.clients.length, 1, 'a lost lane opens no backend on its own');
-      assert.equal(sessions.reset(), 1); assert.equal(sessions.failed(), 0);
-      assert.equal(first.client.released, loss, 'the lost backend is returned to the pool as failed');
-      assert.equal(first.client.listenerCount('error'), 0);
-      const second = await sessions.acquire(A);
-      assert.notEqual(second.client, first.client); assert.equal(p.clients.length, 2);
-      assert.equal(await second.serial(() => 5), 5);
-      assert.equal(sessions.reset(), 0, 'a healthy lane is never replaced');
-      assert.equal((await sessions.acquire(A)).client, second.client);
-      await sessions.close();
+    it('leaves active scopes, detached database reservations and released receipts invalid after a transient withdrawal', async function () {
+      const { target, window, client } = fixture();
+      const lease = await window.acquireClient(client, A);
+      let receipt;
+      try {
+        await window.run(A, async () => {}, { onScope: value => { receipt = value; } });
+        assert.equal(window.readinessReceiptCurrent(receipt), true);
+        await window.run(A, async () => {
+          const previous = target.epoch;
+          assert.equal(window.current(A), true);
+          target.datastoreUnavailable();
+          const withdrawn = target.epoch;
+          assert.notEqual(withdrawn, previous);
+          target.datastoreUnavailable(); target.datastoreRecovered();
+          assert.equal(target.epoch, withdrawn);
+          assert.equal(window.current(A), false);
+          assert.equal(window.readinessReceiptCurrent(receipt), false);
+          assert.throws(() => window.assertCurrent(A), refused);
+          await assert.rejects(window.run(A, () => assert.fail('stale nested scope')), refused);
+          await assert.rejects(window.assertClient(client, A, lease), refused);
+        });
+        await window.run(A, async () => assert.equal(window.current(A), true));
+        assert.equal(window.readinessReceiptCurrent(receipt), false);
+      } finally { lease.close(); await window.close(); }
     });
-    it('replaces a lane that never opened a backend', async function () {
-      let refuse = true; const p = pool(), open = p.connect;
-      p.connect = async () => { if (refuse) throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }); return open(); };
-      const sessions = require('../lib/tenant-lifecycle/lifetime-sessions').create({ pool: p, size: 1 });
-      await assert.rejects(sessions.acquire(A), { code: 'ECONNREFUSED' });
-      refuse = false;
-      await assert.rejects(sessions.acquire(A), { code: 'ECONNREFUSED' }, 'still the lost lane');
-      assert.equal(sessions.reset(), 1);
-      assert.ok((await sessions.acquire(A)).client);
-      await sessions.close();
-    });
-    it('a poison after reset neither releases twice nor emits on the returned backend', async function () {
-      const p = pool(), sessions = require('../lib/tenant-lifecycle/lifetime-sessions').create({ pool: p, size: 1 });
-      const held = await sessions.acquire(A); let releases = 0;
-      held.client.release = () => { releases++; };
-      held.client.emit('error', new Error('lost')); sessions.reset();
-      held.poison(new Error('late cleanup')); assert.equal(releases, 1);
-      await sessions.close();
+    it('cannot admit a generation observation whose transaction finishes after recovery', async function () {
+      const { target, window, client } = fixture();
+      const query = client.query;
+      let entered, release;
+      const observing = new Promise(resolve => { entered = resolve; });
+      const resume = new Promise(resolve => { release = resolve; });
+      client.query = async (sql, values) => {
+        if (sql === 'COMMIT') { entered(); await resume; }
+        return query(sql, values);
+      };
+      try {
+        const pending = window.run(A, () => assert.fail('PRE_LOSS_OBSERVATION_ENTERED_BODY'));
+        await observing; target.datastoreUnavailable(); target.datastoreRecovered(); release();
+        await assert.rejects(pending, refused);
+        await window.run(A, async () => assert.equal(window.current(A), true));
+      } finally { release(); await window.close(); }
     });
   });
 
   describe('supervisor', function () {
-    function harness ({ mutate, bound = 60000, source = SUPERVISOR, publicWindow = false } = {}) {
-      const timers = [], events = [], state = { clock: 0, probe: null, recover: null, readopt: null, restarted: true, available: true, exhausted: [] };
-      const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); }, resume: () => { events.push('resume-a'); } }, { invalidateAll: async () => { events.push('invalidate-b'); } }];
-      const cohort = {
-        window: {
-          ...(publicWindow ? { trustedWorker: false, verifyOperational: async verify => { events.push('structural'); await verify(); } } : {}),
-          probe: async () => { events.push('probe'); if (state.probe) throw state.probe; },
-          recover: async ({ beforeAdopt }) => {
-            events.push('recover'); if (state.recover) throw state.recover;
-            if (state.restarted) await beforeAdopt();
-            events.push('adopt'); return { restarted: state.restarted, sessionsReplaced: 1 };
-          }
-        },
+    function harness ({ mutate, bound = 60000, selected = false, timeout = 1000 } = {}) {
+      const timers = [], events = [];
+      const state = { clock: 0, probe: null, recover: null, restarted: true, available: true, exhausted: [] };
+      const contexts = [{ invalidateAll: async () => { events.push('invalidate-a'); }, resume: () => events.push('resume-a') },
+        { invalidateAll: async () => { events.push('invalidate-b'); } }];
+      const target = {
         contexts: () => contexts,
         datastoreUnavailable: () => { state.available = false; events.push('unavailable'); },
-        datastoreRecovered: result => { state.available = true; events.push('recovered:' + result.restarted); }
+        datastoreRecovered: seen => { state.available = true; events.push('recovered:' + seen.restarted); }
       };
-      const module = mutate ? load(source, {}, mutate) : require(source);
-      const supervisor = module.create({ cohort, intervalMs: 5000, boundMs: bound, baseDelayMs: 250, maxDelayMs: 5000, attemptTimeoutMs: 1000,
-        exhausted: code => state.exhausted.push(code), readopt: async () => { events.push('readopt'); if (state.readopt) throw state.readopt; return 3; },
+      const probe = {
+        probe: async () => { events.push('probe'); if (state.probe) throw state.probe; },
+        readmit: async () => { events.push('recover'); if (state.recover) throw state.recover; return { restarted: state.restarted, current: {} }; },
+        adopt: () => events.push('adopt')
+      };
+      const module = load(SUPERVISOR, { '../../storage/connection-admission': { health: () => selected ? {} : null } }, mutate);
+      const supervisor = module.create({ target, probe, intervalMs: 5000, boundMs: bound, baseDelayMs: 250, maxDelayMs: 5000, attemptTimeoutMs: timeout,
+        exhausted: code => state.exhausted.push(code),
         now: () => state.clock, random: () => 1, log: () => {},
         setTimer: (fn, delay) => { const timer = { fn, delay, unref () {} }; timers.push(timer); return timer; },
         clearTimer: timer => { const index = timers.indexOf(timer); if (index >= 0) timers.splice(index, 1); } });
       // Run the one planned timer, advancing the injected clock by its delay.
-      return { supervisor, state, events, timers, module };
+      return { supervisor, state, events, timers, probe, contexts };
     }
     const lost = () => Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
     async function settle (h) { const delay = h.timers[0].delay; const timer = h.timers.shift(); h.state.clock += delay; await timer.fn(); await new Promise(resolve => setImmediate(resolve)); return delay; }
@@ -238,51 +151,33 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       assert.equal(h.supervisor.state().state, 'serving');
       await h.supervisor.close();
     });
-    it('rechecks public control and data privileges at readiness and withdraws on structural failure', async function () {
-      const h = harness({ publicWindow: true });
-      try {
-        await h.supervisor.tick();
-        assert.deepEqual(h.events, ['probe', 'structural', 'readopt']);
-        h.events.length = 0;
-        h.state.readopt = new Error('synthetic data privilege drift');
-        await h.supervisor.tick();
-        assert.equal(h.state.available, false);
-        assert.deepEqual(h.events.slice(0, 4), ['probe', 'structural', 'readopt', 'unavailable']);
-      } finally { await h.supervisor.close(); }
-    });
-    it('reports unavailable at the first failed probe, backs off, and serves only after recover, readopt and a passing probe', async function () {
-      const h = harness(); h.supervisor.start();
+    it('backs off while unavailable and invalidates cached state before publishing the new datastore', async function () {
+      const h = harness();
+      h.supervisor.start();
       h.state.probe = lost(); h.state.recover = lost();
       await settle(h);
-      assert.deepEqual(h.events, ['probe', 'unavailable', 'recover']); assert.equal(h.state.available, false);
-      const delays = [];
-      for (let i = 0; i < 6; i++) delays.push(await settle(h));
-      assert.deepEqual(delays, [500, 1000, 2000, 4000, 5000, 5000], 'exponential, capped (random pinned to its upper edge)');
-      assert.equal(h.state.available, false); assert.equal(h.supervisor.state().state, 'recovering');
-      h.state.recover = null; h.state.readopt = lost(); h.events.length = 0;
-      await settle(h);
-      assert.deepEqual(h.events, ['recover', 'invalidate-a', 'invalidate-b', 'adopt', 'readopt']);
-      assert.equal(h.state.available, false, 'a pool that cannot follow keeps the process unavailable');
-      h.state.readopt = null; h.state.restarted = false; h.events.length = 0;
-      await settle(h);
-      assert.deepEqual(h.events, ['recover', 'adopt', 'readopt', 'probe'], 'probe still failing');
       assert.equal(h.state.available, false);
-      h.state.probe = null; h.state.restarted = true; h.events.length = 0;
-      await settle(h);
-      assert.deepEqual(h.events, ['recover', 'invalidate-a', 'invalidate-b', 'adopt', 'readopt', 'probe', 'recovered:true', 'resume-a'],
-        'state dropped before adoption; tenants warmed only once the process serves again');
-      assert.equal(h.state.available, true); assert.equal(h.supervisor.state().state, 'serving');
-      assert.equal(h.timers[0].delay, 5000);
-      assert.deepEqual(h.state.exhausted, []);
+      assert.deepEqual(h.events, ['probe', 'unavailable', 'recover']);
+      assert.equal(await settle(h), 500);
+      h.state.recover = null; h.events.length = 0; await settle(h);
+      assert.deepEqual(h.events, ['recover', 'invalidate-a', 'invalidate-b', 'adopt', 'recovered:true', 'resume-a']);
+      assert.equal(h.state.available, true);
+      await h.supervisor.close();
+    });
+    it('keeps the same postmaster’s cached tenant state on a transient connection failure', async function () {
+      const h = harness();
+      h.state.restarted = false; h.state.probe = lost();
+      await h.supervisor.tick();
+      assert.deepEqual(h.events, ['probe', 'unavailable', 'recover', 'adopt', 'recovered:false', 'resume-a']);
       await h.supervisor.close();
     });
     it('calls the exhaustion handler once, after the bound and not before', async function () {
       const h = harness({ bound: 10000 }); h.supervisor.start();
-      h.state.probe = lost(); h.state.recover = Object.assign(new Error('replaced'), { code: 'LIFECYCLE_WINDOW_DATASTORE_REPLACED' });
+      h.state.probe = lost(); h.state.recover = Object.assign(new Error('replaced'), { code: 'DATASTORE_PROBE_REPLACED' });
       await settle(h);
       const started = h.state.clock;
       while (h.timers.length) { assert.deepEqual(h.state.exhausted, [], 'not before the bound'); assert.ok(h.state.clock - started < 10000); await settle(h); }
-      assert.deepEqual(h.state.exhausted, ['LIFECYCLE_WINDOW_DATASTORE_REPLACED']);
+      assert.deepEqual(h.state.exhausted, ['DATASTORE_PROBE_REPLACED']);
       assert.ok(h.state.clock - started >= 10000);
       assert.equal(h.supervisor.state().state, 'exhausted'); assert.equal(h.state.available, false);
       await h.supervisor.tick(); assert.equal(h.state.exhausted.length, 1);
@@ -296,149 +191,52 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       await h.supervisor.close();
     });
     it('refuses a role context that cannot drop its cached tenant state', async function () {
-      const module = require(SUPERVISOR), events = [];
-      const supervisor = module.create({ cohort: { window: { probe: async () => { throw lost(); }, recover: async ({ beforeAdopt }) => { await beforeAdopt(); events.push('adopt'); return { restarted: true, sessionsReplaced: 0 }; } },
-        contexts: () => [{}], datastoreUnavailable () {}, datastoreRecovered () { events.push('recovered'); } }, exhausted () {}, readopt: async () => 0, log () {},
-      setTimer: () => ({ unref () {} }), clearTimer () {} });
-      await supervisor.tick();
-      assert.deepEqual(events, []); assert.equal(supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_CONTEXT_UNSUPPORTED');
-      await supervisor.close();
-    });
-    it('control: a supervisor that does not mark the cohort unavailable leaves it reporting available while the probe fails', async function () {
-      const h = harness({ mutate: source => source.replace('cohort.datastoreUnavailable();', '') }); h.supervisor.start();
-      h.state.probe = lost(); h.state.recover = lost();
-      await settle(h); await settle(h);
-      assert.equal(h.state.available, true, 'broken source: health would stay green');
+      const h = harness();
+      h.contexts.push({}); h.state.probe = lost();
+      await h.supervisor.tick();
+      assert.equal(h.state.available, false);
+      assert.equal(h.supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_CONTEXT_UNSUPPORTED');
+      assert(!h.events.includes('adopt'));
       await h.supervisor.close();
     });
-    it('control: a supervisor that skips the drop of cached state adopts a restarted postmaster with the old tenant state', async function () {
-      const h = harness({ mutate: source => source.replace('beforeAdopt: () => invalidateAll(signal)', 'beforeAdopt: async () => {}') }); h.supervisor.start();
-      h.state.probe = lost(); await settle(h); h.state.probe = null;
-      assert.equal(h.events.includes('invalidate-a'), false, 'broken source dropped nothing');
-      assert.equal(h.events.includes('adopt'), true);
+    it('refuses to adopt a new resource epoch under a selected admission ticket', async function () {
+      const h = harness({ selected: true });
+      h.state.probe = lost();
+      await h.supervisor.tick();
+      assert.equal(h.supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_REBIND_REQUIRED');
+      assert.deepEqual(h.events, ['probe', 'unavailable', 'recover']);
       await h.supervisor.close();
     });
-    it('does not invalidate tenant state from a timed-out recovery after supervisor close', async function () {
-      const events = []; let release;
-      const held = new Promise(resolve => { release = resolve; });
-      const supervisor = require(SUPERVISOR).create({ cohort: {
-        window: { probe: async () => { throw lost(); }, recover: async ({ beforeAdopt }) => {
-          await held; await beforeAdopt(); events.push('adopt'); return { restarted: true, sessionsReplaced: 0 };
-        } }, contexts: () => [{ invalidateAll: async () => events.push('late-invalidation') }],
-        datastoreUnavailable () {}, datastoreRecovered () { events.push('serve'); }
-      }, exhausted () {}, readopt: async () => events.push('readopt'), attemptTimeoutMs: 5,
-      setTimer: () => ({ unref () {} }), clearTimer () {}, log () {} });
-      try {
-        await supervisor.tick(); const closing = supervisor.close();
-        release(); await assert.rejects(closing, { code: 'DATASTORE_RECOVERY_DRAIN_UNCONFIRMED' }); await new Promise(resolve => setImmediate(resolve));
-        assert.deepEqual(events, [], 'NO_LATE_RECOVERY_EFFECT_AFTER_CLOSE');
-      } finally { release(); await supervisor.close().catch(() => {}); }
-    });
-    it('a timed-out recovery loses adoption authority even while the supervisor stays open', async function () {
-      const events = []; let release;
-      const held = new Promise(resolve => { release = resolve; });
-      const supervisor = require(SUPERVISOR).create({ cohort: {
-        window: { probe: async () => { throw lost(); }, recover: async ({ beforeAdopt }) => {
-          await held; await beforeAdopt(); events.push('adopt'); return { restarted: true, sessionsReplaced: 0 };
-        } }, contexts: () => [{ invalidateAll: async () => events.push('drop') }],
-        datastoreUnavailable () {}, datastoreRecovered () { events.push('served'); }
-      }, exhausted () {}, readopt: async () => events.push('readopt'), attemptTimeoutMs: 5,
-      setTimer: () => ({ unref () {} }), clearTimer () {}, log () {} });
-      try {
-        await supervisor.tick(); release(); await new Promise(resolve => setImmediate(resolve));
-        assert.deepEqual(events, [], 'TIMED_OUT_RECOVERY_CANNOT_ADOPT');
-        assert.equal(supervisor.state().state, 'recovering');
-      } finally { release(); await supervisor.close(); }
-    });
-    it('retains one timed-out physical step and fails close without starting overlapping work', async function () {
-      let release, probes = 0, recoveries = 0, clock = 0;
-      const held = new Promise(resolve => { release = resolve; });
-      const events = [];
-      const supervisor = require(SUPERVISOR).create({ cohort: {
-        window: { probe: async () => { probes++; await held; }, recover: async () => { recoveries++; } },
-        contexts: () => [], datastoreUnavailable () {}, datastoreRecovered () { events.push('served'); }
-      }, exhausted: () => events.push('exhausted'), readopt: async () => assert.fail('no completed recovery'), attemptTimeoutMs: 5,
-      boundMs: 10, now: () => clock, setTimer: () => ({ unref () {} }), clearTimer () {}, log () {} });
-      try {
-        await supervisor.tick(); assert.equal(supervisor.state().pendingSteps, 1);
-        clock = 20; await supervisor.tick();
-        assert.equal(probes, 1, 'TIMED_OUT_PROBE_NOT_DUPLICATED'); assert.equal(recoveries, 0);
-        assert.deepEqual(events, ['exhausted']);
-        await assert.rejects(supervisor.close(), { code: 'DATASTORE_RECOVERY_DRAIN_UNCONFIRMED' });
-        release(); await new Promise(resolve => setImmediate(resolve));
-        assert.deepEqual(events, ['exhausted'], 'LATE_STEP_CANNOT_SERVE');
-      } finally { release(); await supervisor.close().catch(() => {}); }
-    });
-    for (const change of [RESTARTED, { server_address: '127.0.0.2' }, { server_port: 5433 }]) it('refuses a changed selected admission resource without dropping state or adopting it', async function () {
-      const options = {}, f = fixture(options); await f.window.ready(); const before = f.window.datastore;
-      options.datastore = change;
-      const events = [];
-      const selected = load(SUPERVISOR, { '../../storage/connection-admission': { health: () => ({ pgResourceId: 'selected-old-epoch' }) } });
-      const supervisor = selected.create({ cohort: { window: f.window,
-        contexts: () => [{ invalidateAll: async () => events.push('drop') }],
-        datastoreUnavailable: () => events.push('unavailable'), datastoreRecovered: () => events.push('served')
-      }, exhausted () {}, readopt: async () => events.push('readopt'), setTimer: () => ({ unref () {} }), clearTimer () {}, log () {} });
-      try {
-        await supervisor.tick();
-        assert.equal(supervisor.state().lastRefusal, 'DATASTORE_RECOVERY_REBIND_REQUIRED');
-        assert.deepEqual(events, ['unavailable'], 'SELECTED_EPOCH_NOT_SILENTLY_REBOUND');
-        assert.deepEqual(f.window.datastore, before);
-        await assert.rejects(f.window.probe(), {code:'LIFECYCLE_WINDOW_DATASTORE_CHANGED'});
-        await assert.rejects(f.window.run(A, () => assert.fail('served new epoch')), { code: 'LIFECYCLE_WINDOW_DATASTORE_CHANGED' });
-      } finally { await supervisor.close(); await f.window.close(); }
-    });
-    for (const refusal of [null, 'readopt', 'probe']) it('invalidates old participant pins after ' + (refusal || 'no') + ' follow failure', async function () {
-      const options = {}, f = fixture(options), crypto = require('node:crypto');
-      let allocations = 0, readopts = 0, invalidations = 0, drops = 0, resumes = 0, failProbe = false;
-      const query = f.client.query;
-      f.client.query = async (...args) => {
-        if (failProbe && typeof args[0] === 'string' && args[0].startsWith('SELECT pg_backend_pid()')) {
-          failProbe = false; throw Object.assign(new Error('synthetic probe refusal'), { code: 'SYNTHETIC_PROBE_FAIL' });
-        }
-        return query(...args);
-      };
-      const module = load('../lib/server/serve/operation-cohort.js', {
-        'node:crypto': { ...crypto, randomUUID: () => { allocations++; return crypto.randomUUID(); } },
-        '../../storage/postgres-connection': { ...require('../lib/storage/postgres-connection'), installOperationWindow: () => () => {},
-          cohortSnapshot: async () => ({ datastore: f.window.datastore, backends: [] }) },
-        ...Object.fromEntries(['preview-api', 'evaluator-preview', 'preview-realtime', 'owner-preview'].map(name => ['./' + name, {
-          boot: async () => ({ health: () => ({ownership:{resource:true}}), close: async () => {}, invalidateTenant: async () => { invalidations++; },
-            invalidateAll: async () => { drops++; }, resume: () => { resumes++; } })
-        }]))
+    for (const [needle, symptom] of [['target.datastoreUnavailable();', 'available'], ['if (seen.restarted) await bounded(invalidateAll);', 'stale cache']]) {
+      it('control: observes ' + symptom + ' after removal of its recovery transition', async function () {
+        const h = harness({ mutate: source => source.replace(needle, '') });
+        h.state.probe = lost();
+        if (symptom === 'available') h.state.recover = lost();
+        await h.supervisor.tick();
+        if (symptom === 'available') assert.equal(h.state.available, true);
+        else { assert(h.events.includes('adopt')); assert(!h.events.includes('invalidate-a')); }
+        await h.supervisor.close();
       });
-      const participant = require('../lib/server/serve/operation-cohort-manifest').validate([{ id: 'synthetic-all', roles, namespaces: ['clinical'],
-        endpoint: { socketPath: '/synthetic/all.sock', maxBytes: 100000, timeoutMs: 1000 } }])[0];
-      const cohort = await module.create({ window: f.window, names: roles, tenants: [A, B], namespaces: ['clinical'], participant });
-      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B], ...(role === 'realtime' ? { ownership: require('../lib/realtime-ownership').create({count: 1, ordinal: 0}) } : {}) });
-      cohort.complete();
-      const control = module.controlOperations(cohort), before = await control.getStatus(null, { request: crypto.randomUUID() });
-      options.datastore = RESTARTED;
-      const supervisor = require(SUPERVISOR).create({ cohort,
-        readopt: async () => {
-          readopts++;
-          if (readopts === 1 && refusal === 'readopt') throw Object.assign(new Error('synthetic follow refusal'), { code: 'SYNTHETIC_READOPT_FAIL' });
-          if (readopts === 1 && refusal === 'probe') failProbe = true;
-          return 0;
-        }, setTimer: () => ({ unref () {} }), clearTimer () {}, log () {}, exhausted: () => assert.fail('not exhausted') });
-      try {
-        await supervisor.tick();
-        if (refusal) {
-          assert.equal(supervisor.state().state, 'recovering'); assert.equal(cohort.datastoreAvailable, false);
-          assert.equal(f.window.datastore.postmaster_birth, RESTARTED.postmaster_birth, 'WINDOW_ADOPTED_BEFORE_FOLLOW_FAILURE');
-          await assert.rejects(control.getStatus(null, { request: crypto.randomUUID() }), { code: 'RESTORE_COHORT_DATASTORE_UNAVAILABLE' });
-          await supervisor.tick();
-        }
-        const after = await control.getStatus(null, { request: crypto.randomUUID() });
-        await assert.rejects(control.invalidateTenant(null, { request: crypto.randomUUID(), tenant: A,
-          incarnation: before.incarnation, identity: before.identity }), { code: 'RESTORE_COHORT_PARTICIPANT_CHANGED' }, 'OLD_PARTICIPANT_PIN_REFUSED_AFTER_RETRY');
-        assert.equal(invalidations, 0, 'OLD_PIN_HAS_NO_CURRENT_ROLE_EFFECT');
-        assert.notEqual(after.incarnation, before.incarnation); assert.equal(allocations, 2, 'ONE_INCARNATION_CHANGE_FOR_COMPLETED_RESTART');
-        assert.equal(drops, 4); assert.equal(resumes, 4); assert.equal(supervisor.state().restarts, 1);
-        await control.invalidateTenant(null, { request: crypto.randomUUID(), tenant: A, incarnation: after.incarnation, identity: after.identity });
-        assert.equal(invalidations, 4, 'CURRENT_PIN_REMAINS_USABLE');
-        await supervisor.tick(); assert.equal(allocations, 2, 'HEALTHY_PROBE_DOES_NOT_ROTATE_AGAIN');
-      } finally { await supervisor.close(); await cohort.close(); }
-    });
+    }
+    for (const operation of ['probe', 'readmit']) {
+      it('retains custody of a timed-out ' + operation + ' without concurrent retries or late adoption', async function () {
+        const h = harness({ bound: 10, timeout: 5 });
+        let release, attempts = 0;
+        const held = new Promise(resolve => { release = resolve; });
+        h.state.probe = lost();
+        h.probe[operation] = async () => { attempts++; await held; return { restarted: true, current: {} }; };
+        try {
+          await h.supervisor.tick();
+          assert.equal(h.supervisor.state().pendingSteps, 1);
+          h.state.clock = 20; await h.supervisor.tick();
+          assert.equal(attempts, 1);
+          assert.deepEqual(h.state.exhausted, ['DATASTORE_RECOVERY_STEP_PENDING']);
+          await assert.rejects(h.supervisor.close(), { code: 'DATASTORE_RECOVERY_DRAIN_UNCONFIRMED' });
+          release(); await new Promise(resolve => setImmediate(resolve));
+          assert(!h.events.includes('adopt')); assert.equal(h.state.available, false);
+        } finally { release(); await h.supervisor.close().catch(() => {}); }
+      });
+    }
     it('reads its two settings from the environment and refuses values outside their bounds', function () {
       const { settings } = require(SUPERVISOR);
       assert.deepEqual({ ...settings({}) }, { intervalMs: 5000, boundMs: 120000 });
@@ -517,36 +315,7 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
     });
   });
 
-  describe('operation cohort', function () {
-    async function setup () {
-      const f = fixture(), invalidations = [];
-      const lower = { ...require('../lib/storage/postgres-connection'), installOperationWindow: () => () => {}, cohortBackends: () => [],
-        cohortSnapshot: async () => ({ datastore: f.window.datastore, backends: [] }) };
-      const module = load('../lib/server/serve/operation-cohort.js', { '../../storage/postgres-connection': lower,
-        ...Object.fromEntries(['preview-api', 'evaluator-preview', 'preview-realtime', 'owner-preview'].map((name, i) => ['./' + name, {
-          boot: async () => ({ health: () => ({ownership:{resource:true}}), close: async () => {}, invalidateTenant: async tenant => invalidations.push([roles[i], tenant]), invalidateAll: async () => {} }) }])) });
-      const cohort = await module.create({ window: f.window, names: roles, tenants: [A, B], namespaces: ['clinical'] });
-      for (const role of roles) await cohort.boot(role, { tenantIds: [A, B], ...(role === 'realtime' ? { ownership: require('../lib/realtime-ownership').create({count: 1, ordinal: 0}) } : {}) });
-      cohort.complete();
-      return { f, module, cohort, invalidations };
-    }
-    it('answers no invalidation or census while the datastore is unavailable, and again after recovery', async function () {
-      const s = await setup();
-      await s.module.invalidate(s.cohort, A); assert.equal(s.invalidations.length, 4);
-      assert.equal(s.cohort.datastoreAvailable, true); assert.equal(s.cohort.contexts().length, 4);
-      s.cohort.datastoreUnavailable();
-      assert.equal(s.cohort.datastoreAvailable, false);
-      await assert.rejects(s.module.invalidate(s.cohort, A), { code: 'RESTORE_COHORT_DATASTORE_UNAVAILABLE' });
-      await assert.rejects(s.module.assertComplete(s.cohort, A, { client: { query: async () => assert.fail('no census while unavailable') } }), { code: 'RESTORE_COHORT_DATASTORE_UNAVAILABLE' });
-      await assert.rejects(s.module.pin(s.cohort, A, {}), { code: 'RESTORE_COHORT_DATASTORE_UNAVAILABLE' });
-      assert.equal(s.invalidations.length, 4);
-      s.cohort.datastoreRecovered({ restarted: true });
-      await s.module.invalidate(s.cohort, A); assert.equal(s.invalidations.length, 8);
-      await s.cohort.close();
-    });
-  });
 });
-
 
 describe('supplemental PostgreSQL cluster lineage metadata', function () {
   const datastore = require('../lib/storage/postgres-datastore');

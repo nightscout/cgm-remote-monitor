@@ -1,25 +1,20 @@
 'use strict';
 
-// Actual API CLI replicas and production lifetime/census. Non-API rows below
-// are explicitly synthetic lifecycle peers, without clinical workload or SQL.
+// Two API CLI replicas with shared durable write clock and generation-fenced restore.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto'), fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const { Client, Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
 const { run } = require('../../lib/migrations/postgres');
-const transport = require('../../lib/server/internal-api/transport');
-const contracts = require('../../lib/server/internal-api/contracts');
-const clients = require('../../lib/server/internal-api/clients');
 const manifests = require('../../lib/server/serve/operation-cohort-manifest');
-const cohorts = require('../../lib/server/serve/operation-cohort');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
 module.exports = function create ({ environment = {}, leaseSessions, drainTimeoutMs = 10000 } = {}) {
-  const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), peers = [], calls = new Map();
+  const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, cohort, controller, resume, lifetimeURI, config, previousMode;
+  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode, proofWriter;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -49,6 +44,17 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       NODE_OPTIONS: '--require ' + path.join(__dirname, 'api-fixed-roster-controls.js'),
       NS_API_ROSTER_CONTROL_DIR: base.directory, NS_API_ROSTER_ID: id,
       NS_PREVIEW_REPLICA_CONTROL: 'history-clock', NS_PREVIEW_REPLICA_CLOCK_MS: controlledClock, NS_POOL_OPERATION_MAX: '2', NS_POOL_API_MAX: '2', ...environment };
+    if (id === 'api-1' && !environments.has(id)) {
+      const roleFile = path.join(base.directory, 'api-prestart.json');
+      fs.writeFileSync(roleFile, JSON.stringify(config), { mode: 0o600 });
+      const verifier = require('../../lib/server/serve/platform-verification-admin').create({
+        namespace: config.platformVerification.namespace, connectionString: proofWriter,
+        targets: [{ role: 'api', configFile: roleFile, operationConfigFile: file }]
+      }, base.environment(extra));
+      try { await verifier.verify(); } catch (error) {
+        throw new Error('Roster API pre-start refused: ' + JSON.stringify(error.verificationDiagnostic), { cause: error });
+      } finally { await verifier.close(); }
+    }
     environments.set(id, extra);
     const worker = base.start(config, extra);
     await base.ready(worker, readinessTenant); current.set(id, worker); return worker;
@@ -68,7 +74,11 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     };
     lifetimeURI = await roleURI('preview_lifetime_api');
     const operatorURI = await roleURI('preview_restore_operator');
-    for (const role of ['preview_app', 'preview_check', 'preview_lifetime_api']) {
+    proofWriter = await roleURI('preview_roster_verifier');
+    config.platformVerification = { namespace: 'preview_roster_proof', role: 'api' };
+    await require('../../lib/server/serve/platform-verification').install(admin, { namespace: config.platformVerification.namespace,
+      writer: 'preview_roster_verifier', readers: ['preview_app','preview_check'] });
+    for (const role of ['preview_app', 'preview_check', 'preview_settings', 'preview_lifetime_api']) {
       await admin.query('GRANT USAGE ON SCHEMA preview_control TO ' + q(role));
       await admin.query('GRANT SELECT ON preview_control.schema_migrations,preview_control.tenant_lifecycle_windows,preview_control.tenant_lifecycle_operations TO ' + q(role));
     }
@@ -90,33 +100,22 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       await admin.query("INSERT INTO preview_control.tenant_lifecycle_restore_authority VALUES($1,'preview_restore_operator'::regrole::oid,true)", [lock.tenant]);
     }
     port = await freePort();
-    const protectedNames = cohorts.protectedNamespaces(config).filter(name => name !== namespace).sort();
+    const protectedNames = require('../../lib/server/serve/role-topology').protectedNamespaces(config).filter(name => name !== namespace).sort();
     participants = manifests.validate([
       ...['api-1', 'api-2'].map((id, i) => ({ id, roles: ['api'], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 2)) })),
       ...['evaluator', 'realtime', 'tenant-admin'].map((role, i) => ({ id: role, roles: [role], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 5)) }))]);
     await base.provisioned.release();
-    await base.disconnectAdmin();
     await start('api-1'); await start('api-2');
-    const status = await clients.lifecycleParticipant(participants[0].endpoint).getStatus({ request: crypto.randomUUID() });
-    for (const peer of participants.slice(2)) {
-      const incarnation = crypto.randomUUID();
-      const response = request => ({ ...status, participant: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces], incarnation, backends: [], ownership: peer.roles.includes('realtime') ? { ...peer.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, request });
-      peers.push(await transport.open(peer.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (ctx, body) => response(body.request),
-        invalidateTenant: async (ctx, body) => ({ ...response(body.request), tenant: body.tenant }),
-        getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (ctx, body) => ({ request: body.request, tenant: body.tenant, participant: peer.id, incarnation, operations: [] }) })));
-    }
     privateProxy = serviceProxy(true); await new Promise(resolve => privateProxy.listen(port, '127.0.0.4', resolve));
     publicProxy = serviceProxy(false); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));
     operatorPool = new Pool({ connectionString: operatorURI, max: 1 });
-    cohort = await cohorts.createRemote({ namespace, tenants: ['registry:' + base.provisioned.namespaces.registry], participants });
-    controller = maintenance.create({ namespace, locks, pool: operatorPool, cohort, drainTimeoutMs });
-    resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, pool: operatorPool, cohort });
+    controller = maintenance.create({ namespace, locks, pool: operatorPool, drainTimeoutMs });
+    resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, pool: operatorPool });
   }
   async function cleanup () {
     for (const worker of current.values()) if (!worker.exit) worker.child.kill('SIGUSR2');
-    if (controller) await controller.close(); if (resume) await resume.close(); if (cohort) await cohort.close();
+    if (controller) await controller.close(); if (resume) await resume.close();
     for (const proxy of [privateProxy, publicProxy].filter(Boolean)) await new Promise(resolve => proxy.close(resolve));
-    for (const peer of peers) await peer.close();
     if (operatorPool) await operatorPool.end(); await base.cleanup(); if (previousMode) scope.setTenancyMode(previousMode);
   }
   return { setup, cleanup, start, withAdmin, base, current, calls, locks, namespace,
@@ -125,8 +124,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       delete disabled.writeClock; delete disabled.postgres.namespaces.clock;
       return base.refused(disabled, environments.get(id));
     },
-    get cohortTenants () { return ['registry:' + base.provisioned.namespaces.registry]; },
-    get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; }, get cohort () { return cohort; },
+    get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; },
     get serviceWorker () { return { port: publicProxy.address().port }; },
     restoreState: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
       'SELECT phase,generation::text,claim_id,artifact_digest,' +
@@ -135,18 +133,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       'FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [tenant])).rows[0]),
     unfinishedOperations: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
       'SELECT operation_id FROM preview_control.tenant_lifecycle_operations WHERE tenant_id=$1 AND NOT finished ORDER BY operation_id', [tenant])).rows.map(row => row.operation_id)),
-    async participantOperations (id, tenant = base.tenants[0]) {
-      const peer = participants.find(row => row.id === id);
-      assert(peer, 'explicit actual participant required');
-      const client = clients.lifecycleParticipant(peer.endpoint);
-      const status = await client.getStatus({ request: crypto.randomUUID() });
-      const request = crypto.randomUUID();
-      const reply = await client.getOperations({ request, tenant, incarnation: status.incarnation, identity: status.identity });
-      assert.equal(reply.request, request); assert.equal(reply.tenant, tenant);
-      assert.equal(reply.participant, id); assert.equal(reply.incarnation, status.incarnation);
-      assert(Array.isArray(reply.operations)); assert.equal(new Set(reply.operations).size, reply.operations.length);
-      return [...reply.operations].sort();
-    },
     restore: body => controller.withRestore(base.tenants[0], { artifactDigest: 'd'.repeat(64) }, body),
     resume: claimId => resume.resume(base.tenants[0], { claimId }),
     mark: (name, id) => path.join(base.directory, name + '-' + id) };

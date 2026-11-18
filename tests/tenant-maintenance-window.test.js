@@ -47,7 +47,7 @@ function fixture (options = {}) {
     if (text.startsWith('UPDATE ') && text.includes('tenant_lifecycle_windows')) {
       const w = target().window;
       if (text.includes("SET phase='suspended'")) { w.phase = 'suspended'; w.generation = values[1]; w.claim_id = values[2]; w.artifact_digest = values[3]; }
-      else { assert.equal(m.invalidated, true, 'activation must await real cohort invalidation'); w.phase = 'active'; w.claim_id = null; w.artifact_digest = null; }
+      else { assert(m.locked && m.durable.audit.state === 'restored', 'activation follows a committed replacement under the exclusive lock'); w.phase = 'active'; w.claim_id = null; w.artifact_digest = null; }
       return { rows: [], rowCount: 1 };
     }
     if (text.startsWith('INSERT INTO ') && text.includes('tenant_lifecycle_restore_audit')) {
@@ -78,23 +78,8 @@ function fixture (options = {}) {
     throw new Error('Unexpected simulated query: ' + text);
   };
   client.release = error => { m.released = true; m.releaseError = error; };
-  const cohort = {}, pin = {};
-  const original = Module._load;
-  let api;
-  try {
-    Module._load = function (request, ...rest) {
-      if (request === '../server/serve/operation-cohort') return {
-        async pin (given, tenant, options) { assert.equal(given,cohort);assert.equal(tenant,A);assert.equal(options.client,client);if(m.incomplete)throw Object.assign(new Error('incomplete'),{code:'COHORT_INCOMPLETE'});m.pinned=true;return pin; },
-        async releasePin (given) { assert.equal(given,pin);assert(m.pinned);m.pinned=false;m.pinReleased=true; },
-        assertComplete (given, tenant, options) { assert.equal(options.client, client); assert(m.pinned); if (given !== cohort || tenant !== A || m.incomplete) throw Object.assign(new Error('incomplete'), { code: 'COHORT_INCOMPLETE' }); },
-        async operations (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert(m.pinned); return { participants: 1, operations: m.running || [] }; },
-        async invalidate (given, tenant) { assert.equal(given, cohort); assert.equal(tenant, A); assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.audit.state, 'restored'); await new Promise(resolve=>setImmediate(resolve)); m.invalidated = true; if (m.onInvalidate) await m.onInvalidate(tenant); if (m.invalidateFails) throw Object.assign(new Error('invalidate failed'), { code: 'INVALIDATE_FAILED' }); }
-      };
-      return original.call(this, request, ...rest);
-    };
-    api = (options.controller || controller).create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-      pool: { connect: async () => { m.connected = true; return client; } }, cohort, drainTimeoutMs: 1, intakeProfile:options.intakeProfile });
-  } finally { Module._load = original; }
+  const api = (options.controller || controller).create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
+    pool: { connect: async () => { m.connected = true; return client; } }, drainTimeoutMs: 1, intakeProfile: options.intakeProfile });
   return { m, api };
 }
 const code = value => error => error.code === value;
@@ -109,19 +94,17 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       readRoot: async reference => { assert.deepEqual(reference, { tenant: A, id: 'root' }); root = Buffer.from('synthetic-root'); return root; } });
     assert.deepEqual(await prepare(A, { artifactDigest: DIGEST }), { prepared: true });
     assert(root.every(byte => byte === 0)); assert.equal(m.durable.window.phase, 'active');
-    assert.equal(m.invalidated, true); assert.equal(m.durable.rows.length, 3);
+    assert.equal(m.durable.rows.length, 3);
     assert(m.trace.indexOf('committed:DATA') < m.trace.indexOf('committed:ACTIVATION'));
     await api.close();
   });
 
-  it('does not publish auth preparation success on lost DATA commit or failed invalidation', async function () {
-    for (const failure of [{ loseCommit: 'DATA' }, { invalidateFails: true }]) {
-      const { m, api } = fixture({ localAuth: true, ...failure });
+  it('does not publish auth preparation success on lost DATA commit', async function () {
+      const { m, api } = fixture({ localAuth: true, loseCommit: 'DATA' });
       const prepare = require('../lib/secrets/prepare-local-auth').withMaintenance({ controller: api, namespace: 'local_auth',
         readRoot: async () => Buffer.from('synthetic-root') });
-      await assert.rejects(prepare(A, { artifactDigest: DIGEST }), { code: failure.loseCommit ? 'LIFECYCLE_RESTORE_DATA_OUTCOME_UNCERTAIN' : 'INVALIDATE_FAILED' });
+      await assert.rejects(prepare(A, { artifactDigest: DIGEST }), { code: 'LIFECYCLE_RESTORE_DATA_OUTCOME_UNCERTAIN' });
       assert.equal(m.durable.window.phase, 'suspended'); await api.close();
-    }
   });
 
   it('refuses a fabricated maintenance claim before auth SQL or root access', async function () {
@@ -133,7 +116,7 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     assert.equal(touched, false);
   });
 
-  it('commits suspension before callback, joins its transaction, invalidates before activation and closes stale claims', async function () {
+  it('commits suspension before callback, joins its transaction, activates after replacement and closes stale claims', async function () {
     const { m, api } = fixture(); let saved;
     const result = await api.withRestore(A, { artifactDigest: DIGEST }, async ({ connection, maintenanceClaim }) => {
       saved = { connection, maintenanceClaim };
@@ -143,13 +126,13 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       return 'verified';
     });
     assert.equal(result.state, 'activated'); assert.equal(result.generation, '2'); assert.equal(result.result, 'verified');
-    assert.deepEqual(m.durable.rows, ['restored-A']); assert.equal(m.durable.audit.state, 'activated'); assert(m.invalidated && m.released && !m.locked); assert.equal(m.releaseError, true, 'controller backend is destroyed after success'); assert(m.pinReleased && !m.pinned);
+    assert.deepEqual(m.durable.rows, ['restored-A']); assert.equal(m.durable.audit.state, 'activated'); assert(m.released && !m.locked); assert.equal(m.releaseError, true, 'controller backend is destroyed after success');
     assert.deepEqual(m.foreign, { ordinal: 100, doc: 'B-current' });
     await scope.withTenant(A, () => assert.rejects(controller.assertHeld(saved.maintenanceClaim, { connection: saved.connection, tenant: A, artifactDigest: DIGEST }), code('LIFECYCLE_RESTORE_CLAIM_INVALID')));
     await assert.rejects(saved.connection.transaction(async () => {}), code('LIFECYCLE_RESTORE_CONNECTION_CLOSED'));
     await api.close();
   });
-  it('clearing the maintenance hold never re-enables a paused tenant (actual evaluator runtime on invalidation)', async function () {
+  it('clearing the maintenance hold never re-enables a paused tenant (actual evaluator runtime)', async function () {
     const policy = require('../lib/tenant-activity/policy');
     const { m, api } = fixture();
     m.durable.activity = { paused: true, suspended: false };
@@ -159,7 +142,6 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       activity: require('../lib/tenant-activity/eligibility').create({ read: async () => ({ ...m.durable.activity, version: 1, state: policy.stateOf(m.durable.activity) }) }),
       schedule: fn => timers.push(fn), cancel: () => {},
       create: async () => { work.push('create'); return { evaluate: async () => { work.push('acquisition'); return { checkpoint: 1 }; }, evaluateTime: async () => ({ checkpoint: 1 }), close () {} }; } });
-    m.onInvalidate = tenant => runtime.invalidateTenant(tenant);
     await api.withRestore(A, { artifactDigest: DIGEST }, async () => 'restored');
     assert.equal(m.durable.window.phase, 'active', 'maintenance hold cleared');
     assert.deepEqual(m.durable.activity, { paused: true, suspended: false }, 'ACTIVITY_RESTORE_PRESERVES desired pause survives activation');
@@ -186,7 +168,7 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     assert.deepEqual(m.durable.rows, []);
     assert.equal(m.trace.filter(sql => sql.includes('restore-window-claim')).length, 1);
     assert(!m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO ')));
-    assert(m.released && m.pinReleased && !m.invalidated);
+    assert(m.released);
     await api.close();
   });
   it('publishes claim-bound effects only after definite outer DATA commit', async function () {
@@ -206,11 +188,6 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       if(!uncertain)throw Object.assign(new Error('interrupt'),{code:'CONTROL_INTERRUPT'});
     }),code(uncertain?'LIFECYCLE_RESTORE_DATA_OUTCOME_UNCERTAIN':'CONTROL_INTERRUPT'));
     assert.equal(effects,0);assert.equal(m.durable.window.phase,'suspended');assert.deepEqual(m.durable.rows,uncertain?['effect-A']:[]);await api.close();
-  });
-  it('refuses an incomplete cohort before metadata or mutation and releases its client', async function () {
-    const { m, api } = fixture({ incomplete: true });
-    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async () => {}), code('COHORT_INCOMPLETE'));
-    assert(m.connected && m.released); assert.deepEqual(m.trace, []); await api.close();
   });
   it('refuses current operator authority without suspending A', async function () {
     const { m, api } = fixture({ authority: false });
@@ -254,18 +231,13 @@ describe('private tenant restore controller (simulated backend protocol)', funct
     }), code('LIFECYCLE_RESTORE_TRANSACTION_CONTROL_REFUSED'));
     assert.equal(m.durable.window.phase, 'suspended'); assert.deepEqual(m.durable.rows, []); await api.close();
   });
-  it('does not reactivate after actual cohort invalidation fails', async function () {
-    const { m, api } = fixture({ invalidateFails: true });
-    await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async ({ connection }) => connection.query('INSERT INTO synthetic_data(value) VALUES ($1)', ['committed-A'])), code('INVALIDATE_FAILED'));
-    assert.deepEqual(m.durable.rows, ['committed-A']); assert.equal(m.durable.audit.state, 'restored'); assert.equal(m.durable.window.phase, 'suspended'); await api.close();
-  });
   for (const stage of ['SUSPENSION','DATA','ACTIVATION']) it('retains actual durable outcomes after lost ' + stage + ' COMMIT response', async function () {
     const { m, api } = fixture({ loseCommit: stage });
     await assert.rejects(api.withRestore(A, { artifactDigest: DIGEST }, async ({ connection }) => connection.query('INSERT INTO synthetic_data(value) VALUES ($1)', ['committed-A'])), code('LIFECYCLE_RESTORE_' + stage + '_OUTCOME_UNCERTAIN'));
     assert.equal(m.durable.window.phase, stage === 'ACTIVATION' ? 'active' : 'suspended');
     assert.equal(m.durable.audit.state, stage === 'SUSPENSION' ? 'suspended' : stage === 'DATA' ? 'restored' : 'activated');
     assert.deepEqual(m.durable.rows, stage === 'SUSPENSION' ? [] : ['committed-A']);
-    assert.equal(!!m.invalidated, stage === 'ACTIVATION'); await api.close();
+    await api.close();
   });
   it('refuses reissuing an existing suspended claim rather than treating retry as recovery', async function () {
     const { m, api } = fixture({ closedBefore: true, durable: { window: { lock_key: '41', phase: 'suspended', generation: '2', claim_id: 'existing', artifact_digest: DIGEST }, audit: null, rows: [] } });

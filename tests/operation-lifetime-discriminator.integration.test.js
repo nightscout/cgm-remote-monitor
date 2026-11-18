@@ -22,9 +22,4 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
         }
       } finally { await f.withAdmin(client => client.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1 AND name='viewer'", [A])); }
     });
-    it('refuses a clinical-write grant on its metadata-only lifetime identity', async () => {
-      await f.withAdmin(client => client.query('GRANT UPDATE ON preview_clock.tenant_write_clock TO preview_lifetime_api'));
-      try { await assert.rejects(f.restore(async () => assert.fail('unknown lifetime writer must not restore')), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' }); }
-      finally { await f.withAdmin(client => client.query('REVOKE UPDATE ON preview_clock.tenant_write_clock FROM preview_lifetime_api')); }
-    });
   });

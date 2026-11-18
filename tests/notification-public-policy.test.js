@@ -13,7 +13,8 @@ async function outbox(change={}) {
   return scope.withTenant(f.A,()=>f.store.ready(f.A));
 }
 async function alarm(change={}) {
-  const table=copy(measured.suppression),role={...measured.suppressionRole,...change.role};change.table?.(table);
+  // This capture predates the explicit SELECT privilege field. The role fixture is a reader.
+  const table={...copy(measured.suppression),reads:true},role={...measured.suppressionRole,...change.role};change.table?.(table);
   return suppression({async query(sql){
     if(sql.includes('suppression-role'))return {rows:[role]};
     if(sql.includes('suppression-shape'))return {rows:[table]};

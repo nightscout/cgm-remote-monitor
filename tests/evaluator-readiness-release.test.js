@@ -1,25 +1,26 @@
 'use strict';
 const assert=require('node:assert/strict');
-const protocol=require('./fixtures/operation-window-runtime-protocol'),lab=require('./fixtures/evaluator-verification-suspension');
+const protocol=require('./fixtures/operation-window-runtime-protocol'),lab=require('./fixtures/evaluator-owned-acquisition');
 const {create}=require('../lib/server/serve/evaluator-readiness-witness');
 const {validate}=require('../lib/server/internal-api/schema');
 const schema=require('../lib/server/internal-api/contracts').evaluatorReadinessWitness.operations.inspectReadinessWitness.response;
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',identity='a'.repeat(64),sourceIdentity='b'.repeat(64);
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
 async function wait(fn){const end=Date.now()+2000;while(Date.now()<end){if(fn())return;await turn();}throw Error('FOCUSED_RUNTIME_OBSERVATION_DEADLINE');}
-async function fixture({workerProvider=true,recovery=true}={}){
- const p=protocol({trustedWorker:true}),worker={available:true,generation:7};
- const f=await lab.create({window:p.window,tenants:[A,B],enabled:recovery,options:{readinessObservation:true,...(workerProvider?{workerState:()=>({...worker})}:{}),
+async function fixture({workerProvider=true}={}){
+ const availability=require('../lib/server/serve/datastore-recovery').availability(()=>[],()=>undefined);
+ const p=protocol({trustedWorker:true,available:()=>availability.available,availabilityEpoch:()=>availability.epoch}),worker={available:true,generation:7};
+ const f=await lab.create({window:p.window,tenants:[A,B],options:{readinessObservation:true,...(workerProvider?{workerState:()=>({...worker})}:{}),
   readCurrent:async tenant=>({tenant,identity,sourceIdentity,settingsVersion:'1',policyGeneration:'2'})}});
  const metadata={registryActive:true,assigned:true,sourceIdentity,settingsVersion:'1',policyGeneration:'2',paused:false,suspended:false};
  const options={runtimeId:f.runtime.runtimeId,hasTenant:tenant=>tenant===A||tenant===B,runtimeFacts:selected=>f.runtime.readinessFacts(selected),workerFacts:workerProvider?()=>({...worker}):undefined,
   windowFacts:()=>p.window.readinessFacts(),platformFacts:()=>({ready:true,code:null}),sourceFacts:()=>({healthy:true,schemaBlocked:false,schemaInFlight:0,ownerAvailable:true,acceptedCutReady:true}),metadataFacts:()=>({...metadata})};
  const inspect=()=>{const result=create(options)({runtimeId:f.runtime.runtimeId,tenants:[A]});validate(schema,result);return result.tenants[0];};
- return {p,f,worker,metadata,options,inspect,idle:()=>wait(()=>!Object.values(f.runtime.health([A]).tenants[0].jobs).some(Boolean)),close:async()=>{await f.close();await p.window.close();}};
+ return {p,f,availability,worker,metadata,options,inspect,idle:()=>wait(()=>!Object.values(f.runtime.health([A]).tenants[0].jobs).some(Boolean)),close:async()=>{await f.close();await p.window.close();}};
 }
 describe('actual evaluator released-acquisition witness facts',function(){
- it('captures genuine owned release proof with observation selected and verification suspension unselected',async()=>{
-  const x=await fixture({recovery:false});try{await x.f.runtime.acquire(A);await x.idle();assert.equal(x.inspect().classification,'ready');
+ it('captures genuine owned release proof with observation selected',async()=>{
+  const x=await fixture();try{await x.f.runtime.acquire(A);await x.idle();assert.equal(x.inspect().classification,'ready');
    assert.equal(x.f.runtime.readinessFacts([A]).tenants[0].proof.windowCurrent,true);
   }finally{await x.close();}
  });
@@ -43,10 +44,10 @@ describe('actual evaluator released-acquisition witness facts',function(){
    await x.f.begin(A);x.f.hold.release.resolve();await wait(()=>x.f.completions===1);
    assert.equal(x.f.runtime.readinessFacts([A]).tenants[0].proof,null,'DURABLE_IS_NOT_RELEASE_PROOF');
    assert.equal(x.inspect().classification,'unknown');assert.equal(x.inspect().runtime.running,true);
-   await x.f.verify();lease.close();await x.f.cycle;await x.idle();
+   x.availability.datastoreUnavailable();lease.close();await x.f.cycle;await x.idle();
    assert.equal(x.f.runtime.readinessFacts([A]).tenants[0].proof,null,'REFUSED_RELEASE_IS_NOT_PROOF');
-   assert.equal(x.inspect().classification,'source-refused');assert.equal(x.f.runtime.health([A]).tenants[0].progress.failedCompletions,0);
-   await x.f.finishVerification();await x.f.runtime.resumeVerification(A);await x.idle();assert.equal(x.inspect().classification,'ready',JSON.stringify(x.inspect()));
+   assert.equal(x.inspect().classification,'source-refused');assert.equal(x.f.runtime.health([A]).tenants[0].progress.failedCompletions,1);
+   x.availability.datastoreRecovered();await x.f.runtime.acquire(A);await x.idle();assert.equal(x.inspect().classification,'ready',JSON.stringify(x.inspect()));
   }finally{lease?.close();await x.close();}
  });
  it('does not manufacture owned proof from borrowed work or a missing worker provider',async()=>{
@@ -65,22 +66,19 @@ describe('actual evaluator released-acquisition witness facts',function(){
    assert.throws(()=>x.f.runtime.readinessFacts([]),/SELECTION_REFUSED/);
   }finally{await x.close();}
  });
- for(const kind of ['session','probe'])it('reports actual cached '+kind+' failure beside expiry without another query',async()=>{
+ it('reports cached role availability loss beside clinical expiry without querying',async()=>{
   const x=await fixture();try{
    await x.f.runtime.acquire(A);await x.idle();x.f.runtime.markPending(A,100);x.f.now=120100;
-   if(kind==='session')x.p.client.emit('error',Error('synthetic session loss'));
-   else {const original=x.p.client.query;x.p.client.query=async(...args)=>{if(String(args[0]).includes('pg_backend_pid()'))throw Error('synthetic probe loss');return original(...args);};await assert.rejects(x.p.window.probe());}
+   x.availability.datastoreUnavailable();
    const queries=x.p.log.length,result=x.inspect();assert.equal(result.clinical.status,'expired');
-   assert.equal(result.independentStatus,'refused');assert.equal(result.window.sessionLost,true);
-   assert(result.faults.includes(kind==='session'?'WINDOW_SESSION_LOST':'WINDOW_PROBE_FAILED'));
+   assert.equal(result.independentStatus,'refused');assert(result.faults.includes('WINDOW_PROBE_FAILED'));
    x.inspect();assert.equal(x.p.log.length,queries);
   }finally{await x.close();}
  });
  it('does not treat a pre-loss release as current after authority recovery without a fresh owned acquisition',async()=>{
   const x=await fixture();try{
    await x.f.runtime.acquire(A);await x.idle();x.f.runtime.markPending(A,100);x.f.now=120100;
-   const original=x.p.client.query;x.p.client.query=async(...args)=>{if(String(args[0]).includes('pg_backend_pid()'))throw Error('synthetic probe loss');return original(...args);};
-   await assert.rejects(x.p.window.probe());x.p.client.query=original;await x.p.window.recover();
+   x.availability.datastoreUnavailable();x.availability.datastoreRecovered();
    assert.notEqual(x.inspect().independentStatus,'current','OLD_RELEASE_MUST_NOT_CROSS_AUTHORITY_RECOVERY');
    await x.f.runtime.acquire(A);await x.idle();assert.equal(x.inspect().classification,'ready');
   }finally{await x.close();}

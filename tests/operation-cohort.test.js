@@ -9,7 +9,6 @@ const fixture = require('./fixtures/operation-window-runtime-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
-const { CLINICAL, COUNTERS } = require('../lib/tenant-lifecycle/clinical-catalogue');
 function load (relative, overrides, mutate = s => s) {
   const file = path.resolve(__dirname, relative), output = {exports:{}};
   const original = require('node:module').createRequire(file);
@@ -17,139 +16,6 @@ function load (relative, overrides, mutate = s => s) {
     name => Object.hasOwn(overrides, name) ? overrides[name] : original(name), output, output.exports);
   return output.exports;
 }
-async function setup ({ mutate, boot } = {}) {
-  const f = fixture(), invalidations = [], observed = [{pid:123,role:'synthetic_worker',birth:'1700000000.000001'}];
-  let released = false;
-  const lower = {...require('../lib/storage/postgres-connection'),installOperationWindow: () => () => { released = true; }, cohortBackends: () => observed,cohortDatastore:() => f.window.datastore,cohortSnapshot:async()=>({datastore:f.window.datastore,backends:observed})};
-  const module = load('../lib/server/serve/operation-cohort.js', {
-    '../../storage/postgres-connection':lower,
-    pg:{Client:class { constructor () { assert.fail('Census must use the passed operator client'); } },Pool:class { constructor () { assert.fail('Census must not create a pool'); } }},
-    ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map((name,i) => ['./' + name, {
-      boot: boot || (async () => ({close:async () => {},invalidateTenant:async tenant => invalidations.push([roles[i],tenant])}))
-    }]))
-  }, mutate);
-  const cohort = await module.create({window:f.window,names:roles,tenants:[A,B],namespaces:['clinical','outbox','suppression']});
-  return {f,module,cohort,invalidations,observed,get released () { return released; }, async complete () {
-    for (const role of roles) await cohort.boot(role,{tenantIds:[A,B],...(role === 'realtime' ? {ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0})} : {})}); cohort.complete();
-  }};
-}
-describe('Actual operation cohort composition source protocol', function () {
-  it('requires actual complete constructors, matching tenants and unique pending role boots', async function () {
-    let finish; const wait = new Promise(resolve => { finish = resolve; });
-    const s = await setup({boot:async () => { await wait; return {close:async () => {},invalidateTenant:async () => {}}; }});
-    try {
-      assert.throws(() => s.cohort.complete(), {code:'RESTORE_COHORT_INCOMPLETE'});
-      await assert.rejects(s.cohort.boot('api',{tenantIds:[A]}),{code:'RESTORE_COHORT_TENANT_MISMATCH'});
-      await assert.rejects(s.cohort.boot('api',{tenantIds:[A,B],consumers:{outbox:{namespace:'unobserved'}}}),{code:'RESTORE_COHORT_NAMESPACE_MISMATCH'});
-      assert.deepEqual(s.module.protectedNamespaces({namespaces:{entries:'clinical'},consumers:{outbox:{namespace:'outbox'},suppression:{namespace:'suppression'}}}),['clinical','outbox','suppression']);
-      const pending = s.cohort.boot('api',{tenantIds:[A,B]});
-      await assert.rejects(s.cohort.boot('api',{tenantIds:[A,B]}),{code:'RESTORE_COHORT_CONFIGURATION'});
-      finish(); await pending;
-    } finally { finish(); await s.cohort.close(); }
-  });
-  it('matches launcher coverage when activity uses the actual operation-control namespace', async function () {
-    const s = await setup();
-    try {
-      await assert.rejects(s.cohort.boot('api', { tenantIds: [A,B], activity: { namespace: 'unobserved_control' } }), { code: 'RESTORE_COHORT_NAMESPACE_MISMATCH' });
-      await s.cohort.boot('api', { tenantIds: [A,B], activity: { namespace: s.f.window.namespace } });
-    } finally { await s.cohort.close(); }
-  });
-  async function censusCheck (mutate) {
-    const s = await setup({mutate}); await s.complete();
-    const actors = [{...s.observed[0],application_name:'unrelated-label'}];
-    const client = {async query (sql, values) {
-      if (sql === 'SELECT ' + require('../lib/storage/postgres-connection').datastoreSQL) return {rows:[s.f.window.datastore]};
-      if (sql === 'SELECT pg_catalog.pg_stat_clear_snapshot()') return {rows:[{}]};
-      assert(sql.includes('restore-cohort-actors'),'Unexpected census SQL');
-      assert.deepEqual(values,[['clinical','outbox','suppression'],CLINICAL,COUNTERS]); return {rows:actors};
-    }};
-    try {
-      assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
-      for (const change of [{pid:124},{birth:'1700000000.000002'},{role:'other_worker'},{birth:null}]) {
-        actors[0] = {...s.observed[0],application_name:'nightscout-evaluator-preview',...change};
-        await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
-      }
-      await s.module.invalidate(s.cohort,A);
-      assert.deepEqual(s.invalidations,roles.map(role => [role,A]));
-      assert.equal(s.invalidations.some(row => row[1] === B),false);
-    } finally { await s.cohort.close(); assert.equal(s.released,true); }
-  }
-  async function cachedActivityCheck (mutate) {
-    const s=await setup({mutate});await s.complete();
-    const copy=rows=>structuredClone(rows),trace=[],pending=[];
-    let current=copy(s.observed),cached=null;
-    const client={async query(sql,values){
-      assert.equal(this,client,'SAME_PASSED_OPERATOR_CLIENT');
-      if(sql==='SELECT '+require('../lib/storage/postgres-connection').datastoreSQL)return {rows:[s.f.window.datastore]};
-      if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()'){
-        const record={kind:'refresh',settled:false};trace.push(record);
-        const done=new Promise(resolve=>setImmediate(()=>{cached=null;record.settled=true;resolve({rows:[{}]});}));pending.push(done);return done;
-      }
-      assert(sql.includes('restore-cohort-actors'),'No transaction/connection/clinical SQL is permitted in the census');
-      assert.deepEqual(values,[['clinical','outbox','suppression'],CLINICAL,COUNTERS]);trace.push({kind:'actors'});
-      if(cached===null)cached=copy(current);return {rows:copy(cached)};
-    }};
-    try{
-      assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,1);
-      // A genuine registered actor retired: current database and peer map agree
-      // on absence, but this transaction's earlier activity snapshot retains it.
-      current=[];s.observed.length=0;
-      assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,0);
-      // A newly unregistered actor cannot hide in the previously empty cache.
-      current=[{pid:999,role:'unregistered_worker',birth:'1700000001.000001'}];
-      await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
-      current=[];assert.equal((await s.module.assertComplete(s.cohort,A,{client})).backends,0);
-      assert.equal(trace.length,8);
-      for(let i=0;i<trace.length;i+=2){assert.deepEqual(trace[i],{kind:'refresh',settled:true});assert.deepEqual(trace[i+1],{kind:'actors'});}
-    }finally{await Promise.all(pending);await s.cohort.close();}
-  }
-  it('refreshes cached retired/new actors on the same operator before each strict comparison',()=>cachedActivityCheck());
-  it('detects omitted refresh and passes fresh restored source',async function(){
-    await assert.rejects(cachedActivityCheck(s=>s.replace("await client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');",'')),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
-    await cachedActivityCheck();
-  });
-  it('awaits refresh completion; a started but unawaited clear remains red',async function(){
-    await assert.rejects(cachedActivityCheck(s=>s.replace("await client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');","void client.query('SELECT pg_catalog.pg_stat_clear_snapshot()');")),{code:'RESTORE_COHORT_UNKNOWN_BACKEND'});
-    await cachedActivityCheck();
-  });
-  it('propagates same-client refresh refusal before any actor query',async function(){
-    const s=await setup();await s.complete();const refusal=new Error('synthetic statistics refresh refusal');let actorQueries=0;
-    const client={async query(sql){assert.equal(this,client);if(sql==='SELECT '+require('../lib/storage/postgres-connection').datastoreSQL)return {rows:[s.f.window.datastore]};if(sql==='SELECT pg_catalog.pg_stat_clear_snapshot()')throw refusal;actorQueries++;assert.fail('Actor query must not follow failed refresh');}};
-    try{await assert.rejects(s.module.assertComplete(s.cohort,A,{client}),error=>error===refusal);assert.equal(actorQueries,0);}finally{await s.cohort.close();}
-  });
-  it('matches PID, birth and database role, never an application label; invalidates A only', () => censusCheck());
-  it('accepts a non-participant only when the catalogue reports no clinical-table privilege for its identity', async function () {
-    const s = await setup(); await s.complete();
-    const actors = [{...s.observed[0], clinical:true}];
-    const client = {async query (sql, values) {
-      if (sql === 'SELECT ' + require('../lib/storage/postgres-connection').datastoreSQL) return {rows:[s.f.window.datastore]};
-      if (sql === 'SELECT pg_catalog.pg_stat_clear_snapshot()') return {rows:[{}]};
-      assert(sql.includes('restore-cohort-actors') && /c\.relname=ANY\(\$2::text\[\]\)[^]*AS clinical/.test(sql) &&
-        /c\.relname=ANY\(\$3::text\[\]\)[^]*'INSERT,UPDATE,DELETE'[^]*AS counters/.test(sql), 'Census computes both flags from the catalogue');
-      assert.deepEqual(values.slice(1), [CLINICAL, COUNTERS]); return {rows:structuredClone(actors)};
-    }};
-    try {
-      assert.deepEqual(await s.module.assertComplete(s.cohort,A,{client}), {tenant:A, backends:1, exempt:0});
-      // The admin role's ownership identity: no clinical grant, not a participant.
-      actors.push({pid:777, role:'synthetic_ownership_operator', birth:'1700000002.000001', clinical:false, counters:false});
-      assert.deepEqual(await s.module.assertComplete(s.cohort,A,{client}), {tenant:A, backends:1, exempt:1});
-      // The same identity holding a clinical table, or a missing/odd flag, refuses.
-      for (const clinical of [true, null, undefined, 'false', 0]) {
-        actors[1] = {...actors[1], clinical, counters:false};
-        await assert.rejects(s.module.assertComplete(s.cohort,A,{client}), {code:'RESTORE_COHORT_UNKNOWN_BACKEND'}, 'clinical ' + String(clinical));
-      }
-      // No clinical table, but able to write a counter (or an odd flag): refuses.
-      for (const counters of [true, null, undefined, 'false', 0]) {
-        actors[1] = {...actors[1], clinical:false, counters};
-        await assert.rejects(s.module.assertComplete(s.cohort,A,{client}), {code:'RESTORE_COHORT_UNKNOWN_BACKEND'}, 'counters ' + String(counters));
-      }
-    } finally { await s.cohort.close(); }
-  });
-  it('detects a broken census comparison and passes the restored source', async function () {
-    await assert.rejects(censusCheck(s => { const broken = s.replace("if (matches(actor)) continue;", 'continue;'); assert.notEqual(broken, s, 'mutation applies'); return broken; }), /Missing expected rejection/);
-    await censusCheck();
-  });
-});
 describe('Explicit operation cohort configuration', function () {
   it('defaults off and rejects duplicate locks, unsafe namespaces and absent environment references', function () {
     const config = require('../lib/server/serve/operation-cohort-config');
@@ -168,13 +34,14 @@ describe('Explicit operation cohort configuration', function () {
 });
 
 describe('Selected evaluator control-table read admission', function () {
-  it('allows only a branded physically admitted window and retains unrelated-write refusal', async function () {
+  it('allows only the verified control reads and retains unrelated-write refusal', async function () {
     const f = fixture();
     const {screen} = load('../lib/server/serve/evaluator-readiness.js', {
       '../../storage/postgres-insertion-readiness':{isOrderedCatalogue:() => false}
     });
     const domains = require('../lib/data/tenant-projection-evaluator').domains;
     const config = {namespaces:Object.fromEntries([...domains,'clock','checkpoint'].map(d => [d,'clinical_'+d]))};
+    const lifecycle={controlReads:async()=>['synthetic_window.tenant_lifecycle_windows']};
     let forbiddenWrite = false;
     const client = {async query (sql, values) {
       if (sql.includes('operation-window-')) return f.client.query(sql,values);
@@ -184,10 +51,10 @@ describe('Selected evaluator control-table read admission', function () {
     }};
     try {
       await assert.rejects(screen(client,config),/unsafe evaluator scope/);
-      await assert.rejects(screen(client,config,{operationWindow:{namespace:'synthetic_window'}}),/actual operation window/);
-      await screen(client,config,{operationWindow:f.window});
-      forbiddenWrite=true; await assert.rejects(screen(client,config,{operationWindow:f.window}),/unsafe evaluator scope/);
-      forbiddenWrite=false; await screen(client,config,{operationWindow:f.window});
+      await assert.rejects(screen(client,config,{lifecycle:{}}),/controlReads/);
+      await screen(client,config,{lifecycle});
+      forbiddenWrite=true; await assert.rejects(screen(client,config,{lifecycle}),/unsafe evaluator scope/);
+      forbiddenWrite=false; await screen(client,config,{lifecycle});
     } finally { await f.window.close(); }
   });
 });
@@ -210,10 +77,10 @@ describe('Private IPC lifetime extends through actual response completion', func
     try {
       await written; await new Promise(resolve => setImmediate(resolve));
       assert.equal(res.status,200); assert.equal(f.pending.size, 0);
-      options.phase = 'suspended'; await f.window.drainTenant(A);
+      options.phase = 'suspended';
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(finished, false, 'ACTUAL_RESPONSE_STILL_RUNNING');
-      res.emit('finish'); await job; await f.window.invalidateTenant(A);
+      res.emit('finish'); await job;
       assert.equal(finished, true);
     } finally { res.emit('finish'); await job; await f.window.close(); }
   }
@@ -226,40 +93,35 @@ describe('Private IPC lifetime extends through actual response completion', func
 
 describe('Actual serving and CLI selection composition (source protocol)', function () {
   it('collects every selected store, boots API before realtime and drains contexts before releasing control', async function () {
-    const events=[], captured=[];
-    const cohort = {async boot (role) { events.push('boot:'+role); return {quiesce:async () => events.push('quiesce:'+role),close:async () => events.push('close:'+role)}; },
-      complete:() => events.push('complete'),close:async () => events.push('control-close'),
-      // Decision datastore-loss-recover-in-place: serve starts one recovery supervisor per cohort process.
-      window:{probe:async () => {},recover:async () => ({restarted:false,sessionsReplaced:0})},contexts:() => [],datastoreUnavailable () {},datastoreRecovered () {}};
-    const cohortModule = require('../lib/server/serve/operation-cohort');
+    const events=[];
+    const scope={ready:async()=>{},close:async()=>events.push('control-close')};
     const serve=load('../lib/server/serve/index.js',{
       './listeners':{resolve:() => [],close:async () => {}},
-      // serve.internal composition is covered by tests/serve-internal-listener.test.js.
       './internal-listener':{plan:() => [],open:async () => null},
       pg:{Pool:class {on (event) { events.push('pool-listens:'+event); } async end () { events.push('pool-end'); }}},
-      '../../tenant-lifecycle/operation-window':{create:() => ({})},
-      './operation-cohort':{protectedNamespaces:cohortModule.protectedNamespaces,create:async input => { captured.push(input); return cohort; }},
-      ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map(name => ['./'+name,{}]))
+      '../../tenant-lifecycle/generation-scope':{create:()=>scope},
+      '../../storage/postgres-connection':{installOperationWindow:()=>()=>{}},
+      ...Object.fromEntries(['preview-api','evaluator-preview','preview-realtime','owner-preview'].map((name,index)=>['./'+name,{
+        boot:async()=>{const role=roles[index];events.push('boot:'+role);return {close:async()=>events.push('close:'+role)};}
+      }]))
     });
-    const cfg = key => ({namespaces:{checkpoint:key}});
+    const cfg = key => ({tenantIds:[A],namespaces:{checkpoint:key}});
     const evaluator=cfg('eval_checkpoint'); evaluator.consumers={outbox:{namespace:'outbox'},suppression:{namespace:'suppression'}};
     const running=await serve.start(['realtime','evaluator','api','tenant-admin'],{},null,{}, {
       operationConfig:{namespace:'control',poolOptions:{},locks:[{tenant:A,key:'17'}]},
       datastoreProbe:{probe:async()=>{},readmit:async()=>({restarted:false}),adopt(){}},
-      preview:cfg('api'),ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:cfg('rt_checkpoint')
+      preview:cfg('api'),ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:{...cfg('rt_checkpoint'),ownership:{count:1,ordinal:0}}
     });
     assert.ok(events.indexOf('boot:api')<events.indexOf('boot:realtime'));
     assert.ok(events.includes('pool-listens:error'),'an idle operation-pool backend loss has a listener');
     assert.equal(running.datastoreRecovery.state().state,'serving');
-    assert.deepEqual(captured[0].namespaces.sort(),['api','owner','eval_checkpoint','rt_checkpoint','outbox','suppression'].sort());
+    assert.deepEqual([...new Set([cfg('api'),cfg('owner'),evaluator,cfg('rt_checkpoint')].flatMap(require('../lib/server/serve/role-topology').protectedNamespaces))].sort(),['api','owner','eval_checkpoint','rt_checkpoint','outbox','suppression'].sort());
     await running.stop();
     assert.ok(events.filter(x => x.startsWith('close:')).every(x => events.indexOf(x)<events.indexOf('control-close')));
     assert.equal(events.at(-1),'pool-end');
   });
   it('continues actual resource teardown but refuses graceful retirement when recovery drain is unconfirmed', async function () {
     const events = [], failure = Object.assign(new Error('unconfirmed recovery'), { code: 'DATASTORE_RECOVERY_DRAIN_UNCONFIRMED' });
-    const cohort = { boot: async () => ({ quiesce: async () => events.push('context-quiesce'), close: async () => events.push('context-close') }),
-      complete () {}, quiesce: () => events.push('cohort-quiesce'), close: async () => events.push('cohort-close') };
     const admission = { beginQuiesce: () => events.push('constructors-frozen'),
       wrapPool: Pool => Pool, poolOptions: (name, options) => options,
       closeColdAdmission: async () => events.push('cold-close'), finalizeQuiescence: async clean => events.push('retire:' + clean) };
@@ -268,15 +130,15 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
       './internal-listener': { plan: () => [], open: async () => null },
       pg: { Pool: class { on () {} async end () { events.push('pool-end'); } } },
       '../../storage/connection-admission': admission,
-      '../../tenant-lifecycle/operation-window': { create: () => ({}) },
-      './operation-cohort': { protectedNamespaces: () => [], create: async () => cohort },
-      './datastore-recovery': { settings: () => ({}), create: () => ({ start () {}, close: async () => { events.push('recovery-close'); throw failure; } }) },
-      './evaluator-preview': {}
+      '../../tenant-lifecycle/generation-scope': { create: () => ({ready:async()=>{},close:async()=>events.push('scope-close')}) },
+      '../../storage/postgres-connection':{installOperationWindow:()=>()=>{}},
+      './datastore-recovery': { ...require('../lib/server/serve/datastore-recovery'), settings: () => ({}), create: () => ({ start () {}, close: async () => { events.push('recovery-close'); throw failure; } }) },
+      './evaluator-preview': {boot:async()=>({quiesce:async()=>events.push('context-quiesce'),close:async()=>events.push('context-close')})}
     });
-    const running = await serve.start(['evaluator'], {}, null, {}, { evaluatorPreview: {}, operationConfig: { namespace: 'control', poolOptions: {}, locks: [] },
+    const running = await serve.start(['evaluator'], {}, null, {}, { evaluatorPreview: {tenantIds:[]}, operationConfig: { namespace: 'control', poolOptions: {}, locks: [] },
       datastoreProbe: { probe: async () => {}, readmit: async () => ({ restarted: false }), adopt () {} } });
     await assert.rejects(running.stop(), error => error instanceof globalThis.AggregateError && error.errors.includes(failure));
-    assert(events.includes('context-close')); assert(events.includes('cohort-close')); assert(events.includes('pool-end'));
+    assert(events.includes('context-close')); assert(events.includes('scope-close')); assert(events.includes('pool-end'));
     assert.equal(events.at(-1), 'retire:false', 'UNCONFIRMED_RECOVERY_CANNOT_ACK_RETIREMENT');
     assert(events.indexOf('constructors-frozen') < events.indexOf('recovery-close'));
   });

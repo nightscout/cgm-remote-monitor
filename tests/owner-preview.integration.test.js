@@ -25,7 +25,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
   'NS_OWNER_PREVIEW_TEST=1 with owned PostgreSQL and Vault')('explicit headless owner executable composition', function () {
     this.timeout(60000);
     const suffix = crypto.randomBytes(8).toString('hex');
-    const registryLab = require('./fixtures/multitenant-preview-replicas')();
+    const registryLab = require('./fixtures/multitenant-preview-replicas')({ restartableDatabase: true });
     const namespaces = { authorization: 'preview_auth', credentials: 'preview_legacy', access: 'preview_access' };
     const writerRole = 'owner_writer_' + suffix, readerRole = 'owner_reader_' + suffix;
     const children = new Set(), workers = [];
@@ -293,6 +293,71 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
         before[t('tenant_subject_admin_audit')].length + 1);
       console.log('OWNER_PREVIEW_READER_SQL_REFUSAL ' + JSON.stringify({ scope: 'exact-owned reader SELECT privilege', workers: workers.length,
         refusedStatus: 503, sanitized: true, independentStateUnchangedDuringRefusal: true, restoredStatus: response.status, auditDeltaAfterRestore: 1 }));
+    });
+    it('reports datastore loss and serves authenticated tenant writes after a PostgreSQL restart without an operation window', async function () {
+      const source = { API_PORT: '0', TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0',
+        NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'recovery.sock'), OWNER_WRITER: writerURI, OWNER_READER: readerURI,
+        NS_DATASTORE_PROBE_INTERVAL_MS: '250' };
+      const scope = require('../lib/storage/tenant-scope');
+      const previous = scope.getTenancyMode();
+      const parsed = require('../lib/server/serve/owner-preview-config').parse(config(), source);
+      // Exercise the configured role in its own process beside the role with
+      // no lifecycle selection. Its health request uses the deployment contract.
+      const control = registryLab.provisioned.namespaces.control;
+      const probeRole = 'owner_generation_' + suffix;
+      const controlURI = new URL(registryLab.adminConnectionString);
+      controlURI.username = probeRole; controlURI.password = crypto.randomBytes(24).toString('hex');
+      await admin.query('CREATE ROLE "' + probeRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD ' + "'" + controlURI.password + "'");
+      for (const user of [readerRole, writerRole, probeRole]) {
+        await admin.query('GRANT USAGE ON SCHEMA "' + control + '" TO "' + user + '"');
+        for (const table of ['schema_migrations', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations']) {
+          await admin.query('GRANT SELECT ON "' + control + '".' + table + ' TO "' + user + '"');
+        }
+      }
+      await admin.query('GRANT INSERT(tenant_id,operation_id,generation), UPDATE(finished) ON "' + control + '".tenant_lifecycle_operations TO "' + probeRole + '"');
+      await admin.query('GRANT EXECUTE ON FUNCTION "' + control + '".tenant_lifecycle_backend_birth() TO "' + probeRole + '"');
+      const validator = '"' + registryLab.provisioned.namespaces.settings + '".tenant_settings_values_valid(jsonb)';
+      await admin.query('REVOKE EXECUTE ON FUNCTION ' + validator + ' FROM PUBLIC');
+      const operationFile = path.join(directory, 'recovery-selection.json');
+      const participants = ['api', 'evaluator', 'realtime', 'tenant-admin'].map(role => ({
+        id: role, roles: [role], namespaces: Object.values(namespaces), maxMessageBytes: 65536, timeoutMs: 1500
+      }));
+      fs.writeFileSync(operationFile, JSON.stringify({ version: 2, namespace: control, registry: { namespace: registryLab.provisioned.namespaces.registry },
+        connectionEnv: 'OWNER_GENERATION_PG', participantId: 'tenant-admin', participants }), { mode: 0o600 });
+      const configured = { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'owner-health.sock'),
+        OWNER_GENERATION_PG: controlURI.toString(), MULTITENANT_OPERATION_CONFIG: operationFile, NS_DATASTORE_PROBE_INTERVAL_MS: '250' };
+      const selected = await start(config(), configured);
+      const endpoint = require('../lib/server/internal-api/listener-config').resolve(['tenant-admin'], configured)
+        .peer('tenant-admin', { maxBytes: 65536, timeoutMs: 1500 });
+      const status = () => require('../lib/server/internal-api/clients').roleHealth(endpoint).getStatus({ request: crypto.randomUUID() });
+      const role = await require('../lib/server/serve').start(['tenant-admin'], {}, null, source, { ownerPreview: parsed });
+      try {
+        const worker = { port: role.servers[0].address().port };
+        const credential = await token(), before = role.datastore.current.postmaster_birth, beforeEpoch = role.datastore.epoch;
+        assert.equal((await http(worker, credential)).status, 200);
+        assert.equal((await status()).ready, true);
+        assert.equal((await http(selected, credential)).status, 200);
+        await registryLab.restartDatabase(async () => {
+          await registryLab.until(() => !role.datastore.available, 'role health turns unavailable');
+          await registryLab.until(async () => !(await status()).ready, 'private role health turns unavailable');
+          assert.equal((await http(worker, credential)).status, 503);
+          assert.equal((await http(selected, credential)).status, 503);
+        });
+        admin = registryLab.admin;
+        await registryLab.until(() => role.datastore.available, 'role health recovers');
+        await registryLab.until(async () => (await status()).ready, 'private role health recovers');
+        assert.equal((await http(selected, credential)).status, 200);
+        assert.notEqual(role.datastore.current.postmaster_birth, before);
+        assert.notEqual(role.datastore.epoch, beforeEpoch, 'new postmaster must not revalidate old role admissions');
+        const response = await http(worker, credential, { _id: TARGET, name: 'After PostgreSQL restart', roles: ['reader'] });
+        assert.equal(response.status, 200);
+        const row = await admin.query('SELECT display_name FROM ' + t('tenant_authorization_subjects') + ' WHERE tenant_id=$1 AND subject_id=$2', [A, TARGET]);
+        assert.deepEqual(row.rows, [{ display_name: 'After PostgreSQL restart' }]);
+      } finally {
+        admin = registryLab.admin; await role.stop(); await stop(selected); scope.setTenancyMode(previous);
+        await admin.query('GRANT EXECUTE ON FUNCTION ' + validator + ' TO PUBLIC');
+        await admin.query('DROP OWNED BY "' + probeRole + '"'); await admin.query('DROP ROLE "' + probeRole + '"');
+      }
     });
     it('closes actual CLI listeners and storage cleanly on SIGTERM', async function () {
       const worker = await start(); await stop(worker); assert.equal(worker.child.exitCode, 0);

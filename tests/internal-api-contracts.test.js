@@ -5,14 +5,10 @@ const { validate, compile } = require('../lib/server/internal-api/schema');
 const contracts = require('../lib/server/internal-api/contracts');
 const A = '11111111-1111-4111-8111-111111111111';
 const request = '00000000-0000-4000-8000-000000000001';
-const identity = require('./fixtures/operation-window-admission-protocol').identity;
-const status = { version: 4, ownership: null, participant: 'api_1', incarnation: request, namespace: 'lifecycle', roles: ['api'], tenants: [A], namespaces: ['clinical'], identity,
-  datastore: { database: 'synthetic', database_oid: '16384', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1700000000.0' },
-  backends: [{ pid: 123, role: 'synthetic_api', birth: '1700000001.0' }], request };
 const authorize = contracts.socketAuthority.operations.authorizeSocket;
 const mutate = contracts.socketAuthority.operations.executeSocketMutation;
 const alarm = contracts.alarmDelivery.operations.deliverAlarm;
-const lifecycle = contracts.lifecycleParticipant.operations;
+const health = contracts.roleHealth.operations;
 const refused = fn => assert.throws(fn, error => error.code === 'INTERNAL_API_SCHEMA_REFUSED' && error.message === 'INTERNAL_API_SCHEMA_REFUSED');
 
 describe('Internal service API contracts', function () {
@@ -21,23 +17,23 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
     assert.deepEqual(Object.keys(contracts.completedOutput.operations), ['hintCompletedOutput']);
     assert.equal(Object.hasOwn(contracts, 'intakeState'), false, 'SYNTHETIC_INTAKE_STATE_CONTRACT_RETIRED');
-    assert.deepEqual(Object.keys(contracts.lifecycleParticipant.operations), ['getStatus', 'invalidateTenant', 'getOperations', 'getApiHealth']);
+    assert.deepEqual(Object.keys(health), ['getStatus']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
       // Explicit versions refuse mixed role/operator upgrades. Evaluator v3
       // distinguishes immutable static configuration from observed peer state.
-      assert.equal(service.version, ['lifecycle-participant','realtime-inspection'].includes(service.id) ? 5 : service.id==='alarm-delivery' ? 4 : ['completed-output','evaluator-inspection'].includes(service.id) ? 3 : service.id==='connector-inspection' ? 2 : 1);
+      assert.equal(service.version, service.id==='realtime-inspection' ? 5 : service.id==='alarm-delivery' ? 4 : ['completed-output','evaluator-inspection'].includes(service.id) ? 3 : service.id==='connector-inspection' ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/role/health',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
         '/evaluator/inspect', '/evaluator/readiness-witness', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
-    assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
+    assert.throws(() => { contracts.alarmDelivery.operations.getStatus = health.getStatus; }, TypeError);
   });
   it('carries only a bounded distinct tenant wake list and refuses invented revision or completion authority', function () {
     const operation=contracts.completedOutput.operations.hintCompletedOutput,ids=Array.from({length:65},(_,i)=>'00000000-0000-4000-8000-'+String(i).padStart(12,'0'));
@@ -112,35 +108,14 @@ describe('Internal service API contracts', function () {
     refused(() => validate(alarm.response, { accepted: true, receipt: { deviceAcknowledged: true }, clearedRequestIds: [] }));
     refused(() => validate(alarm.response, { accepted: true, receipt: null, clearedRequestIds: [request] }));
   });
-  it('requires complete lifecycle identities and exact invalidation acknowledgements', function () {
-    validate(lifecycle.getStatus.request, { request }); validate(lifecycle.getStatus.response, status);
-    validate(lifecycle.getStatus.response, { ...status, tenants: ['registry:synthetic_registry'] });
-    validate(lifecycle.invalidateTenant.response, { ...status, tenant: A, tenants: ['registry:synthetic_registry'] });
-    for (const tenants of [['registry:synthetic_registry', A], ['registry:one','registry:two'], ['registry:public'], ['registry:pg_private'], ['arbitrary']]) refused(() => validate(lifecycle.getStatus.response, { ...status, tenants }));
-    validate(lifecycle.invalidateTenant.request, { request, tenant: A, incarnation: request, identity });
-    validate(lifecycle.invalidateTenant.response, { ...status, tenant: A });
-    for (const bad of [{ ...status, tenant: A }, { ...status, identity: {} }, { ...status, roles: ['api', 'api'] }, { ...status, roles: ['recovery'] }, { ...status, datastore: { ...status.datastore, password: 'synthetic' } }, { ...status, backends: [{ ...status.backends[0], pid: 0 }] }]) refused(() => validate(lifecycle.getStatus.response, bad));
-    refused(() => validate(lifecycle.invalidateTenant.response, status));
-    refused(() => validate(lifecycle.invalidateTenant.request, { request, tenant: A, incarnation: request, identity, force: true }));
-  });
-  it('requires exact tenant, incarnation and identity for operation census and UUID operation ids in its reply', function () {
-    const body = { request, tenant: A, incarnation: request, identity };
-    const reply = { request, tenant: A, participant: status.participant, incarnation: request, operations: [request] };
-    validate(lifecycle.getOperations.request, body); validate(lifecycle.getOperations.response, reply);
-    for (const bad of [{ ...body, force: true }, { ...body, identity: {} }, { ...body, tenant: 'arbitrary' }]) refused(() => validate(lifecycle.getOperations.request, bad));
-    for (const bad of [{ ...reply, operations: ['arbitrary'] }, { ...reply, tenant: 'arbitrary' }, { ...reply, password: 'synthetic' }]) refused(() => validate(lifecycle.getOperations.response, bad));
-  });
-  it('requires all ten exact admitted lifecycle identities in every status and control request', function () {
-    const keys=['namespaceOid','ownerOid','ledgerOid','windowsOid','operationsOid','authorityOid','auditOid','resumeOid','clearanceOid','backendBirthOid'];
-    assert.deepEqual(Object.keys(identity),keys);
-    for (const key of keys) {
-      const missing={...identity};delete missing[key];
-      for (const [schema,body] of [[lifecycle.getStatus.response,status],[lifecycle.invalidateTenant.request,{request,tenant:A,incarnation:request,identity}],[lifecycle.getOperations.request,{request,tenant:A,incarnation:request,identity}]]) {
-        refused(()=>validate(schema,{...body,identity:missing}));
-        refused(()=>validate(schema,{...body,identity:{...identity,[key]:0}}));
-        refused(()=>validate(schema,{...body,identity:{...identity,extraOid:999}}));
-      }
-    }
+  it('requires the exact role health acknowledgement', function () {
+    const reply = { request, participant: 'api_1', roles: ['api'], ready: true };
+    validate(health.getStatus.request, { request });
+    validate(health.getStatus.response, reply);
+    validate(health.getStatus.response, { ...reply, ready: false });
+    for (const bad of [{}, { request: A, tenant: A }]) refused(() => validate(health.getStatus.request, bad));
+    for (const bad of [{ ...reply, ready: 1 }, { ...reply, roles: [] }, { ...reply, roles: ['root'] },
+      { ...reply, backends: [] }]) refused(() => validate(health.getStatus.response, bad));
   });
   it('fails unsupported schema vocabulary and exercises the implemented JSON Schema subset', function () {
     assert.throws(() => compile({ type: 'object', patternProperties: {} }), /Unsupported internal API schema/);
@@ -170,20 +145,6 @@ describe('Internal service API contracts', function () {
     const guard = check => assert.throws(() => check(authorize.request, body), error => error.code === 'INTERNAL_API_SCHEMA_REFUSED');
     guard(validate);
     assert.throws(() => guard(output.exports.validate), error => error.code === 'ERR_ASSERTION' && error.message === 'Missing expected exception.');
-  });
-});
-
-describe('static ownership wire provenance', function () {
-  it('requires the exact static lifecycle tuple and refuses legacy or ambiguous payloads', function () {
-    const ownership={count:2,ordinal:1,rule:'sha256-modulo-v1'};
-    for(const response of [lifecycle.getStatus.response,lifecycle.invalidateTenant.response]){
-      const base=response===lifecycle.invalidateTenant.response?{...status,tenant:A}:status;
-      validate(response,base);validate(response,{...base,ownership});
-      const missing={...base};delete missing.ownership;
-      for(const value of [missing,{...base,version:3},{...base,placement:{}},
-        {...base,ownership:{...ownership,count:0}},{...base,ownership:{...ownership,ordinal:-1}},
-        {...base,ownership:{...ownership,rule:'sha256-u32be-v1'}},{...base,ownership:{...ownership,incarnation:A}}])refused(()=>validate(response,value));
-    }
   });
 });
 

@@ -21,7 +21,7 @@ describe('Internal admin platform verification contract', function () {
     for (const value of [{ namespace: 'public', role: 'api' }, { namespace: 'test_platform', role: 'evaluator' }, { namespace: 'test_platform', role: 'api', bypass: true }]) assert.throws(() => platform.selected(value, 'api'), { code: 'PLATFORM_VERIFICATION_CONFIG' });
   });
   it('keeps platform verification operational state outside tenant restore', function () {
-    const names = require('../lib/server/serve/operation-cohort').protectedNamespaces({ namespaces: { entries: 'test_clinical' }, platformVerification: { namespace: 'test_platform', role: 'api' } });
+    const names = require('../lib/server/serve/role-topology').protectedNamespaces({ namespaces: { entries: 'test_clinical' }, platformVerification: { namespace: 'test_platform', role: 'api' } });
     assert.deepEqual(names, ['test_clinical']);
   });
   it('refuses a serving role without a selected proof before any database read', async function () {
@@ -154,8 +154,8 @@ native('Native PostgreSQL admin verification state', function () {
     } finally { operationProfileDigest = undefined; await service.verify(); }
     await platform.admit(config, 'api');
   });
-  it('binds each serving role start check to the actual selected operation window', async function () {
-    const windows = require('../lib/tenant-lifecycle/operation-window');
+  it('binds each serving role start check to the actual selected generation scope', async function () {
+    const windows = require('../lib/tenant-lifecycle/generation-scope');
     const makeWindow = generation => windows.create({ namespace: schema, lockRule: 'tenant-id-sha256-v1',
       pool: { options: { max: 1 }, connect: async () => { throw new Error('This certificate fixture never opens lifecycle sessions'); } },
       ...(generation ? { intakeProfile: require('../lib/tenant-lifecycle/native-selection').create({

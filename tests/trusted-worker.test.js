@@ -321,10 +321,10 @@ describe('normal operational verification and owned clinical dispatch', function
     await window.window.ready();
     const lifecycle=await require('../lib/trusted-worker/lifecycle')(f.reader,{
       verifyWorker:()=>{
-        const verify=()=>{f.reader.invalidate();return window.window.verifyOperational(async()=>{
+        const verify=async()=>{f.reader.invalidate();
           if(++calls>1){verifyEntered.resolve();await verifyHold.promise;}
           await f.reader.verify();
-        });};
+        };
         return service?service.verifyOperational(verify):verify();
       }
     });
@@ -344,8 +344,7 @@ describe('normal operational verification and owned clinical dispatch', function
       authority=window.window.run(A,()=>service.isCurrent(A,'b'.repeat(64)));authority.catch(()=>{});await settle();
       verification=lifecycle.verify();await settle();evaluationHold.resolve();await entered;
       await verifyEntered.promise;
-      authorityHold.resolve();await assert.rejects(authority,{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-      await assert.rejects(window.window.run(A,()=>assert.fail('WITHDRAWN_EPOCH_EFFECT')), {code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+      authorityHold.resolve();assert.equal(await authority,false,'withdrawn reader cannot credit an in-flight authority read');
       queued=service.acquire(A);verifyHold.resolve();await verification;await queued;
       await settle();await service.backstop([A],{recovery:true});
       const row=service.health().tenants[0];

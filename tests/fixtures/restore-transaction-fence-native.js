@@ -4,7 +4,6 @@
 // maintenance principals. Only the process census is represented in memory.
 // Window admission, locks, generation changes, snapshots and all COMMITs are real.
 const assert = require('node:assert/strict');
-const Module = require('node:module');
 const { Client, Pool } = require('pg');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const storage = require('../../lib/storage/postgres-connection');
@@ -15,27 +14,7 @@ const data = 'synthetic_fence.values';
 const effects = 'synthetic_fence.effects';
 
 function selectController (fixture, pool) {
-  const cohort = {}, pin = {};
-  const participants = {
-    async pin (selected, tenant) { assert.equal(selected, cohort); assert.equal(tenant, fixture.A); return pin; },
-    async assertComplete (selected, tenant) { assert.equal(selected, cohort); assert.equal(tenant, fixture.A); },
-    async operations () { return { operations: [] }; },
-    async invalidate (selected, tenant) {
-      assert.equal(selected, cohort);
-      await fixture.window.invalidateTenant(tenant);
-    },
-    async releasePin (selected) { assert.equal(selected, pin); }
-  };
-  const load = Module._load;
-  try {
-    // create() captures this dependency synchronously, as in the maintenance
-    // protocol tests. No process-wide substitution survives construction.
-    Module._load = function (request, parent, ...other) {
-      if (request === '../server/serve/operation-cohort' && parent.filename === require.resolve('../../lib/tenant-lifecycle/maintenance-window')) return participants;
-      return load.call(this, request, parent, ...other);
-    };
-    return maintenance.create({ namespace: fixture.ns.control, locks: fixture.locks, pool, cohort, drainTimeoutMs: 8000 });
-  } finally { Module._load = load; }
+  return maintenance.create({ namespace: fixture.ns.control, locks: fixture.locks, pool, drainTimeoutMs: 8000 });
 }
 
 function gate () { return Promise.withResolvers(); }

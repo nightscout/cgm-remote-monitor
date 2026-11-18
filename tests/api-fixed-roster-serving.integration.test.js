@@ -5,9 +5,6 @@
 const assert = require('node:assert/strict'), fs = require('node:fs');
 const { optInSuite } = require('./support/opt-in');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
-const cohorts = require('../lib/server/serve/operation-cohort');
-const manifests = require('../lib/server/serve/operation-cohort-manifest');
-const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
 const entry = identifier => ({ identifier, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-roster', sgv: 125 });
 optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER_SERVING_DOCKER_TEST=1')(
   'fixed roster with two actual API CLI processes and tenant transaction fences', function () {
@@ -57,29 +54,6 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
         assert.equal((await call(id, B, 'GET', '/api/v3/entries/' + secondId, b)).status, 404);
       }
       process.stdout.write('FIXED_ROSTER_CLOCK_ENABLED ' + JSON.stringify({ first: first.srvModified, second: second.srvModified, allDestinationsConverged: true }) + '\n');
-    });
-
-    it('refuses omitted real API backends and service-aliased participants before suspending A', async function () {
-      const original = f.participants;
-      const variants = [
-        original.filter(peer => peer.id !== 'api-2'),
-        original.map(peer => peer.id !== 'api-2' ? peer : { ...peer, endpoint: { ...peer.endpoint,
-          url: original[0].endpoint.url.replace('127.0.0.2', '127.0.0.4') } })
-      ];
-      for (const [index, rows] of variants.entries()) {
-        let remote, window, entered = false;
-        try {
-          await assert.rejects((async () => {
-            remote = await cohorts.createRemote({ namespace: f.namespace, tenants: f.cohortTenants, participants: manifests.validate(rows) });
-            window = maintenance.create({ namespace: f.namespace, locks: f.locks, pool: f.operatorPool, cohort: remote, drainTimeoutMs: 5000 });
-            return window.withRestore(A, { artifactDigest: 'd'.repeat(64) }, async () => { entered = true; });
-          })(),
-            error => index === 0 ? error.code === 'RESTORE_COHORT_UNKNOWN_BACKEND' : ['RESTORE_COHORT_PROTOCOL', 'RESTORE_COHORT_PARTICIPANT_CHANGED'].includes(error.code));
-          assert.equal(entered, false);
-          const phase = await f.withAdmin(async admin => (await admin.query('SELECT phase FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [A])).rows[0].phase);
-          assert.equal(phase, 'active');
-        } finally { if (window) await window.close(); if (remote) await remote.close(); }
-      }
     });
 
     it('restores A while its pre-restore HTTP success is held and B continues', async function () {
@@ -151,19 +125,6 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       });
     }
 
-    it('rejects a replaced actual API incarnation under its old pin, and accepts a fresh pin', async function () {
-      const client = await f.operatorPool.connect(); let pin;
-      try {
-        pin = await cohorts.pin(f.cohort, A, { client });
-        await f.base.stop(f.current.get('api-2')); await f.start('api-2');
-        await assert.rejects(cohorts.assertComplete(f.cohort, A, { client }), { code: 'RESTORE_COHORT_PARTICIPANT_CHANGED' });
-        await cohorts.releasePin(pin); pin = null;
-        pin = await cohorts.pin(f.cohort, A, { client });
-        await cohorts.assertComplete(f.cohort, A, { client });
-      } finally { if (pin) await cohorts.releasePin(pin); client.release(); }
-      assert.equal((await call('api-2', B, 'GET', '/api/v3/entries', b)).status, 200);
-    });
-
     it('bounds aggregate operation/data pools under concurrent service traffic', async function () {
       const results = await Promise.all(Array.from({ length: 16 }, () => call('service', B, 'GET', '/api/v3/entries', b)));
       assert(results.every(result => result.status === 200));
@@ -190,15 +151,13 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       assert.equal((await call('api-1', B, 'GET', '/api/v3/entries/native-commit-without-ack', b)).status, 200);
     });
 
-    it('keeps A suspended after losing a completed invalidation reply while B remains available', async function () {
-      fs.writeFileSync(f.mark('drop-invalidation', 'api-2'), 'once', { mode: 0o600 });
-      await assert.rejects(f.restore(async () => 'restore-completed'), /SOCKET_IPC_UNAVAILABLE/);
-      assert.equal(fs.readFileSync(f.mark('lost-invalidation', 'api-2'), 'utf8'), 'handler-completed');
-      const phase = await f.withAdmin(async admin => (await admin.query('SELECT phase FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [A])).rows[0].phase);
-      assert.equal(phase, 'suspended', 'LOST_INVALIDATION_REPLY_MUST_NOT_ACTIVATE');
-      for (const id of ['api-1', 'api-2']) {
-        assert.notEqual((await call(id, A, 'GET', '/api/v3/entries', a)).status, 200);
-        assert.equal((await call(id, B, 'GET', '/api/v3/entries', b)).status, 200);
-      }
+    it('reopens A while one replica is offline and serves the new generation on its return', async function () {
+      await f.base.stop(f.current.get('api-2'));
+      f.current.delete('api-2');
+      const restored = await f.restore(async () => {});
+      assert.equal(restored.state, 'activated');
+      assert.equal((await call('api-1', B, 'GET', '/api/v3/entries', b)).status, 200);
+      await f.start('api-2');
+      assert.equal((await call('api-2', A, 'GET', '/api/v3/entries', a)).status, 200);
     });
   });

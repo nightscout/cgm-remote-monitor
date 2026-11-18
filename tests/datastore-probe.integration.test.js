@@ -15,7 +15,7 @@ const { optInSuite } = require('./support/opt-in');
 const IMAGE = 'postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea';
 const A = '11111111-1111-4111-8111-111111111111';
 const SUPERVISOR = path.resolve(__dirname, '../lib/server/serve/datastore-recovery.js');
-const PROBE_STEP = '          if (plain) await bounded(() => plain.probe());\n';
+const PROBE_STEP = '          await bounded(() => probe.probe());\n';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer(); server.once('error', reject);
@@ -71,7 +71,7 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
     const probe = datastoreProbe.create({ options: readerOptions, timeoutMs: 2000 });
     await probe.probe();
     const health = target(), exhausted = [];
-    const instance = supervisorModule(ablate).create({ cohort: health, probe, intervalMs: 250, boundMs: 60000, baseDelayMs: 50, maxDelayMs: 500,
+    const instance = supervisorModule(ablate).create({ target: health, probe, intervalMs: 250, boundMs: 60000, baseDelayMs: 50, maxDelayMs: 500,
       attemptTimeoutMs: 3000, log: () => {}, exhausted: code => exhausted.push(code) });
     const before = await birth();
     assert.equal(await served(), 1, 'tenant served before the loss');
@@ -113,7 +113,10 @@ optInSuite(process.env.NS_DATASTORE_RECOVERY_DOCKER_TEST === '1', 'NS_DATASTORE_
   after(async function () {
     scope.setTenancyMode(previousMode);
     await store?.end().catch(() => {});
-    if (owned) execFileSync('docker', ['rm', '-f', '-v', container], { stdio: 'pipe' });
+    if (owned) {
+      docker('rm', '-f', '-v', container);
+      assert.equal(docker('ps', '-aq', '--filter', 'name=^/' + container + '$'), '', 'owned PostgreSQL removed');
+    }
   });
 
   it('turns unavailable after a PostgreSQL restart, drops cached tenant state once, recovers and serves tenants again', async function () {

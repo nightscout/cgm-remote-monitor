@@ -150,41 +150,4 @@ describe('trusted consumer operational catalogue admission', function () {
     } finally {scope.setTenancyMode(previous);}
   });
 
-  it('verifies catalogues while tenant operations refuse, and a changed catalogue keeps the whole batch closed', async function () {
-    const previous=scope.getTenancyMode();scope.setTenancyMode('multi');
-    const f=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});
-    const n=require('./fixtures/tenant-notifications')();
-    const readiness=require('../lib/server/serve/evaluator-consumer-readiness');
-    const migration=require('../migrations/candidates/postgres-alarm-suppression-v1.json').migrations[0];
-    let operationalReads=0;
-    const outbox={namespace:'notification_test',connection:{readOnly:async(text,values)=>{
-      operationalReads++;
-      await assert.rejects(f.window.run(A,()=>assert.fail('WITHDRAWN_TENANT_BODY')), {code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-      return n.connection.transaction(()=>n.connection.query(text,values));
-    }}};
-    const alarm={namespace:'alarm_test',connection:{readOnly:async text=>{
-      operationalReads++;
-      if(text.includes('suppression-role'))return {rows:[{uses_schema:true}]};
-      if(text.includes('suppression-shape'))return {rows:[{kind:'r',persistence:'p',secured:true,
-        columns:[['tenant_id','uuid',true],['alarm_group','text',true],['alarm_level','integer',true],['acked_at','bigint',true],['expires_at','bigint',true]],
-        primary_key:['tenant_id','alarm_group','alarm_level'],policies:[{command:'*',roles:[0],permissive:true,
-          using:"tenant_id = NULLIF(current_setting('app.current_tenant_id',true),'')::uuid",check:"tenant_id = NULLIF(current_setting('app.current_tenant_id',true),'')::uuid"}]}]};
-      return {rows:[{name:migration.name,checksum:migration.checksum}]};
-    }}};
-    const store=require('../lib/tenant-notifications/postgres')({connection:n.connection,namespace:'notification_test',maxRows:10,maxBytes:100000,assertOperational:()=>f.window.assertCurrent(A)});
-    try {
-      await f.window.ready();
-      await f.window.verifyOperational(()=>readiness.operational(outbox,alarm));
-      assert.ok(operationalReads>3);
-      const before=n.calls.length;
-      await scope.withTenant(A,()=>f.window.run(A,()=>store.ready(A)));
-      assert.equal(n.calls.slice(before).filter(row=>row.sql?.includes('notification-readiness')).length,0,'NO_PER_INTENT_CATALOGUE_SCAN');
-      await scope.withTenant(A,()=>assert.rejects(store.ready(A),{code:'LIFECYCLE_WINDOW_SCOPE_INVALID'}));
-      n.unsafe({role:{elevated_membership:true}});
-      await assert.rejects(f.window.verifyOperational(()=>readiness.operational(outbox,alarm)),/NOTIFICATION_SCHEMA_UNSAFE/);
-      await assert.rejects(f.window.run(A,()=>assert.fail('UNSAFE_CATALOGUE_BODY')),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
-      n.unsafe();await f.window.verifyOperational(()=>readiness.operational(outbox,alarm));
-      await scope.withTenant(A,()=>f.window.run(A,()=>store.ready(A)));
-    } finally {await f.window.close();scope.setTenancyMode(previous);}
-  });
 });

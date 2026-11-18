@@ -68,7 +68,7 @@ if (process.env.NS_PREVIEW_REPLICA_HOLD_RESPONSE === '1') {
   };
 }
 
-module.exports = function createReplicaFixture ({ writeClock = false, namespaceNames = {} } = {}) {
+module.exports = function createReplicaFixture ({ writeClock = false, namespaceNames = {}, restartableDatabase = false } = {}) {
     provisionedTenants.validateNamespaceNames(namespaceNames);
     namespaceNames = { ...namespaceNames };
     const suffix = crypto.randomBytes(8).toString('hex');
@@ -241,7 +241,18 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
     async function setup () {
       fs.mkdirSync(fixtureDirectory, { mode: 0o700 });
       const pgPassword = random();
-      execFileSync('docker', ['run', '--rm', '--name', pgName, '-d', '-p', '127.0.0.1::5432',
+      // A restarted container with a dynamic published port can move to a new
+      // host port. Preserve the address used by the roles in the restart drill.
+      let port = '';
+      if (restartableDatabase) port = await new Promise((resolve, reject) => {
+        const server = require('node:net').createServer();
+        server.on('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+          const assigned = server.address().port;
+          server.close(error => error ? reject(error) : resolve(assigned));
+        });
+      });
+      execFileSync('docker', ['run', ...(restartableDatabase ? [] : ['--rm']), '--name', pgName, '-d', '-p', '127.0.0.1:' + port + ':5432',
         '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview_replicas_test', 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97'],
       { env: { ...process.env, POSTGRES_PASSWORD: pgPassword }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
       pgOwned = true;
@@ -304,7 +315,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
       // Provisioning: the registry, each tenant's keys, root secret, anonymous
       // denial, access tenant and key rows, write clock, window and settings.
       await admin.query('CREATE ROLE preview_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
-      provisioned = await provisionedTenants.create({ admin, adminURI, owner: 'preview_owner', namespaceNames, vault: { address: address + '/', token: vaultRoot },
+      provisioned = await provisionedTenants.create({ admin: { query: (...args) => admin.query(...args) }, adminURI, owner: 'preview_owner', namespaceNames, vault: { address: address + '/', token: vaultRoot },
         namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access', ...(writeClock ? { clock: 'preview_clock' } : {}) } });
       for (const [i, tenant] of [A, B].entries()) roots[i] = (await provisioned.provision({ id: tenant, hosts: [HOSTS[i]], issueRootSecret: true })).rootSecret;
       for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
@@ -334,6 +345,18 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
     }
+    async function restartDatabase (whileDown) {
+      assert(restartableDatabase && pgOwned, 'restart requires this fixture’s owned PostgreSQL');
+      await admin.end();
+      docker(['stop', '--time', '10', pgName]);
+      try { await whileDown(); } finally {
+        docker(['start', pgName]);
+        await until(async () => {
+          const next = new Client({ connectionString: adminURI, connectionTimeoutMillis: 1000 });
+          try { await next.connect(); admin = next; return true; } catch { await next.end(); return false; }
+        }, 'restarted PostgreSQL');
+      }
+    }
     function removeOwnedContainer (name) {
       // Images may declare anonymous database volumes. Capture exact ownership
       // before removal, then verify that rm -v removed only these owned volumes.
@@ -341,6 +364,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
       const volumes = mounts.filter(mount => mount.Type === 'volume').map(mount => mount.Name);
       console.log('REPLICA_OWNED_VOLUME_CLEANUP ' + JSON.stringify({ container: name, volumes }));
       docker(['rm', '-fv', name]);
+      assert.equal(docker(['ps', '-aq', '--filter', 'name=^/' + name + '$']), '', 'owned container removed');
       for (const volume of volumes) {
         assert.throws(() => docker(['volume', 'inspect', volume]), /no such volume/i,
           'owned anonymous volume must be removed with its container');
@@ -371,7 +395,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
       assert.deepEqual(result, { code: null, signal: 'SIGKILL' });
       children.delete(worker);
     }
-    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken, signToken,
+    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken, signToken, restartDatabase, environment,
       operatorVault: vault, hosts: HOSTS,
       get roleToken () { return roleToken; }, get provisioned () { return provisioned; },
       get vaultAddress () { return address; },

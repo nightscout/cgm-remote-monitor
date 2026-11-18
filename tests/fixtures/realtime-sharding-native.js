@@ -23,7 +23,6 @@ module.exports = function fixture () {
   let lab, provisioner, directory, edge, previousMode, config, map, slicePeers, routeReader;
   const roles = [], schemas = [], children = new Set(), workers = new Map(), roots = new Map(), credentials = new Map(), hosts = new Map(), edgeSockets = new Set();
   let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig;
-  const idlePeers=[];
   const tenants = [];
   while (tenants.length < 2) { const id = randomUUID(); if (slice.bucket(id, 2) === tenants.length) tenants.push(id); }
   const q = (sql, values) => lab.admin.query(sql, values);
@@ -173,7 +172,7 @@ module.exports = function fixture () {
       const foreignFunctions = (await q("SELECT p.oid::regprocedure::text AS function FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND NOT(n.nspname=$1 AND p.proname='tenant_lifecycle_backend_birth') AND has_function_privilege($2,p.oid,'EXECUTE')", [lab.namespaces.control,lifetime.name])).rows;
       assert.deepEqual(foreignFunctions, [], 'SHARD_NATIVE_LIFETIME_FOREIGN_FUNCTIONS '+JSON.stringify(foreignFunctions));
       const namespaces = [...new Set([...Object.values(apiNamespaces),lab.namespaces.settings,lab.namespaces.operatorPolicy,alarmNamespace,ns.evaluatorCheckpoint,ns.checkpoint])];
-      const protectedNamespaces=require('../../lib/server/serve/operation-cohort').protectedNamespaces;
+      const protectedNamespaces=require('../../lib/server/serve/role-topology').protectedNamespaces;
       const roleNamespaces={api:protectedNamespaces(config),evaluator:protectedNamespaces(evaluatorConfig),realtime:protectedNamespaces(realtimeConfig)};
       const participants = ['api','evaluator','realtime','tenant-admin'].map(role => ({ id: role, roles: [role], namespaces:[...new Set(roleNamespaces[role]||namespaces)].filter(name=>name!==lab.namespaces.control),
         maxMessageBytes: 1048576, timeoutMs: 5000, address: { socket: path.join(directory,role + '.sock') } }));
@@ -201,14 +200,6 @@ module.exports = function fixture () {
       apiService=http.createServer((req,res)=>{const upstream=http.request({socketPath:path.join(directory,'api.sock'),method:req.method,path:req.url,headers:req.headers,agent:false},reply=>{res.writeHead(reply.statusCode,reply.headers);reply.pipe(res);});upstream.on('error',()=>{res.writeHead(503);res.end();});req.pipe(upstream);});
       await new Promise(resolve=>apiService.listen(path.join(directory,'api-service.sock'),resolve));
       fs.chmodSync(path.join(directory,'api-service.sock'),0o600);
-      const template=await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath:path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});
-      for(const id of ['tenant-admin']){
-        const peer=operationState.base.participants.find(row=>row.id===id),incarnation=randomUUID();
-        // Explicit idle fixture peers: no clinical role/workload/backend is
-        // attributed to them. Actual API+RT actors below remain authoritative.
-        const status=()=>({...template,participant:id,roles:[id],incarnation,namespaces:[...peer.namespaces].sort(),backends:[],ownership:null});
-        idlePeers.push(await require('../../lib/server/internal-api/transport').open({socketPath:peer.address.socket,maxBytes:1048576,timeoutMs:5000},require('../../lib/server/internal-api/contracts').lifecycleParticipant,()=>({getStatus:async(ctx,body)=>({...status(),request:body.request}),invalidateTenant:async(ctx,body)=>({...status(),request:body.request,tenant:body.tenant}),getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations:async(ctx,body)=>({request:body.request,tenant:body.tenant,participant:id,incarnation,operations:[]})})));
-      }
     }
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
     // Evaluator private clients address the exact realtime ordinal directly.
@@ -225,7 +216,7 @@ module.exports = function fixture () {
     // The owned producer is an independent actor; cold role bootstrap alone
     // cannot deliver later activity changes or committed clinical writes.
     await producer.start();
-    await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').lifecycleParticipant({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
+    await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').roleHealth({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
 
     for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: lab.namespaces.registry, resolvers: [lab.roles.realtime] })) await q(sql);
     await startRealtime('a'); await startRealtime('b');
@@ -272,7 +263,7 @@ module.exports = function fixture () {
     for (const socket of edgeSockets) socket.destroy(); if (edge) await new Promise(resolve => edge.close(resolve));
     for (const child of [...children]) await stop(child).catch(() => {});
     await producer?.close();
-    for(const peer of idlePeers)await peer.close();if(apiService)await new Promise(resolve=>apiService.close(resolve));
+    if(apiService)await new Promise(resolve=>apiService.close(resolve));
     await activityWriter?.close().catch(() => {});
     await provisioner?.close().catch(() => {});
     if (lab) { for (const ns of schemas.reverse()) await q('DROP SCHEMA IF EXISTS ' + quote(ns) + ' CASCADE').catch(() => {}); for (const name of roles) { await q('DROP OWNED BY ' + quote(name)).catch(() => {}); await q('DROP ROLE IF EXISTS ' + quote(name)).catch(() => {}); } await lab.close(); }

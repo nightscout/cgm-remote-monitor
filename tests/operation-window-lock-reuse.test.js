@@ -11,20 +11,21 @@ describe('Generation-scoped serving without process participation', function () 
     const pending = f.window.run(A, async () => {
       assert.equal(f.window.currentGeneration(A), '1');
       entered.release(); await release.wait;
-      await assert.rejects(f.window.acquireClient(f.client, A), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      await assert.rejects(async () => {
+        const lease = await f.window.acquireClient(f.client, A);
+        try { await f.window.assertClient(f.client, A, lease); } finally { lease.close(); }
+      }, { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
       return 'committed response';
     });
     try {
       await entered.wait;
       options.phase = 'suspended';
-      await f.window.drainTenant(A);
-      await f.window.invalidateTenant(A);
-      assert.deepEqual(f.window.inflight(A), []);
+      assert.equal(f.pending.size, 0, 'held HTTP response has no process participation record');
       await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
       options.phase = 'active'; options.generation = '2';
       assert.equal(await f.window.run(A, () => f.window.currentGeneration(A)), '2');
       release.release();
       assert.equal(await pending, 'committed response');
-    } finally { release.release(); await pending; await f.window.close(); }
+    } finally { release.release(); await pending.catch(() => {}); await f.window.close(); }
   });
 });

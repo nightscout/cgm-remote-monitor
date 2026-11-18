@@ -43,5 +43,5 @@ module.exports = function fixture (options = {}, createWindow = create) {
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
   };
   const pool = { options: { max: 1 }, connect: async () => client };
-  return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, ...(options.lockRule ? {lockRule:options.lockRule} : {locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }]}), intakeProfile:options.intakeProfile, pool }) };
+  return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', available: options.available, availabilityEpoch:options.availabilityEpoch, invalidate:options.invalidate, leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, ...(options.lockRule ? {lockRule:options.lockRule} : {locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }]}), intakeProfile:options.intakeProfile, pool }) };
 };
