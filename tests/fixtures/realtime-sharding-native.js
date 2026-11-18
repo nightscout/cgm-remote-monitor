@@ -11,6 +11,7 @@ const { run } = require('../../lib/migrations/postgres');
 const scope = require('../../lib/storage/tenant-scope');
 const ownership = require('../../lib/realtime-ownership');
 const slice = require('../../lib/pool-membership/slice');
+const prestart = require('./platform-prestart');
 const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
 const projectionDomains = require('../../lib/data/tenant-projection-evaluator').domains;
 const order = require('../../lib/server/tenant-socket-order-port').catalogues;
@@ -22,7 +23,7 @@ async function until (fn, label, timeout = 20000) { const end = Date.now() + tim
 module.exports = function fixture () {
   let lab, provisioner, directory, edge, previousMode, config, map, slicePeers, routeReader;
   const roles = [], schemas = [], children = new Set(), workers = new Map(), roots = new Map(), credentials = new Map(), hosts = new Map(), edgeSockets = new Set();
-  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig;
+  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig, proof;
   const tenants = [];
   while (tenants.length < 2) { const id = randomUUID(); if (slice.bucket(id, 2) === tenants.length) tenants.push(id); }
   const q = (sql, values) => lab.admin.query(sql, values);
@@ -56,6 +57,15 @@ module.exports = function fixture () {
       }); req.on('error', reject); req.on('timeout', () => req.destroy(new Error('Native API request timeout'))); req.end(bytes);
     });
   }
+  // The deployment's pre-start step before each serving role starts (decision
+  // platform-application-boundary). The proof writer stays in this parent; a
+  // refusal publishes no proof and the role then refuses at its start check.
+  async function preStart (roleName, configFile, env) {
+    try {
+      await prestart.verify({ namespace: proof.namespace, writerURI: proof.writerURI, source: { PATH: process.env.PATH, ...env },
+        targets: [{ role: roleName, configFile, ...(env.MULTITENANT_OPERATION_CONFIG ? { operationConfigFile: env.MULTITENANT_OPERATION_CONFIG } : {}) }] });
+    } catch (error) { console.log('SHARD_PRE_START_REFUSED ' + JSON.stringify({ role: roleName, code: error.code || null, diagnostic: error.verificationDiagnostic || null })); }
+  }
   async function startRealtime (id) {
     const row = map.workers.find(worker => worker.id === id);
     const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), NS_REALTIME_SLICE: JSON.stringify({count: 2, ordinal: row.ordinal}), RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
@@ -66,12 +76,15 @@ module.exports = function fixture () {
       fs.writeFileSync(file,JSON.stringify({...operationState.base,participantId:'rt-'+id}));
       Object.assign(env,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:operationState.lifetime.url,NS_POOL_OPERATION_MAX:'2',NS_API_INTERNAL_SOCKET:path.join(directory,'api-service.sock')});
     }
-    const parsed = require('../../lib/server/realtime/config').load(env);
+    require('../../lib/server/realtime/config').load(env);
+    await preStart('realtime', env.MULTITENANT_REALTIME_CONFIG, env);
+    // The realtime scope screen is the admin pre-start target check (decision
+    // platform-application-boundary): it loads this exact role configuration
+    // and runs the screens without publishing or revoking a proof.
     lastScreen = async () => {
-      const pool=new (require('pg').Pool)({connectionString:operationState.lifetime.url,max:2});
-      const window=require('../../lib/tenant-lifecycle/operation-window').create({namespace:lab.namespaces.control,lockRule:'tenant-id-sha256-v1',pool,trustedWorker:true});
-      try { await require('../../lib/server/serve/evaluator-readiness')(parsed,{operationWindow:window}); }
-      finally { await window.close();await pool.end(); }
+      const admin = require('../../lib/server/serve/platform-verification-admin');
+      await admin.checkTarget(admin.loadTarget({ role: 'realtime', configFile: env.MULTITENANT_REALTIME_CONFIG,
+        ...(env.MULTITENANT_OPERATION_CONFIG ? { operationConfigFile: env.MULTITENANT_OPERATION_CONFIG } : {}) }, { PATH: process.env.PATH, ...env }));
     };
     const worker = await ready(start(id, 'realtime', env), 'realtime'); workers.set(id, worker); return worker;
   }
@@ -101,6 +114,8 @@ module.exports = function fixture () {
     await q('GRANT INSERT ON ' + quote(lab.namespaces.secrets) + '.secret_audit TO ' + quote(lab.roles.api));
     evaluator = await role('evaluator');
     check = await role('check'); display = await role('display'); activity = await role('activity'); alarm = await role('alarm'); publisher = await role('publisher');
+    proof = await prestart.install(lab.admin, { namespace: 'sr_proof_' + lab.id, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      readers: [lab.roles.api, check.name, evaluator.name, lab.roles.realtime] }); schemas.push(proof.namespace); roles.push(proof.writer);
     const apiNamespaces = { ...Object.fromEntries(domains.map(domain => [domain, ns[domain]])), clock: ns.clock, authorization: lab.namespaces.authorization, legacy: lab.namespaces.legacy, secrets: lab.namespaces.secrets };
     for (const name of Object.values(apiNamespaces)) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(check.name)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(check.name)); }
     await readerGrants(display, [lab.namespaces.settings, lab.namespaces.operatorPolicy]);
@@ -121,10 +136,11 @@ module.exports = function fixture () {
     evaluatorConfig = {version:1,postgres:{connectionEnv:'EVAL_PG',namespaces:{...Object.fromEntries(projectionDomains.map(domain=>[domain,ns[domain]])),clock:ns.clock,checkpoint:ns.evaluatorCheckpoint}},
       consumer:'evaluator-sharding-native',pageSize:10,maxRows:10000,maxBytes:4194304,maxTenants:100,timeIntervalMs:60000,
       socketOrderDomains:Object.keys(order),registry:{namespace:lab.namespaces.registry,maxTenants:100,refreshMs:250},tenantSettings:presentation,trustedWorker,
-      activity:{connectionEnv:'ACTIVITY_PG',namespace:lab.namespaces.control},pgstream:stream.configuration({prefix:'sr_'+lab.id,capability:stream.capability(process.env)})};
+      activity:{connectionEnv:'ACTIVITY_PG',namespace:lab.namespaces.control},pgstream:stream.configuration({prefix:'sr_'+lab.id,capability:stream.capability(process.env)}),
+      platformVerification:{namespace:proof.namespace,role:'evaluator'}};
     realtimeConfig = {version:1,postgres:{connectionEnv:'RT_PG',namespaces:{clock:ns.clock,checkpoint:ns.checkpoint}},consumer:'realtime-sharding-native',maxRows:10000,maxBytes:1048576,maxTenants:100,
       registry:evaluatorConfig.registry,tenantSettings:presentation,trustedWorker,activity:{namespace:lab.namespaces.control},completedOutput:{namespace:ns.evaluatorCheckpoint,consumer:evaluatorConfig.consumer},
-      maxMessageBytes:1048576,operationTimeoutMs:5000,authorizationRecheckMs:100,unauthorizedDeadlineMs:1000};
+      maxMessageBytes:1048576,operationTimeoutMs:5000,authorizationRecheckMs:100,unauthorizedDeadlineMs:1000,platformVerification:{namespace:proof.namespace,role:'realtime'}};
     for(const namespace of [...projectionDomains.map(domain=>ns[domain]),ns.clock,ns.evaluatorCheckpoint]){
       await q('GRANT USAGE ON SCHEMA '+quote(namespace)+' TO '+quote(evaluator.name));
       await q('GRANT SELECT ON '+quote(namespace)+'.schema_migrations TO '+quote(evaluator.name));
@@ -149,7 +165,8 @@ module.exports = function fixture () {
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'VAULT_TOKEN', allowInsecureLoopback: true }, resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: 250 }, tenantSettings: presentation,
       activity: { namespace: lab.namespaces.control },
-      socketForwarding: { maxTenants: 100, maxMessageBytes: 1048576, operationTimeoutMs: 5000, alarm: { connectionEnv: 'ALARM_PG', namespace: alarmNamespace } } };
+      socketForwarding: { maxTenants: 100, maxMessageBytes: 1048576, operationTimeoutMs: 5000, alarm: { connectionEnv: 'ALARM_PG', namespace: alarmNamespace } },
+      platformVerification: { namespace: proof.namespace, role: 'api' } };
     fs.writeFileSync(path.join(directory, 'api.json'), JSON.stringify(config), { mode: 0o600 });
     if(operation==='sharded'){
       map={count:2,workers:[]};
@@ -185,9 +202,11 @@ module.exports = function fixture () {
       fs.writeFileSync(file,JSON.stringify({version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participantId:'api',participants}));
       Object.assign(operationEnvironment,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:lifetime.url,NS_POOL_OPERATION_MAX:'2',NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')});
     }
-    api = await ready(start('api', 'api', { ...operationEnvironment, MULTITENANT_PREVIEW_CONFIG: path.join(directory, 'api.json'), API_PG: lab.urls.api, CHECK_PG: check.url,
+    const apiEnvironment = { ...operationEnvironment, MULTITENANT_PREVIEW_CONFIG: path.join(directory, 'api.json'), API_PG: lab.urls.api, CHECK_PG: check.url,
       DISPLAY_PG: display.url, ACTIVITY_PG: activity.url, ALARM_PG: alarm.url, VAULT_TOKEN: token,
-      NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'api.sock'), API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_TENANT_READINESS: 'all' }), 'api');
+      NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'api.sock'), API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_TENANT_READINESS: 'all' };
+    await preStart('api', apiEnvironment.MULTITENANT_PREVIEW_CONFIG, apiEnvironment);
+    api = await ready(start('api', 'api', apiEnvironment), 'api');
     for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
     if (apiOnly) return { ns };
     if(!map){map = {count:2,workers:[]};
@@ -210,9 +229,11 @@ module.exports = function fixture () {
     fs.writeFileSync(path.join(directory,'evaluator.json'),JSON.stringify(evaluatorConfig),{mode:0o600});
     const evaluatorOperation=path.join(directory,'operation-evaluator.json');
     fs.writeFileSync(evaluatorOperation,JSON.stringify({...operationState.base,participantId:'evaluator'}));
-    const evaluatorWorker=start('evaluator','evaluator',{...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
+    const evaluatorEnvironment={...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
       EVAL_PG:evaluator.url,DISPLAY_PG:display.url,ACTIVITY_PG:activity.url,LIFETIME_PG:operationState.lifetime.url,
-      NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address)),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'});
+      NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address)),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'};
+    await preStart('evaluator',evaluatorEnvironment.MULTITENANT_EVALUATOR_CONFIG,evaluatorEnvironment);
+    const evaluatorWorker=start('evaluator','evaluator',evaluatorEnvironment);
     // The owned producer is an independent actor; cold role bootstrap alone
     // cannot deliver later activity changes or committed clinical writes.
     await producer.start();
@@ -272,7 +293,8 @@ module.exports = function fixture () {
   return { setup, cleanup, request, startRealtime, stop, until, provisionTenant, setActivity: (tenant,verb) => activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},verb),
     async unrelatedScopeControl () {
       await q('GRANT SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry TO ' + quote(lab.roles.realtime));
-      try { await assert.rejects(lastScreen(), /unsafe evaluator scope/); }
+      try { await assert.rejects(lastScreen(), error => error.code === 'PLATFORM_VERIFICATION_FAILED' &&
+        error.verificationDiagnostic.causeCode === 'EVALUATOR_SCOPE_UNSAFE' && error.verificationDiagnostic.targetRole === 'realtime'); }
       finally { await q('REVOKE SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry FROM ' + quote(lab.roles.realtime)); }
       await lastScreen();
     }, tenants, roots, credentials, hosts, workers,

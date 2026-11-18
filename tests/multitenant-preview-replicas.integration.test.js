@@ -165,9 +165,16 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       const ledger = (await fixture.admin.query('SELECT name, checksum FROM preview_data.schema_migrations ORDER BY name LIMIT 1')).rows[0];
       assert.ok(ledger);
       await fixture.admin.query("UPDATE preview_data.schema_migrations SET checksum='replica-test-drift' WHERE name=$1", [ledger.name]);
+      // The admin pre-start step owns the catalogue check (decision
+      // catalogue-verification-admin-owned): it refuses and publishes no
+      // proof, so each serving process refuses at its start check.
       try {
-        await fixture.refused(fixture.configuration());
-        await fixture.refused(fixture.configuration());
+        for (let i = 0; i < 2; i++) {
+          const worker = await fixture.refused(fixture.configuration(), undefined, { code: 1 });
+          assert.equal(worker.preStart.status, 'refused');
+          assert.equal(worker.preStart.diagnostic.checkPhase, 'API_CATALOGUES');
+          assert.match(worker.stderr, /could not start/);
+        }
       } finally {
         await fixture.admin.query('UPDATE preview_data.schema_migrations SET checksum=$1 WHERE name=$2', [ledger.checksum, ledger.name]);
       }

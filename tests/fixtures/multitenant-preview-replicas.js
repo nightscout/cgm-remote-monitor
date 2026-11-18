@@ -11,6 +11,7 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const { run } = require('../../lib/migrations/postgres');
 const provisionedTenants = require('./provisioned-tenants');
+const prestart = require('./platform-prestart');
 
 const root = path.resolve(__dirname, '../..');
 const BIN = path.join(root, 'bin/nightscout.js');
@@ -41,6 +42,8 @@ const docker = args => execFileSync('docker', args, {
 // them, their hosts and their keys from the registry. One role-level Vault
 // credential covers every tenant's keys by purpose prefix.
 const HOSTS = ['one.example.test', 'two.example.test'];
+// The serving api checks this fixture's platform proof at start.
+const PROOF_NAMESPACE = 'preview_replicas_proof';
 function configuration (address, provisioned) {
   return {
     version: 1,
@@ -77,7 +80,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
     const fixtureDirectory = path.resolve(root, '..', '.replica-preview-fixtures-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
     const roots = [], children = new Set();
-    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot, roleToken, provisioned;
+    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot, roleToken, provisioned, proof, lastVerified = null;
 
     async function until (probe, label) {
       const deadline = Date.now() + 20000;
@@ -116,7 +119,9 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
 
     function start (config = localConfiguration(), extra = {}, options = {}) {
       const workerConfig = path.join(fixtureDirectory, 'preview-' + random() + '.json');
-      fs.writeFileSync(workerConfig, typeof config === 'string' ? config : JSON.stringify(config), { mode: 0o600 });
+      const text = typeof config === 'string' ? config : JSON.stringify(config);
+      fs.writeFileSync(workerConfig, text, { mode: 0o600 });
+      const preStart = preStartFor(text, extra, workerConfig);
       const preload = (extra.NS_PREVIEW_REPLICA_CONTROL || process.env.NS_PREVIEW_REPLICA_CONTROL) ?
         ['--require', path.join(__dirname, 'multitenant-preview-replica-controls.js')] : [];
       if (options.holdResponse) preload.push('--require', __filename);
@@ -126,7 +131,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
         cwd: fixtureDirectory, env: environment({ ...extra, MULTITENANT_PREVIEW_CONFIG: workerConfig,
           ...(options.holdResponse ? { NS_PREVIEW_REPLICA_HOLD_RESPONSE: '1' } : {}) }), stdio: ['ignore', 'pipe', 'pipe']
       });
-      const worker = { child, stdout: '', stderr: '', exit: null };
+      const worker = { child, stdout: '', stderr: '', exit: null, preStart };
       children.add(worker);
       child.stdout.on('data', bytes => { worker.stdout += bytes; });
       child.stderr.on('data', bytes => { worker.stderr += bytes; });
@@ -138,6 +143,23 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
         });
       });
       return worker;
+    }
+
+    // The deployment's pre-start step for a configuration selecting this
+    // fixture's proof. Another proof namespace belongs to an extending fixture
+    // (api-fixed-roster-serving), which runs its own step. An unchanged
+    // configuration keeps its published proof; a refusal leaves none.
+    function preStartFor (text, extra, workerConfig) {
+      let selected;
+      try { selected = JSON.parse(text)?.platformVerification; } catch { selected = undefined; }
+      if (!proof || selected?.namespace !== PROOF_NAMESPACE) return null;
+      const key = JSON.stringify([text, extra]);
+      if (key === lastVerified) return { status: 'verified', reused: true };
+      const result = prestart.verifySync({ directory: fixtureDirectory, namespace: proof.namespace, writerURI: proof.writerURI,
+        targets: [{ role: 'api', configFile: workerConfig }], source: environment({ ...extra, MULTITENANT_PREVIEW_CONFIG: workerConfig }) });
+      lastVerified = result.status === 'verified' ? key : null;
+      if (result.status !== 'verified') console.log('REPLICA_PRE_START_REFUSED ' + JSON.stringify({ code: result.code, diagnostic: result.diagnostic }));
+      return result;
     }
 
     async function ready (worker, tenant = A) {
@@ -162,14 +184,16 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
       await assert.rejects(fetch('http://127.0.0.1:' + worker.port + '/', { signal: AbortSignal.timeout(1000) }));
     }
 
-    async function refused (config, extra) {
+    // A configuration refusal exits 78. A platform refusal (the pre-start
+    // step published no proof) stops the role at its start check, exit 1.
+    async function refused (config, extra, { code = 78 } = {}) {
       const worker = start(config, extra);
       await until(async () => worker.exit !== null || /Listening/.test(worker.stdout), 'refused preview termination');
       const unexpected = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
       if (unexpected) worker.port = Number(unexpected[1]);
       assert.doesNotMatch(worker.stdout, /Listening/, 'refused configuration must never bind');
       const exit = await worker.exited;
-      assert.deepEqual(exit, { code: 78, signal: null });
+      assert.deepEqual(exit, { code, signal: null });
       assert.doesNotMatch(worker.stdout, /Listening/);
       for (const credential of [appURI, checkURI, settingsURI, vaultRoot, roleToken, ...roots]) {
         assert.ok(!worker.stderr.includes(credential), 'startup diagnostic must not disclose credentials');
@@ -218,6 +242,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
       config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
       if (writeClock) { config.writeClock = true; config.postgres.namespaces.clock = 'preview_clock'; }
       config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data' };
+      config.platformVerification = { namespace: PROOF_NAMESPACE, role: 'api' };
       return config;
     }
 
@@ -344,6 +369,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, readers: ['preview_app', 'preview_check'] });
     }
     async function restartDatabase (whileDown) {
       assert(restartableDatabase && pgOwned, 'restart requires this fixture’s owned PostgreSQL');

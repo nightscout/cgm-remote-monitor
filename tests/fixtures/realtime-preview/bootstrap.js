@@ -104,6 +104,10 @@ module.exports=async function bootstrap(input) {
     }finally{if(persistence)await persistence.close();scope.setTenancyMode(oldMode);}
     step='configuration';
     const docs=plan.documents({selected,layout:l,publicKeys,paths});
+    // Every serving role checks its platform proof at start (decision
+    // platform-application-boundary); the proof namespace is bootstrap-owned.
+    const proofNamespace=l.prefix+'_proof';
+    for(const role of ['api','evaluator','realtime'])docs[role].platformVerification={namespace:proofNamespace,role};
     const rawEvaluator={...docs.evaluator,namespaces:docs.evaluator.postgres.namespaces};
     pgstreamNative=await require('../pgstream-native').setup({admin,adminURI:input.env.NS_TEST_POSTGRES_ADMIN_URI,directory:selected.directory.path,config:rawEvaluator,
       evaluatorRole:l.roles.evaluator,realtimeRole:l.roles.realtime,realtimeConfig:{...docs.realtime,namespaces:docs.realtime.postgres.namespaces},source:input.env,onBirth:input.onBirth});
@@ -132,6 +136,21 @@ module.exports=async function bootstrap(input) {
     for(const [role,environment]of Object.entries(roleEnvironments))require('../../../lib/server/internal-api/listener-config').resolve([role],environment);
     require('../../../lib/server/serve/preview-config').load(roleEnvironments.api);
     require('../../../lib/server/serve/owner-preview-config').load(roleEnvironments['tenant-admin']);
+    // The deployment's pre-start step before the parent starts any role: the
+    // actual admin verification publishes each serving role's proof. The
+    // writer credential stays here; a refusal stops the bootstrap, as a
+    // deployment stops startup.
+    step='platform-proof';
+    const prestart=require('../platform-prestart');
+    const proof=await prestart.install(admin,{namespace:proofNamespace,adminURI:input.env.NS_TEST_POSTGRES_ADMIN_URI,
+      readers:[l.roles.api,l.roles.readiness,l.roles.evaluator,l.roles.realtime]});
+    schemas.push(proof.namespace);roles.push(proof.writer);
+    for(const role of ['api','evaluator','realtime']){
+      try{await prestart.verify({namespace:proof.namespace,writerURI:proof.writerURI,source:{PATH:process.env.PATH,...roleEnvironments[role]},
+        targets:[{role,configFile:paths[role],operationConfigFile:roleEnvironments[role].MULTITENANT_OPERATION_CONFIG}]});}
+      catch(error){await observe({phase:'bootstrap-platform-proof-refused',role,diagnostic:error.verificationDiagnostic||null});throw error;}
+    }
+    await observe({phase:'bootstrap-platform-proof',namespace:proof.namespace,roles:['api','evaluator','realtime']});
     const configurationBase={registryNamespace:ns.registry,activityNamespace:ns.control,settingsNamespace:ns.display_settings,operatorPolicyNamespace:ns.operator_policy,evaluatorCheckpointNamespace:ns.eval_checkpoint,evaluatorConsumer:docs.evaluator.consumer,version:1,timeoutMs:o.timeoutMs,observationMs:o.observationMs,settleMs:o.settleMs,snoozeMs:o.snoozeMs,
       tenant:plan.A,foreignTenant:plan.B,host:'one.example.test',foreignHost:'two.example.test',browserHost:'one.example.test',
       subjectId:plan.SUBJECT,staleSubjectId:plan.STALE,mainCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',dataCredentialEnv:'RT_BOOTSTRAP_MAIN_A_JSON',evaluatorConfigFile:paths.evaluator,namespaces:Object.fromEntries(['entries','treatments','devicestatus','profile','food','activity'].map(d=>[d,ns[d]])),
