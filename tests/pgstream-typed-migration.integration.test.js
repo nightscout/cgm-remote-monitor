@@ -244,3 +244,81 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   await seed(2);const next=await store.output(lab.A,identity,{delivery:true,retained:first});coherent(next);assert.equal(physicalReads,before+1);
  });
 });
+
+optInSuite(process.env.NS_PGSTREAM_RECOVERY_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,
+ 'NS_PGSTREAM_RECOVERY_TEST=1 with disposable logical PostgreSQL')('native lifecycle receipt cutover',function(){
+ this.timeout(30000);
+ it('repairs retained receipts, fences old writers and refuses false activation during replay',async()=>{
+  const {Pool}=require('pg'),pool=new Pool({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI});
+  const client=await pool.connect(),query=client.query.bind(client);
+  const native=require('../lib/tenant-lifecycle/native-selection'),cutover=require('../lib/pgstream/native-receipt-cutover');
+  const work=require('../lib/pgstream/work-state'),stream=require('../lib/storage/clinical-stream-sql'),fixture=require('./lib/clinical-stream-native');
+  const prefix='receipt_'+require('node:crypto').randomBytes(6).toString('hex'),control=prefix+'_control',ns=prefix+'_work',slot=prefix+'_slot';
+  const consumer='evaluator-cutover',completed=consumer+'-completed',table=ns+'.tenant_consumer_checkpoint',windows=control+'.tenant_lifecycle_windows';
+  const [a,b]=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'];
+  const key=require('../lib/tenant-registry/rules').lockKey;
+  const route={schema:control,table:'tenant_lifecycle_windows',kind:'lifecycle'};
+  const old=require('../lib/pgstream/checkpoint').create({typed:true,connection:{},namespace:ns,consumer,maxBytes:10000});
+  let createdSlot=false,position=48;
+  try{
+   const {rows:[identity]}=await query('SELECT system_identifier::text AS system_id,timeline_id AS timeline,current_database() AS database FROM pg_control_system(),pg_control_checkpoint()');
+   const source={...identity,slot},generation='a'.repeat(32);
+   await query("SELECT pg_create_logical_replication_slot($1,'pgoutput')",[slot]);createdSlot=true;
+   const selection=native.create({namespace:ns,lifecycleNamespace:control,source,consumer,generation});
+   const store=require('../lib/pgstream/checkpoint').create({typed:true,connection:{nativeLifecycle:selection},namespace:ns,consumer,maxBytes:10000});
+   for(const [namespace,catalogue] of [[control,native.catalogue(selection)],[ns,require('../migrations/candidates/postgres-evaluator-work-v2.json')]]){
+    await require('../lib/migrations/postgres').run('up',{namespace,catalogue,direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI});
+   }
+   const options={table,consumer:completed};
+   const save=(contractDigest,observations)=>work.observe({pool,observeBackend:async()=>{},...options,contractDigest,observations});
+   const inputDigest='1'.repeat(64),snapshotDigest='2'.repeat(64);
+   async function setup(tenant,suspended){
+    await query('INSERT INTO '+windows+' (tenant_id,lock_key,phase,generation,claim_id,artifact_digest) VALUES($1,$2,$3,2,$4,$5)',[tenant,key(tenant),suspended?'suspended':'active',suspended?tenant:null,suspended?inputDigest:null]);
+    await query('INSERT INTO '+table+' (tenant_id,consumer,checkpoint,contract_digest) VALUES($1,$2,0,$3),($1,$4,0,$5)',[tenant,consumer,inputDigest,completed,old.digest]);
+   }
+   await setup(a,false);await setup(b,true);
+   await work.admit({pool,observeBackend:async()=>{},...options,digest:old.digest,tenants:[a,b]});
+   const receiver=(selected,acceptTransaction)=>require('../lib/pgstream/receiver').create({routes:[route],store:selected,onInput(){},onSchema(){},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction}});
+   const envelope=(tenant,phase,g)=>{
+    const row={action:'U',schema:control,table:route.table,lsn:'0/20',xid:42,columns:Object.entries({tenant_id:tenant,phase,generation:g}).map(([name,value])=>({name,value}))};
+    const event=fixture.envelope([row],'0/'+(++position).toString(16));
+    for(const frame of [event.Transaction[0],event.Transaction.at(-1)])frame.source_identity=source;
+    return event;
+   };
+   const legacy=receiver(old,(_event,{observations})=>save(old.digest,observations));
+   const read=async tenant=>(await query('SELECT work_observed[5]::text AS stamp,work_enabled AS enabled FROM '+table+' WHERE consumer=$1 AND tenant_id=$2',[completed,tenant])).rows[0];
+   await legacy(envelope(a,'suspended','2'));await legacy(envelope(a,'active','2'));
+   await legacy(envelope(b,'suspended','2'));
+   assert.deepEqual(await read(a),{stamp:'5',enabled:false},'predecessor leaves restored work disabled');
+   await query('UPDATE '+table+' SET contract_digest=$1 WHERE consumer=$2 AND tenant_id=$3',[store.digest,completed,b]);
+   await assert.rejects(cutover.upgrade(client,selection),/MIXED_CONTRACT/);
+   await query('UPDATE '+table+' SET contract_digest=$1 WHERE consumer=$2 AND tenant_id=$3',[old.digest,completed,b]);
+   const owner=await pool.connect();
+   const oldOwner=require('../lib/pgstream/checkpoint').create({typed:true,namespace:ns,consumer,maxBytes:10000,connection:{
+    async holdAdvisoryLock(key){await owner.query('SELECT pg_advisory_lock($1::bigint)',[key]);return {close:()=>owner.query('SELECT pg_advisory_unlock($1::bigint)',[key])};}
+   }});
+   try{await oldOwner.own(()=>{});await assert.rejects(cutover.upgrade(client,selection),/OWNER_LIVE/);}
+   finally{await oldOwner.close();owner.release();}
+   assert.equal(await cutover.upgrade(client,selection),2);
+   assert.equal(await cutover.upgrade(client,selection),0);
+   assert.deepEqual(await read(a),{stamp:'6',enabled:true});
+   assert.deepEqual(await read(b),{stamp:'5',enabled:false});
+   await assert.rejects(legacy(envelope(a,'suspended','2')),/RECEIPT_CONTRACT/);
+   const receive=receiver(store,(envelope,opts)=>stream.acceptTransaction({...opts,pool,observeBackend:async()=>{},table,consumer,initialDigest:inputDigest,snapshotDigest,completedConsumer:completed,completedDigest:store.digest,envelope,expectedSource:source,operationWindow:{nativeLifecycle:selection},lockKey:'-7',maxRows:100,maxBytes:10000,maxTransactionRows:10,maxTransactionBytes:10000,assertFence:require('../lib/pgstream/receipt-authority').create({namespace:control,generation,available:()=>true})}));
+   await receive(envelope(a,'suspended','2'));assert.deepEqual(await read(a),{stamp:'6',enabled:true});
+   await query("UPDATE "+windows+" SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1",[b]);
+   await receive(envelope(b,'active','2'));assert.deepEqual(await read(b),{stamp:'6',enabled:true});
+   await query("UPDATE "+windows+" SET generation=3,phase='suspended',claim_id=tenant_id,artifact_digest=$2 WHERE tenant_id=$1",[a,inputDigest]);
+   await receive(envelope(a,'suspended','3'));await receive(envelope(a,'active','2'));
+   await receive(envelope(a,'active','3'));
+   assert.deepEqual(await read(a),{stamp:'7',enabled:false},'a currently suspended tenant must refuse false activation');
+   await query('DELETE FROM '+table+' WHERE tenant_id=$1',[a]);
+   await assert.rejects(receive(envelope(a,'active','3')),/NOT_PROVISIONED/);
+   assert.equal(await read(a),undefined);assert.deepEqual(await read(b),{stamp:'6',enabled:true});
+  }finally{
+   try{if(createdSlot)await query('SELECT pg_drop_replication_slot($1)',[slot]);
+    for(const schema of [control,ns])await query('DROP SCHEMA IF EXISTS "'+schema+'" CASCADE');
+   }finally{client.release();await pool.end();}
+  }
+ });
+});
