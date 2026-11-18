@@ -22,6 +22,28 @@ function fractionalDue(){
  assert(Number.isFinite(due.dueAt)&&!Number.isInteger(due.dueAt));return{dueAt:due.dueAt,dueReason:due.reason};
 }
 describe('bounded evaluator inspection v3',function(){
+ it('keeps internal startup policy fields out of the closed private v3 response and detects an unprojected body',async()=>{
+  const startup=require('../lib/server/serve/tenant-startup').create([],undefined,async()=>{}, {readiness:'serve',coldAlertMs:null});
+  const control=require('./lib/clinical-working-set/control');
+  async function criterion(factory){
+   const f=fixture(0,undefined,undefined,options=>factory({...options,tenants:new Map(),registry:undefined,consumers:undefined,
+    startup:{health:()=>({...startup.health(),warmOnStart:false})},runtime:{health:()=>({runtimeId:A,tenants:[]})}}));
+   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'startup-wire-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
+   try{
+    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>f.inspect(body)})}]);
+    const dto=await transport.client(endpoint,service).inspectEvaluator({});
+    assert.equal(dto.startup.readiness,'serve');assert.equal(dto.startup.ready,true);
+    assert.equal(Object.hasOwn(dto.startup,'warmOnStart'),false,'INTERNAL_POLICY_MUST_NOT_CHANGE_CLOSED_WIRE');
+   }finally{await listener?.close();fs.rmSync(dir,{recursive:true,force:true});}
+  }
+  try{
+   await criterion(inspection);
+   const broken=control('../lib/server/serve/evaluator-inspection','startup: startupWire(startup.health())','startup: startup.health()');
+   await assert.rejects(criterion(broken),error=>error.message==='SOCKET_IPC_UNAVAILABLE');
+   await criterion(inspection);
+  }finally{await startup.close();}
+ });
+
  it('selects at most 128 without whole-roster summaries, including empty summary, and refuses unknown/duplicate selectors',async function(){
   const f=fixture();assert.deepEqual((await f.inspect({tenants:[]})).tenants,[]);assert.equal(f.visited(),0);
   const dto=await f.inspect({tenants:f.ids.slice(0,128)});assert.equal(dto.tenants.length,128);assert.equal(f.visited(),256);
