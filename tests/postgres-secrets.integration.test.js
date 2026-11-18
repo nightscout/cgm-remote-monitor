@@ -13,13 +13,13 @@ const { createVaultTransit } = require('../lib/secrets/vault-transit');
 const scope = require('../lib/storage/tenant-scope');
 const postgresConnection = require('../lib/storage/postgres-connection');
 const { createSubjectPolicy } = require('../lib/subject-policy/component');
-const createPostgresSubjectPolicy = require('../lib/subject-policy/postgres');
+const createPostgresSubjectPolicy = require('./fixtures/subject-policy-writer');
 const policyCatalogue = require('../lib/subject-policy/postgres-candidate.json');
 const { createTenantSettings } = require('../lib/tenant-settings/component');
 const createPostgresTenantSettings = require('../lib/tenant-settings/postgres');
 const settingsCatalogue = require('../lib/tenant-settings/postgres-candidate.json');
 const { createOperatorPolicy } = require('../lib/operator-policy/component');
-const createPostgresOperatorPolicy = require('../lib/operator-policy/postgres');
+const createPostgresOperatorPolicy = require('./fixtures/operator-policy-writer');
 const operatorPolicyCatalogue = require('../lib/operator-policy/postgres-candidate.json');
 const { optInSuite } = require('./support/opt-in');
 

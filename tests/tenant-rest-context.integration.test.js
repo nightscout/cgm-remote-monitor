@@ -12,7 +12,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const { optInSuite } = require('./support/opt-in');
 const environment = require('../lib/server/tenant-app/environment');
 const snapshot = require('../lib/server/tenant-app/snapshot');
-const context = require('../lib/server/tenant-app/rest-context');
+const sharedContext = require('../lib/server/tenant-app/shared-rest-context');
 const settingsOptions = require('../lib/server/tenant-app/settings');
 const scope = require('../lib/storage/tenant-scope');
 const { run } = require('../lib/migrations/postgres');
@@ -28,7 +28,6 @@ const MongoCollection = require('../lib/api3/storage/mongoCollection');
 const writeIntent = require('../lib/storage/write-intent');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const createExchange = require('../lib/server/tenant-app/exchange');
-const legacyAuthorization = require('../lib/server/tenant-app/legacy-authorization');
 const statusAuthorization = require('../lib/server/tenant-app/status-authorization');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -240,9 +239,9 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
         const dataAccess = createDataAccess(accessOptions);
         const strictAccess = createDataAccess({ ...accessOptions, strictSettingsRead: true });
         const flags = settingsFlags[backend][tenant] = { strict: false, app: routeApp };
-        const routers = context({ env, authorization: legacyAuthorization(), collections: { settings: col },
+        const routers = sharedContext({
           versionInfo: { name: 'Nightscout', version: 'test', storage: { storage: backend, version: 'fixture' } },
-          admitted: { 1: [], 2: [], 3: ['settings'] },
+          admitted: { 1: [], 2: [], 3: ['settings'] } }).forContext({ tenant, env, collections: { settings: col },
           statusAuthorization: statusAuthorization({ tenant, exchange }) });
         app.disable('etag');
         app.use((req, res, next) => {

@@ -1,9 +1,9 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const postgresConnection = require('../storage/postgres-connection');
-const scope = require('../storage/tenant-scope');
-const lockTenantPolicy = require('../operator-policy/fence');
+const postgresConnection = require('../../lib/storage/postgres-connection');
+const scope = require('../../lib/storage/tenant-scope');
+const lockTenantPolicy = require('../../lib/operator-policy/fence');
 
 function failure (code) {
   const error = new Error(code);

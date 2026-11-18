@@ -111,29 +111,7 @@ async function main () {
   controls.push({ name: 'worker-write-grant', symptom: 'TRUSTED_WORKER_UNAVAILABLE' });
   await admin.query('REVOKE UPDATE(last_stamp) ON tw_clock.tenant_write_clock FROM tw_worker');
   await reader.verify();
-  // Original procedural clock function, extracted verbatim from shipping source.
-  phase = 'procedural-comparison-setup';
-  const source = require('../../lib/change-stamps/postgres-candidate.json');
-  const definition = source.migrations.flatMap(m => m.up).filter(sql => sql.startsWith('CREATE FUNCTION tenant_change_stamps')).at(-1);
-  await admin.query('SET search_path=tw_clock,pg_catalog'); await admin.query(definition);
-  await admin.query('ALTER FUNCTION tw_clock.tenant_change_stamps(uuid[]) OWNER TO tw_clock_owner');
-  await admin.query('ALTER FUNCTION tw_clock.tenant_change_stamps(uuid[]) SET search_path=tw_clock,pg_catalog');
-  await admin.query('GRANT USAGE ON SCHEMA tw_clock TO tw_clock_owner');
-  await admin.query('GRANT SELECT ON tw_clock.tenant_write_clock TO tw_clock_owner');
-  await admin.query('GRANT EXECUTE ON FUNCTION tw_clock.tenant_change_stamps(uuid[]) TO tw_worker');
-  phase = 'procedural-comparison';
-  const timings = [];
-  for (const n of [10, 1000, 10000]) {
-    const list = ids.slice(0, n); await reader.scan(list);
-    for (let repeat = 0; repeat < 2; repeat++) {
-      const old = await observed.readOnly('SELECT * FROM tw_clock.tenant_change_stamps($1::uuid[])', [list]); assert.equal(old.rows.length, n);
-      const oldMs = calls.at(-1).ms;
-      const current = await reader.scan(list); assert.equal([...current.values()].filter(Boolean).length, n);
-      const setBasedMs = calls.at(-1).ms;
-      timings.push({ n, repeat, proceduralClockOnlyMs: oldMs, setBasedFourTableMetadataMs: setBasedMs });
-    }
-  }
   await reader.close();
-  console.log(JSON.stringify({ status: 'PASS', scope: 'metadata-only native module and grant boundary, not full deployment or capacity', version, assertions: ['cross-tenant worker visibility', 'unchanged zero settings SQL', 'settings version refresh', 'worker negative grants', 'public tenant isolation'], timings, controls, operationalChecks: reader.health().operationalChecks }, null, 2));
+  console.log(JSON.stringify({ status: 'PASS', scope: 'metadata-only native module and grant boundary, not full deployment or capacity', version, assertions: ['cross-tenant worker visibility', 'unchanged zero settings SQL', 'settings version refresh', 'worker negative grants', 'public tenant isolation'], controls, operationalChecks: reader.health().operationalChecks }, null, 2));
 }
 main().catch(error => { console.error(JSON.stringify({ phase, code: error.code || error.name, message: error.message, stack: error.stack })); process.exitCode = 1; }).finally(async () => { await Promise.allSettled([connection?.end(), publicClient?.end(), admin?.end()]); });

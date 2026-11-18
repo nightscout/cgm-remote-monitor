@@ -214,12 +214,12 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: namespaces() });
     assert.deepEqual(admission.census.selected.map(entry => entry.kind), KINDS);
     assert.equal(admission.census.tables, 55);
-    assert.equal(admission.census.candidates.length, 32);
+    assert.equal(admission.census.candidates.length, 30);
     assert.equal(admission.census.candidates.filter(entry => entry.disposition === 'reviewed alternative').length, 5);
     // The change reader, pools, stamps, registry and retained ensure audit are deployment-operational:
     // censused, digest-pinned and never part of a tenant artifact.
     assert.deepEqual(admission.census.candidates.filter(entry => entry.disposition === 'operational, no tenant data').map(entry => entry.file),
-      ['lib/change-feed/postgres-candidate.json', 'lib/change-stamps/postgres-candidate.json', 'lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/ensure-candidate.json', 'lib/tenant-registry/postgres-candidate.json', 'migrations/candidates/postgres-pool-mutation-v1.json']);
+      ['lib/pool-membership/postgres-candidate.json', 'lib/tenant-registry/ensure-candidate.json', 'lib/tenant-registry/postgres-candidate.json', 'migrations/candidates/postgres-pool-mutation-v1.json']);
     assert.ok(!admission.catalogues.some(entry => entry.candidatePath === 'lib/pool-membership/postgres-candidate.json'));
     assert.ok(!admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('pool_membership')));
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.tables.includes('tenant_owner_configuration_authority')));
@@ -374,7 +374,7 @@ describe('whole deployment source admission and filesystem durability', function
     const admission = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert.equal(admission.census.selected.length, 22);
     assert.equal(admission.census.tables, 56);
-    assert.equal(admission.census.candidates.length, 32);
+    assert.equal(admission.census.candidates.length, 30);
     assert.deepEqual(admission.census.selected.filter(entry => entry.kind.includes('checkpoint')).map(entry => [entry.kind, entry.namespace, entry.instanceOf]),
       [['checkpoint', input.realtime.namespace, null], ['evaluator_checkpoint', input.evaluator.namespace, 'checkpoint']]);
     assert.ok(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint'));
