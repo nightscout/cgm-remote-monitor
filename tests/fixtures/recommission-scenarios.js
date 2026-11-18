@@ -307,7 +307,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       }
       cohort = await cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: entries, ...(native?{}:{intakeProfile:profile}) });
       pool = new Pool({ connectionString: roleURI, max: 1 });
-      controller = maintenance.create({ namespace: ns.lifecycle, locks, pool, cohort, drainTimeoutMs: 10000, intakeProfile: profile });
+      controller = maintenance.create({ namespace: ns.lifecycle, locks, pool, cohort, drainTimeoutMs: 10000, ...selectionOptions() });
       life = admission.lifecycle.withCapabilities({
         authorize: async ({ connection, tenant }) => {
           const rows = (await connection.query('SELECT active FROM ' + table('lifecycle', 'tenant_lifecycle_restore_authority') + ' WHERE tenant_id=$1 AND role_oid=CURRENT_USER::regrole::oid', [tenant])).rows;
