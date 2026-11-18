@@ -289,6 +289,11 @@ optInSuite(process.env.NS_PGSTREAM_RECOVERY_TEST==='1'&&!!process.env.NS_TEST_PO
    const read=async tenant=>(await query('SELECT work_observed[5]::text AS stamp,work_enabled AS enabled FROM '+table+' WHERE consumer=$1 AND tenant_id=$2',[completed,tenant])).rows[0];
    await legacy(envelope(a,'suspended','2'));await legacy(envelope(a,'active','2'));
    await legacy(envelope(b,'suspended','2'));
+   // Model a completed frame from the retained lifetime. Cutover may record a
+   // new observation but only clinical evaluation may advance this frontier.
+   const projection=[{kind:'evaluator-work-v2',output:{frame:{sgvs:[{mgdl:123}]}}}];
+   await query('UPDATE '+table+' SET projection=$1,work_completed=work_observed,work_pending_at=NULL,work_completed_at=101,output_restore_generation=2,output_revision=7 WHERE consumer=$2 AND tenant_id=$3',[JSON.stringify(projection),completed,a]);
+
    assert.deepEqual(await read(a),{stamp:'5',enabled:false},'predecessor leaves restored work disabled');
    await query('UPDATE '+table+' SET contract_digest=$1 WHERE consumer=$2 AND tenant_id=$3',[store.digest,completed,b]);
    await assert.rejects(cutover.upgrade(client,selection),/MIXED_CONTRACT/);
@@ -301,6 +306,8 @@ optInSuite(process.env.NS_PGSTREAM_RECOVERY_TEST==='1'&&!!process.env.NS_TEST_PO
    finally{await oldOwner.close();owner.release();}
    assert.equal(await cutover.upgrade(client,selection),2);
    assert.equal(await cutover.upgrade(client,selection),0);
+   const retained=(await query('SELECT projection,work_completed[5]::text AS completed,work_completed_at::text AS at,work_pending_at IS NOT NULL AS pending,output_restore_generation::text AS generation,output_revision::text AS revision FROM '+table+' WHERE consumer=$1 AND tenant_id=$2',[completed,a])).rows[0];
+   assert.deepEqual(retained,{projection,completed:'5',at:'101',pending:true,generation:'2',revision:'7'});
    assert.deepEqual(await read(a),{stamp:'6',enabled:true});
    assert.deepEqual(await read(b),{stamp:'5',enabled:false});
    await assert.rejects(legacy(envelope(a,'suspended','2')),/RECEIPT_CONTRACT/);
