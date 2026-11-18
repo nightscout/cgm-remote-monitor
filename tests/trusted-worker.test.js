@@ -24,7 +24,7 @@ describe('trusted worker metadata and operational scope', function () {
   it('native stream metadata never reads or requires the public history clock', async function(){
     const f=fixture({stream:true});
     const original=f.connection.readOnly;
-    f.connection.readOnly=async(text,values)=>{assert(!text.includes('tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_READ');assert(!values?.[0]?.includes?.('\"tw_clock\".tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_ADMISSION');const result=await original(text,values);if(text.includes('activity_version'))for(const row of result.rows){row.stamp=null;row.deleted=null;}return result;};
+    f.connection.readOnly=async(text,values)=>{assert(!text.includes('tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_READ');assert(!values?.[0]?.includes?.('"tw_clock".tenant_write_clock'),'NATIVE_METADATA_RETIRED_CLOCK_ADMISSION');const result=await original(text,values);if(text.includes('activity_version'))for(const row of result.rows){row.stamp=null;row.deleted=null;}return result;};
     await f.reader.verify();const rows=await f.reader.scan([A]);assert.equal(rows.get(A).signature,null);await f.reader.close();
   });
 

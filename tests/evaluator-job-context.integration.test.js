@@ -81,7 +81,7 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
   }
   clinicalJobs?.close();deliveryJobs?.close();if(oldMode)scope.setTenancyMode(oldMode);
   if(owned)try{execFileSync('docker',['rm','-f','-v',container],{stdio:'pipe'});assert.equal(spawnSync('docker',['inspect',container],{stdio:'pipe'}).status,1,'OWNED_NATIVE_CONTAINER_REMOVED');for(const volume of volumes)assert.equal(spawnSync('docker',['volume','inspect',volume],{stdio:'pipe'}).status,1,'OWNED_NATIVE_VOLUME_REMOVED');console.log('NATIVE_JOB_CLEANUP '+JSON.stringify({containerRemoved:true,anonymousVolumesRemoved:true,image:IMAGE}));}catch(error){errors.push(error);}
-  if(errors.length)throw new AggregateError(errors,'Native scheduler fixture cleanup failed');
+  if(errors.length)throw new globalThis.AggregateError(errors,'Native scheduler fixture cleanup failed');
  });
  it('commits revision intents and accepted handoffs, repeats, and makes time-only progress without writes',async function(){
   requested=true;

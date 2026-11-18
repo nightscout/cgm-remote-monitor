@@ -1,7 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
 const { createHash, randomUUID } = require('node:crypto');
-const { Client } = require('pg');
 const { io } = require('socket.io-client');
 const http = require('node:http');
 const { enabled } = require('./fixtures/tenant-registry-lab');
@@ -22,11 +21,11 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
         assert.deepEqual(ack,{success:true,collections:['entries','food']});return {socket,events,transport,disconnects};
       }
       const clients=await Promise.all(['polling','websocket'].map(t=>client(A,t))),foreign=await client(B,'websocket');
-      const subscribedTail=(await admin.query('SELECT projection->1 AS tail FROM \"'+ns.evaluatorCheckpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,'evaluator-sharding-native'])).rows[0].tail;
+      const subscribedTail=(await admin.query('SELECT projection->1 AS tail FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[A,'evaluator-sharding-native'])).rows[0].tail;
       const table=domain=>'"'+ns[domain]+'"."'+domain+'"';
       const mutate=(deleted,fn)=>require('./fixtures/realtime-preview/clock-write')({admin,namespace:ns.clock,tenant:A,deleted},fn);
       const write=(domain,row)=>mutate(false,stamp=>{row.doc.srvModified=stamp;return admin.query('INSERT INTO '+table(domain)+'(tenant_id,id_kind,doc) VALUES($1,$2,$3::jsonb)',[A,row.id_kind,JSON.stringify(row.doc)]);});
-      const expected=async(event,row,domain,group=clients)=>{const want=oracle.single(event,row,domain);try{await f.until(()=>group.every(c=>c.events.some(value=>require('node:util').isDeepStrictEqual(value,want))),'raw '+domain+' '+event);}catch(error){console.log('SHARD_RAW_MISMATCH '+JSON.stringify({want,subscribedTail,rtReceipts:(await admin.query('SELECT consumer,output_received,output_completed,output_owner,output_retry_at FROM \"'+ns.checkpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows,rtHealth:(await f.request(A,'GET','/health',undefined,f.workers.get('a').port)).body,rtStderr:f.workers.get('a').stderr,events:group.map(c=>({transport:c.transport,events:c.events,connected:c.socket.connected,disconnects:c.disconnects})),checkpoint:(await admin.query('SELECT consumer,projection,work_enabled,work_observed,work_completed,delivery_revision,delivery_ack_revision,output_revision,output_restore_generation FROM \"'+ns.evaluatorCheckpoint+'\".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows}));throw error;}assert.deepEqual(foreign.events,[],'SHARD_RAW_FOREIGN_TENANT');};
+      const expected=async(event,row,domain,group=clients)=>{const want=oracle.single(event,row,domain);try{await f.until(()=>group.every(c=>c.events.some(value=>require('node:util').isDeepStrictEqual(value,want))),'raw '+domain+' '+event);}catch(error){console.log('SHARD_RAW_MISMATCH '+JSON.stringify({want,subscribedTail,rtReceipts:(await admin.query('SELECT consumer,output_received,output_completed,output_owner,output_retry_at FROM "'+ns.checkpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows,rtHealth:(await f.request(A,'GET','/health',undefined,f.workers.get('a').port)).body,rtStderr:f.workers.get('a').stderr,events:group.map(c=>({transport:c.transport,events:c.events,connected:c.socket.connected,disconnects:c.disconnects})),checkpoint:(await admin.query('SELECT consumer,projection,work_enabled,work_observed,work_completed,delivery_revision,delivery_ack_revision,output_revision,output_restore_generation FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows}));throw error;}assert.deepEqual(foreign.events,[],'SHARD_RAW_FOREIGN_TENANT');};
       const oldId='old-'+randomUUID(),mealId='meal-'+randomUUID(),now=Date.now();
       const old={id_kind:'string',doc:{_id:oldId,identifier:'public-'+oldId,type:'sgv',sgv:139,date:now-4*86400000,dateString:new Date(now-4*86400000).toISOString()}};
       const meal={id_kind:'string',doc:{_id:mealId,identifier:'public-'+mealId,name:'Synthetic raw meal',carbs:12}};

@@ -10,15 +10,14 @@ const os = require('node:os');
 const path = require('node:path');
 const { fork } = require('node:child_process');
 const transport = require('../lib/server/internal-api/transport');
-const lifecycle = require('../lib/server/internal-api/contracts').lifecycleParticipant;
+const health = require('../lib/server/internal-api/contracts').roleHealth;
 
-// A child that serves the lifecycle contract on the given socket and reports ready.
+// A child that serves the role health contract on the given socket and reports ready.
 const CHILD = `
 const transport = require(process.env.TRANSPORT);
-const contract = require(process.env.CONTRACTS).lifecycleParticipant;
+const contract = require(process.env.CONTRACTS).roleHealth;
 transport.open({ socketPath: process.env.SOCKET, maxBytes: 65536, timeoutMs: 1000 }, contract, () => ({
-  getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); },
-  getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async () => { throw new Error('unused'); } }))
+  getStatus: async (ctx, { request }) => ({ request, participant: 'api', roles: ['api'], ready: true }) }))
   .then(() => process.send({ ready: true }), error => process.send({ refused: error.code || error.message }));
 `;
 
@@ -39,9 +38,8 @@ describe('serve.internal stale socket reclaim', function () {
       child.once('error', reject);
     });
   }
-  const operations = () => ({ getStatus: async () => { throw new Error('unused'); }, invalidateTenant: async () => { throw new Error('unused'); },
-  getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async () => { throw new Error('unused'); } });
-  const open = socket => transport.open({ socketPath: socket, maxBytes: 65536, timeoutMs: 1000 }, lifecycle, operations);
+  const operations = () => ({ getStatus: async (ctx, { request }) => ({ request, participant: 'api', roles: ['api'], ready: true }) });
+  const open = socket => transport.open({ socketPath: socket, maxBytes: 65536, timeoutMs: 1000 }, health, operations);
 
   it('a member killed with SIGKILL restarts in place and serves', async function () {
     const socket = path.join(directory, 'killed.sock');
@@ -51,6 +49,9 @@ describe('serve.internal stale socket reclaim', function () {
     assert.ok(fs.lstatSync(socket).isSocket(), 'the killed process left its socket file');
     const second = await serve(socket);
     assert.equal(second.ready, true, 'STALE_SOCKET_RECLAIMED ' + second.refused);
+    const request = require('node:crypto').randomUUID();
+    const client = transport.client({socketPath:socket, maxBytes:65536, timeoutMs:1000}, health);
+    assert.deepEqual(await client.getStatus({request}), {request, participant:'api', roles:['api'], ready:true});
   });
   it('a live listener at the path is still refused and left untouched', async function () {
     const socket = path.join(directory, 'live.sock');
