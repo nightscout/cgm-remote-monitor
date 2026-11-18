@@ -203,8 +203,10 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const alarm = require('./tenant-deployment-alarm').alarmInputs({ tenants: [A, B], now: BASE, writerRole: prefix + '_alarm', readerRole: prefix + '_alarm_reader' });
       const outbox = require('./tenant-deployment-notifications').notificationInputs({ tenants: [A, B], now: BASE,
         outboxRole: prefix + '_outbox', checkpointWriterRole: prefix + '_checkpoint_writer', ackReaderRole: prefix + '_ack_reader' });
-      admission = require('../../lib/tenant-operations/catalogues').deploymentAdmission({ namespaces: ns, ...selectionOptions(), notificationBindings: bindings,
-        selection: {...Object.fromEntries(['treatments', 'devicestatus', 'profile'].map(kind => [kind, 'migrations/candidates/postgres-' + kind + '-socket-order-v1.json'])),...(native?{checkpoint:'migrations/candidates/postgres-realtime-output-v2.json',evaluator_checkpoint:'migrations/candidates/postgres-evaluator-work-v2.json'}:{})}, extensions: [alarm.extension, outbox.extension],...(native?{instances:[{kind:'evaluator_checkpoint',of:'checkpoint'}]}:{}) });
+      const admissionOptions={ namespaces: ns, ...selectionOptions(), notificationBindings: bindings,
+        selection: {...Object.fromEntries(['treatments', 'devicestatus', 'profile'].map(kind => [kind, 'migrations/candidates/postgres-' + kind + '-socket-order-v1.json'])),...(native?{checkpoint:'migrations/candidates/postgres-realtime-output-v2.json',evaluator_checkpoint:'migrations/candidates/postgres-evaluator-work-v2.json'}:{})}, extensions: [alarm.extension, outbox.extension],...(native?{instances:[{kind:'evaluator_checkpoint',of:'checkpoint'}]}:{}) };
+      admission=require('../../lib/tenant-operations/catalogues').deploymentAdmission(admissionOptions);
+      if(native)assert.throws(()=>require('../../lib/tenant-operations/catalogues').deploymentAdmission({...admissionOptions,selection:{...admissionOptions.selection,evaluator_checkpoint:'migrations/candidates/postgres-realtime-output-v2.json'}}),{message:'LIFECYCLE_NATIVE_SELECTION_INVALID'});
       const rolePassword = crypto.randomBytes(24).toString('hex'), peerPassword = crypto.randomBytes(24).toString('hex');
       const url = new URL(adminURI); url.username = role; url.password = rolePassword; roleURI = url.toString();
       let peerURI, identity;
@@ -363,6 +365,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       configMissing = true;
       try { await refusedRestore(first, { code: native?'LIFECYCLE_NATIVE_SOURCE_CHANGED':'LIFECYCLE_RECOMMISSION_REPLAY_REQUIRED' }); }
       finally { configMissing = false; }
+      if(native)await refusedRestore(first,/NATIVE_BEFORE_DATA_INTERRUPT/,{onRow(){throw new Error('NATIVE_BEFORE_DATA_INTERRUPT');}});
       for (let cycle = 0, record = first; cycle < 2; cycle++) {
         const captured = record.artifact, oldKey = captured.tables['legacy.legacy_data_keys'].find(key => key.signing), config = captured.tables['legacy.legacy_credential_config'][0];
         const subject = captured.tables['legacy.legacy_credential_subjects'][0];
@@ -370,8 +373,13 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const oldToken = codec.issue(A, { kind: 'subject', subjectId: subject.subject_id, rootVersion: config.root_version, credentialVersion: subject.credential_version },
           { kid: oldKey.kid, privateKey: oldKey.private_key }).token;
         let commits = 0;
-        const result = await reconstruct(record, { onCommitted: () => { commits++; } });
-        assert.equal(commits, 1); assert.equal(result.result.oracle.differences, 0);
+        if(native&&!cycle){
+          await assert.rejects(reconstruct(record,{onCommitted:()=>{commits++;throw new Error('NATIVE_AFTER_DATA_INTERRUPT');}}),/NATIVE_AFTER_DATA_INTERRUPT/);
+          const held=await admin(client=>client.query('SELECT phase FROM '+table('lifecycle','tenant_lifecycle_key_retention')+' WHERE request_id=$1',[record.requestId]));assert.equal(held.rows[0].phase,'restored');
+          const activity=await admin(client=>client.query('SELECT suspended FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[A]));assert.equal(activity.rows[0].suspended,true);
+          await resumeFailedClaim();
+        }else{const result=await reconstruct(record,{onCommitted:()=>{commits++;}});assert.equal(result.result.oracle.differences,0);}
+        assert.equal(commits,1);
         await admin(async client => {
           for (const kind of clinical) {
             const actual = (await client.query('SELECT id_kind,doc' + (ordered.includes(kind) ? ',insertion_ordinal::text' : '') + ' FROM ' + table(kind, kind) + ' WHERE tenant_id=$1' + (ordered.includes(kind) ? ' ORDER BY insertion_ordinal' : ' ORDER BY "_id"'), [A])).rows;
@@ -464,7 +472,12 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const beforeA = await snapshot(A), beforeB = await snapshot(B);
       if(native){
         const connection={query:(sql,values)=>admin(client=>client.query(sql,values))};
-        const configuration=await currentConfiguration({tenant:A,connection});configuration.nativeSource.generation='foreign-generation';
+        const configuration=await currentConfiguration({tenant:A,connection});
+        const selected=require('../../lib/tenant-lifecycle/native-selection');
+        assert.throws(()=>selected.validate({...profile}),{code:'LIFECYCLE_NATIVE_SELECTION_REQUIRED'});
+        const foreign=selected.create({...profile.binding,source:{...profile.binding.source,system_id:profile.binding.source.system_id+'1'}});
+        await assert.rejects(selected.assertCurrent(connection,foreign,{nativeSource:{source:foreign.binding.source,generation:foreign.binding.generation}}),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
+        configuration.nativeSource.generation='foreign-generation';
         await assert.rejects(require('../../lib/tenant-lifecycle/native-selection').assertCurrent(connection,profile,configuration),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
         assert.deepEqual(await snapshot(A),beforeA);assert.deepEqual(await snapshot(B),beforeB);return;
       }
