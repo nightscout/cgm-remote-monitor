@@ -358,6 +358,45 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       }
     });
 
+    if(native)it('restores seven clinical domains through the native source guard while preserving pending and accepted queue identities',async function(){
+      const beforeB=await snapshot(B),logicalRole=prefix+'_logical',password=crypto.randomBytes(24).toString('hex');
+      const values=require('./tenant-deployment-notifications').notificationInputs({tenants:[A,B],now:BASE,outboxRole:prefix+'_one',checkpointWriterRole:prefix+'_two',ackReaderRole:prefix+'_three'}).rows;
+      await admin(async client=>{
+        for(const [name,rows]of Object.entries(values))for(const row of rows.filter(value=>value.consumer==='synthetic_realtime')){
+          const keys=Object.keys(row);await client.query('INSERT INTO '+table('notification_outbox',name)+' ('+keys.map(q).join(',')+') VALUES('+keys.map((_,i)=>'$'+(i+1)).join(',')+')',keys.map(key=>row[key]));
+        }
+        await client.query('CREATE ROLE '+q(logicalRole)+" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '"+password+"'");
+        for(const entry of admission.catalogues){
+          await client.query('GRANT USAGE ON SCHEMA '+q(entry.namespace)+' TO '+q(logicalRole));
+          await client.query('GRANT SELECT ON '+q(entry.namespace)+'.schema_migrations TO '+q(logicalRole));
+          for(const name of entry.tables)await client.query('GRANT SELECT ON '+q(entry.namespace)+'.'+q(name)+' TO '+q(logicalRole));
+        }
+        for(const kind of clinical)for(const sql of require('../../lib/server/ordinary-deployment-grants').insertionGrants({namespace:ns[kind],domain:kind,role:logicalRole,mode:'restore'}))await client.query(sql);
+        await client.query('GRANT UPDATE(last_stamp) ON '+table('clock','tenant_write_clock')+' TO '+q(logicalRole));
+        for(const sql of maintenance.operatorGrants({namespace:ns.lifecycle,role:logicalRole,nativeSelection:profile}))await client.query(sql);
+        await client.query('GRANT UPDATE(phase,restored_at) ON '+table('lifecycle','tenant_lifecycle_key_retention')+' TO '+q(logicalRole));
+        await client.query('GRANT USAGE ON SCHEMA '+q(registryNamespace)+' TO '+q(logicalRole));
+        await client.query('GRANT SELECT ON '+q(registryNamespace)+'.tenant_registry_keys TO '+q(logicalRole));
+        await client.query('GRANT pg_read_all_stats TO '+q(logicalRole));
+        await client.query('INSERT INTO '+table('lifecycle','tenant_lifecycle_restore_authority')+' (tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)',[A,logicalRole]);
+      });
+      const url=new URL(adminURI);url.username=logicalRole;url.password=password;
+      const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,drainTimeoutMs:10000,nativeSelection:profile});
+      const queues=()=>admin(async client=>Object.fromEntries(await Promise.all(['tenant_notification_heads','tenant_notification_requests','tenant_notification_state'].map(async name=>[name,artifacts.digestRows((await client.query('SELECT * FROM '+table('notification_outbox',name)+' WHERE tenant_id=$1',[A])).rows)]))));
+      try{
+        const artifact=await life.exportTenant(port,{tenant:A,namespaces:ns,sourceCommit}),before=await queues();
+        const alarms=await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]));
+        await admin(client=>client.query('UPDATE '+table('entries','entries')+" SET doc=jsonb_set(doc,'{value}','555'::jsonb) WHERE tenant_id=$1",[A]));
+        const result=await logicalController.withRestore(A,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:A,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
+        assert.equal(result.result.tables,7);assert(result.result.replaced>0);
+        assert.deepEqual(await queues(),before,'pending, uncertain and accepted request/producer rows retain their exact IDs and payloads');
+        assert.deepEqual((await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]))).rows,alarms.rows);
+        const restored=await admin(client=>client.query('SELECT doc FROM '+table('entries','entries')+' WHERE tenant_id=$1 ORDER BY "_id"',[A]));
+        assert(restored.rows.every(row=>row.doc.value!==555));
+        assert.deepEqual(await snapshot(B),beforeB);
+      }finally{await logicalController.close();await logicalPool.end();}
+    });
+
     it('reconstructs seven nonempty domains twice, preserving B, retained ciphertext and credential compatibility without old DATAJWT authority', async function () {
       const beforeB = await snapshot(B), first = await erase(BASE + 100);
       assert.deepEqual(await snapshot(B), beforeB);
