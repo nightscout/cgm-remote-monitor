@@ -142,4 +142,60 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     assert.equal(Number(after.find(row => row.request_id === alarm.request_id).cleared_at), lab.now);
     assert.equal(after.find(row => row.payload.clear).state, 'accepted');
   });
+
+// The selected ACK ledger is read without evaluator/pool membership. Real SQL
+// proves the narrow reader/writer grants; transport/client admission stays separate.
+it('native stream ACK reads persisted producer state without a live evaluator or pool and refuses a bypassed admission control', async function () {
+  const { randomBytes } = require('node:crypto');
+  const ns = lab.name + '_ack', role = lab.name + '_ack_reader';
+  const password = randomBytes(24).toString('hex');
+  const scope = require('../lib/storage/tenant-scope');
+  const { EventEmitter } = require('node:events');
+  const admission = require('../lib/tenant-notifications/ack-admission');
+  const writerFactory = require('../lib/tenant-alarms/postgres').createWriter;
+  let db;
+  try {
+    await require('../lib/migrations/postgres').run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      namespace: ns, catalogue: require('../migrations/candidates/postgres-alarm-suppression-v1.json') });
+    await lab.admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD \'' + password + '\'');
+    for (const namespace of [ns, lab.name]) await lab.admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + role + '"');
+    for (const table of ['schema_migrations', 'tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state']) {
+      await lab.admin.query('GRANT SELECT ON "' + lab.name + '".' + table + ' TO "' + role + '"');
+    }
+    await lab.admin.query('GRANT SELECT,INSERT,UPDATE(acked_at,expires_at) ON "' + ns + '".tenant_alarm_suppression TO "' + role + '"');
+    const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = role; url.password = password;
+    db = await require('../lib/storage/postgres-connection')({connectionString: url.toString(), max: 1, statement_timeout: 5000});
+    const consumer = 'native-stream-ack', at = Date.now();
+    const bus = new EventEmitter();
+    const service = require('../lib/notifications').privateState({}, {bus, levels: require('../lib/levels'), ddata: {lastUpdated: at}}, {
+      clock: () => at, maxRows: 20, maxBytes: 100000
+    });
+    service.notifications.requestNotify({level: 1, title: 'Synthetic', message: 'Synthetic', plugin: {name: 'synthetic'}});
+    service.notifications.requestSnooze({level: 1, title: 'Synthetic', message: 'Synthetic', lengthMills: 120000});
+    service.notifications.process();
+    const producer = {alarms: service.snapshot(), effects: [], acks: [], output: null}; bus.emit('teardown');
+    await scope.withTenant(lab.A, () => lab.store.consume({tenant: lab.A, consumer,
+      transform: async () => ({configIdentity: 'native-stream-current', producer, intents: []})}));
+    const originalState = (await lab.admin.query('SELECT producer FROM "' + lab.name + '".tenant_notification_state WHERE tenant_id=$1 AND consumer=$2', [lab.A, consumer])).rows;
+    const admit = admission({namespace: lab.name, consumer, alarmNamespace: ns, maxRows: 20, maxBytes: 100000, maxPayloadBytes: 10000});
+    const operation = {tenant: lab.A, args: [1, 'default', 60000]};
+    const writer = bypass => writerFactory({connection: db, namespace: ns, authorizeInTransaction: async () => true,
+      ...(bypass ? {} : {admitAckInTransaction: args => admit({...args, configIdentity: 'native-stream-current'})})});
+    const saved = () => lab.admin.query('SELECT tenant_id,alarm_group,alarm_level FROM "' + ns + '".tenant_alarm_suppression ORDER BY tenant_id,alarm_group,alarm_level');
+    const normal = await writer(false).ack(operation); assert.equal(normal.accepted, false); assert.deepEqual((await saved()).rows, []);
+    async function criterion (bypass) { const result = await writer(bypass).ack(operation); assert.equal(result.accepted, false, 'NATIVE_ACK_ACTIVE_PRODUCER_MUST_REFUSE'); }
+    await assert.rejects(criterion(true), /NATIVE_ACK_ACTIVE_PRODUCER_MUST_REFUSE/);
+    assert((await saved()).rows.length > 0, 'actual bypass wrote suppression');
+    await lab.admin.query('DELETE FROM "' + ns + '".tenant_alarm_suppression');
+    await criterion(false); assert.deepEqual((await saved()).rows, []);
+    assert.deepEqual((await lab.admin.query('SELECT producer FROM "' + lab.name + '".tenant_notification_state WHERE tenant_id=$1 AND consumer=$2', [lab.A, consumer])).rows, originalState);
+    const foreign = await writer(false).ack({...operation, tenant: lab.B}); assert.equal(foreign.accepted, true);
+    assert((await saved()).rows.every(row => row.tenant_id === lab.B), 'A producer state never controls B');
+  } finally {
+    if (db) await db.end();
+    await lab.admin.query('DROP SCHEMA IF EXISTS "' + ns + '" CASCADE');
+    await lab.admin.query('DROP OWNED BY "' + role + '"').catch(() => {});
+    await lab.admin.query('DROP ROLE IF EXISTS "' + role + '"');
+  }
+});
 });
