@@ -14,7 +14,7 @@ describe('multitenant inventory executable environment consumption', function ()
     const rows=new Map(inventory.INVENTORY.map(row=>[row.file,row]));
     const pgstream=['tests/pgstream-bootstrap-batch.integration.test.js','tests/pgstream-checkpoint.integration.test.js','tests/pgstream-single-receipt.integration.test.js'];
     for(const file of pgstream){const row=rows.get(file);assert(row);assert.deepEqual(row.flags,{NS_PGSTREAM_ROLE_TEST:'1'});assert.deepEqual(row.shared,['postgres']);assert.deepEqual(row.own,[]);}
-    const recovery=rows.get('tests/pgstream-recovery.integration.test.js');assert(recovery);assert.deepEqual(recovery.flags,{NS_PGSTREAM_RECOVERY_TEST:'1'});assert.throws(()=>inventory.producerSelection([recovery],{}),/MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/,'RECOVERY_NEEDS_REAL_PRODUCER_NOT_STOCK_DB');
+    const recovery=rows.get('tests/pgstream-recovery.integration.test.js');assert(recovery);assert.deepEqual(recovery.flags,{NS_PGSTREAM_RECOVERY_TEST:'1',NS_PGSTREAM_SELECTED_STARTUP_TEST:'1'});assert.throws(()=>inventory.producerSelection([recovery],{}),/MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/,'RECOVERY_NEEDS_REAL_PRODUCER_NOT_STOCK_DB');
     const rest=rows.get('tests/preview-entries-acquisition.integration.test.js');assert.deepEqual(rest.flags,{NS_REST_ACQUISITION_NATIVE:'1'});assert.deepEqual(rest.shared,[]);assert.deepEqual(rest.own,['postgres']);
     const protocol='tests/evaluator-preview-registry-fixture.test.js';assert.equal(rows.has(protocol),false);
     assert.deepEqual(unlisted(protocol,readSource(protocol)),[]);
