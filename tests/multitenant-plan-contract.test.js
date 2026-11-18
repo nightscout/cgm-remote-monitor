@@ -32,9 +32,9 @@ const observer = require('./fixtures/multitenant-plan-observer');
 const layout = plan.layout('nstp');
 // `default` is the smallest registry-mode plan; `full` sets every optional field and a fixed roster,
 // with Vault credentials from the environment; `full-token-files` is `full` with token files.
-const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'selected-pool'];
+const VARIANTS = ['default', 'full', 'full-token-files', 'ensure', 'ensure-token-files', 'selected-pool', 'selected-native'];
 const documentSet = (variant = 'default') => {
-  const selected = variant === 'ensure' ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
+  const selected = ['ensure','selected-native'].includes(variant) ? 'full' : variant === 'ensure-token-files' ? 'full-token-files' : variant;
   const documents = plan.documents({ layout, urls: plan.syntheticUrls(layout), variant: selected });
   const set = plan.documentSet(documents);
   if (variant.startsWith('ensure')) {
@@ -54,6 +54,12 @@ const documentSet = (variant = 'default') => {
     entry.environment.NS_ENSURE_PG = 'postgres://nstp_ensure:synthetic@127.0.0.1/nightscout_synthetic';
     if (config.ensure.vault.tokenFile) config.ensure.vault.tokenFile = '/run/vault/ensure-token';
     else { config.ensure.vault.tokenEnv = 'NS_ENSURE_VAULT'; entry.environment.NS_ENSURE_VAULT = 'synthetic'; }
+  }
+  if(variant==='selected-native'){
+    // Test-local current native source declaration; the shared plan fixture and
+    // startup role documents keep their own independently qualified variants.
+    const evaluator=documents.configs.evaluator;
+    for(const entry of set.processes){const file=entry.environment.MULTITENANT_OPERATION_CONFIG;if(file){delete entry.files[file].intakeProfile;entry.files[file].nativeSelection={namespace:evaluator.postgres.namespaces.checkpoint,lifecycleNamespace:entry.files[file].namespace,consumer:evaluator.consumer,generation:evaluator.pgstream.generation,source:{system_id:'42',timeline:1,database:'nightscout_synthetic',slot:evaluator.pgstream.slot}};}}
   }
   return set;
 };
@@ -119,7 +125,7 @@ describe('deployment plan contract', function () {
 
   it('accepts the test plan: every document matches its schema and every process passes its loaders', function () {
     const roster = ['realtime', 'evaluator', 'tenant-admin', 'api-1', 'api-2', 'admin', 'vcpool'];
-    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, 'selected-pool':roster };
+    const expected = { default: ['api', 'realtime', 'evaluator', 'tenant-admin', 'admin', 'vcpool'], full: roster, 'full-token-files': roster, ensure:roster, 'ensure-token-files':roster, 'selected-pool':roster, 'selected-native':roster };
     for (const variant of VARIANTS) {
       const report = contract.check(documentSet(variant));
       assert.equal(report.ok, true, variant + ': ' + JSON.stringify(report.processes.flatMap(row => row.findings)));
