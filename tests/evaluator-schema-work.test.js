@@ -88,13 +88,17 @@ describe('evaluator schema work bounds', function () {
   afterEach(() => { scope.setTenancyMode(prior); });
   for (const selected of [false]) {
     const name = selected ? 'selected' : 'global';
-    for (const count of [1, 65, 500]) for (const events of [0, 1, 4]) it(name + ' boot scans only once for durable recovery at cohort ' + count + ', events ' + events, async () => {
+    // Decision stable-evaluator-runtime: the preview has no schema callback.
+    // Startup verification (inside the source's baseline) checks clinical
+    // readiness once more; no schema event re-verifies or scans while serving.
+    for (const count of [1, 65, 500]) it(name + ' boot scans only once for durable recovery at cohort ' + count, async () => {
       const f = fixture(count, selected);
       const service = await f.boot(async () => {
-        for (let event = 0; event < events; event++) await f.callbacks().onSchema(['work_clock']);
-        assert.equal(f.calls.readiness, 1 + events, 'EVERY_SCHEMA_ACK_REVALIDATES');
+        assert.equal(Object.hasOwn(f.callbacks(), 'onSchema'), false, 'NO_IN_PLACE_SCHEMA_CALLBACK');
+        assert.equal(f.calls.readiness, 1);
         await f.callbacks().onRecovered(f.store);
-        console.log(JSON.stringify({ entry: name, cohort: count, schemaEvents: events, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
+        assert.equal(f.calls.readiness, 2, 'STARTUP_BASELINE_VERIFICATION_INCLUDES_CLINICAL_READINESS');
+        console.log(JSON.stringify({ entry: name, cohort: count, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
         assert.equal(f.calls.scans.length, 1, 'RECOVERY_RECONCILES_ONCE');
         assert.equal(f.calls.scans.flat().length, count, 'RECOVERY_COVERS_ENTIRE_COHORT');
         assert.equal(f.calls.pages.flat().length, count, 'DURABLE_BOOTSTRAP_COVERS_COHORT');
@@ -106,39 +110,10 @@ describe('evaluator schema work bounds', function () {
           assert.equal(f.calls.native.filter(value=>value===event).length,1,'NATIVE_BOOT_CAPABILITY_'+event);
       }
     });
-    it(name + ' schema refuses authority loss and fences an old settings read across revalidation', async () => {
-      const f = fixture(2, selected); const service = await f.boot();
-      try {
-        await f.reader().verify(); await f.reader().scan(f.ids);
-        const hold = deferred(); f.state.holdSettings = hold;
-        const pending = f.reader().read(f.ids[0]); pending.catch(() => {});
-        await f.callbacks().onSchema(['work_clock']);
-        hold.resolve(); await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/, 'OLD_SCHEMA_READ_NOT_CACHED');
-        f.state.holdSettings = null;
-        f.state.secured = false;
-        await assert.rejects(f.callbacks().onSchema(['work_clock']), /TRUSTED_WORKER_UNAVAILABLE/, 'SCHEMA_AUTHORITY_LOSS_REFUSED');
-        assert.equal(f.reader().state().available, false);
-      } finally { await service.close(); }
-    });
-    it(name + ' schema ACK awaits validation, invalidates live instances and leaves metadata discovery to bounded scheduling', async () => {
-      const f = fixture(65, selected); const service = await f.boot();
-      try {
-        await f.reader().verify(); const before = f.calls.scans.length;
-        const hold = deferred(); f.state.holdReadiness = hold;
-        let acked = false;
-        const schema = f.callbacks().onSchema(['work_clock']).then(() => { acked = true; });
-        assert.equal(f.reader().state().available, false, 'SCHEMA_FENCE_IS_IMMEDIATE');
-        await Promise.resolve(); assert.equal(acked, false, 'SCHEMA_ACK_AWAITS_READINESS');
-        hold.resolve(); await schema;
-        assert.deepEqual(f.calls.invalidated, f.ownIds, 'LIVE_INSTANCES_STILL_DRAIN_AND_INVALIDATE');
-        assert.equal(f.calls.scans.length, before, 'NO_EAGER_LIVE_SCHEMA_COHORT_SCAN');
-        assert.deepEqual(f.calls.wakes.map(row => row[0]), f.ownIds, 'ALL_LIVE_TENANTS_REMAIN_SCHEDULED');
-      } finally { await service.close(); }
-    });
-    for (const count of [1, 65, 500]) it(name + ' live acquisition rereads post-schema metadata in scheduler pages at cohort ' + count, async () => {
+    for (const count of [1, 65, 500]) it(name + ' live acquisition rereads metadata after a restore invalidation in scheduler pages at cohort ' + count, async () => {
       const f = fixture(count, selected), service = await f.boot(); let scheduler;
       try {
-        await f.callbacks().onSchema(['work_clock']);
+        await f.reader().verify(); f.reader().invalidate('restore'); await f.reader().verify();
         assert(f.ownIds.every(tenant => f.reader().current(tenant) === null));
         const ran = [];
         scheduler = require('../lib/pgstream/activity-scheduler').start({
@@ -178,25 +153,22 @@ describe('evaluator schema work bounds', function () {
       assert.equal(f.calls.timers.length, 0, 'QUIET_STREAM_MUST_HAVE_NO_METADATA_TIMER');
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(f.calls.scans.length, scans); assert.equal(f.calls.verify, verified); assert.equal(f.calls.wakes.length, wakes);
-      await f.callbacks().onSchema(['work_clock']);
-      assert.equal(f.calls.verify, verified + 1, 'REAL_SCHEMA_CHANGE_STILL_VERIFIES');
-      assert.equal(f.calls.scans.length, scans, 'SCHEMA_ACK_DOES_NOT_SCAN_QUIET_ROSTER');
       await f.callbacks().onRecovered(f.store);
       assert.deepEqual(f.calls.scans.at(-1), f.ids, 'ACTUAL_RECOVERY_RECONCILES_ROSTER');
     } finally { await service.close(); }
   }
   for (const selected of [false]) {
   const name=selected?'selected fixed-v1':'global';
-  it(name+' quiet streaming has no metadata SQL/roster timer, while schema and transport recovery still reconcile', () => quietCriterion(selected));
+  it(name+' quiet streaming has no metadata SQL/roster timer, while transport recovery still reconciles', () => quietCriterion(selected));
   async function readmissionCriterion (change = text => text) {
     const f = fixture(2, selected, 0, change, true), service = await f.boot();
     try {
-      const verified=f.calls.verify; f.reader().invalidate();
+      const verified=f.calls.verify; f.reader().invalidate('query-refusal');
       assert.equal(f.calls.verify,verified,'FAILURE_MUST_NOT_START_A_DISCOVERY_POLL');
       await f.schedulerOptions().scan([f.ids[0]]);
       assert.equal(f.calls.verify,verified+1,'ADDRESSED_RETRY_REVALIDATES_WITHDRAWN_READER');
       assert.deepEqual(f.calls.scans.at(-1),[f.ids[0]],'RETRY_SCANS_ONLY_ADDRESSED_TENANT');
-      f.reader().invalidate(); f.state.secured=false;
+      f.reader().invalidate('query-refusal'); f.state.secured=false;
       await assert.rejects(f.schedulerOptions().scan([f.ids[0]]),/TRUSTED_WORKER_UNAVAILABLE/);
       assert.equal(f.reader().state().available,false);
     } finally { await service.close(); }

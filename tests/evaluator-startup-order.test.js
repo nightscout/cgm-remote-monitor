@@ -6,10 +6,10 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,openingSchema,startupError,registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({assignedTenants,sourceBlocked=false,startupError,registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
- const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,schemaEvent;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
+ const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,blockSource;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
  const connection={async end(){closed=true;if(cleanupError)throw cleanupError;}};
  const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
@@ -51,8 +51,8 @@ function fixture({assignedTenants,openingSchema,startupError,registryError,clean
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
-  '../../pgstream/evaluator':{open:async({onCommit,onInput,schemaStartup,assignment})=>{if(startupError)throw startupError;selectedAssignment=assignment;schemaEvent=held=>schemaStartup.schema(async()=>{schemaAvailable=false;trace.push('schema-event');await held;schemaAvailable=true;});commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
-    if (openingSchema) schemaEvent(openingSchema).catch(() => {});
+  '../../pgstream/evaluator':{open:async({onCommit,onInput,assignment,schemaStartup})=>{if(startupError)throw startupError;if(schemaStartup!==undefined)throw Error('RETIRED_SCHEMA_STARTUP_OPTION');selectedAssignment=assignment;blockSource=()=>{schemaAvailable=false;trace.push('source-blocked');};commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
+    if (sourceBlocked) blockSource();
     return {store,async ready(){if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
   './registry-tenant-set':{open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
@@ -86,9 +86,9 @@ function fixture({assignedTenants,openingSchema,startupError,registryError,clean
  const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {schema:held=>schemaEvent(held),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
+ return {blockSource:()=>blockSource(),prepare,admission,trace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();return loaded.exports.boot(config,{operationWindow:window,assignedTenants});},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
 }
-function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    await schemaStartup.prepare(",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
+function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    startupPhase = 'DELIVERY_STARTUP';\n    {\n      consumers = await",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 const pgstreamEnabled=true;describe('maintained clinical startup independent of delivery roster preparation',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
  it('binds the fixed assigned roster to the same clinical runtime and refuses an unprovisioned neighbor',async()=>{
@@ -312,54 +312,23 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
 
 });
 
-async function previewSchemaCriterion(sourceTransform=text=>text){
- const f=fixture({sourceTransform}),verification=deferred();let service,event;const boot=f.boot();boot.catch(()=>{});
- try{
-  for(let n=0;n<60&&!f.trace.includes('delivery-prepare');n++)await settle();assert(f.trace.includes('delivery-prepare'));
-  event=f.schema(verification.promise);await settle();assert(f.trace.includes('schema-event'));
-  f.prepare.resolve();await settle();verification.resolve();
-  try{service=await boot;}catch{assert.fail('PREVIEW_MUST_RECOVER_SCHEMA_INTERRUPTED_PREPARATION');}
-  await event;assert.equal(f.trace.filter(row=>row==='delivery-prepare').length,2);
- }finally{f.prepare.resolve();verification.resolve();service=service||await boot.catch(()=>null);await event;await service?.close();await f.window.close();}
-}
-describe('actual preview startup schema boundary',()=>{
+// Decision stable-evaluator-runtime: the source blocks itself for relevant DDL
+// after its startup baseline. Boot neither joins nor retries schema work.
+describe('actual preview startup on a stable schema',()=>{
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(prior));
- for (const refuse of [false, true]) {
-  it(refuse ? 'refuses startup when the schema check at receiver opening fails'
-    : 'waits for the schema check active when the receiver opens', async () => {
-   const verification = deferred();
-   const f = fixture({openingSchema: verification.promise});
-   f.prepare.resolve();
-   const boot = f.boot();
-   let settled = false;
-   boot.then(() => { settled = true; }, () => { settled = true; });
-   let service;
-   try {
-    await settle();
-    assert(f.trace.includes('schema-event'));
-    assert.equal(settled, false, 'receiver opening must join in-flight schema verification');
-    assert.equal(f.state().started, false);
-    if (refuse) {
-     const failure = new Error('schema verification refused');
-     verification.reject(failure);
-     await assert.rejects(boot, error => error.cause === failure);
-     assert.equal(f.state().started, false);
-    } else {
-     verification.resolve();
-     service = await boot;
-     assert.equal(f.state().started, true);
-    }
-   } finally {
-    verification.resolve();
-    await (service || await boot.catch(() => null))?.close();
-    await f.window.close();
-   }
-  });
- }
- it('reconciles consumer construction interrupted by the receiver schema gate',()=>previewSchemaCriterion());
- it('control: omitted preview preparation gate goes red and restored source passes',async()=>{
-  await assert.rejects(previewSchemaCriterion(text=>text.replace('await schemaStartup.prepare(async () => {','await (async () => {').replace('    });\n    if (consumers)', '    })();\n    if (consumers)')),/PREVIEW_MUST_RECOVER_SCHEMA_INTERRUPTED_PREPARATION/);
-  await previewSchemaCriterion();
+ it('refuses startup when the source is blocked by DDL after its baseline',async()=>{
+  const f=fixture({sourceBlocked:true});f.prepare.resolve();
+  try{await assert.rejects(f.boot(),error=>/PGSTREAM_NOT_READY/.test(error.cause?.message));assert.equal(f.state().started,false);assert(f.trace.includes('source-blocked'));}
+  finally{await f.window.close();}
+ });
+ it('refuses consumer construction once, without a schema retry, when the source blocks during it',async()=>{
+  const f=fixture();const boot=f.boot();boot.catch(()=>{});
+  try{
+   for(let n=0;n<60&&!f.trace.includes('delivery-prepare');n++)await settle();assert(f.trace.includes('delivery-prepare'));
+   f.blockSource();f.prepare.resolve();
+   await assert.rejects(boot,error=>/EVALUATOR_FEED_UNAVAILABLE/.test(error.cause?.message));
+   assert.equal(f.trace.filter(row=>row==='delivery-prepare').length,1,'NO_SCHEMA_RETRY_OF_CONSTRUCTION');assert.equal(f.state().started,false);
+  }finally{f.prepare.resolve();await f.window.close();}
  });
 });
 

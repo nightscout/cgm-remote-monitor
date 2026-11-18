@@ -622,6 +622,111 @@
                           "minimum": 0
                         }
                       ]
+                    },
+                    "failureReasons": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Count of failed completions by closed reason; the values sum to failedCompletions.",
+                      "type": "object",
+                      "properties": {
+                        "verification-pending": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "startup-warming": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "worker-unavailable": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "worker-generation": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "platform-unready": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "scope-mismatch": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "authority": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "unknown": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "verification-pending",
+                        "startup-warming",
+                        "worker-unavailable",
+                        "worker-generation",
+                        "platform-unready",
+                        "scope-mismatch",
+                        "authority",
+                        "unknown"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unresolvedFailure": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Null, or the oldest failed completion not yet followed by a credited completion.",
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "reason": {
+                              "enum": [
+                                "verification-pending",
+                                "startup-warming",
+                                "worker-unavailable",
+                                "worker-generation",
+                                "platform-unready",
+                                "scope-mismatch",
+                                "authority",
+                                "unknown"
+                              ]
+                            },
+                            "ageMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "reason",
+                            "ageMs"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "maxFailureResolutionMs": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Null, or the longest failed-completion to next credited completion interval in this process.",
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -1305,6 +1410,10 @@
             ],
             "minProperties": 1,
             "maxProperties": 1
+          },
+          "failureReasonContract": {
+            "description": "Optional. Present when every progress row carries typed failure reasons under this vocabulary.",
+            "const": "evaluator-failure-reasons-v1"
           }
         },
         "required": [
