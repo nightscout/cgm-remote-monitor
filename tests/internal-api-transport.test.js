@@ -337,7 +337,7 @@ describe('Production public API and internal listener isolation', function () {
       // contract in the same public-listener refusal checks as every other RPC.
       assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
         '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
+        '/evaluator/inspect', '/evaluator/readiness-witness', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
         const reply = await raw(publicEndpoint, requestPath, credential, { headers: {
           'x-nightscout-internal-service': descriptor.id, 'x-nightscout-internal-version': String(descriptor.version)

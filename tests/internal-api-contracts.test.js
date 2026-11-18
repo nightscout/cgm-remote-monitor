@@ -36,7 +36,7 @@ describe('Internal service API contracts', function () {
     });
     assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
+        '/evaluator/inspect', '/evaluator/readiness-witness', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
     assert.throws(() => { contracts.alarmDelivery.operations.getStatus = lifecycle.getStatus; }, TypeError);
   });
   it('carries only a bounded distinct tenant wake list and refuses invented revision or completion authority', function () {
