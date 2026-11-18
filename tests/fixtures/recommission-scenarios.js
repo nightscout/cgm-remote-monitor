@@ -24,7 +24,7 @@ const datastore = require('../../lib/storage/postgres-datastore');
 const rules = require('../../lib/tenant-registry/rules');
 const clinical = require('../../lib/tenant-lifecycle/clinical-catalogue').CLINICAL;
 const ordered = ['entries', 'treatments', 'devicestatus', 'profile', 'food'];
-const { optInSuite } = require('./support/opt-in');
+const { optInSuite } = require('../support/opt-in');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const ROOT = path.resolve(__dirname, '../..');
 const PG_IMAGE = 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97';
