@@ -125,8 +125,11 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const endpoint = { socketPath: path.join(dir, 'peer.sock'), maxBytes: 100000, timeoutMs: 5000 };
     const namespaces = [ns.settings, ns.registry, ns.secrets, ns.control, lab.namespaces.clock].sort();
     const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'].sort(), incarnation = randomUUID();
+    // Match the current status/static ownership contract so wire refusal cannot
+    // mask the actual source-writer authority check below.
+    const slice = { count: 1, ordinal: 0 }, ownership = { ...slice, rule: require('../lib/pool-membership/slice').RULE };
     const database = await datastore.read(lab.admin);
-    const status = async request => ({ version: 1, participant: 'serving-reference', incarnation, namespace: ns.control, roles, tenants: [A, B].sort(), namespaces,
+    const status = async request => ({ version: 4, ownership, participant: 'serving-reference', incarnation, namespace: ns.control, roles, tenants: [A, B].sort(), namespaces,
       identity: require('./fixtures/operation-window-admission-protocol').identity, datastore: database, request,
       // Synthetic peers report the other actual fixture backends. The source
       // writer is deliberately NOT a participant: its real grants determine exemption.
@@ -137,14 +140,21 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       server = await ipc.open(endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (context, body) => status(body.request),
         invalidateTenant: async (context, body) => ({ ...await status(body.request), tenant: body.tenant }),
         getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (context, body) => { const current = await status(body.request); return { request: body.request, tenant: body.tenant, participant: current.participant, incarnation: current.incarnation, operations: [] }; } }));
-      cohort = await cohorts.createRemote({ namespace: ns.control, tenants: [A, B], participants: [{ id: 'serving-reference', roles, namespaces, endpoint }] });
+      cohort = await cohorts.createRemote({ namespace: ns.control, tenants: [A, B], participants: [{ id: 'serving-reference', roles, namespaces, endpoint, slice }] });
       pin = await cohorts.pin(cohort, A, { client: lab.admin });
       const before = await cohorts.assertComplete(cohort, A, { client: lab.admin }); assert.ok(before.exempt >= 1);
       await lab.admin.query(`GRANT USAGE ON SCHEMA "${lab.namespaces.clock}" TO "${writerURL.name}"`);
       await lab.admin.query(`GRANT UPDATE (last_stamp) ON "${lab.namespaces.clock}".tenant_write_clock TO "${writerURL.name}"`);
-      await assert.rejects(cohorts.assertComplete(cohort, A, { client: lab.admin }), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' });
-      await lab.admin.query(`REVOKE UPDATE (last_stamp) ON "${lab.namespaces.clock}".tenant_write_clock FROM "${writerURL.name}"`);
-      assert.ok((await cohorts.assertComplete(cohort, A, { client: lab.admin })).exempt >= 1);
+      let grantRefusal;
+      try {
+        await assert.rejects(cohorts.assertComplete(cohort, A, { client: lab.admin }), error => {
+          grantRefusal = error.code; return grantRefusal === 'RESTORE_COHORT_UNKNOWN_BACKEND';
+        });
+      } finally {
+        await lab.admin.query(`REVOKE UPDATE (last_stamp) ON "${lab.namespaces.clock}".tenant_write_clock FROM "${writerURL.name}"`);
+      }
+      const restored = await cohorts.assertComplete(cohort, A, { client: lab.admin }); assert.ok(restored.exempt >= 1);
+      console.log('CS_CENSUS_NATIVE_CONTROL', JSON.stringify({ beforeExempt: before.exempt, addedClockAuthority: grantRefusal, restoredExempt: restored.exempt }));
     } finally {
       if (pin) await cohorts.releasePin(pin); if (cohort) await cohort.close(); if (server) await server.close();
       fs.rmSync(dir, { recursive: true, force: true });
