@@ -54,6 +54,8 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/platform-verification.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'strict admin verification, source/catalogue selection binding, serving expiry/revocation and actual failure controls' },
   { file: 'tests/pgstream-assigned-worker.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent fixed-roster worker processes, native held-backend replacement and stale completion refusal' },
   { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
@@ -64,7 +66,7 @@ const INVENTORY = [
     note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
   { file: 'tests/storage-event.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native wal2json FULL identity/TOAST, equal-LSN cohorts, durable raw tail and populated identity migration' },
-  { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+  { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1', NS_PGSTREAM_SELECTED_STARTUP_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
   { file: 'tests/realtime-completed-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native completed-output role schema, exact metadata update grants, input clinical read refusal and family admission controls' },

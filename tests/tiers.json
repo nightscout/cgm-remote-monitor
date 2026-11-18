@@ -255,7 +255,6 @@
         "tests/serve-listeners.test.js",
         "tests/serve-roles.test.js",
         "tests/admin-role.test.js",
-        "tests/platform-verification.test.js",
         "tests/startup-demand.test.js",
         "tests/preview-demand-ports.test.js",
         "tests/subject-admin.test.js",
@@ -500,6 +499,7 @@
     },
     "integration": {
       "files": [
+        "tests/platform-verification.test.js",
         "tests/clinical-working-set.integration.test.js",
         "tests/postgres-imported-snapshot.test.js",
         "tests/pgstream-receipt-authority.integration.test.js",

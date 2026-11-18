@@ -68,7 +68,8 @@ describe('Internal admin platform verification contract', function () {
   });
 });
 
-const native = process.env.PLATFORM_TEST_PG ? describe : describe.skip;
+const database = process.env.PLATFORM_TEST_PG || process.env.NS_TEST_POSTGRES_ADMIN_URI;
+const native = database ? describe : describe.skip;
 native('Native PostgreSQL admin verification state', function () {
   this.timeout(30000);
   const { Client } = require('pg');
@@ -76,21 +77,21 @@ native('Native PostgreSQL admin verification state', function () {
   const writer = prefix + '_writer', reader = prefix + '_reader', schema = prefix + '_state';
   const password = crypto.randomBytes(24).toString('hex');
   const quote = name => '"' + name + '"';
-  let admin, service, config, readerUrl, writerUrl, checks = 0, held;
-  const target = { role: 'api', get config () { return config; }, async check () {
+  let admin, service, config, readerUrl, writerUrl, checks = 0, held, operationProfileDigest;
+  const target = { role: 'api', get config () { return config; }, get operationProfileDigest () { return operationProfileDigest; }, async check () {
     checks++;
     if (held) await held;
     const rows = (await admin.query('SELECT relrowsecurity,relforcerowsecurity FROM pg_class WHERE oid=$1::regclass', [schema + '.probe'])).rows;
     if (!rows[0]?.relrowsecurity || !rows[0]?.relforcerowsecurity) throw new Error('CONTROL_SCHEMA_DRIFT');
   } };
   before(async function () {
-    admin = new Client({ connectionString: process.env.PLATFORM_TEST_PG }); await admin.connect();
+    admin = new Client({ connectionString: database }); await admin.connect();
     for (const role of [writer, reader]) await admin.query('CREATE ROLE ' + quote(role) + " LOGIN PASSWORD '" + password + "'");
     await platform.install(admin, { namespace: schema, writer, readers: [reader] });
     await admin.query('CREATE TABLE ' + quote(schema) + '.probe (id integer)');
     await admin.query('ALTER TABLE ' + quote(schema) + '.probe ENABLE ROW LEVEL SECURITY');
     await admin.query('ALTER TABLE ' + quote(schema) + '.probe FORCE ROW LEVEL SECURITY');
-    const address = role => { const url = new URL(process.env.PLATFORM_TEST_PG); url.username = role; url.password = password; return url.toString(); };
+    const address = role => { const url = new URL(database); url.username = role; url.password = password; return url.toString(); };
     readerUrl = address(reader); writerUrl = address(writer);
     config = { connectionString: readerUrl, domains: ['entries'], namespaces: { entries: schema }, platformVerification: { namespace: schema, role: 'api' } };
     service = platform.create({ namespace: schema, connectionString: writerUrl, targets: [target] });
@@ -122,6 +123,32 @@ native('Native PostgreSQL admin verification state', function () {
     await admin.query('ALTER ROLE ' + quote(reader) + ' CREATEDB');
     await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
     await admin.query('ALTER ROLE ' + quote(reader) + ' NOCREATEDB');
+    await platform.admit(config, 'api');
+  });
+  it('binds the selected native lifecycle catalogue and generation to admin and serving admission', async function () {
+    const selection = generation => require('../lib/tenant-lifecycle/native-selection').create({
+      namespace: prefix + '_checkpoint', lifecycleNamespace: schema, consumer: 'evaluator-synthetic', generation,
+      source: { system_id: '123456789', timeline: 1, database: 'synthetic', slot: 'synthetic_slot' } });
+    const first = selection('generation_a').digest, next = selection('generation_b').digest;
+    assert.notEqual(first, next);
+    try {
+      operationProfileDigest = first; await service.verify(); await platform.admit(config, 'api', first);
+      await assert.rejects(platform.admit(config, 'api', next), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      operationProfileDigest = next; await service.verify(); await platform.admit(config, 'api', next);
+      await assert.rejects(platform.admit(config, 'api', first), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      const broken = sourceControl('if (operationProfileDigest !== undefined) selection.operationProfileDigest = operationProfileDigest;', '');
+      const faulty = broken.create({ namespace: schema, connectionString: writerUrl, targets: [target] });
+      try {
+        await faulty.verify();
+        await assert.rejects(assert.rejects(broken.admit(config, 'api', first), { code: 'PLATFORM_VERIFICATION_REQUIRED' }), { name: 'AssertionError', message: /Missing expected rejection/ });
+        await assert.rejects(platform.admit(config, 'api', next), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+      } finally { await faulty.close(); }
+      await service.verify(); await platform.admit(config, 'api', next);
+      const guard = await platform.guard(config, 'api', { operationProfileDigest: next });
+      try { assert.equal(guard.ready(), true); await guard.verify(); } finally { await guard.close(); }
+      assert.throws(() => platform.contract(config, 'api', 'invalid'), { code: 'PLATFORM_VERIFICATION_CONFIG' });
+    } finally { operationProfileDigest = undefined; await service.verify(); }
     await platform.admit(config, 'api');
   });
   it('refuses expired verification until an admin refresh', async function () {
