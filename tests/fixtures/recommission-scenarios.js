@@ -594,7 +594,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       await life.executeDeletionWithMaintenance(port,{...options,requestId:request.requestId,controller});
       const {logicalPool,logicalController}=await logicalControllerFor(B);
       try{
-        const restore=()=>logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
+        const restore=()=>logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim,now:()=>at+1000}));
         await assert.rejects(restore(),{code:'LIFECYCLE_LOGICAL_LIVE_FLOOR_REQUIRED'});
         const recover=async expected=>{
           const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,nativeSelection:profile});
@@ -606,7 +606,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         // makes logical-only DATA reachable without writing a recommission link.
         await admin(client=>client.query('INSERT INTO '+table('clock','tenant_write_clock')+' (tenant_id,last_stamp,last_delete_stamp) VALUES($1,$2,$2)',[B,String(BASE+5000)]));
         await assert.rejects(logicalController.withRestore(B,{artifactDigest:artifact.digest},async ({connection,maintenanceClaim})=>{
-          await life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim});
+          await life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim,now:()=>at+1000});
           maintenance.registerAfterCommit(maintenanceClaim,{connection,tenant:B,artifactDigest:artifact.digest},()=>{throw new Error('NATIVE_LOGICAL_AFTER_DATA_INTERRUPT');});
         }),/NATIVE_LOGICAL_AFTER_DATA_INTERRUPT/);
         await recover('data-replaced');
@@ -616,7 +616,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           assert.equal((await client.query('SELECT count(*)::int AS n FROM '+table('lifecycle','tenant_lifecycle_recommission')+' WHERE tenant_id=$1',[B])).rows[0].n,0);
           for(const kind of clinical)assert((await client.query('SELECT count(*)::int AS n FROM '+table(kind,kind)+' WHERE tenant_id=$1',[B])).rows[0].n>0);
         });
-        await logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
+        await logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim,now:()=>at+1000}));
         const stillClosed=await admin(client=>client.query('SELECT suspended,deletion_request_id FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[B]));
         assert.equal(stillClosed.rows[0].suspended,true,'NATIVE_LOGICAL_RESTORE_MUST_NOT_RECOMMISSION');assert.equal(stillClosed.rows[0].deletion_request_id,request.requestId);
         assert.deepEqual(await snapshot(A),beforeA);
