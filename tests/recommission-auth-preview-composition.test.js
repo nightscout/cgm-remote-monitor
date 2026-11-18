@@ -60,10 +60,13 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
     const boot = preview.boot({ registry: {}, resolution: { mode: 'direct-alias' }, connectionString: 'synthetic', localDataAuthentication: localVerification,
       namespaces: { legacy: 'synthetic_legacy', secrets: 'synthetic_secrets', authorization: 'synthetic_authorization' } }, { operationWindow: window });
     if (unsafeMetadata) {
+      // The serving API checked the platform proof and does not re-screen
+      // (census B-19); the admin pre-start step runs the same constructor
+      // without platformVerified and refuses the unsafe metadata there.
       await assert.rejects(boot);
-      assert.equal(legacyFailure?.code, 'SECRETS_LEGACY_AUTHORITY_UNSAFE', 'actual private metadata screen refused');
-      assert.equal(constructed, 0, 'unsafe authority cannot reach the secrets constructor');
-      assert.equal(epochQueries, 0, 'unsafe authority cannot read an epoch');
+      assert.equal(legacyFailure, undefined, 'serving API does not re-screen');
+      await assert.rejects(legacy({ ...legacyOptions, platformVerified: false }), { code: 'SECRETS_LEGACY_AUTHORITY_UNSAFE' });
+      assert.equal(screens, 1, 'the pre-start constructor ran the privilege screen');
     } else {
       // The public boot boundary sanitizes constructor errors. The recording
       // constructor and exact epoch assertions below prove the reached stage.
@@ -73,7 +76,8 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
       assert.deepEqual(await epochRead, { tenant: A, version: 9, enforced: true });
       assert.equal(epochQueries, 1, 'current recommission epoch comes from the tenant-bound authority');
     }
-    assert.equal(sharedOpens, 1);assert.equal(screens, 1, 'shared metadata privilege screen actually ran');
+    assert.equal(sharedOpens, 1);assert.equal(legacyOptions.platformVerified, true, 'proof-checked API skips the platform screen');
+    if (!unsafeMetadata) assert.equal(screens, 0, 'NO_PLATFORM_SCREEN_IN_SERVING_BOOT');
     assert.equal(legacyOptions.connection, metadata, 'legacy authority uses the supplied API connection');
     assert.equal(legacyOptions.verificationConnection, localVerification ? metadata : undefined);
     assert.equal(legacyOptions.localVerification, localVerification);assert.equal(legacyOptions.recommissionNamespace, 'synthetic_control');
@@ -86,7 +90,7 @@ describe('selected recommission authentication preview composition', function ()
   it('constructs selected-v2 legacy and Node authentication with the same current tenant epoch authority', async function () {
     for (const localVerification of [false, true]) await composition(localVerification);
   });
-  it('control: unsafe shared metadata is refused before the constructor, then safe metadata restores', async function () {
+  it('control: unsafe shared metadata is refused by the pre-start constructor, then safe metadata restores', async function () {
     for (const localVerification of [false, true]) {
       await composition(localVerification, { unsafeMetadata: true });
       await composition(localVerification);

@@ -167,8 +167,12 @@ module.exports = function evaluatorPreviewRegistryLab () {
       [lab.A, lab.B, JSON.stringify({ enable: ['bgnow', 'delta', 'direction', 'timeago'] })]);
     assert.equal(settings.rowCount, 2, 'registry fixture settings are committed provisioned rows');
   };
+  // Every serving evaluator checks a platform proof at start (decision
+  // platform-application-boundary); each configuration selects one.
   lab.configure = (change = () => {}) => {
-    const document = structuredClone(lab.document); change(document);
+    const document = structuredClone(lab.document);
+    document.platformVerification = { namespace: lab.name + '_verification', role: 'evaluator' };
+    change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
     // Validate shape without requiring a recovery credential before setup has
     // created its restricted replication role. Actual identity parsing follows
@@ -197,7 +201,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
     assert.equal(verificationNamespace, selected.namespace);
     const service = require('../../lib/server/serve/platform-verification-admin').create({
       namespace: selected.namespace, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
-      maxAgeMs: 300000, refreshMs: 0,
       targets: [{ role: 'evaluator', configFile: configured.file, operationConfigFile: operationFile }]
     }, env(configured));
     try {
@@ -221,14 +224,18 @@ module.exports = function evaluatorPreviewRegistryLab () {
     } finally { await service.close(); }
   };
   lab.configureSelectedStartup = async (change = () => {}) => {
-    const configured = lab.configure(document => {
-      change(document);
-      document.platformVerification = { namespace: lab.name + '_verification', role: 'evaluator' };
-    });
+    const configured = lab.configure(change);
     configured.tenantReadiness = 'serve';
     const result = await lab.verifyPlatform(configured);
     assert.equal(result.status, 'verified', 'ACTUAL_ADMIN_VERIFICATION_REQUIRED');
+    configured.verified = true;
     return configured;
+  };
+  // The deployment's pre-start step before each fixture role start. A refused
+  // step leaves no proof; the role then refuses at start, as in a deployment.
+  lab.preStart = async config => {
+    if (config.verified || !config.document.platformVerification) return;
+    try { await lab.verifyPlatform(config); } catch (error) { lab.tracePreview('pre-start-refused', { code: error.code || null }); }
   };
   lab.provisionPreview = async () => {
     // Membership and checkpoints were created by strict actual provisioning.
@@ -274,7 +281,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     // A new explicit fixture role starts a fresh external test actor; this is
     // not an automatic response to a role process exit.
     if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
-    await lab.prepareProduct(config);
+    await lab.prepareProduct(config); await lab.preStart?.(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true, detached });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
@@ -343,7 +350,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     worker.child.send({ id: 0, action: 'exit' }); return stopped;
   };
   lab.cli = async config => {
-    await lab.prepareProduct(config);
+    await lab.prepareProduct(config); await lab.preStart?.(config);
     const child = spawn(process.execPath, [path.join(__dirname, '../../bin/nightscout.js'), 'multitenant', 'evaluator'],
       { env: env(config), stdio: ['ignore', 'pipe', 'pipe'] });
     children.add(child); let stdout = '', stderr = '';

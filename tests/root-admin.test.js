@@ -184,7 +184,7 @@ describe('preview API boot composes root subject administration only when select
     assert.deepEqual(absent.stores, []); assert.equal(absent.rootAdmin, undefined);
     const selected = await boot({ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', ownerPolicy: { catalogue: ['*'] } });
     assert.deepEqual(selected.stores, [{ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', namespace: 'ra_authorization',
-      credentialNamespace: 'ra_legacy', ownerPolicy: { catalogue: ['*'] }, plane: 'root' }]);
+      credentialNamespace: 'ra_legacy', ownerPolicy: { catalogue: ['*'] }, plane: 'root', platformVerified: true }]);
     for (const method of ['authenticate', 'list', 'listRoles', 'create', 'createRole', 'updateRole', 'removeRole', 'update', 'remove']) {
       assert.equal(typeof selected.rootAdmin[method], 'function', method);
     }
