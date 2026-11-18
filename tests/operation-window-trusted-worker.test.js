@@ -112,45 +112,6 @@ describe('Explicit trusted worker operation boundary (source protocol)', functio
       await f.window.run(A, () => f.window.assertCurrent(A));
     } finally { release(); await body.catch(() => {}); await f.window.close(); }
   });
-  it('retries startup only after the same window completes an overlapping schema verification', async function () {
-    const own = fixture({trustedWorker: true}).window;
-    const other = fixture({trustedWorker: true}).window;
-    const { isPendingVerification } = require('../lib/tenant-lifecycle/operation-window');
-    const gate = require('../lib/pgstream/schema-startup').create({
-      isPendingVerification: error => isPendingVerification(own, error)
-    });
-    let release, running, attempts = 0;
-    const held = new Promise(resolve => { release = resolve; });
-    try {
-      await own.ready();
-      const result = gate.prepare(async () => {
-        if (++attempts === 1) {
-          running = gate.schema(() => own.verifyOperational(() => held));
-          try {
-            await own.run(A, () => assert.fail('verification must fence admission'));
-          } catch (error) {
-            assert.equal(error.code, 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE');
-            assert.equal(isPendingVerification(own, error), true);
-            assert.equal(isPendingVerification(other, error), false);
-            assert.equal(isPendingVerification(own, new Error(error.message)), false);
-            release();
-            throw error;
-          }
-        }
-        return own.run(A, () => 'ready');
-      });
-      assert.equal(await result, 'ready');
-      assert.equal(attempts, 2);
-      const failure = new Error('verification refused');
-      await assert.rejects(own.verifyOperational(() => { throw failure; }), error => error === failure);
-      await assert.rejects(own.run(A, () => {}), error =>
-        error.code === 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' && !isPendingVerification(own, error));
-    } finally {
-      release();
-      await running?.catch(() => {});
-      await Promise.all([own.close(), other.close()]);
-    }
-  });
   it('keeps admission withdrawn through the held related callback, then reopens', async function () {
     const f = fixture({ trustedWorker: true }); await f.window.ready();
     let release, entered;

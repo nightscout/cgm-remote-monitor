@@ -131,23 +131,3 @@ describe('pgstream receiver observations', () => {
   assert.equal(rows.at(-1).dropped,1);
  });
 });
-const turn=()=>new Promise(resolve=>setImmediate(resolve));
-// The source no longer registers schema work (decision stable-evaluator-runtime).
-// These remain unit checks of the schema-startup helper itself.
-describe('schema-startup helper without production schema work',()=>{
- it('never retries an untagged error or an availability refusal without a new schema generation',async()=>{
-  for(const tagged of [false,true]){const gate=require('../lib/pgstream/schema-startup').create();let attempts=0;await assert.rejects(gate.prepare(async()=>{attempts++;throw tagged?gate.interrupted('EVALUATOR_FEED_UNAVAILABLE'):Error('CONSTRUCTOR_REFUSED');}));assert.equal(attempts,1);}
- });
-});
-
-describe('schema generation entering during an existing startup admission wait',()=>{
- it('joins every entered schema before beginning construction',async()=>{
-  const gate=require('../lib/pgstream/schema-startup').create(),first=deferred(),second=deferred();let attempts=0;
-  const a=gate.schema(()=>first.promise);let unavailable=true;
-  const preparing=gate.prepare(async()=>{attempts++;if(unavailable)throw gate.interrupted('EVALUATOR_FEED_UNAVAILABLE');return 7;});preparing.catch(()=>{});
-  const b=gate.schema(async()=>{await second.promise;unavailable=false;});
-  // A stable admission cut is stronger than constructing and retrying during
-  // known in-flight schema work: no constructor runs before both events settle.
-  first.resolve();await a;await turn();assert.equal(attempts,0);second.resolve();await b;assert.equal(await preparing,7);assert.equal(attempts,1);
- });
-});

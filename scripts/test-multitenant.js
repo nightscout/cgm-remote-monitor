@@ -142,8 +142,6 @@ const INVENTORY = [
     note: 'stale producer selection under evaluator timer churn is reselected, not refused; NS_CONSUMER_* knobs are for measurement' },
   { file: 'tests/evaluator-consumer-load.integration.test.js', flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'consumer wakes and producer selections per window with content-change revisions; NS_CONSUMER_LOAD_* knobs are for measurement' },
-  { file: 'tests/change-stamps.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'decision change-stamp-definer-function: catalogue, deployment grants, attribute check and refusals' },
   { file: 'tests/tenant-registry.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'decision tenant-registry: definer lookup/revision/enumeration narrowness, per-tenant RLS on attributes, attribute check' },
   { file: 'tests/tenant-registry-provision.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,

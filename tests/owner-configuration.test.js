@@ -12,7 +12,7 @@ const ownerRouter = require('../lib/server/tenant-app/owner-settings');
 const { createTenantSettings } = require('../lib/tenant-settings/component');
 const environment = require('../lib/server/tenant-app/environment');
 const presentation = require('../lib/server/tenant-app/presentation-environment');
-const restContext = require('../lib/server/tenant-app/rest-context');
+const sharedContext = require('../lib/server/tenant-app/shared-rest-context');
 const settingsConfig = require('../lib/server/serve/settings-config');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -39,10 +39,10 @@ function effective (units, seconds) {
   return { effective: { DISPLAY_UNITS: { value: units }, SHOW_SECONDS: { value: seconds } } };
 }
 function statusApp (env) {
-  const context = restContext({ env, collections: {}, authorization: { isPermitted: () => (req, res, next) => next() },
-    versionInfo: { name: 'synthetic', version: '1', storage: { storage: 'fixture', version: '1' } },
-    admitted: { 1: [], 2: [], 3: [] }, statusAuthorization: async () => ({}) });
-  const app = express(); app.use('/api/v1', context.legacy); return app;
+  const tenant = '11111111-1111-4111-8111-111111111111';
+  const context = sharedContext({ versionInfo: { name: 'synthetic', version: '1', storage: { storage: 'fixture', version: '1' } },
+    admitted: { 1: [], 2: [], 3: [] } }).forContext({ tenant, env, collections: {}, statusAuthorization: async () => ({}) });
+  const app = express(); app.use((req, res, next) => { req.tenantContext = { tenant }; req.tenantAuthenticate = async () => { const trie = require('shiro-trie').new(); trie.add('*'); require('../lib/api3/tenant-authentication').bind(req, { shiros: [trie] }); }; next(); }); app.use('/api/v1', context.legacy); return app;
 }
 function mutatedPresentation () {
   const file = path.resolve(__dirname, '../lib/server/tenant-app/presentation-environment.js');

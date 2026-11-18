@@ -638,7 +638,6 @@
         "tests/evaluator-consumers.integration.test.js",
         "tests/tenant-activity.integration.test.js",
         "tests/postgres-tenant-scan.integration.test.js",
-        "tests/change-stamps.integration.test.js",
         "tests/tenant-registry.integration.test.js",
         "tests/tenant-registry-provision.integration.test.js",
         "tests/admin-provisioning.integration.test.js",

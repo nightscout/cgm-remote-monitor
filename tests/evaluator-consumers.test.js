@@ -388,7 +388,6 @@ describe('event driven notification recovery without quiet discovery', function 
 
 async function staticReconstructionCriterion (change = text => text) {
   const slicePeers=require('../lib/realtime-ownership').peers({NS_REALTIME_SLICE_PEERS:JSON.stringify([{socket:'/synthetic/reconstructed-1.sock'},{socket:'/synthetic/reconstructed-2.sock'}])},undefined,{maxBytes:20000,timeoutMs:500});
-  const schemaStartup = require('../lib/pgstream/schema-startup').create();
   const filename = require.resolve('../lib/server/serve/evaluator-consumers'), local = require('node:module').createRequire(filename);
   const output = {exports: {}}, jobs = require('../lib/server/serve/evaluator-job-context').create('delivery');
   const window = require('./fixtures/operation-window-runtime-protocol')({trustedWorker: true}).window;
@@ -399,7 +398,7 @@ async function staticReconstructionCriterion (change = text => text) {
     '../../tenant-notifications/readiness': async () => {},
     './evaluator-consumer-readiness': {suppression: async () => {}, sameDatastore: async () => {}, operational: async () => {}},
     '../../tenant-notifications/postgres': () => ({consume:async()=>{},enqueue:async()=>{},due:async()=>[],begin:async()=>{},dispatch:async()=>{},finish:async()=>{},receipts:async()=>[],own: async () => {}, close: async () => {closed++;}, async ready () {
-      if (++attempt === 1) {await schemaStartup.schema(async () => {}); throw schemaStartup.interrupted('EVALUATOR_FEED_UNAVAILABLE');}
+      if (++attempt === 1) throw Object.assign(new Error('EVALUATOR_FEED_UNAVAILABLE'), {code: 'EVALUATOR_FEED_UNAVAILABLE'});
     }}),
     '../../tenant-alarms/postgres': {createReader: () => ({read: async () => [], allows: async () => true})}
   };
@@ -410,8 +409,10 @@ async function staticReconstructionCriterion (change = text => text) {
   const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
   try {
     await window.ready();
-    value = await schemaStartup.prepare(() => output.exports.prepare({config, clinicalConnection: {}, current: () => null, isCurrent: () => true,
-      operationWindow: window, jobContext: jobs, assertOperational: () => {}}));
+    const prepare = () => output.exports.prepare({config, clinicalConnection: {}, current: () => null, isCurrent: () => true,
+      operationWindow: window, jobContext: jobs, assertOperational: () => {}});
+    await assert.rejects(prepare(), {code: 'EVALUATOR_FEED_UNAVAILABLE'});
+    value = await prepare();
     assert.equal(attempt, 2); assert.equal(closed, 1); assert.equal(ended, 2, 'partial construction closes both owned pools');
     const ordinal=require('../lib/pool-membership/slice').bucket(A,2);assert.equal(slicePeers.route(A).ordinal,ordinal,'RECONSTRUCTED_CONSUMER_RETAINS_STATIC_ROUTE');
     await value.close(); value = null;
