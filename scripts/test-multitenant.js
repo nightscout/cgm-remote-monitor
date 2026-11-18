@@ -219,6 +219,7 @@ const INVENTORY = [
   { file: 'tests/vault-secrets.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['vault'], gate: PENDING },
   { file: 'tests/tenant-key-retention.integration.test.js', flags: { NS_KEY_RETENTION_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'post-deletion 30-day key retention: destroys Transit keys in its own Vault dev' },
+  { file: 'tests/tenant-native-recommission.integration.test.js', flags: { NS_TENANT_RECOMMISSION_PG_VAULT_TEST:'1' }, shared: [], own: ['postgres','vault'], gate: PENDING, note:'native typed source restore and seven-domain exact recommission without pool intake machinery' },
   { file: 'tests/tenant-recommission.integration.test.js', flags: { NS_TENANT_RECOMMISSION_PG_VAULT_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'exact deletion artifact recovery with actual PostgreSQL grants and Vault; binds the clean source HEAD before resources start' },
   { file: 'tests/tenant-runtime-vault.integration.test.js', flags: { NS_TENANT_RUNTIME_VAULT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING },
