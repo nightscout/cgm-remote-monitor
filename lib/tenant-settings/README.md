@@ -97,7 +97,7 @@ Without a configured window, any inherited window scope is refused.
 
 Focused source and recording-transport checks cover these boundaries in
 `settings-read-snapshot.test.js`, `postgres-settings-protocol.test.js`,
-`postgres-connection-failure.test.js`, `connection-admission.test.js` and the
+`postgres-connection-failure.test.js` and the
 evaluator settings lifecycle/cleanup suites. Native read-only/RLS enforcement,
 revocation/DDL timing, B continuity through A restore, physical exit census and
 performance remain UNMEASURED for this capability.

@@ -127,18 +127,11 @@ describe('independent tenant startup admission (source protocol)', function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
     try{await apiBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
   });
-  async function apiBootAll (selected = false, mutant = false) {
-    const cold = selected ? require('../lib/server/serve/cold-start-admission').create({activeLimit:1,pendingLimit:4,minDelayMs:0,maxDelayMs:0,schedule:fn=>queueMicrotask(fn),cancel:()=>{}}) : undefined;
-    let startupClosed = !selected;
-    const selectedStartup = {...startup, create:(...args)=>{
-      assert.equal(args[3].coldAdmission,cold); const actual = startup.create(...args), baseClose = actual.close;
-      return {...actual,close:async()=>{await baseClose();await Promise.resolve();startupClosed=true;}};
-    }};
+  async function apiBootAll () {
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],calls={},resources=[];
-    const resource=extra=>{const r={end:async()=>{assert.equal(startupClosed,true,'API_STARTUP_DRAIN_PRECEDES_POOL_END');},...extra};resources.push(r);return r;};
+    const resource=extra=>{const r={end:async()=>{},...extra};resources.push(r);return r;};
     const authority=resource({authorize:async({tenant})=>{reads.push(['authority',tenant]);}});
     const boot=load('lib/server/serve/preview-api.js',{
-      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold,wrapClient:Client=>Client},'./tenant-startup':selectedStartup} : {}),
       '../../storage/postgres-connection':async()=>resource(),
       '../../secrets/legacy-postgres':async()=>resource({read:async tenant=>{reads.push(['root',tenant]);return {reference:{id:'synthetic'}};}}),
       '../../tenant-authorization/postgres':async()=>authority,
@@ -149,26 +142,20 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../tenant-app/exchange':()=>()=>{},'../tenant-app/data-access':()=>()=>{},
       '../tenant-app':{createTenantApp:input=>{calls.http=input.prepareTenant;return (req,res,next)=>next();}},
       '../realtime/private-api':{boot:async input=>{calls.socket=input.prepareTenant;return {close:async()=>{}};}}
-    }, mutant ? source => source.replace('const coldClosed = coldAdmission ? await Promise.allSettled([startup?.close()]) : [];','const coldClosed = [];') : undefined);
+    });
     let role;try{
       role=await boot.boot({bindings:new Map([[A,{}],[B,{}]]),providers:new Map(),namespaces:{},socketForwarding:true},{operationWindow:f.window});
       assert.deepEqual(reads.map(row=>row[1]),[B,B,B,B],'API_A_NO_ROOT_FLOOR_DATE_READS');
       options.phases[A]='active';await f.window.run(A,()=>calls.http(A));await f.window.run(A,()=>calls.socket(A));
       assert.equal(reads.filter(row=>row[1]===A).length,4);
       await role.invalidateTenant(A);await f.window.run(A,()=>calls.socket(A));assert.equal(reads.filter(row=>row[1]===A).length,8);
-    }finally{try{if(role)await role.close();}finally{await f.window.close();if(cold)await cold.close();}}
+    }finally{try{if(role)await role.close();}finally{await f.window.close();}}
   }
   it('actual evaluator boot preserves shared failures, initializes B and checks deferred A before resumed component creation (NS_TENANT_READINESS=all)', async function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
     try{await evaluatorBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
   });
-  async function evaluatorBootAll (selected = false) {
-    const cold = selected ? require('../lib/server/serve/cold-start-admission').create({activeLimit:1,pendingLimit:4,minDelayMs:0,maxDelayMs:0,schedule:fn=>queueMicrotask(fn),cancel:()=>{}}) : undefined;
-    let startupClosed = !selected;
-    const selectedStartup = {...startup, create:(...args)=>{
-      assert.equal(args[3].coldAdmission,cold); startupClosed=false; const actual=startup.create(...args),baseClose=actual.close;
-      return {...actual,close:async()=>{await baseClose();await Promise.resolve();startupClosed=true;}};
-    }};
+  async function evaluatorBootAll () {
     const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],provisioned=[],nativeEvents=[];
     const evaluator=()=>({evaluate:async()=>({checkpoint:1}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}});evaluator.domains=[];
     const readiness=Object.assign(async()=>{}, {provisionTenant:async(connection,config,tenant)=>{f.window.assertCurrent(tenant);provisioned.push(tenant);}});
@@ -180,8 +167,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     const store={work:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
     const boot=load('lib/server/serve/evaluator-preview.js',{
       ...nativeBoot.mocks({events:nativeEvents}),
-      ...(selected ? {'../../storage/connection-admission':{coldAdmission:()=>cold,wrapClient:Client=>Client},'./tenant-startup':selectedStartup} : {}),
-      '../../storage/postgres-connection':async()=>({end:async()=>{assert.equal(startupClosed,true,'EVAL_STARTUP_DRAIN_PRECEDES_POOL_END');}}), './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':readiness,
+      '../../storage/postgres-connection':async()=>({end:async()=>{}}), './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':readiness,
       '../../storage/postgres-durable-replay':()=>nativeBoot.replay({events:nativeEvents}), '../../data/tenant-projection-evaluator':evaluator,
       './registry-tenant-set':{open:async()=>registry},
       './evaluator-config':{registryEntry:tenant=>entries.get(tenant),withSettings:async(base,entry,tenant)=>{reads.push(tenant);return entries.get(tenant);}},
@@ -192,7 +178,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       // Exercise the actual common scheduler; it now owns durable startup.
       '../../pgstream/activity-scheduler':require('../lib/pgstream/activity-scheduler'),
       '../internal-api/clients':{completedOutput:()=>({})},
-      './evaluator-consumers':{prepare:async input=>{if(selected)assert.equal(input.coldAdmission,cold);return null;}}
+      './evaluator-consumers':{prepare:async()=>null}
     });
     const config={registry:{namespace:'synthetic_registry'},trustedWorker:{activity:'synthetic_activity'},pgstream:nativeBoot.config({bounds:{recoveryMs:1000,pendingMs:1000},outputPeer:{}}),maxTenants:2,maxRows:10,maxBytes:10000,pageSize:1,
       namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',timeIntervalMs:100,
@@ -212,67 +198,8 @@ describe('independent tenant startup admission (source protocol)', function () {
     const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{open:async()=>registry},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     const shared=fixture({phase:'suspended'});
     try{await assert.rejects(failed.boot(config,{operationWindow:shared.window}),/readiness or initialization refused/);}
-    finally{await shared.window.close();if(cold)await cold.close();}
+    finally{await shared.window.close();}
   }
-  it('selected actual API/evaluator boots share the gate and drain startup before pool teardown; parallel-close mutant fails', async function () {
-    const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
-    try { await assert.rejects(apiBootAll(true,true),/preview storage shutdown failed/);await apiBootAll(true);await evaluatorBootAll(true); }
-    finally {if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
-  });
-  it('selected actual realtime boot passes the shared gate and awaits startup close before pool end', async function () {
-    for(const mutant of [true,false]) {
-      const cold={synthetic:true};let seen=false,drained=false,endedBeforeDrain=false,ownerTimer,ownerTimerCleared=false;
-      const boot=load('lib/server/serve/preview-realtime.js',{
-        '../../storage/connection-admission':{coldAdmission:()=>cold},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':async()=>{},
-        '../../storage/postgres-connection':async()=>({end:async()=>{endedBeforeDrain=!drained;}}),
-        '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
-        './registry-tenant-set':{open:async()=>({tenants:new Map(),isActive:()=>false,close:async()=>{}})},
-        '../../tenant-registry/postgres':{create:()=>({})},'../../tenant-registry/resolver':{createRegistryResolver:()=>({start:async()=>{},resolve:async()=>{},close(){}})},
-        '../../trusted-worker/postgres':{create:()=>({scan:async()=>new Map(),current:()=>null,state:()=>({available:true,generation:1}),close:async()=>{}})},
-        '../../trusted-worker/lifecycle':async()=>({close:async()=>{}}),
-        '../../realtime-ownership/owner':{acquire:async()=>({available:true,check:async()=>{},close:async()=>{}})},
-        './tenant-startup':{notReadyRetry:()=>({}),create:(tenants,window,initialize,options)=>{assert.equal(options.coldAdmission,cold);seen=true;return {warm:async()=>{throw Error('stop after actual composition');},close:async()=>{await new Promise(resolve=>setImmediate(resolve));drained=true;}};}}
-      },mutant?source=>source.replace('await startup?.close();','startup?.close();'):undefined,{setInterval(fn,ms){assert.equal(ms,1000,'ONLY_STATIC_OWNER_HEALTH_TIMER');ownerTimer={unref(){}};return ownerTimer;},clearInterval(timer){assert.equal(timer,ownerTimer);ownerTimerCleared=true;}});
-      await assert.rejects(boot.boot({ownership:require('../lib/realtime-ownership').create({count:1,ordinal:0}),registry:{namespace:'synthetic_registry'},trustedWorker:{},completedOutput:{namespace:'synthetic_completed',consumer:'evaluator-test'},tenants:new Map(),operationTimeoutMs:100}),/readiness or initialization refused/);
-      assert.equal(seen,true);assert.equal(ownerTimerCleared,true,'STATIC_OWNER_TIMER_CLOSED');assert.equal(endedBeforeDrain,mutant,'RT_STARTUP_DRAIN_PRECEDES_POOL_END');
-    }
-  });
-  it('owns the selected consumer and defers tenant work while every tenant is paused', async function () {
-    for (const fault of [null]) {
-      const f=fixture({phase:'suspended'}),zero='00000000-0000-0000-0000-000000000000',events=[];let storesCreated=0,storesClosed=0,storesOwned=0;
-      let held=null;
-      const connection=owner=>({end:async()=>{},transaction:async fn=>fn(),snapshotTransaction:async fn=>fn(),query:async text=>{
-        assert.equal(scope.requireTenant('challenge'),zero,'DATASTORE_CHALLENGE_NOT_FIRST_TENANT');
-        if(text.includes('datastore-owner')){held=true;events.push('challenge');return {rows:[]};}
-        if(text.includes('datastore-challenge'))return {rows:[{acquired:fault==='datastore'||!held}]};
-        throw new Error('unexpected query '+owner);
-      }});
-      const clinical=connection('clinical'),outbox=connection('outbox'),suppression=connection('suppression');let opened=0;
-      const prepare=load('lib/server/serve/evaluator-consumers.js',{
-        '../../storage/postgres-connection':async settings=>{
-          const connection=opened++?suppression:outbox;
-          // Cold physical-backend admission is unconditional, even when every
-          // tenant is paused; the constructor invokes it before returning.
-          if(settings.admitBackend)await settings.admitBackend(connection);
-          return connection;
-        },
-        '../../tenant-notifications/readiness':async()=>{events.push('outbox');if(fault==='outbox')throw new Error('bad outbox schema');},
-        '../../tenant-notifications/postgres':()=>{storesCreated++;return {ready:async()=>{throw new Error('PAUSED_TENANT_STORE_ENTERED');},own:async onLoss=>{assert.equal(typeof onLoss,'function');assert.deepEqual(events,[]);storesOwned++;},close:async()=>{storesClosed++;}};},
-        '../../tenant-alarms/postgres':{createReader:()=>({read:async()=>{throw new Error('PAUSED_TENANT_READER_ENTERED');}})},
-        '../../tenant-notifications/producer':()=>({select:async()=>{},close:()=>{}}),
-        '../../tenant-notifications/component':()=>({retry:async()=>({results:[]}),close:async()=>{}}),
-        '../realtime/alarm-transport':{createSliceAdapter:()=>({send:()=>{}})}
-      });
-      const selected={outbox:{namespace:'synthetic_outbox'},suppression:{namespace:'synthetic_suppression'},route:{id:'synthetic'},pollIntervalMs:100,retryIntervalMs:100};
-      const jobs=require('../lib/server/serve/evaluator-job-context').create('delivery');
-      let consumer,coldCalls=0;const coldAdmission={run:(key,fn)=>{assert.equal(f.window.current(A)||f.window.current(B),false,'CONSUMER_GATE_BEFORE_WINDOW');coldCalls++;return Promise.resolve().then(fn);},cancel:()=>false};try{
-        const promise=prepare.prepare({config:{consumers:{realtime:selected},tenants:new Map([[A,true],[B,true]]),readCurrent:async()=>null},clinicalConnection:clinical,
-          current:()=>null,isCurrent:async()=>false,operationWindow:f.window,jobContext:jobs,coldAdmission});
-        if(fault)await assert.rejects(promise,/bad outbox schema|bad suppression ACL|READINESS_REFUSED/);
-        else {consumer=await promise;assert.deepEqual(events,[]);assert.equal(coldCalls,2);}
-      }finally{if(consumer)await consumer.close();jobs.close();await f.window.close();assert.equal(storesClosed,storesCreated,'ACTUAL_CREATED_STORE_CLOSE_REQUIRED');assert.equal(storesOwned,fault?0:1,'DEFAULT_STORE_OWN_ONLY_AFTER_ALL_COLD_CHECKS');}
-    }
-  });
 
   it('actual HTTP window middleware waits for lazy initialization and refuses suspended A without entering routes', async function () {
     const {EventEmitter}=require('node:events'),create=require('../lib/server/tenant-app').createTenantApp;

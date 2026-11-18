@@ -29,7 +29,7 @@ function fixture(capability='member',brokenLock=false){
  class Pool{on(){}query(...args){return query(...args);}async connect(){return client;}async end(){}}
  const lock=require('../lib/pool-membership/transaction-lock');
  const postgres=load(require.resolve('../lib/pool-membership/postgres'),{
-  pg:{Pool,Client:class{}},'../storage/connection-admission':{wrapPool:value=>value,poolOptions:(_name,value)=>value},
+  pg:{Pool,Client:class{}},
   '../migrations/postgres':{run:async(action,options)=>migration.push({action,options})},'../diagnostics/m7':{observePool(){}},
   './transaction-lock':brokenLock?{lock:async()=>{}}:lock
  });
