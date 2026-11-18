@@ -58,6 +58,21 @@ describe('native complete-cohort receiver composition',function(){
    clinical:{maxTransactionRows:100,maxTransactionBytes:100000,acceptTransaction}});
   return {receive,hints};
  }
+ it('keeps the eligibility of the largest native lifecycle receipt within each cohort',async()=>{
+  const selection=require('../lib/tenant-lifecycle/native-selection').create({namespace:'synthetic_checkpoint',lifecycleNamespace:'synthetic',consumer:'evaluator-receipt',source:native.source,generation:'fixture'});
+  const route={schema:'synthetic',table:'tenant_lifecycle_windows',kind:'lifecycle'};
+  let observation;
+  const options={routes:[route],store:{nativeLifecycle:selection,consumer:'evaluator-receipt-completed',digest:selection.contractDigest},onInput(){},onSchema(){},
+   clinical:{maxTransactionRows:10,maxTransactionBytes:10000,async acceptTransaction(_envelope,{observations}){[observation]=observations;return [];}}};
+  const receive=create(options);
+  const row=(phase,generation)=>({...event(route.table,{tenant_id:A,phase,generation}).Data,xid:42,lsn:'0/20'});
+  await receive(native.envelope([row('active','2'),row('suspended','2')]));
+  assert.equal(observation.observed.lifecycle,'6');assert.equal(observation.eligibility.lifecycle,true);
+  await receive(native.envelope([row('suspended','3'),row('active','2')]));
+  assert.equal(observation.observed.lifecycle,'7');assert.equal(observation.eligibility.lifecycle,false);
+  await assert.rejects(receive(native.envelope([row('active','4611686018427387903')])),/GENERATION_DOMAIN/);
+  assert.throws(()=>create({...options,routes:[{...route,schema:'foreign_scope'}]}),/NATIVE_RECEIPT_BINDING/);
+ });
  it('does not return or wake until the entire clinical/control cohort commits',async()=>{
   let release,accepted,done=false;
   const f=cohortFixture(async(envelope,options)=>{accepted=options;await new Promise(resolve=>{release=resolve;});return [{tenant:A,observed:{bootstrap:'11',settings:'4'},completed:{bootstrap:'10',settings:'3'},pendingAt:123}];});
