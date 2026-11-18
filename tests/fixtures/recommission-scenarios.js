@@ -52,7 +52,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
     const owner = prefix + '_owner', role = prefix + '_maintenance';
     const peerRole = prefix + '_peer', assignmentRole = prefix + '_assignment', intakeRole = prefix + '_intake';
     let previousMode, sourceCommit, adminURI, roleURI, pool, controller, cohort, life, admission, profile, bindings, ns, registryNamespace;
-    let artifactDirectory, socketDirectory, vault, runtimeToken, custodianToken, ownerURI, participantEntries, configMissing = false;
+    let artifactDirectory, socketDirectory, vault, runtimeToken, custodianToken, ownerURI, participantEntries, configMissing = false, foreignStatus = false;
     const containers = [], peers = [], backends = [], roots = new Map();
     const table = (kind, name) => q(ns[kind]) + '.' + q(name);
     const keysOf = tenant => Object.keys(rules.PURPOSES).map(purpose => ({ mount: 'transit', name: rules.vaultKey(tenant, purpose) }));
@@ -325,7 +325,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const client = new Client({ connectionString: peerURI }); await client.connect(); backends.push(client);
         const row = (await client.query('SELECT pg_backend_pid() AS pid,current_user AS role,extract(epoch from backend_start)::text AS birth,' + datastore.SQL + ' FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
         const incarnation = crypto.randomUUID();
-        const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
+        const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: foreignStatus&&entry.id==='api'?'foreign_control':ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
           namespaces: [...entry.namespaces], identity, intakeProfileDigest:profile.digest, datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
         peers.push(await transport.open(entry.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (_ctx, body) => status(body.request),
           invalidateTenant: async (_ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
@@ -563,6 +563,12 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const configuration=await currentConfiguration({tenant:A,connection});
         const selected=require('../../lib/tenant-lifecycle/native-selection');
         assert.throws(()=>selected.validate({...profile}),{code:'LIFECYCLE_NATIVE_SELECTION_REQUIRED'});
+        const changed=selected.create({...profile.binding,generation:'foreign-generation'});
+        await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:changed}),{code:'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH'});
+        await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries.filter(entry=>entry.id!=='evaluator'),intakeProfile:profile}),/Fixed participant manifest must cover every role/);
+        foreignStatus=true;
+        try{await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:profile}),{code:'RESTORE_COHORT_PROTOCOL'});}finally{foreignStatus=false;}
+        const restored=await cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:profile});await restored.close();
         const foreign=selected.create({...profile.binding,source:{...profile.binding.source,system_id:profile.binding.source.system_id+'1'}});
         await assert.rejects(selected.assertCurrent(connection,foreign,{nativeSource:{source:foreign.binding.source,generation:foreign.binding.generation}}),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
         configuration.nativeSource.generation='foreign-generation';
@@ -573,6 +579,18 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const changed = require('../../lib/pgstream/pool-intake-profile').create({ ...Object.fromEntries(fields.map(key => [key, profile.binding[key]])), consumer: 'evaluator-different-current-profile' });
       await assert.rejects(cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: participantEntries, intakeProfile: changed }), { code: 'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH' });
       assert.deepEqual(await snapshot(A), beforeA); assert.deepEqual(await snapshot(B), beforeB);
+    });
+
+    if(native)it('refuses prior owner and wrong current-generation native checkpoint completion before publication',async function(){
+      const beforeB=await snapshot(B),beforeA=await snapshot(A),publicRows=value=>Object.fromEntries(Object.entries(value).filter(([key])=>!key.startsWith('lifecycle.')));
+        const checkpoints=require('../../lib/tenant-lifecycle/recommission-checkpoints');
+        const descriptor=checkpoints.describe({nativeSelection:profile,replays:replays(),namespaces:ns,catalogues:life.CATALOGUE});
+        let prior;
+        await controller.withRestore(A,{artifactDigest:'c'.repeat(64)},async value=>{prior=value;});
+        await assert.rejects(checkpoints.provision(prior.connection.query.bind(prior.connection),descriptor,{tenant:A,generation:'1',connection:prior.connection,maintenanceClaim:prior.maintenanceClaim,artifactDigest:'c'.repeat(64)}),{code:'LIFECYCLE_RESTORE_CLAIM_INVALID'});
+        await assert.rejects(controller.withRestore(A,{artifactDigest:'c'.repeat(64)},({connection,maintenanceClaim})=>checkpoints.provision(connection.query.bind(connection),descriptor,{tenant:A,generation:'1',connection,maintenanceClaim,artifactDigest:'c'.repeat(64)})),{code:'LIFECYCLE_NATIVE_GENERATION_CHANGED'});
+        await resumeFailedClaim();
+      assert.deepEqual(publicRows(await snapshot(A)),publicRows(beforeA));assert.deepEqual(await snapshot(B),beforeB);
     });
 
     it('refuses recovery after actual retained-key destruction and preserves B keys and rows', async function () {
