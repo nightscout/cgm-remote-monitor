@@ -402,7 +402,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         lower=await require('../../lib/storage/postgres-connection')({connectionString:uri(data),max:1,operationWindow:window});
         for(const tenant of [A,B])await window.run(tenant,()=>lower.withTenant(tenant,async()=>assert.deepEqual((await lower.query('SELECT tenant_id FROM '+table('lifecycle','tenant_lifecycle_windows'))).rows,[{tenant_id:tenant}])));
         let unlock,entered,physicalReady;const held=new Promise(resolve=>{physicalReady=resolve;}),gate=new Promise(resolve=>{unlock=resolve;});
-        const transaction=lower.withTenant(A,async()=>{await lower.query('SELECT 1');physicalReady();await gate;});
+        const transaction=assert.rejects(lower.withTenant(A,async()=>{await lower.query('SELECT 1');physicalReady();await gate;}),{code:'LIFECYCLE_WINDOW_SUSPENDED'});
         await held;
         const replacement=controller.withRestore(A,{artifactDigest:'b'.repeat(64)},async()=>{entered=true;});
         try{await sleep(150);assert.equal(entered,undefined,'checked native DATA transaction must block replacement');}finally{unlock();}
@@ -594,12 +594,22 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       await life.executeDeletionWithMaintenance(port,{...options,requestId:request.requestId,controller});
       const {logicalPool,logicalController}=await logicalControllerFor(B);
       try{
+        const restore=()=>logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
+        await assert.rejects(restore(),{code:'LIFECYCLE_LOGICAL_LIVE_FLOOR_REQUIRED'});
+        const recover=async expected=>{
+          const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,nativeSelection:profile});
+          try{const inspection=await recovery.inspect(B);assert.equal(inspection.interrupted,expected);await recovery.resume(B,{claimId:inspection.claimId});}finally{await recovery.close();}
+        };
+        await recover('before-data');
+        // Adversarial fixture setup: a trusted DBA supplies a fresh current
+        // clock only. This is not a supported deleted-tenant bootstrap. It
+        // makes logical-only DATA reachable without writing a recommission link.
+        await admin(client=>client.query('INSERT INTO '+table('clock','tenant_write_clock')+' (tenant_id,last_stamp,last_delete_stamp) VALUES($1,$2,$2)',[B,String(BASE+5000)]));
         await assert.rejects(logicalController.withRestore(B,{artifactDigest:artifact.digest},async ({connection,maintenanceClaim})=>{
           await life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim});
           maintenance.registerAfterCommit(maintenanceClaim,{connection,tenant:B,artifactDigest:artifact.digest},()=>{throw new Error('NATIVE_LOGICAL_AFTER_DATA_INTERRUPT');});
         }),/NATIVE_LOGICAL_AFTER_DATA_INTERRUPT/);
-        const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,nativeSelection:profile});
-        try{const inspection=await recovery.inspect(B);assert.equal(inspection.interrupted,'data-replaced');await recovery.resume(B,{claimId:inspection.claimId});}finally{await recovery.close();}
+        await recover('data-replaced');
         await admin(async client=>{
           const activity=(await client.query('SELECT suspended,deletion_request_id FROM '+table('lifecycle','tenant_activity')+' WHERE tenant_id=$1',[B])).rows[0];
           assert.equal(activity.suspended,true,'NATIVE_LOGICAL_RESTORE_MUST_NOT_RECOMMISSION');assert.equal(activity.deletion_request_id,request.requestId);
