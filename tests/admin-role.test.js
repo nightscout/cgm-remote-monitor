@@ -39,6 +39,13 @@ describe('admin role: operator configuration', function () {
     assert.equal(parsed.maxBytes, 65536);
   });
 
+  it('accepts an explicit ownership roster above 10,000 tenants', function () {
+    const hex = i => require('node:crypto').createHash('sha256').update('owner-' + i).digest('hex');
+    const tenants = Array.from({ length: 10001 }, (_, i) => { const h = hex(i); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-8' + h.slice(17, 20) + '-' + h.slice(20, 32); });
+    const config = valid(); config.ownership.tenants = tenants;
+    assert.equal(adminConfig.parse(config, SOURCE).ownership.tenants.length, 10001);
+  });
+
   it('refuses every malformed or widened configuration', function () {
     const cases = {
       'unknown top-level key': config => { config.modules = []; },

@@ -23,6 +23,17 @@ describe('static evaluator ingress and process assignment',()=>{
    const foreign=ids.find(t=>slice.bucket(t,k)!==ordinal);assert.throws(()=>worker.tenant(foreign),/FOREIGN_TENANT/);assert.throws(()=>worker.tenant(ids[0].toUpperCase()),/FOREIGN_TENANT/);
   }
  });
+ it('accepts a roster above 10,000 tenants and still refuses duplicate, foreign and non-UUID ids',()=>{
+  const uuid=i=>crypto.createHash('sha256').update('roster-'+i).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5');
+  const ids=Array.from({length:10001},(_,i)=>uuid(i)),options={namespace:'synthetic_checkpoint',consumer:'evaluator-static'};
+  let active=ids;const worker=assigned.configure({slice:{count:1,ordinal:0},roster:()=>active,currentGeneration:()=>1},options);
+  assert.equal(worker.tenants.length,10001);assert.equal(worker.filter([]).values[0].length,10001);
+  active=[...ids,ids[0]];assert.throws(()=>worker.tenants,/EVALUATOR_STATIC_ROSTER_REFUSED/);
+  active=[...ids.slice(1),ids[0].toUpperCase()];assert.throws(()=>worker.tenants,/FOREIGN_TENANT/);
+  const half=assigned.configure({slice:{count:2,ordinal:0},roster:()=>ids,currentGeneration:()=>1},options);
+  assert.throws(()=>half.tenants,/FOREIGN_TENANT/);
+  assert.equal(assigned.configure({slice:{count:2,ordinal:0},roster:()=>ids.filter(id=>slice.bucket(id,2)===0),currentGeneration:()=>1},options).tenants.length,ids.filter(id=>slice.bucket(id,2)===0).length);
+ });
  it('preserves original boundary/source/count while validating increasing projected gaps and its own rows',()=>{
   const rows=[native.row('a',123,'I',A),native.row('b',130,'I',B),native.row('c',140,'I',A)];
   const envelope=projected(2,0,rows),checked=stream.validateTransaction(envelope,{...limits,slice:{count:2,ordinal:0}});
