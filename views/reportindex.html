@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Nightscout Reporting</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   
   <link rel="apple-touch-icon" sizes="57x57" href="/images/apple-touch-icon-57x57.png">
   <link rel="apple-touch-icon" sizes="60x60" href="/images/apple-touch-icon-60x60.png">
@@ -26,6 +27,7 @@
   <link rel="preload" href="/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/report.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" href="/css/report-dark.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/dropdown.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <%- include('preloadCSS')%>
@@ -34,9 +36,10 @@
   <body>
     <%- include('partials/toolbar') %>
 
-  <ul id="tabnav">
+  <ul id="tabnav" class="no-print">
   </ul>
   <main>
+    <div class="no-print settings">
     <table>
       <tr>
         <td><input type="checkbox" id="rp_enabledate" checked></td>
@@ -57,7 +60,7 @@
         <td>
           <span class="translate">Category</span>: <select id="rp_category"></select>
           <span class="translate">Subcategory</span>: <select id="rp_subcategory"></select>
-          <span class="translate">Name</span>: <input type="text" id="rp_name"></select>
+          <span class="translate">Name</span>: <input type="text" id="rp_name">
         </td>
       </tr>
       <tr class="rp_foodgui" style="display:none">
@@ -71,62 +74,62 @@
       <tr>
         <td><input type="checkbox" id="rp_enablenotes"></td>
         <td>
-          <span class="translate">Days with notes containing</span>: <input type="text" id="rp_notes"></select>
+          <span class="translate">Days with notes containing</span>: <input type="text" id="rp_notes">
         </td>
       </tr>
       <tr>
-        <tr>
-          <td><input type="checkbox" id="rp_enableeventtype"></td>
-          <td>
-            <span class="translate">Days with event type</span>: <select id="rp_eventtype"></select>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="2">
-            <label><input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span></label>
-            <label><input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span></label>
-            <label><input type="checkbox" id="rp_we" checked><span class="translate">We</span></label>
-            <label><input type="checkbox" id="rp_th" checked><span class="translate">Th</span></label>
-            <label><input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span></label>
-            <label><input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span></label>
-            <label><input type="checkbox" id="rp_su" checked><span class="translate">Su</span></label>
-          </td>
-          <td></td>
-        </tr>
-        <tr>
-          <td colspan="2">
-            <span class="translate">Target BG range bottom</span>:
-            <input type="number" size="3" step="0.1" id="rp_targetlow">
-            <span class="translate">top</span>:
-            <input type="number" size="3" step="0.1" id="rp_targethigh">
-          </td>
-          <td></td>
-        </tr>
-        <tr>
-          <td colspan="2">
-            <span class="translate">Order</span>:
-            <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
-            <input type="radio" name="rp_sorting" id="rp_oldestontop">
-            <label for="rp_oldestontop" class="translate">oldest on top</label>
-            &nbsp;
-            <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
-            <label for="rp_newestontop" class="translate">newest on top</label>
-          </td>
-          <td></td>
-        </tr>
+        <td><input type="checkbox" id="rp_enableeventtype"></td>
+        <td>
+          <span class="translate">Days with event type</span>: <select id="rp_eventtype"></select>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <label><input type="checkbox" id="rp_mo" checked><span class="translate">Mo</span></label>
+          <label><input type="checkbox" id="rp_tu" checked><span class="translate">Tu</span></label>
+          <label><input type="checkbox" id="rp_we" checked><span class="translate">We</span></label>
+          <label><input type="checkbox" id="rp_th" checked><span class="translate">Th</span></label>
+          <label><input type="checkbox" id="rp_fr" checked><span class="translate">Fr</span></label>
+          <label><input type="checkbox" id="rp_sa" checked><span class="translate">Sa</span></label>
+          <label><input type="checkbox" id="rp_su" checked><span class="translate">Su</span></label>
+        </td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <span class="translate">Target BG range bottom</span>:
+          <input type="number" size="3" step="0.1" id="rp_targetlow">
+          <span class="translate">top</span>:
+          <input type="number" size="3" step="0.1" id="rp_targethigh">
+        </td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <span class="translate">Order</span>:
+          <!-- many email GUIs place newest on top, less scrolling, adjusting my nightscout to do that too! -dboland -->
+          <input type="radio" name="rp_sorting" id="rp_oldestontop">
+          <label for="rp_oldestontop" class="translate">oldest on top</label>
+          &nbsp;
+          <input type="radio" name="rp_sorting" id="rp_newestontop" checked>
+          <label for="rp_newestontop" class="translate">newest on top</label>
+        </td>
+        <td></td>
       </tr>
     </table>
     <button id="rp_show" class="translate">Show</button>
     <div id="info"></div>
     <hr>
+    </div>
     <div id="pluginchartplaceholders"></div>
   </main>
 
-  <%- include('partials/authentication-status') %>
+  <div class="no-print">
+    <%- include('partials/authentication-status') %>
+  </div>
 
   <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/report/js/flotcandle.js"></script>
   <script src="/report/js/loopalyzer.js"></script>
   <script src="/js/reportinit.js"></script>
 </body>

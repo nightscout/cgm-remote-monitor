@@ -12,11 +12,6 @@ require('jquery.tooltips');
 
 window.Storage = require('js-storage');
 
-require('flot');
-require('../node_modules/flot/jquery.flot.time');
-require('../node_modules/flot/jquery.flot.pie');
-require('../node_modules/flot/jquery.flot.fillbetween');
-
 const moment = require('moment-timezone');
 
 window.moment = moment;
@@ -24,13 +19,13 @@ window.moment = moment;
 window.Nightscout = window.Nightscout || {};
 
 var ctx = {
-    moment: moment
+  moment: moment
 };
 
 window.Nightscout = {
-    client: require('../lib/client'),
-    units: require('../lib/units')(),
-    admin_plugins: require('../lib/admin_plugins/')(ctx)
+  client: require('../lib/client')
+  , units: require('../lib/units')()
+  , admin_plugins: require('../lib/admin_plugins/')(ctx)
 };
 
 window.Nightscout.report_plugins_preinit = require('../lib/report_plugins/');
@@ -42,6 +37,6 @@ window.Nightscout.foodclient = require('../lib/food/food');
 console.info('Nightscout bundle ready');
 
 // Needed for Hot Module Replacement
-if(typeof(module.hot) !== 'undefined') {
-    module.hot.accept()
+if (typeof(module.hot) !== 'undefined') {
+  module.hot.accept()
 }

@@ -1,0 +1,281 @@
+/* Dark theme overrides for the Nightscout reporting page.
+   Loaded after report.css. The dark theme is applied automatically when
+   the OS is in dark mode (prefers-color-scheme: dark) and only at screen
+   time ("not print") so that printing always uses the light/printable
+   theme from report.css. */
+@media (prefers-color-scheme: dark) {
+
+    @media not print {
+
+    html, body {
+        background-color: var(--report-background);
+        color: var(--report-text);
+    }
+
+    :root {
+        --report-background: #1e1e1e;
+        --report-text: #d4d4d4;
+        --report-chart-background: #252526;
+        --report-border: #777;
+        --report-muted: #aaa;
+        --report-low: #ef5350;
+        --report-in-range: #66bb6a;
+        --report-high: #fbc02d;
+        --report-range-text: #111;
+        --report-failure: #6e3030;
+        --report-success: #2f6634;
+        --report-accent: #2b6e3b;
+        --report-accent-text: #fff;
+        --report-grid: #777;
+        --report-legend-background: #2b2b2b;
+        --report-legend-text: #d4d4d4;
+        --report-pie-basal: #64b5f6;
+        --report-pie-bolus: #b39ddb;
+        --report-pie-carbs: #ff8a80;
+        --report-pie-label: #111;
+        --report-insulin: #90caf9;
+        --report-carbs: #ff8a80;
+        --report-basal: #64b5f6;
+        --report-predictions: #ce93d8;
+        --report-openaps: #ffb74d;
+        --report-negative: #ff8a80;
+        --report-positive: #81c784;
+        --report-negative-background: #8e3030;
+        --report-positive-background: #2f6634;
+        --report-status-text: #fff;
+        --report-target-stroke: #81c784;
+        --report-treatment-text: #d4d4d4;
+        --report-candle-up: #81c784;
+        --report-candle-down: #ef5350;
+        --report-candle-stroke: #d4d4d4;
+        --percentile-target-outer: #c8e6c9;
+        --percentile-target-inner: #388e3c;
+        --percentile-below-outer: #ff0400;
+        --percentile-below-inner: #ff8080;
+        --percentile-above-outer: #ffdb80;
+        --percentile-above-inner: #ffb480;
+        --weekday-sunday: #ce93d8;
+        --weekday-monday: #4dd0e1;
+        --weekday-tuesday: #81c784;
+        --weekday-wednesday: #9fa8da;
+        --weekday-thursday: #ba68c8;
+        --weekday-friday: #64b5f6;
+        --weekday-saturday: #4db6ac;
+        --loop-basal: #64b5f6;
+        --loop-glucose: #81c784;
+        --loop-predictions: #ce93d8;
+        --loop-target-range: #315b35;
+        --loop-insulin: #ffb74d;
+        --loop-carbs: #66bb6a;
+        --loop-timeshift: #333;
+        --loop-hidden-axis: #252526;
+        --loop-marking: #d4d4d4;
+    }
+
+    #tabnav {
+        border-bottom: 1px solid var(--report-border);
+    }
+
+    #tabnav li {
+        background-color: #2b2b2b;
+        color: #bbbbbb;
+        border-top: 1px solid var(--report-border);
+        border-right: 1px solid var(--report-border);
+    }
+
+    #tabnav li:first-child {
+        border-left: 1px solid var(--report-border);
+    }
+
+    #tabnav .selected {
+        background: #3a3a3a;
+        border-bottom: 1px solid #3a3a3a;
+        color: #ffffff;
+    }
+
+    #tabnav li:hover {
+        background: #444444;
+    }
+
+    #rp_show {
+        background-color: #2b6e3b;
+        border: 1px solid var(--report-border);
+        color: #ffffff;
+    }
+
+    .chart {
+        background-color: var(--report-chart-background);
+    }
+
+    .insulin {
+        fill: #64b5f6;
+    }
+
+    .iob {
+        stroke: #64b5f6;
+        opacity: 0.8;
+    }
+
+    .insulin-label {
+        color: #64b5f6 !important;
+        opacity: 1 !important;
+    }
+
+    .tooltip {
+        background: #2b2b2b;
+        border: 2px solid var(--report-border);
+        color: #d4d4d4;
+    }
+
+    /* Form controls */
+    input[type=date],
+    input[type=text],
+    input[type=number],
+    select {
+        background-color: #2b2b2b;
+        color: #d4d4d4;
+        border: 1px solid var(--report-border);
+    }
+
+    input[type=date]:disabled,
+    input[type=text]:disabled,
+    input[type=number]:disabled {
+        opacity: 0.6;
+    }
+
+    a, .presetdates {
+        color: #6cb2e1;
+    }
+
+    hr {
+        border-color: var(--report-border);
+    }
+
+    /* Treatments table */
+    table.treatments thead tr {
+        background-color: #333333;
+        color: #ffffff;
+    }
+
+    table.treatments tbody tr:hover {
+        background-color: #3a3a3a;
+    }
+
+    table.treatments tr.border_bottom td {
+        border: 1pt solid var(--report-border);
+    }
+
+    table.treatments td.next_day {
+        background-color: #333333;
+        color: #ffffff;
+    }
+
+    /* Chart legend text */
+    .legendLabel {
+        color: var(--report-legend-text);
+    }
+
+    #dailystats-placeholder .legend > div {
+        background-color: var(--report-legend-background) !important;
+    }
+
+    /* SVG chart axes & tick labels (readable on dark background) */
+    .axis,
+    .x.axis,
+    .y.axis {
+        color: #d4d4d4;
+    }
+
+    .axis .tick line {
+        stroke: var(--report-grid);
+    }
+
+    .axis .tick text,
+    .x.axis text,
+    .y.axis text,
+    .axis text {
+        fill: #d4d4d4;
+        stroke: none;
+    }
+
+    .axis path,
+    .x.axis path,
+    .y.axis path {
+        stroke: #d4d4d4;
+    }
+
+    /* "other treatments with duration" label text */
+    text.other-treatment {
+        fill: #d4d4d4;
+    }
+
+    rect.override {
+        fill: #d4d4d4;
+        opacity: 1;
+        fill-opacity: 1;
+    }
+
+    /* Percentile chart (SVG) dark-theme colors */
+    line.grid-y,
+    line.grid-x {
+        stroke: var(--report-grid);
+    }
+
+    .p-median {
+        stroke: #e0e0e0;
+    }
+
+    .p-threshold {
+        stroke: #FF0000;
+    }
+
+    .legend text.legendLabel {
+        fill: #d4d4d4;
+    }
+
+    .chart-background {
+        fill: var(--report-chart-background);
+    }
+
+    .raw-option, .is-disabled {
+        color: #b0b0b0;
+    }
+
+    .profile-switch {
+        fill: #64b5f6;
+    }
+
+    .duration-event.other-treatment {
+        fill: #d4d4d4;
+    }
+
+    .calibration-event-type {
+        --calibration-color: #2b2b2b;
+        --calibration-text: #d4d4d4;
+    }
+
+    .calibration-point {
+        stroke: #d4d4d4;
+    }
+
+    .treatments-header,
+    table.treatments td.next_day {
+        background-color: #333333;
+        color: #ffffff;
+    }
+
+    .basal-value, .net-neutral {
+        color: #d4d4d4;
+    }
+
+    .net-basal-average.net-neutral {
+        background-color: #2b2b2b;
+    }
+
+    .normal-value { fill: #81c784; stroke: #2e7d32; }
+    .critical-value { fill: #ef5350; stroke: #b71c1c; }
+    .prediction-value { stroke: #ce93d8; }
+
+    }
+
+}

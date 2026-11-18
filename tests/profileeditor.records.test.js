@@ -6,7 +6,7 @@
 // and target-bg range arrays via add/delete-row icons. All of those operations
 // are now backed by pure modules in lib/client-core/profile-editor/, so we can
 // assert the same shape changes on the underlying data without booting a
-// jsdom + jQuery + Flot bundle.
+// jsdom + jQuery browser bundle.
 //
 // When the Phase 5b adapter refactor is fully wired, the bundle-driven test
 // becomes redundant — this file is what proves the behavior is preserved.
@@ -17,9 +17,9 @@ var records = require('../lib/client-core/profile-editor/records');
 var profilesMod = require('../lib/client-core/profile-editor/profiles');
 var ranges = require('../lib/client-core/profile-editor/ranges');
 
-describe('Profile editor (records / profiles / ranges via core)', function () {
+describe('Profile editor (records / profiles / ranges via core)', function() {
 
-  it('mirrors the legacy DOM test: record add/remove/clone changes mongorecords length', function () {
+  it('mirrors the legacy DOM test: record add/remove/clone changes mongorecords length', function() {
     var arr = [records.newEmptyRecord(buildDefaultProfile())];
 
     // Initial state: #pe_databaserecords option length === 1
@@ -41,7 +41,7 @@ describe('Profile editor (records / profiles / ranges via core)', function () {
     afterClone.currentIndex.should.equal(1);
   });
 
-  it('mirrors the legacy DOM test: profile add/remove/clone changes store size', function () {
+  it('mirrors the legacy DOM test: profile add/remove/clone changes store size', function() {
     var record = records.newEmptyRecord(buildDefaultProfile());
 
     // Initial: #pe_profiles option length === 1
@@ -64,7 +64,7 @@ describe('Profile editor (records / profiles / ranges via core)', function () {
     Object.keys(record.store).length.should.equal(2);
   });
 
-  it('mirrors the legacy DOM test: I:C range add then delete restores values', function () {
+  it('mirrors the legacy DOM test: I:C range add then delete restores values', function() {
     // Seeded carbratio matches the buildDefaultProfile (single 30 g/U at 00:00).
     var profile = buildDefaultProfile();
     profile.carbratio[0].value.should.equal(30); // pe_ic_val_0 === '30'
@@ -83,7 +83,7 @@ describe('Profile editor (records / profiles / ranges via core)', function () {
     profile.carbratio[0].time.should.equal('00:00');
   });
 
-  it('mirrors the legacy DOM test: target BG range add+delete keeps low/high in lockstep', function () {
+  it('mirrors the legacy DOM test: target BG range add+delete keeps low/high in lockstep', function() {
     var profile = buildDefaultProfile();
     // The legacy test seeded target_low to 100; we use the buildDefaultProfile
     // value (0) for the assertion shape. The behavior we care about is that

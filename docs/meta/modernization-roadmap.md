@@ -54,8 +54,6 @@ This roadmap outlines a phased approach to modernizing the Nightscout codebase w
 
 | Item | Location | Impact | Effort |
 |------|----------|--------|--------|
-| D3.js v5 (outdated) | Client | Features | Medium |
-| Flot charts (legacy) | Reports | Maintainability | Medium |
 | Manual DOM updates | Client | Complexity | High |
 | No service worker | Client | Offline/PWA | Medium |
 

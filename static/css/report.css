@@ -4,109 +4,1137 @@
 
 
 html, body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
+
+:root {
+    --report-background: #fff;
+    --report-text: #111;
+    --report-chart-background: #f5f5f5;
+    --report-border: #767676;
+    --report-muted: #666;
+    --report-low: #c62828;
+    --report-in-range: #2e7d32;
+    --report-high: #806000;
+    --report-range-text: #fff;
+    --report-failure: #fcc;
+    --report-success: #cfc;
+    --report-accent: #2e7d32;
+    --report-accent-text: white;
+    --report-grid: #858585;
+    --report-legend-background: #fff;
+    --report-legend-text: #333;
+    --report-pie-basal: #1976d2;
+    --report-pie-bolus: #7e57c2;
+    --report-pie-carbs: #d32f2f;
+    --report-pie-label: #fff;
+    --report-insulin: #0645ad;
+    --report-carbs: #b3261e;
+    --report-basal: #0066b3;
+    --report-predictions: #6a1b9a;
+    --report-openaps: #7a3e00;
+    --report-negative: #b3261e;
+    --report-positive: #2e7d32;
+    --report-negative-background: #ffcdd2;
+    --report-positive-background: #c8e6c9;
+    --report-status-text: #111;
+    --report-target-stroke: #2e7d32;
+    --report-treatment-text: #111;
+    --report-candle-up: #2e7d32;
+    --report-candle-down: #c62828;
+    --report-candle-stroke: #111;
+    --percentile-target-outer: #579a60;
+    --percentile-target-inner: #14491a;
+    --percentile-below-outer: #ff0000;
+    --percentile-below-inner: #ff6000;
+    --percentile-above-outer: #ffb000;
+    --percentile-above-inner: #ff6000;
+    --weekday-sunday: #6a1b9a;
+    --weekday-monday: #006064;
+    --weekday-tuesday: #2e7d32;
+    --weekday-wednesday: #283593;
+    --weekday-thursday: #8e24aa;
+    --weekday-friday: #1565c0;
+    --weekday-saturday: #00796b;
+    --loop-basal: #0066b3;
+    --loop-glucose: #2e7d32;
+    --loop-predictions: #6a1b9a;
+    --loop-target-range: #D6FFD6;
+    --loop-insulin: #a84800;
+    --loop-carbs: #00796b;
+    --loop-timeshift: #F3F3F3;
+    --loop-hidden-axis: #fff;
+    --loop-marking: #000;
+}
+
 body {
-  font-family: 'Open Sans', Helvetica, Arial, sans-serif;
-  background: white;
-  color: black;
+    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+    background: var(--report-background);
+    color: var(--report-text);
+}
+
+h2 {
+    text-align: center;
+}
+
+.cob {
+    stroke: var(--report-carbs);
+    opacity: 0.8;
+    fill-opacity: 0.1;
+}
+
+.carbs {
+    fill: var(--report-carbs);
+}
+
+.iob {
+    stroke: var(--report-insulin);
+    opacity: 0.8;
+    fill-opacity: 0.1;
+}
+
+.insulin {
+    fill: var(--report-insulin);
+}
+
+rect.treatment {
+    opacity: 1;
+    fill-opacity: 0.35;
+    stroke-width: 1;
+}
+
+rect.carbs {
+    stroke: var(--report-carbs);
+}
+
+rect.insulin {
+    stroke: var(--report-insulin);
+}
+
+text.treatment {
+    fill: var(--report-treatment-text);
+    font-size: 9pt;
+    font-weight: normal;
+    font-family: verdana, arial, sans-serif;
+}
+
+text.carbs.treatment {
+    fill: var(--report-carbs);
+}
+
+text.insulin.treatment {
+    fill: var(--report-insulin);
 }
 
 .centeraligned {
-  text-align:center;
+    text-align: center;
+}
+
+#pluginchartplaceholders {
+    display: flow-root;
+    padding: 0 15px;
+}
+
+#report-progressbar {
+    margin-top: 0.5em;
+    max-width: 600px;
+}
+
+#report-progressbar[role="progressbar"] {
+    height: 2em;
+    overflow: hidden;
+    border: 1px solid var(--report-border);
+    border-radius: 4px;
+}
+
+.report-progress-value {
+    width: 0;
+    height: 100%;
+    background: var(--report-accent);
+    transition: width 0.15s ease;
 }
 
 #explanation {
-  font: 11px verdana, arial, sans-serif;
+    font: 11px verdana, arial, sans-serif;
 }
 
 #tabnav {
-  text-align: left;
-  margin: 1em 0 0;
-  font: bold 11pt verdana, arial, sans-serif;
-  border-bottom: 1px solid #6c6;
-  list-style-type: none;
-  padding: 0 0 0 15px;
+    text-align: left;
+    margin: 1em 0 0;
+    font: bold 11pt verdana, arial, sans-serif;
+    border-bottom: 1px solid var(--report-accent);
+    list-style-type: none;
+    padding: 0 0 0 15px;
 }
 
 #tabnav li {
-  display: inline-block;
-  padding: 10px 15px;
-  border-top: 1px solid #6c6;
-  border-right: 1px solid #6c6;
-  border-bottom: none;
-  background-color: #cfc;
-  color: #666;
-  margin: 0 0 -1px 0;
-  text-decoration: none;
+    display: inline-block;
+    padding: 10px 15px;
+    border-top: 1px solid var(--report-accent);
+    border-right: 1px solid var(--report-accent);
+    border-bottom: none;
+    background-color: #cfc;
+    color: #666;
+    margin: 0 0 -1px 0;
+    text-decoration: none;
 }
 
 #tabnav li:first-child {
-  border-left: 1px solid #6c6;
+    border-left: 1px solid var(--report-accent);
 }
 
-#tabnav .selected  {
-  background: #fff;
-  border-bottom: 1px solid #fff;
+#tabnav .selected {
+    background: #fff;
+    border-bottom: 1px solid #fff;
 }
 
 #tabnav li:hover {
-  background: #9f9;
-  cursor:pointer;
+    background: #9f9;
+    cursor: pointer;
+}
+
+.settings {
+    padding: 0 15px;
+}
+
+#toolbar {
+    position: sticky;
+    top: 0;
 }
 
 .tooltip {
-  top: 0;
-  left: 0;
-  color: #444;
-  position: absolute;
-  text-align: left;
-  padding: 4px;
-  font-size: 14px;
-  line-height: 15pt;
-  background: white;
-  border: 2px solid black;
-  border-radius: 8px;
-  float: right;
-  min-width: 150px;
-  max-width: 400px;
+    top: 0;
+    left: 0;
+    color: #444;
+    position: absolute;
+    text-align: left;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 15pt;
+    background: white;
+    border: 2px solid black;
+    border-radius: 8px;
+    float: right;
+    min-width: 150px;
+    max-width: 400px;
 }
 
-main {
-  padding: 15px;
+.authentication-status {
+    clear: both;
+    padding: 15px;
 }
 
 input[type=date],
 input[type=text],
 input[type=number],
 select {
-  font: 13px verdana, arial, sans-serif;
+    font: 12pt verdana, arial, sans-serif;
 }
 
 label {
-  display: inline-flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-right: 7px;
+    display: inline-flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-right: 7px;
 }
 
 #rp_to {
-  margin-right: 10px;
+    margin-right: 10px;
 }
 
 .presetdates {
-  display: inline-block;
-  margin-right: 8px;
+    display: inline-block;
+    margin-right: 8px;
 }
 
 #rp_show {
-  background-color: #cfc;
-  border: 1px solid #6c6;
-  color: #666;
-  padding: 10px;
-  font-weight: bold;
-  font-size: 12pt;
-  text-transform: uppercase;
+    background-color: #cfc;
+    border: 1px solid var(--report-accent);
+    color: #666;
+    padding: 10px;
+    font-weight: bold;
+    font-size: 12pt;
+    text-transform: uppercase;
+}
+
+.target-bg {
+    fill: #81C784;
+    fill-opacity: 0.3;
+    stroke: var(--report-target-stroke);
+    stroke-width: 1;
+}
+
+/* Percentile chart (SVG rendering) */
+path.grid-y,
+path.grid-x,
+line.grid-y,
+line.grid-x {
+    stroke: var(--report-grid);
+    stroke-width: 1;
+    shape-rendering: crispEdges;
+}
+
+path.p-line {
+    fill: none;
+    stroke-width: 1.5;
+}
+
+.p-median {
+    stroke: #000000;
+}
+
+path.p-band {
+    fill-opacity: 1;
+}
+
+.p-band-80.p-band-in-range {
+    fill: var(--percentile-target-outer);
+}
+
+.p-band-50.p-band-in-range {
+    fill: var(--percentile-target-inner);
+}
+
+.p-band-80.p-band-below {
+    fill: var(--percentile-below-outer);
+}
+
+.p-band-50.p-band-below {
+    fill: var(--percentile-below-inner);
+}
+
+.p-band-80.p-band-above {
+    fill: var(--percentile-above-outer);
+}
+
+.p-band-50.p-band-above {
+    fill: var(--percentile-above-inner);
+}
+
+.p-threshold {
+    stroke: #FF0000;
+    stroke-width: 2;
+}
+
+.legend .swatch {
+    fill-opacity: 1;
+}
+
+.legend text.legendLabel {
+    fill: #000;
+}
+
+.legendLabel {
+    color: var(--report-legend-text);
+}
+
+.measurement {
+    r: 0.18em;
+    stroke-width: 1px;
+}
+
+.critical-value {
+    fill: red;
+    stroke: darkred;
+}
+
+.normal-value {
+    fill: #2e7d32;
+    stroke: #1b5e20;
+}
+
+.weekday-sunday {
+    fill: var(--weekday-sunday);
+}
+
+.weekday-monday {
+    fill: var(--weekday-monday);
+}
+
+.weekday-tuesday {
+    fill: var(--weekday-tuesday);
+}
+
+.weekday-wednesday {
+    fill: var(--weekday-wednesday);
+}
+
+.weekday-thursday {
+    fill: var(--weekday-thursday);
+}
+
+.weekday-friday {
+    fill: var(--weekday-friday);
+}
+
+.weekday-saturday {
+    fill: var(--weekday-saturday);
+}
+
+.raw-value {
+    fill: gray;
+    stroke: rgb(41, 41, 41);
+}
+
+.transparent {
+    fill: transparent;
+}
+
+.bg-check {
+    fill: darkred;
+    stroke: red;
+}
+
+.prediction-value {
+    fill: none;
+    stroke: purple;
+    stroke-width: 1px;
+}
+
+.other {
+    fill: none;
+    stroke: var(--report-muted);
+    stroke-width: 2px;
+}
+
+.high-line {
+    stroke: var(--report-grid);
+    stroke-dasharray: 1px, 3px;
+}
+
+.mbg {
+    r: 0.15em !important;
+    stroke-width: 2;
+}
+
+.axis {
+    fill: none;
+    font: 10pt sans-serif;
+}
+
+.x.axis {
+    text-anchor: middle;
+}
+
+.y.axis {
+    text-anchor: end;
+}
+
+.axis .tick text,
+.x.axis text,
+.y.axis text {
+    fill: #333333;
+}
+
+.chart {
+    background-color: var(--report-chart-background);
+    display: block;
+    padding: 15px;
+}
+
+.daytoday-chart > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.daytoday-chart, .weektoweek-chart {
+    box-sizing: border-box;
+    width: 100%;
+    height: 500px;
+}
+
+@media screen and (max-width: 700px) {
+
+    #pluginchartplaceholders > .tabplaceholder {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: scroll;
+        overscroll-behavior-inline: contain;
+        scrollbar-gutter: stable;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #pluginchartplaceholders > .tabplaceholder > * {
+        box-sizing: border-box;
+        width: 1600px;
+        min-width: 1600px;
+        max-width: none;
+    }
+}
+
+.weektoweek-chart > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.basal {
+    stroke: var(--report-basal);
+    stroke-width: 1;
+    fill: none;
+}
+
+.temp.basal {
+    stroke-dasharray: 3px, 3px;
+}
+
+.tempbasaltext {
+    font-size: 12px;
+    font-weight: bold;
+    fill: var(--report-basal);
+    text-anchor: middle;
+}
+
+table.insulin td:nth-child(2) {
+    text-align: right;
+}
+
+table.insulin {
+    display: inline-block;
+    margin-right: 4em;
+}
+
+.basal.area {
+    fill: var(--report-basal);
+    fill-opacity: 0.1;
+    stroke-width: 0 !important;
+}
+
+.temp.basal.area {
+    fill-opacity: 0.3 !important;
+    stroke-width: 1 !important;
+}
+
+rect.override {
+    stroke-width: 1;
+    opacity: 1;
+    fill-opacity: .2;
+    stroke: var(--report-text);
+    fill: var(--report-text);
+}
+
+text.override {
+    dominant-baseline: middle;
+    font-size: 12px;
+    font-weight: bold;
+    fill: black;
+    text-anchor: middle;
+}
+
+rect.open-aps.treatment {
+    stroke-width: 1;
+    opacity: 1;
+    fill-opacity: 0.2;
+    stroke: var(--report-openaps);
+    fill: var(--report-openaps);
+}
+
+text.open-aps.treatment {
+    fill: var(--report-openaps);
+}
+
+#rp_edittreatmentdialog label {
+    padding-top: 5px
+}
+
+.editTreatment, .deleteTreatment {
+    cursor: pointer;
+    padding-left: 10px;
+}
+
+table.treatments {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+}
+
+table.treatments thead tr {
+    background-color: #595959;
+    color: white;
+}
+
+table.treatments tbody tr:hover {
+    background-color: lightskyblue;
+}
+
+table.treatments td, table.treatments th {
+    padding: 5px;
+}
+
+table.treatments tr.border_bottom td {
+    border: 1pt solid var(--report-border);
+}
+
+table.treatments td.next_day {
+    background-color: lightgrey;
+    color: black;
+    column-span: 14;
+    font-weight: bold;
+}
+
+td.time {
+    text-align: center;
+}
+
+td.number {
+    text-align: right;
+}
+
+td.text {
+    text-align: left;
+}
+
+.leftButton {
+    float: left;
+}
+
+form {
+    display: grid;
+    gap: 20px;
+}
+
+form textarea {
+    width: 100%;
+}
+
+#filter-text {
+    margin-bottom: 2em;
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.is-disabled {
+    color: var(--report-muted);
+}
+
+.report-option {
+    opacity: 1;
+}
+
+.insulin-option, .iob-option {
+    color: var(--report-insulin);
+}
+
+.carbs-option, .cob-option {
+    color: var(--report-carbs);
+}
+
+.basal-option {
+    color: var(--report-basal);
+}
+
+.raw-option {
+    color: var(--report-muted);
+}
+
+.predictions-option {
+    color: var(--report-predictions);
+}
+
+.openaps-option {
+    color: var(--report-openaps);
+}
+
+.bgcheck-option {
+    color: var(--report-negative);
+}
+
+.chart-background {
+    fill: var(--report-chart-background);
+}
+
+.combo-pattern {
+    fill: none;
+    stroke: var(--report-basal);
+    stroke-width: 2;
+}
+
+.comboarea {
+    fill: url(#hash);
+    fill-opacity: 0.3;
+    stroke-width: 1;
+}
+
+rect.duration-event {
+    stroke-width: 1;
+    opacity: 1;
+    fill-opacity: 0.2;
+    fill: var(--duration-event-color);
+    stroke: var(--duration-event-color);
+}
+
+text.duration-event, text.other-treatment, .profile-switch {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+text.duration-event {
+    text-anchor: middle;
+}
+
+.duration-event.exercise {
+    --duration-event-color: var(--report-predictions);
+}
+
+.duration-event.note {
+    --duration-event-color: var(--report-carbs);
+}
+
+.duration-event.other-treatment {
+    --duration-event-color: var(--report-text);
+}
+
+text.duration-event {
+    fill: var(--duration-event-color);
+}
+
+text.other-treatment {
+    fill: purple;
+}
+
+.profile-switch {
+    fill: var(--report-basal);
+    text-anchor: start;
+}
+
+.insulin-slice, .carbs-slice {
+    opacity: 1;
+}
+
+.basal-slice {
+    fill: var(--report-pie-basal);
+}
+
+.bolus-slice {
+    fill: var(--report-pie-bolus);
+}
+
+.carbs-slice {
+    fill: var(--report-pie-carbs);
+}
+
+.pie-label {
+    fill: var(--report-pie-label);
+    font-weight: bold;
+    text-anchor: middle;
+}
+
+.percentile-chart-container {
+    height: 500px;
+}
+
+#calibrations-list {
+    float: left;
+    width: 50%;
+    height: 500px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+#calibrations-chart {
+    float: right;
+    width: 48%;
+}
+
+.calibration-event {
+    color: var(--calibration-text, #111);
+    background-color: var(--calibration-color, white);
+}
+
+.calibration-event-label {
+    text-decoration: underline;
+}
+
+.calibration-mbg-label {
+    padding-left: 2em;
+}
+
+.calibration-cal-label {
+    padding-left: 4em;
+}
+
+.calibration-line {
+    stroke: var(--calibration-color);
+    stroke-width: 3;
+}
+
+.calibration-point {
+    fill: var(--calibration-color);
+    opacity: 1;
+    stroke: black;
+    stroke-width: 1;
+}
+
+.calibration-event-type {
+    --calibration-color: white;
+}
+
+.calibration-color-aqua {
+    --calibration-color: aqua;
+}
+
+.calibration-color-blue {
+    --calibration-color: blue;
+    --calibration-text: white;
+}
+
+.calibration-color-brown {
+    --calibration-color: brown;
+    --calibration-text: white;
+}
+
+.calibration-color-chartreuse {
+    --calibration-color: chartreuse;
+}
+
+.calibration-color-coral {
+    --calibration-color: coral;
+}
+
+.calibration-color-cornflower-blue {
+    --calibration-color: cornflowerblue;
+}
+
+.calibration-color-dark-cyan {
+    --calibration-color: darkcyan;
+    --calibration-text: white;
+}
+
+.calibration-color-dark-magenta {
+    --calibration-color: darkmagenta;
+    --calibration-text: white;
+}
+
+.calibration-color-dark-orange {
+    --calibration-color: darkorange;
+}
+
+.calibration-color-fuchsia {
+    --calibration-color: fuchsia;
+}
+
+.calibration-color-green {
+    --calibration-color: green;
+    --calibration-text: white;
+}
+
+.calibration-color-yellow {
+    --calibration-color: yellow;
+}
+
+.bg-source-sensor, .bg-source-meter, .bg-source-manual {
+    margin-right: 0;
+    margin-left: -0.6em;
+}
+
+.bg-source-sensor {
+    color: var(--report-positive);
+}
+
+.bg-source-meter {
+    color: var(--report-negative);
+}
+
+.bg-source-manual {
+    color: var(--report-insulin);
+}
+
+.report-edit-dialog {
+    box-shadow: 20px 20px 20px 0 black;
+}
+
+.report-edit-dialog .ui-dialog-buttonset {
+    width: 100%;
+    text-align: right;
+}
+
+.report-edit-dialog .report-save-button {
+    float: left;
+}
+
+#rped_adnotes {
+    width: 300px;
+}
+
+.treatments-header {
+    background: #595959;
+    color: white;
+}
+
+.treatments-header th {
+    text-align: left;
+}
+
+.actions-column {
+    width: 64px;
+    white-space: nowrap;
+}
+
+.time-column {
+    width: 80px;
+}
+
+.event-column, .glucose-column {
+    width: 150px;
+}
+
+.number-column {
+    width: 50px;
+}
+
+.carbs-column {
+    width: 100px;
+}
+
+.notes-column {
+    width: 300px;
+}
+
+#rp_loopalyzermincarbs {
+    width: 3.5em;
+}
+
+.loopalyzer-chart {
+    margin-bottom: -14px;
+}
+
+#loopalyzer-basal {
+    height: 100px;
+}
+
+#loopalyzer-bg {
+    height: 200px;
+}
+
+#loopalyzer-tempbasal, #loopalyzer-iob {
+    height: 150px;
+}
+
+#loopalyzer-cob {
+    height: 150px;
+    margin-bottom: 0;
+}
+
+.overview-chart-cell {
+    vertical-align: middle;
+}
+
+.glucose-range {
+    color: var(--report-range-text);
+}
+
+.glucose-range-low {
+    background-color: var(--report-low);
+}
+
+.glucose-range-normal {
+    background-color: var(--report-in-range);
+}
+
+.glucose-range-high {
+    background-color: var(--report-high);
+}
+
+.stability-table {
+    width: 100%;
+}
+
+.date-column {
+    width: 160px;
+}
+
+.hourly-stats-table {
+    width: 100%;
+    border: 1px solid currentColor;
+    border-collapse: collapse;
+}
+
+.hourly-stats-table td, .hourly-stats-table th {
+    border: 1px solid currentColor;
+    padding: 0.2em;
+    text-align: center;
+}
+
+#hourlystats-overviewchart {
+    width: 100%;
+    min-width: 6.5in;
+    height: 5in;
+}
+
+.hourly-stats-header {
+    background: var(--report-chart-background);
+}
+
+.basal-value {
+    color: black;
+}
+
+.net-basal, .average-label {
+    font-weight: bold;
+}
+
+.net-neutral {
+    color: black;
+}
+
+.net-negative {
+    color: var(--report-negative);
+}
+
+.net-positive {
+    color: var(--report-positive);
+}
+
+.net-basal-average.net-neutral {
+    background-color: white;
+}
+
+.net-basal-average.net-negative {
+    background-color: var(--report-negative-background);
+}
+
+.net-basal-average.net-positive {
+    background-color: var(--report-positive-background);
+}
+
+.net-basal-average .net-basal {
+    color: var(--report-status-text);
+}
+
+#dailystats-placeholder .tdborder {
+    width: 80px;
+    border: 1px var(--report-border) solid;
+    margin: 0;
+    padding: 1px;
+    text-align: center;
+}
+
+.inlinepiechart {
+    width: 2.2in;
+    height: 0.9in;
+}
+
+.inlinepiechart svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.dailystats-legend {
+    display: flex;
+    gap: 1em;
+    align-items: center;
+    width: max-content;
+    margin: 0 0 0.6em 0;
+    padding: 0.35em 0.55em;
+    border: 1px solid var(--report-border);
+    background: var(--report-legend-background);
+}
+
+.dailystats-legend-item {
+    display: inline-flex;
+    gap: 0.35em;
+    align-items: center;
+}
+
+.dailystats-legend-swatch {
+    width: 0.9em;
+    height: 0.9em;
+}
+
+.dailystats-low {
+    background: var(--report-low);
+}
+
+.dailystats-in-range {
+    background: var(--report-in-range);
+}
+
+.dailystats-high {
+    background: var(--report-high);
+}
+
+path.dailystats-low {
+    fill: var(--report-low);
+}
+
+path.dailystats-in-range {
+    fill: var(--report-in-range);
+}
+
+path.dailystats-high {
+    fill: var(--report-high);
+}
+
+@media print {
+
+    @page {
+        size: landscape;
+    }
+
+    html, body {
+        height: auto;
+        min-height: 0;
+    }
+
+    .chart,
+    [id^="daytodaychart-"],
+    .single-page table {
+        break-inside: avoid;
+    }
+
+    .single-page {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .daytoday-chart {
+        height: 96mm;
+    }
+
+    #daytodaycharts h3 {
+        margin-top: 0;
+        break-after: avoid;
+    }
+
+    .no-print, .no-print * {
+        display: none !important;
+    }
+
+    #toolbar, .toolbar-title {
+        display: none !important;
+    }
+
+    .chart {
+        background-color: transparent;
+    }
+
+    .single-page table {
+        font-size: 10pt;
+    }
+
+    svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+    main {
+        padding: 0;
+    }
+
+    .target-bg {
+        fill: rgba(129, 199, 132, 0.5);
+        stroke: none;
+    }
+
+    #dailystats-placeholder .dailystats-legend {
+        border-color: #ccc;
+        background: #fff;
+    }
 }

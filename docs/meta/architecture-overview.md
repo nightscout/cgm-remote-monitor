@@ -202,8 +202,7 @@ CGM Device → Uploader → REST API → MongoDB → Data Loader
 | Package | Version | Purpose | Modernization Notes |
 |---------|---------|---------|---------------------|
 | jquery | ^3.5.1 | DOM manipulation | Consider modern alternatives |
-| d3 | ^5.16.0 | Data visualization | Update to D3 v7 |
-| flot | ^0.8.3 | Legacy charting | Consider Chart.js or D3-only |
+| d3 | ^7.9.0 | Data visualization | Current |
 | webpack | ^5.74.0 | Bundling | Current (good) |
 
 ### 5.3 External Integrations

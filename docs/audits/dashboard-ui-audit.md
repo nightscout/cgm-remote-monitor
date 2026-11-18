@@ -16,7 +16,7 @@ The Nightscout web dashboard provides real-time glucose visualization with exten
 |--------|-------|
 | Bundle System | Webpack 5 |
 | UI Framework | jQuery + D3.js |
-| Charting | D3.js v5 + Flot |
+| Charting | D3.js v7 |
 | Real-time Updates | Socket.IO |
 | Bundle Size | ~1MB+ (production) |
 
@@ -41,9 +41,6 @@ window.d3 = require('d3');
 
 require('jquery.tooltips');
 window.Storage = require('js-storage');
-
-require('flot');
-require('../node_modules/flot/jquery.flot.time');
 ```
 
 ### 2.2 Module Structure
@@ -118,16 +115,9 @@ $('#currentBG').text(utils.scaleMgdl(bg));
 - Treatment overlays
 - Prediction lines
 
-### 3.3 Flot Usage
+### 3.3 Report Charting
 
-**Version:** ^0.8.3 (legacy)
-
-**Primary Uses:**
-- Report charts
-- Pie charts (glucose distribution)
-- Time-series in reports
-
-**Status:** Legacy dependency, candidate for removal
+Report charts and pie charts use D3.js. The legacy Flot dependency has been removed.
 
 ---
 
@@ -491,7 +481,6 @@ DOM update
 | Lodash | 70KB | Use lodash-es |
 | Moment.js | 230KB | Replace with dayjs |
 | Socket.IO | 50KB | Current |
-| Flot | 100KB | Remove (legacy) |
 
 ### 11.2 Optimization Strategies
 
@@ -587,8 +576,6 @@ DOM update
 
 3. **Phase 3 (6-12 months):**
    - Consider framework adoption
-   - Upgrade D3.js to v7
-   - Remove Flot dependency
 
 ---
 

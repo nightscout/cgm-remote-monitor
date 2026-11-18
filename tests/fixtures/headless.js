@@ -1,9 +1,9 @@
-
 var read = require('fs').readFileSync;
 
 function headless (benv, binding) {
   var self = binding;
-  function root ( ) {
+
+  function root () {
     return benv;
   }
 
@@ -16,7 +16,7 @@ function headless (benv, binding) {
 
     var htmlFile = opts.htmlFile || __dirname + '/../../views/index.html';
     var serverSettings = opts.serverSettings || require('./default-server-settings');
-    var someData = opts.mockAjax || { };
+    var someData = opts.mockAjax || {};
 
     console.log('Entering setup', Date.now() - t);
 
@@ -32,7 +32,7 @@ function headless (benv, binding) {
 
       self.localCookieStorage = self.localStorage = self.$.localStorage = require(localStorage);
 
-      self.$.fn.tooltip = function mockTooltip ( ) { };
+      self.$.fn.tooltip = function mockTooltip () {};
 
       var indexHtml = read(htmlFile, 'utf8');
       self.$('body').html(indexHtml);
@@ -41,13 +41,10 @@ function headless (benv, binding) {
 
       var d3 = require('./d3');
       //disable all d3 transitions so most of the other code can run with jsdom
-      d3.timer = function mockTimer() { };
+      d3.timer = function mockTimer () {};
 
       if (opts.mockProfileEditor) {
-        self.$.plot = function mockPlot () {
-        };
-
-        self.$.fn.tooltip = function mockTooltip ( ) { };
+        self.$.fn.tooltip = function mockTooltip () {};
 
         self.$.fn.dialog = function mockDialog (opts) {
           function maybeCall (name, obj) {
@@ -55,9 +52,10 @@ function headless (benv, binding) {
               obj[name]();
             }
 
-          }          maybeCall('open', opts);
+          }
+          maybeCall('open', opts);
 
-          Object.keys(opts?.buttons || []).forEach(function (key) {
+          Object.keys(opts?.buttons || []).forEach(function(key) {
             maybeCall('click', opts.buttons[key]);
           });
         };
@@ -79,11 +77,11 @@ function headless (benv, binding) {
                 if (url.indexOf('status.json') > -1) {
                   fn(serverSettings);
                 } else {
-                  fn({message: 'OK'});
+                  fn({ message: 'OK' });
                 }
                 return self.$.ajax();
-              },
-              fail: function mockFail () {
+              }
+              , fail: function mockFail () {
                 return self.$.ajax();
               }
             };
@@ -102,17 +100,17 @@ function headless (benv, binding) {
           if (opts && opts.success && opts.success.call) {
             return {
               done: function mockDone (fn) {
-                  if (someData[url]) {
-                    console.log('+++++Data for ' + url + ' sent');
-                    opts.success(someData[url]);
-                  } else {
-                    console.log('-----Data for ' + url + ' missing');
-                    opts.success([]);
-                  }
+                if (someData[url]) {
+                  console.log('+++++Data for ' + url + ' sent');
+                  opts.success(someData[url]);
+                } else {
+                  console.log('-----Data for ' + url + ' missing');
+                  opts.success([]);
+                }
                 fn();
                 return self.$.ajax();
-              },
-              fail: function mockFail () {
+              }
+              , fail: function mockFail () {
                 return self.$.ajax();
               }
             };
@@ -122,13 +120,13 @@ function headless (benv, binding) {
               if (url.indexOf('status.json') > -1) {
                 fn(serverSettings);
               } else {
-                fn({message: 'OK'});
+                fn({ message: 'OK' });
               }
               return self.$.ajax();
-              },
-            fail: function mockFail () {
+            }
+            , fail: function mockFail () {
               return self.$.ajax();
-              }
+            }
           };
         };
       }
@@ -142,9 +140,9 @@ function headless (benv, binding) {
         , serverSettings: serverSettings
         , localCookieStorage: self.localStorage
         , cookieStorageType: self.localStorage
-		, localStorage: self.localStorage
+        , localStorage: self.localStorage
         , io: {
-          connect: function mockConnect ( ) {
+          connect: function mockConnect () {
             return {
               on: function mockOn (event, callback) {
                 if ('connect' === event && callback) {
@@ -163,16 +161,16 @@ function headless (benv, binding) {
         }
       });
 
-      var extraRequires = opts.benvRequires || [ ];
-      extraRequires.forEach(function (req) {
+      var extraRequires = opts.benvRequires || [];
+      extraRequires.forEach(function(req) {
         benv.require(req);
       });
-      callback( );
+      callback();
     });
 
   }
 
-  function teardown ( ) {
+  function teardown () {
     benv.teardown();
   }
   root.setup = init;
