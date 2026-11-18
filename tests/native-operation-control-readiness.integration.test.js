@@ -21,8 +21,10 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
   const owner = prefix + '_owner', role = prefix + '_reader', lifetime = prefix + '_lifetime';
   const config = { namespaces: {clock: ns.clock, checkpoint: ns.rt}, completedOutput: {namespace: ns.source} };
   const table = (kind, name) => quote(ns[kind]) + '.' + quote(name);
-  let admin, reader, pool, window, selected;
-  const createdSchemas = [], createdRoles = [];
+  let admin, reader, pool, window, selected, consumerOutbox, consumerAlarm, outboxAdmission, suppressionAdmission, previousTenancyMode;
+  const consumerURIs = {}, consumerRoles = {outbox: prefix + '_outbox', alarm: prefix + '_alarm'};
+  const consumerNamespaces = {outbox: prefix + '_outbox', alarm: prefix + '_alarm'};
+  const createdSchemas = [], createdRoles = [], createdDatabases = [];
   async function own(namespace, catalogue) {
     await run('up', {direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace, catalogue});
     createdSchemas.push(namespace);
@@ -43,6 +45,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await check();
   }
   before(async function () {
+    const tenancy = require('../lib/storage/tenant-scope'); previousTenancyMode = tenancy.getTenancyMode(); tenancy.setTenancyMode('multi');
     admin = new Client({connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI}); await admin.connect();
     await admin.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
     await admin.query('REVOKE CREATE ON DATABASE ' + quote((await admin.query('SELECT current_database() AS name')).rows[0].name) + ' FROM PUBLIC');
@@ -69,15 +72,38 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     }
     await admin.query('GRANT SELECT ON ' + [table('clock', 'schema_migrations'), table('clock', 'tenant_write_clock'), table('rt', 'schema_migrations'), table('rt', 'tenant_consumer_checkpoint'), table('source', 'tenant_consumer_checkpoint')].join(',') + ' TO ' + quote(role));
     await admin.query('GRANT UPDATE(' + columns.map(quote).join(',') + ') ON ' + table('rt', 'tenant_consumer_checkpoint') + ' TO ' + quote(role));
+    for (const [kind, catalogue] of [['outbox', require('../lib/tenant-notifications/postgres-candidate.json')], ['alarm', require('../migrations/candidates/postgres-alarm-suppression-v1.json')]]) {
+      const name = consumerRoles[kind], namespace = consumerNamespaces[kind], password = crypto.randomBytes(24).toString('hex');
+      await own(namespace, catalogue);
+      await admin.query('CREATE ROLE ' + quote(name) + " LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD '" + password + "'"); createdRoles.push(name);
+      const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); uri.username = name; uri.password = password; consumerURIs[kind] = uri.toString();
+      await admin.query('GRANT USAGE ON SCHEMA ' + quote(namespace) + ' TO ' + quote(name));
+      for (const sql of require('../lib/server/ordinary-deployment-grants').lifetimeGrants({namespaces: {control: ns.control}, roles: {reader: name}}, ['reader'])) await admin.query(sql);
+      for (const sql of native.servingGrants({namespace: ns.control, role: name})) await admin.query(sql);
+      if (kind === 'outbox') {
+        await admin.query('GRANT SELECT ON ' + quote(namespace) + '.schema_migrations TO ' + quote(name));
+        await admin.query('GRANT SELECT,INSERT,UPDATE(request_id,blocked_until) ON ' + quote(namespace) + '.tenant_notification_heads TO ' + quote(name));
+        await admin.query('GRANT SELECT,INSERT,UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at) ON ' + quote(namespace) + '.tenant_notification_requests TO ' + quote(name));
+        await admin.query('GRANT SELECT,INSERT,UPDATE(revision,config_identity,producer) ON ' + quote(namespace) + '.tenant_notification_state TO ' + quote(name));
+      } else await admin.query('GRANT SELECT ON ' + quote(namespace) + '.tenant_alarm_suppression,' + quote(namespace) + '.schema_migrations TO ' + quote(name));
+    }
     pool = new Pool({connectionString: urls[lifetime], max: 1});
     window = windows.create({namespace: ns.control, locks: [{tenant: A, key: '830009'}], pool, intakeProfile: selected});
     await window.ready();
     reader = new Client({connectionString: urls[role]}); await reader.connect();
+    const connect = require('../lib/storage/postgres-connection'), consumerReadiness = require('../lib/server/serve/evaluator-consumer-readiness');
+    outboxAdmission = client => require('../lib/tenant-notifications/readiness')(client, consumerNamespaces.outbox);
+    suppressionAdmission = client => consumerReadiness.suppression(client, consumerNamespaces.alarm, {operationWindow: window});
+    consumerOutbox = await connect({connectionString: consumerURIs.outbox, max: 1, operationWindow: window, admitBackend: outboxAdmission});
+    consumerAlarm = await connect({connectionString: consumerURIs.alarm, max: 1, operationWindow: window, admitBackend: suppressionAdmission});
+
   });
   after(async function () {
-    await reader?.end(); await window?.close(); await pool?.end();
+    await consumerOutbox?.end(); await consumerAlarm?.end(); await reader?.end(); await window?.close(); await pool?.end();
+    if (previousTenancyMode !== undefined) require('../lib/storage/tenant-scope').setTenancyMode(previousTenancyMode);
     if (admin) {
       try {
+        for (const database of createdDatabases) await admin.query('DROP DATABASE ' + quote(database));
         for (const namespace of [...createdSchemas].reverse()) await admin.query('DROP SCHEMA IF EXISTS ' + quote(namespace) + ' CASCADE');
         for (const name of [...createdRoles].reverse()) { await admin.query('DROP OWNED BY ' + quote(name)); await admin.query('DROP ROLE ' + quote(name)); }
       } finally { await admin.end(); }
@@ -118,6 +144,62 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     try { await assert.rejects(check(), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'}); }
     finally { await admin.query('ALTER TABLE ' + table('control', 'tenant_lifecycle_recommission') + ' ALTER COLUMN activated SET DEFAULT false'); }
     await check();
+  });
+
+  async function operational() {
+    return require('../lib/server/serve/evaluator-consumer-readiness').operational(
+      {connection: consumerOutbox, namespace: consumerNamespaces.outbox, admission: outboxAdmission},
+      {connection: consumerAlarm, namespace: consumerNamespaces.alarm, admission: suppressionAdmission}, window);
+  }
+  it('operational verification reuses the actual consumer ports and their bound physical screens', async function () {
+    await operational();
+    await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness({...consumerAlarm}, window, suppressionAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'});
+    await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness(consumerAlarm, {...window}, suppressionAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'});
+    await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness(consumerAlarm, window, outboxAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'});
+    const otherPool = new Pool({connectionString: pool.options.connectionString, max: 1});
+    const otherWindow = windows.create({namespace: ns.control, locks: [{tenant: A, key: '830009'}], pool: otherPool, intakeProfile: selected});
+    try { await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness(consumerAlarm, otherWindow, suppressionAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'}); }
+    finally { await otherWindow.close(); await otherPool.end(); }
+    const closedPort = await require('../lib/storage/postgres-connection')({connectionString: consumerURIs.alarm, max: 1, operationWindow: window, admitBackend: suppressionAdmission});
+    await closedPort.end();
+    await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness(closedPort, window, suppressionAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'});
+    const unselected = await require('../lib/storage/postgres-connection')({connectionString: consumerURIs.alarm, max: 1});
+    try { await assert.rejects(require('../lib/storage/postgres-connection').verifyReadiness(unselected, window, suppressionAdmission), {code: 'POSTGRES_READINESS_PORT_REQUIRED'}); }
+    finally { await unselected.end(); }
+    await assert.rejects(require('../lib/storage/tenant-scope').withTenant(A, () => require('../lib/storage/postgres-connection').verifyReadiness(consumerAlarm, window, suppressionAdmission)), /idle tenant scope/);
+    const foreignDatabase = prefix + '_foreign';
+    await admin.query('CREATE DATABASE ' + quote(foreignDatabase)); createdDatabases.push(foreignDatabase);
+    const foreignURI = new URL(consumerURIs.alarm); foreignURI.pathname = '/' + foreignDatabase;
+    await assert.rejects(require('../lib/storage/postgres-connection')({connectionString: foreignURI.toString(), max: 1, operationWindow: window, admitBackend: suppressionAdmission}), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
+    await operational();
+  });
+  it('rechecks consumer schema and grants after cached physical admission, then restores', async function () {
+    await operational();
+    const alarmTable = quote(consumerNamespaces.alarm) + '.tenant_alarm_suppression';
+    await admin.query('REVOKE SELECT ON ' + alarmTable + ' FROM ' + quote(consumerRoles.alarm));
+    try { await assert.rejects(operational(), /EVALUATOR_CONSUMER_READINESS_REFUSED/); }
+    finally { await admin.query('GRANT SELECT ON ' + alarmTable + ' TO ' + quote(consumerRoles.alarm)); }
+    await operational();
+    await admin.query('GRANT SELECT(value) ON ' + table('unrelated', 'private_rows') + ' TO ' + quote(consumerRoles.alarm));
+    try { await assert.rejects(operational(), /EVALUATOR_CONSUMER_READINESS_REFUSED/); }
+    finally { await admin.query('REVOKE SELECT(value) ON ' + table('unrelated', 'private_rows') + ' FROM ' + quote(consumerRoles.alarm)); }
+    await operational();
+    await admin.query('GRANT SELECT(claim_id) ON ' + table('control', 'tenant_lifecycle_recommission') + ' TO ' + quote(consumerRoles.alarm));
+    try { await assert.rejects(operational(), {code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'}); }
+    finally { await admin.query('REVOKE SELECT(claim_id) ON ' + table('control', 'tenant_lifecycle_recommission') + ' FROM ' + quote(consumerRoles.alarm)); }
+    await operational();
+  });
+  it('verifies the actual held max-one consumer backend without another checkout', async function () {
+    const owner = await consumerOutbox.holdAdvisoryLock('82345001');
+    try {
+      await operational(); assert.equal(owner.available, true); await owner.check();
+      const heads = quote(consumerNamespaces.outbox) + '.tenant_notification_heads';
+      await admin.query('REVOKE SELECT ON ' + heads + ' FROM ' + quote(consumerRoles.outbox));
+      try { await assert.rejects(operational(), /NOTIFICATION_SCHEMA_UNSAFE/); }
+      finally { await admin.query('GRANT SELECT ON ' + heads + ' TO ' + quote(consumerRoles.outbox)); }
+      assert.equal(owner.available, false, 'failed structural admission invalidates the actual held owner');
+    } finally { await owner.close(); }
+    await operational();
   });
 
 });

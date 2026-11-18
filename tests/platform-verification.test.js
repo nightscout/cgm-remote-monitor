@@ -151,6 +151,85 @@ native('Native PostgreSQL admin verification state', function () {
     } finally { operationProfileDigest = undefined; await service.verify(); }
     await platform.admit(config, 'api');
   });
+  it('keeps all serving admission paths bound to the actual selected operation window', async function () {
+    const windows = require('../lib/tenant-lifecycle/operation-window');
+    const domains = require('../lib/server/serve/postgres-domains');
+    const clinical = require('../lib/server/serve/evaluator-readiness');
+    const makeWindow = generation => windows.create({ namespace: schema, lockRule: 'tenant-id-sha256-v1',
+      pool: { options: { max: 1 }, connect: async () => { throw new Error('This certificate fixture never opens lifecycle sessions'); } },
+      ...(generation ? { intakeProfile: require('../lib/tenant-lifecycle/native-selection').create({
+        namespace: prefix + '_checkpoint', lifecycleNamespace: schema, consumer: 'evaluator-synthetic', generation,
+        source: { system_id: '123456789', timeline: 1, database: 'synthetic', slot: 'synthetic_slot' }
+      }) } : {}) });
+    const selected = makeWindow('selected_generation'), foreign = makeWindow('foreign_generation'), legacy = makeWindow();
+    const connection = { withTenant: async () => { assert.fail('Platform admission must not repeat clinical schema inspection'); } };
+    const component = (file, before, after) => {
+      const filename = require.resolve(file), source = require('node:fs').readFileSync(filename, 'utf8');
+      assert(source.includes(before));
+      const value = { exports: {} };
+      require('node:vm').runInThisContext('(function(require,module,exports){' + source.replace(before, after) + '\n})', { filename })(require('node:module').createRequire(filename), value, value.exports);
+      return value.exports;
+    };
+    const check = async (role, own, implementation = role === 'api' ? domains : clinical) => {
+      const value = { ...config, bindings: new Map(), platformVerification: { namespace: schema, role } };
+      if (role === 'api') {
+        await implementation.readiness(value, { operationWindow: own });
+        const startup = await implementation.assertServing(value, connection, { operationWindow: own, warm: false });
+        await startup.close();
+      } else await implementation(value, { operationWindow: own });
+    };
+    try {
+      for (const role of platform.ROLES) {
+        const roleConfig = { ...config, platformVerification: { namespace: schema, role } };
+        let selectedDigest = selected.intakeProfileDigest;
+        const issuer = platform.create({ namespace: schema, connectionString: writerUrl,
+          targets: [{ role, config: roleConfig, get operationProfileDigest () { return selectedDigest; }, check: target.check }] });
+        try {
+          await issuer.verify();
+          const guard = await platform.guard(roleConfig, role, { operationProfileDigest: selected.intakeProfileDigest });
+          try { assert.equal(guard.ready(), true); } finally { await guard.close(); }
+          // This call fails on the original source although the outer guard admitted the same certificate.
+          await check(role, selected);
+          await assert.rejects(check(role, undefined), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          await assert.rejects(check(role, foreign), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          await assert.rejects(check(role, { intakeProfileDigest: selected.intakeProfileDigest }), { code: 'PLATFORM_VERIFICATION_CONFIG' });
+          if (role === 'api') {
+            const wrong = component('../lib/server/serve/postgres-domains',
+              "platform.admit(config, 'api', platform.operationProfileDigest(operationWindow))",
+              "platform.admit(config, 'api')");
+            await assert.rejects(check(role, selected, wrong), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+            const wrongServing = component('../lib/server/serve/postgres-domains',
+              "await platform.admit(config, 'api', platform.operationProfileDigest(operationWindow))",
+              "await platform.admit(config, 'api')");
+            await wrongServing.readiness({ ...roleConfig, bindings: new Map() }, { operationWindow: selected });
+            await assert.rejects(wrongServing.assertServing({ ...roleConfig, bindings: new Map() }, connection,
+              { operationWindow: selected, warm: false }), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          } else {
+            const wrong = component('../lib/server/serve/evaluator-readiness',
+              'platform.admit(config, config.platformVerification.role, platform.operationProfileDigest(options.operationWindow))',
+              'platform.admit(config, config.platformVerification.role)');
+            await assert.rejects(check(role, selected, wrong), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          }
+          await check(role, selected);
+          await issuer.invalidate();
+          await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          await issuer.verify(); await check(role, selected);
+          await admin.query('UPDATE ' + quote(schema) + ".verified_role SET expires_at=clock_timestamp()-interval '1 second' WHERE role=$1", [role]);
+          await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+          await issuer.verify(); await check(role, selected);
+          selectedDigest = undefined; await issuer.verify();
+          await check(role, undefined); await check(role, legacy);
+          await assert.rejects(check(role, selected), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
+        } finally { await issuer.close(); }
+      }
+      await selected.close();
+      assert.throws(() => platform.operationProfileDigest(selected), { code: 'PLATFORM_VERIFICATION_CONFIG' });
+    } finally {
+      await Promise.all([selected.close(), foreign.close(), legacy.close()]);
+      operationProfileDigest = undefined; await service.verify();
+    }
+  });
+
   it('refuses expired verification until an admin refresh', async function () {
     await admin.query('UPDATE ' + quote(schema) + ".verified_role SET expires_at=clock_timestamp()-interval '1 second'");
     await assert.rejects(platform.admit(config, 'api'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });

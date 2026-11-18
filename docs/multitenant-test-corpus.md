@@ -66,13 +66,13 @@ themselves.
 
 ## Inventory
 
-94 suites. 54 use the admin URI the script provides; 53 start at least one
-container of their own through Docker. Disabled, 93 register their
-tests as pending with `[pending opt-in: <requirement>]` in the title; one
-(`postgres-entries-write`) uses a bare `describe.skip`.
+Use `npm run test:multitenant -- --list` for the current inventory, enabling flags
+and service ownership. The script validates every opt-in test file against that
+inventory before starting a resource.
 
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
+| `tests/native-operation-control-readiness.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | source-selected native control reads, exact consumer-port operational re-admission, refreshed grants and held-backend controls |
 | `tests/clinical-working-set.integration.test.js` | `NS_CLINICAL_WINDOW_TEST=1` | PostgreSQL | | bounded historical bootstrap, actual engine parity, settings expansion, expiry and warm-read refusal; also supports an explicit owned `CLINICAL_WINDOW_PG_SOCKET` |
 | `tests/storage-event.integration.test.js` | `NS_CLINICAL_WINDOW_TEST=1` | PostgreSQL with pinned wal2json image | | FULL old identity/TOAST, equal-LSN COPY, durable acceptance, raw tail and populated migration; also supports the explicit owned socket |
 | `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded typed bootstrap receipts preserve completed/output/due/pending state |

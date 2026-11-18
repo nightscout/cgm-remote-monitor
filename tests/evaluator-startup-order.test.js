@@ -45,7 +45,7 @@ function fixture({assignedTenants,startupError,platformVerification=false,future
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
   './evaluator-readiness':readiness,
-  './platform-verification':{guard:async()=>({ready:()=>true,verify:async()=>{},health:()=>({ready:true}),close:async()=>{}})},
+  './platform-verification':{operationProfileDigest:require('../lib/server/serve/platform-verification').operationProfileDigest,guard:async()=>({ready:()=>true,verify:async()=>{},health:()=>({ready:true}),close:async()=>{}})},
   '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
   './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
   '../../trusted-worker/postgres':{create:()=>reader},

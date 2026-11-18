@@ -103,7 +103,7 @@ describe('selected actual database consumer readiness protocols', function () {
   });
   it('screens the selected suppression snapshot role table policy shape and exact read-only catalogue', async function () {
     const migration = require('../migrations/candidates/postgres-alarm-suppression-v1.json').migrations[0];
-    const template = { kind: 'r', persistence: 'p', secured: true,
+    const template = { kind: 'r', persistence: 'p', reads: true, secured: true,
       columns: [['tenant_id', 'uuid', true], ['alarm_group', 'text', true], ['alarm_level', 'integer', true], ['acked_at', 'bigint', true], ['expires_at', 'bigint', true]],
       primary_key: ['tenant_id', 'alarm_group', 'alarm_level'], policies: [{ command: '*', roles: [0], permissive: true,
         using: "tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid", check: "tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid" }] };
@@ -113,7 +113,7 @@ describe('selected actual database consumer readiness protocols', function () {
       return { rows: flags.history || [{ name: migration.name, checksum: migration.checksum }] };
     } });
     await readiness.suppression(db({}), 'alarm_test');
-    for (const flags of [{ unrelated: true }, { creates: true }, { operator: true }, { shape: { secured: false } },
+    for (const flags of [{ unrelated: true }, { creates: true }, { operator: true }, { shape: { secured: false } }, { shape: { reads: false } },
       { shape: { policies: [] } }, { shape: { primary_key: ['alarm_group'] } }, { shape: { columns: [] } }, { history: [] }]) {
       await assert.rejects(readiness.suppression(db(flags), 'alarm_test'), /READINESS_REFUSED/, 'EVALUATOR_CONSUMER_SUPPRESSION_SCOPE');
     }

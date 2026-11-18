@@ -36,7 +36,7 @@ function apiBoot ({ display, verified = false, transform } = {}) {
   let verificationReady = true;
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
-    './platform-verification': {guard:async()=>({ready:()=>verificationReady,health:()=>({ready:verificationReady}),verify:async()=>{},close:async()=>{}})},
+    './platform-verification': {operationProfileDigest:require('../lib/server/serve/platform-verification').operationProfileDigest,guard:async()=>({ready:()=>verificationReady,health:()=>({ready:verificationReady}),verify:async()=>{},close:async()=>{}})},
     ...(display ? { '../../tenant-settings/presentation-reader': () => display } : {}),
     '../../storage/postgres-connection': async () => resource(),
     '../../secrets/legacy-postgres': async () => resource({ read: async tenant => tenant === BROKEN ? null : { reference: { id: 'synthetic' } } }),
