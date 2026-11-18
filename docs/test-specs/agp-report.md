@@ -67,6 +67,8 @@ page entries and prevent unused D3 subsystems from returning.
 
 Static AGP, daily and weekly presentation styles live in `static/css/report.css`
 rather than JavaScript strings. Modern refinements remain in `modern-reports.css`.
+All report colours are custom properties defined in `static/css/report-colors.css`
+(light theme) and in the `:root` blocks of `static/css/report-dark.css` (dark theme).
 
 The final Modern chart, combined hover and compact treatment-table refinements
 measure 61,032 reports / 425,675 total JavaScript gzip bytes after extracting

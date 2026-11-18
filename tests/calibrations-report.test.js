@@ -101,9 +101,13 @@ describe('Calibrations report matching and selection', function () {
       assert.deepEqual(rawValues(), ['58000']);
       assert.equal(env.document.querySelectorAll('.calibrations-curve').length, 1);
       assert.equal(env.document.querySelectorAll('.calibrations-point').length, 1);
-      assert.ok(Math.abs(Number(env.document.querySelector('.calibrations-point').getAttribute('cx')) - (90 + 120 / 500 * 490)) < 1e-8);
-      assert.ok(Math.abs(Number(env.document.querySelector('.calibrations-curve').getAttribute('x1')) - (90 + 50 / 500 * 490)) < 1e-8);
+      // Coordinates are rounded to whole pixels by the chart scales.
+      assert.equal(Number(env.document.querySelector('.calibrations-point').getAttribute('cx')), 90 + Math.round(120 / 500 * 490));
+      assert.equal(Number(env.document.querySelector('.calibrations-curve').getAttribute('x1')), 90 + Math.round(50 / 500 * 490));
       assert.ok(env.document.querySelector('.calibrations-event').textContent.includes('Sensor Start'));
+      const {fractionalCoordinates, stylingAttributes} = require('./fixtures/svg-coordinates');
+      assert.deepEqual(fractionalCoordinates(env.document), []);
+      assert.deepEqual(stylingAttributes(env.document), []);
       assert.equal(JSON.stringify(data), original);
     });
   }

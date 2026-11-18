@@ -15,8 +15,9 @@ const WIDTH = 800;
 const PADDING_LEFT = 35;
 const PLOT_WIDTH = WIDTH - PADDING_LEFT - 22;
 
+// The chart scales round to whole pixels, so expected positions do too.
 function xAt (day, hours) {
-  return PADDING_LEFT + hours * HOUR / LAST_READING * PLOT_WIDTH;
+  return PADDING_LEFT + Math.round(hours * HOUR / LAST_READING * PLOT_WIDTH);
 }
 
 function event (eventType, day, hours, minutes, fields) {
@@ -116,8 +117,13 @@ describe('day-to-day report: events with a duration', function () {
     assert.match(paths[0].getAttribute('d'), /C/, 'uses a smooth trend curve');
     assert.deepEqual(paths.map(path => path.__data__.points.map(point => point.mills)),
       [[0, 5, 10], [30, 35]].map(minutes => minutes.map(minute => START[DAY1] + minute * 60000)));
-    assert.ok(paths.every(path => path.getAttribute('stroke') === '#348165'));
+    assert.ok(paths.every(path => path.classList.contains('glucose-in-range')), 'in-range runs use the in-range stroke class');
     assert.ok(paths.every(path => path.__data__.points.every(point => point.reading.type === 'sgv')));
+    paths.forEach(path => assert.doesNotMatch(path.getAttribute('d'), /\.\d/, 'path data uses whole pixels'));
+    const circles = Array.from(env.document.querySelectorAll('#daytodaychart-' + DAY1 + ' circle[cx]'));
+    assert.ok(circles.length > 0);
+    circles.forEach(circle => ['cx', 'cy'].forEach(name =>
+      assert.ok(Number.isInteger(Number(circle.getAttribute(name))), name + ' is a whole pixel: ' + circle.getAttribute(name))));
   });
 
   for (const units of ['mg/dl', 'mmol']) {
@@ -130,10 +136,10 @@ describe('day-to-day report: events with a duration', function () {
       assert.equal(tooltip.querySelector('.daily-tooltip-glucose strong').textContent, value + (units === 'mmol' ? ' mmol/L' : ' mg/dL'));
       assert.ok(tooltip.textContent.includes('00:05'));
       assert.equal(tooltip.style.display, 'block');
-      assert.equal(sample.getAttribute('fill'), '#fff');
+      assert.ok(sample.classList.contains('is-highlighted'));
       sample.dispatchEvent(new env.window.MouseEvent('mouseout', {bubbles: true}));
       assert.equal(tooltip.style.display, 'none');
-      assert.equal(sample.getAttribute('fill'), 'transparent');
+      assert.ok(!sample.classList.contains('is-highlighted'));
     });
   }
 
@@ -146,16 +152,15 @@ describe('day-to-day report: events with a duration', function () {
         render([DAY1], [], options, readings);
         const samples = Array.from(env.document.querySelectorAll('.daytoday-glucose-sample'));
         function assertInvisible (sample) {
-          assert.equal(sample.getAttribute('fill'), 'transparent');
-          assert.equal(Number(sample.getAttribute('stroke-width')), 0);
-          assert.equal(Number(sample.getAttribute('r')), 6, 'retains the larger hover target');
+          // is-connected draws a transparent, unoutlined, larger hover target.
+          assert.ok(sample.classList.contains('is-connected'), 'connected samples are hidden hover targets');
+          assert.ok(!sample.classList.contains('is-highlighted'));
         }
         samples.forEach(assertInvisible);
 
         const sample = samples[1];
         sample.dispatchEvent(new env.window.MouseEvent('mouseover', {bubbles: true, clientX: 200, clientY: 100}));
-        assert.equal(sample.getAttribute('fill'), '#fff');
-        assert.ok(Number(sample.getAttribute('stroke-width')) > 0, 'the selected reading remains highlighted');
+        assert.ok(sample.classList.contains('is-highlighted'), 'the selected reading remains highlighted');
         const tooltip = env.document.querySelector('.daytoday-reading-tooltip');
         assert.equal(tooltip.style.display, 'block');
         assert.equal(tooltip.querySelector('.daily-tooltip-glucose strong').textContent, '121 mg/dL');
@@ -177,12 +182,18 @@ describe('day-to-day report: events with a duration', function () {
         sensor(15, 130, {type: 'rawbg', color: 'gray'}), sensor(20, 125, {type: 'mbg', color: 'red'})
       ]);
       const markers = Array.from(env.document.querySelectorAll('#daytodaychart-' + DAY1 + ' circle'));
-      for (const [type, fill, strokeWidth] of [['sgv', 'green', 1], ['rawbg', 'gray', 0], ['mbg', 'red', 2]]) {
+      // Fill and outline follow the classes: in-range glucose, raw and meter colours;
+      // outline width has-openaps 1, is-mbg 2, otherwise none.
+      for (const [type, fill, outline] of [['sgv', 'glucose-in-range', 'has-openaps'], ['rawbg', 'is-raw', null], ['mbg', 'is-mbg', 'is-mbg']]) {
         const marker = markers.find(node => node.__data__ && node.__data__.type === type &&
           (type !== 'sgv' || node.__data__.openaps));
         assert.ok(marker, type + ' marker exists');
-        assert.equal(marker.getAttribute('fill'), fill);
-        assert.equal(Number(marker.getAttribute('stroke-width')), strokeWidth);
+        assert.ok(marker.classList.contains(fill), type + ' marker ' + fill);
+        assert.ok(!marker.classList.contains('is-connected'), type + ' marker is not a hidden hover target');
+        assert.ok(!marker.classList.contains('is-concealed'), type + ' marker is drawn');
+        for (const name of ['has-openaps', 'is-mbg']) {
+          assert.equal(marker.classList.contains(name), name === outline, type + ' marker ' + name);
+        }
       }
     });
   }
@@ -200,7 +211,7 @@ describe('day-to-day report: events with a duration', function () {
       assert.equal(tooltip.querySelector('.daily-tooltip-glucose strong').textContent, values[1] + (units === 'mmol' ? ' mmol/L' : ' mg/dL'));
       assert.ok(tooltip.textContent.includes('00:05'));
       assert.equal(focus.style.display, '');
-      assert.equal(Number(focus.querySelector('circle').getAttribute('cx')), PADDING_LEFT + PLOT_WIDTH / 2);
+      assert.equal(Number(focus.querySelector('circle').getAttribute('cx')), PADDING_LEFT + Math.round(PLOT_WIDTH / 2));
       svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: PADDING_LEFT + PLOT_WIDTH * .85, clientY: 25}));
       assert.ok(tooltip.textContent.includes('00:10'), 'moves to the nearest sample by time');
       svg.dispatchEvent(new env.window.MouseEvent('mouseleave'));
@@ -284,6 +295,61 @@ describe('day-to-day report: events with a duration', function () {
     });
   }
 
+  for (const theme of ['default', 'modern']) {
+    it('keeps each day\'s chart and insulin distribution together and scalable for printing in ' + theme, function () {
+      render([DAY1, DAY2], [], {theme, insulindistribution: true});
+      const cards = env.document.querySelectorAll('#daytodaycharts > table.daily-report-card.single-page');
+      assert.equal(cards.length, 2, 'one print unit per day');
+      cards.forEach(card => {
+        assert.ok(card.querySelector('svg.daily-chart-svg'), 'chart inside the print unit');
+        assert.ok(card.querySelector('.daily-insulin-card'), 'insulin distribution inside the print unit');
+      });
+      env.document.querySelectorAll('svg.daily-chart-svg').forEach(svg => {
+        assert.equal(svg.getAttribute('viewBox'), '0 0 ' + svg.getAttribute('width') + ' ' + svg.getAttribute('height'),
+          'the viewBox lets the chart shrink to the page width');
+      });
+      const averages = Array.from(env.document.querySelectorAll('#daytodaycharts > .no-print')).filter(node => /TDD average/.test(node.textContent));
+      assert.equal(averages.length, 1, 'the averages across days are not printed');
+    });
+
+    it('positions every chart coordinate on whole pixels and styles only through classes in ' + theme, function () {
+      const {fractionalCoordinates, stylingAttributes} = require('./fixtures/svg-coordinates');
+      render([DAY1], [
+        event('Meal Bolus', DAY1, 4 / 60, 0, {insulin: 2, carbs: 25}),
+        event('Temp Basal', DAY1, 8 / 60, 30, {absolute: 0}),
+        event('Exercise', DAY1, 3.3, 47, {notes: 'Walk'}),
+        event('Note', DAY1, 7.7, 0, {notes: 'Note'}),
+        event('BG Check', DAY1, 9.1, 0, {glucose: 140})
+      ], {theme, basal: true, insulin: true, carbs: true, bgcheck: true, raw: true, openAps: true},
+      [sensor(0, 101), sensor(5, 123), sensor(10, 147), sensor(17, 139, {type: 'rawbg', color: 'gray'}), sensor(23, 131, {type: 'mbg', color: 'red'})]);
+      const svg = env.document.querySelector('#daytodaychart-' + DAY1 + ' svg');
+      svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 123.4, clientY: 60.7}));
+      assert.deepEqual(fractionalCoordinates(env.document), []);
+      assert.deepEqual(stylingAttributes(env.document), []);
+      const tooltip = env.document.querySelector('.daytoday-reading-tooltip');
+      for (const side of ['left', 'top']) {
+        assert.ok(Number.isInteger(Number.parseFloat(tooltip.style[side])), 'tooltip ' + side + ' ' + tooltip.style[side]);
+      }
+    });
+  }
+
+  it('marks the report controls as screen only and defines the print rules', function () {
+    const plugin = require('../lib/report_plugins/daytoday')();
+    const markup = env.document.createElement('div');
+    markup.innerHTML = plugin.html({
+      translate: value => value
+    });
+    for (const selector of ['h2', '.daily-report-hint', '.daily-display-controls']) {
+      assert.ok(markup.querySelector(selector).classList.contains('no-print'), selector + ' is hidden when printing');
+    }
+    const css = require('fs').readFileSync(require('path').join(__dirname, '../static/css/report.css'), 'utf8');
+    const print = css.slice(css.indexOf('@media print {\n  html, body'));
+    assert.match(css, /@page \{ size: landscape; \}/);
+    assert.match(print, /\.no-print, \.no-print \*/);
+    assert.match(print, /\.single-page, \.single-page tr \{ break-inside: avoid/);
+    assert.match(print, /\.daily-chart-svg \{ max-width: 100%; height: auto; \}/);
+  });
+
   it('selects the new basal rate at a rate boundary and displays suspension as zero', function () {
     for (const basalRate of [undefined, 0]) {
       render([DAY1], [], {basal: true, basalRate}, [sensor(0), sensor(720), sensor(1435)]);
@@ -309,12 +375,29 @@ describe('day-to-day report: events with a duration', function () {
     assert.equal(tooltip.querySelector('.daily-tooltip-basal strong').textContent, '0.5 U/h');
   });
 
+  it('keeps the hover tooltip inside each day\'s chart container and does not add more on every run', function () {
+    const readings = [sensor(0), sensor(5), sensor(10)];
+    render([DAY1, DAY2], [], {}, readings);
+    render([DAY1, DAY2], [], {}, readings);
+    const tooltips = env.document.querySelectorAll('.tooltip');
+    const own = Array.from(tooltips).filter(node => node.parentNode.id.startsWith('daytodaychart-'));
+    assert.equal(own.length, 2, 'one tooltip per day, inside its chart container');
+    assert.deepEqual(own.map(node => node.parentNode.id).sort(), ['daytodaychart-' + DAY1, 'daytodaychart-' + DAY2].sort());
+    const svg = env.document.querySelector('#daytodaychart-' + DAY1 + ' svg');
+    svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 200, clientY: 100}));
+    const shown = env.document.querySelectorAll('.daytoday-reading-tooltip');
+    assert.equal(shown.length, 1);
+    assert.equal(shown[0].parentNode.id, 'daytodaychart-' + DAY1);
+    svg.dispatchEvent(new env.window.MouseEvent('mouseleave'));
+    assert.equal(env.document.querySelectorAll('.daytoday-reading-tooltip').length, 0);
+  });
+
   it('keeps tooltip height fixed while following horizontal pointer movement', function () {
     render([DAY1], [], {theme: 'modern', basal: true}, [sensor(0), sensor(5), sensor(10)]);
     const svg = env.document.querySelector('#daytodaychart-' + DAY1 + ' svg');
     svg.getBoundingClientRect = () => ({left: 0, top: 100});
     Object.defineProperty(env.document.documentElement, 'clientWidth', {configurable: true, value: 1200});
-    const tooltip = env.window.Nightscout.client.tooltip.node();
+    const tooltip = env.document.querySelector('#daytodaychart-' + DAY1 + ' > .tooltip');
     let height = 100;
     tooltip.getBoundingClientRect = () => ({width: 240, height});
     svg.dispatchEvent(new env.window.MouseEvent('mousemove', {bubbles: true, clientX: 300, clientY: 160}));
@@ -336,10 +419,9 @@ describe('day-to-day report: events with a duration', function () {
 
   function bands (day) {
     const svg = env.document.querySelector('#daytodaychart-' + day + ' svg');
-    return Array.from(svg.querySelectorAll('rect'))
-      .filter(rect => rect.getAttribute('opacity') === '0.2')
+    return Array.from(svg.querySelectorAll('rect.daily-duration-band'))
       .map(rect => ({
-        fill: rect.getAttribute('fill')
+        kind: Array.from(rect.classList).find(name => name !== 'daily-duration-band').replace('daily-duration-', '')
         , x: Number(rect.getAttribute('x'))
         , end: Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'))
       }));
@@ -381,10 +463,10 @@ describe('day-to-day report: events with a duration', function () {
     ], { othertreatments: true });
 
     const drawn = bands(DAY2);
-    assert.deepEqual(drawn.map(band => band.fill), ['black', 'Salmon', 'Brown', 'black']);
+    assert.deepEqual(drawn.map(band => band.kind), ['override', 'note', 'offline', 'other']);
     drawn.forEach(function (band) {
-      assertNear(band.x, xAt(DAY2, 0), band.fill + ' band starts at midnight');
-      assertNear(band.end, xAt(DAY2, 2), band.fill + ' band ends when the event ends');
+      assertNear(band.x, xAt(DAY2, 0), band.kind + ' band starts at midnight');
+      assertNear(band.end, xAt(DAY2, 2), band.kind + ' band ends when the event ends');
     });
     ['Override', 'Note', 'Offline', 'Target'].forEach(function (text) {
       assertNear(label(DAY2, text), xAt(DAY2, 1), text + ' label centred on 00:00 to 02:00');
@@ -401,7 +483,7 @@ describe('day-to-day report: events with a duration', function () {
       , event('Carb Correction', DAY1, 22, 240, { carbs: 20 })
     ], { notes: false, othertreatments: true });
 
-    assert.deepEqual(bands(DAY1).map(band => band.fill), ['Violet']);
+    assert.deepEqual(bands(DAY1).map(band => band.kind), ['exercise']);
     assertNear(bands(DAY1)[0].x, xAt(DAY1, 14), 'same-day band start');
     assertNear(bands(DAY1)[0].end, xAt(DAY1, 15), 'same-day band end');
     assertNear(label(DAY1, 'Same day'), xAt(DAY1, 14.5), 'same-day label');

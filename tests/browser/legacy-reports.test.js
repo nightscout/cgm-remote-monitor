@@ -24,7 +24,7 @@ describe('legacy reports in a real browser', function () {
     const root = process.env.NIGHTSCOUT_REPORT_REFERENCE_ROOT || path.resolve(__dirname, '../..');
     const file = path.join(root, 'views/reportindex.html');
     markup = ejs.render(fs.readFileSync(file, 'utf8'), {type: 'reports', title: '', bundle: '/bundle', settings: require('../fixtures/default-server-settings').settings}, {filename: file});
-    const cssNames = ['main', 'drawer', 'report', 'dropdown', 'ui-lightness/jquery-ui.min'];
+    const cssNames = ['main', 'drawer', 'report-colors', 'report', 'dropdown', 'ui-lightness/jquery-ui.min'];
     const css = new Map(cssNames.map(name => ['/css/' + name + '.css', fs.readFileSync(path.join(root, 'static/css', name + '.css'), 'utf8')
       .split('\n').filter(line => ![
         "@import url('https://fonts.googleapis.com/css?family=Ubuntu:400,700');",
@@ -773,7 +773,7 @@ describe('legacy reports in a real browser', function () {
       await page.locator('#weektoweek').click();
       for (const scale of ['wrp_log', 'wrp_linear']) {
         await page.locator('#' + scale).check(); await show(page);
-        const colors = await page.locator('#weektoweek-placeholder circle[cx][cy]').evaluateAll(nodes => nodes.filter(node => node.__data__.type === 'sgv').map(node => node.getAttribute('fill')));
+        const colors = await page.locator('#weektoweek-placeholder circle[cx][cy]').evaluateAll(nodes => nodes.filter(node => node.__data__.type === 'sgv').map(node => getComputedStyle(node).fill));
         assert.equal(colors.length, 16);
         for (const color of ['31, 119, 180', '255, 127, 14', '44, 160, 44', '214, 39, 40', '148, 103, 189', '140, 86, 75', '23, 190, 207']) assert.ok(colors.includes('rgb(' + color + ')'));
       }
