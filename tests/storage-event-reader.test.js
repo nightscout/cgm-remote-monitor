@@ -45,26 +45,29 @@ describe('addressed raw journal reader and current-worker fence',()=>{
   visit(tree);assert.equal(callbacks.length,1);assert.equal(callbacks[0].async,true);
   const body=evaluate.slice(callbacks[0].start,callbacks[0].end);
   const B='22222222-2222-4222-8222-222222222222',C='33333333-3333-4333-8333-333333333333',D='44444444-4444-4444-8444-444444444444',E='55555555-5555-4555-8555-555555555555';
-  async function criterion(callback,{reject=false}={}){
+  async function criterion(callback,{reject=false,assignment}={}){
    let committed,refused,calls=0;const wakes=[];
    const receipts=[{tenant:A,rawDeliveryPending:true,deliveryPending:false},{tenant:B,rawDeliveryPending:false,deliveryPending:true},
     {tenant:C,rawDeliveryPending:false,deliveryPending:false},{tenant:D},{tenant:E,rawDeliveryPending:true,deliveryPending:true}];
    const envelope={kind:'synthetic-complete-native-transaction'},options={source:'synthetic-source',maxTransactionRows:999,maxTransactionBytes:999};
    const replay={acceptTransaction:async(actual,selected)=>{
-    calls++;assert.equal(actual,envelope);assert.deepEqual(selected,{...options,maxTransactionRows:123,maxTransactionBytes:10000});
+    calls++;assert.equal(actual,envelope);assert.deepEqual(selected,{...options,maxTransactionRows:123,maxTransactionBytes:10000,slice:assignment&&{count:assignment.count,ordinal:assignment.ordinal}});
     return new Promise((resolve,rejection)=>{committed=resolve;refused=rejection;});
    }};
-   const accept=new Function('replay','outputWake','config','return '+callback)(replay,{wake:tenant=>wakes.push(tenant)},{pgstream:{transactionRows:123,receiver:{maxBytes:10000}}});
+   const accept=new Function('replay','outputWake','config','return '+callback)(replay,{wake:tenant=>wakes.push(tenant)},{pgstream:{transactionRows:123,receiver:{maxBytes:10000}},processAssignment:assignment});
    const accepting=accept(envelope,options);
    try{
     await Promise.resolve();assert.equal(calls,1);
+    if(!committed){await accepting;assert.fail('EXACT_DURABLE_ACCEPTANCE_PORT_REQUIRED');}
     assert.deepEqual(wakes,[],'RAW_DELIVERY_MUST_WAIT_FOR_COMMITTED_TRANSACTION');
     if(reject){const error=new Error('SYNTHETIC_DURABLE_ACCEPTANCE_REFUSED');refused(error);await assert.rejects(accepting,actual=>actual===error);assert.deepEqual(wakes,[],'REFUSED_TRANSACTION_MUST_NOT_WAKE');}
     else{committed(receipts);assert.equal(await accepting,receipts,'RETURN_EXACT_DURABLE_RECEIPTS');assert.deepEqual(wakes,[A,B,E],'ONLY_OWED_RECEIPT_TENANTS_MUST_WAKE');}
    }finally{if(committed)committed(receipts);await accepting.catch(()=>{});}
   }
   await criterion(body);await criterion(body,{reject:true});
+  await criterion(body,{assignment:{count:2,ordinal:1}});await criterion(body,{reject:true,assignment:{count:2,ordinal:1}});
   const mutations=[
+   ['dropped static assignment',',slice:config.processAssignment&&{count:config.processAssignment.count,ordinal:config.processAssignment.ordinal}',''],
    ['suppressed wake','outputWake.wake(receipt.tenant)','void receipt'],
    ['global wake','outputWake.wake(receipt.tenant)','outputWake.wake()'],
    ['wrong tenant','outputWake.wake(receipt.tenant)',"outputWake.wake('"+C+"')"],
@@ -74,8 +77,8 @@ describe('addressed raw journal reader and current-worker fence',()=>{
   ];
   for(const [label,needle,replacement]of mutations){
    assert.equal(body.split(needle).length,2,'CONTROL_APPLIES_EXACTLY_ONCE_'+label);
-   await assert.rejects(criterion(body.replace(needle,replacement)),error=>error.code==='ERR_ASSERTION',label+' must violate the semantic criterion');
-   await criterion(body);
+   await assert.rejects(criterion(body.replace(needle,replacement),{assignment:{count:2,ordinal:1}}),error=>error.code==='ERR_ASSERTION',label+' must violate the semantic criterion');
+   await criterion(body,{assignment:{count:2,ordinal:1}});
   }
  });
 
