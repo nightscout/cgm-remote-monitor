@@ -399,29 +399,6 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 2147483647
-            },
-            "partitionMetadata": {
-              "type": "object",
-              "required": [
-                "checkpointNamespace",
-                "membershipNamespace",
-                "lifecycleNamespace"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "checkpointNamespace": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$"
-                },
-                "membershipNamespace": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$"
-                },
-                "lifecycleNamespace": {
-                  "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$"
-                }
-              }
             }
           }
         }

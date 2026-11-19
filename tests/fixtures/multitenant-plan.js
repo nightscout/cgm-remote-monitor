@@ -153,7 +153,6 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
     membershipNamespace: named('intake_members'), lifecycleNamespace: ns.control, role: named('intake_writer'), operatorRole: named('intake_operator'),
     consumer: evaluator.consumer, codec: intake.binding.codec, generationDomain: intake.binding.generationDomain,
     sliceRule: require('../../lib/pool-membership/slice').RULE }) : intake;
-  evaluator.consumers.realtime.partitionMetadata = { checkpointNamespace: ns.eval_checkpoint, membershipNamespace: named('partition_members'), lifecycleNamespace: named('partition_lifecycle') };
   for (const operation of Object.values(docs.operations)) operation.intakeProfile = JSON.parse(JSON.stringify(selected));
   api.vault = { ...tokenVault }; api.resolution = { ...canonical }; env.api.NS_VAULT_TOKEN = 'synthetic-placeholder';
   realtime.unauthorizedDeadlineMs = 5000;

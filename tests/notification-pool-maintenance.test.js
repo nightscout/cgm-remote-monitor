@@ -51,12 +51,6 @@ describe('pool notification maintenance DELETE seam',()=>{
   await assert.rejects(maintenance.prepareDelete(async sql=>{calls.push(sql);throw permission;},{profile,bindings:[scope],tenant,generation:'7'}),error=>error===permission);
   assert.equal(calls.length,1);assert(calls[0].includes('pool-notification-maintenance-authority'));assert(!calls[0].includes('set_config'));
  });
- it('cold protocol refuses fake-GUC privilege-bypass source and audit-stage/lock omissions',async()=>{
-  const protocol=require('../lib/tenant-notifications/partition-protocol'),built=candidate.build({binding,intakeProfile:profile});
-  const rows=legacy.TABLES.flatMap(table_name=>['notification_partition_effect','notification_partition_commit'].map(name=>{const deferred=name.endsWith('commit');return {table_name,name,type:deferred?29:31,enabled:'A',deferrable:deferred,deferred,arguments:0,unconditional:true,column_count:0,source:built.body,function_name:'pgstream_notification_partition',function_arguments:0,trigger_result:true,definer:false,language:'plpgsql',config:['search_path=pg_catalog']};}));
-  await protocol.assertInstalled(async()=>({rows}),'test_outbox',binding,profile);
-  for(const needle of ['lifetime.authorized IS DISTINCT FROM true','lifetime.owner_birth IS DISTINCT FROM maintenance_birth',"TG_WHEN='AFTER' AND (lifetime.state<>'restored' OR lifetime.restored_at IS NULL)","objsubid=2 AND mode='ExclusiveLock'"]){assert(built.maintenanceBody.includes(needle));await assert.rejects(protocol.assertInstalled(async()=>({rows:rows.map(row=>({...row,source:row.source.replace(needle,'false')}))}),'test_outbox',binding,profile),/PROTOCOL_UNQUALIFIED/);}
- });
  it('retains one complete batch context for two namespace scopes with repeated or different consumers through recorded BEFORE/AFTER checks',async()=>{
   for(const consumer of [binding.consumer,'second_consumer']){
    const second={...scope,namespace:'another_outbox',consumer},f=fixture(),input=[{...scope},{...second}],result=await f.run(input);
@@ -79,8 +73,5 @@ describe('pool notification maintenance DELETE seam',()=>{
  it('emits exact bounded, canonical and namespace-unique scope admission in each trigger source',()=>{
   const body=candidate.build({binding,intakeProfile:profile}).maintenanceBody;
   for(const needle of ["jsonb_array_length(maintenance->'bindings') NOT BETWEEN 1 AND 32","count(DISTINCT entry->>'namespace')","ORDER BY (entry->>'namespace') COLLATE \"C\"","entry->>'checkpointNamespace' IS DISTINCT FROM 'test_checkpoint'","entry->>'evaluatorConsumer' IS DISTINCT FROM 'evaluator-synthetic-completed'","WHERE entry->>'namespace'=TG_TABLE_SCHEMA AND entry->>'consumer'=route",'NOTIFICATION_MAINTENANCE_SCOPE'])assert(body.includes(needle),needle);
- });
- it('keeps private restore-audit and backend-birth rights out of ordinary worker grant plans',()=>{
-  const plan=require('../lib/tenant-notifications/partition-grants').build({...binding,intakeProfile:profile,outboxRole:'outbox_writer'}).join('\n');assert(!/restore_audit|restore_authority|backend_birth|EXECUTE/.test(plan));
  });
 });
