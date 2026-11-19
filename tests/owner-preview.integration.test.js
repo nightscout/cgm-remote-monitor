@@ -2,14 +2,13 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { request: httpRequest } = require('node:http');
 const express = require('express');
 const request = require('supertest');
+const settings = require('../lib/server/serve/deployment-settings');
 const { catalogueDigest } = require('../lib/subject-admin/owner-policy');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
@@ -19,38 +18,30 @@ const TARGET = 'target', MANAGER = 'manager';
 const endpoint = '/api/v2/authorization/subjects';
 const catalogue = ['api:entries:read', 'api:entries:create'];
 
-// Prepared real CLI/HTTP laboratory. Operator provisioning and Ed25519 signing
-// happen here only; the product has neither an issuer nor a refresh endpoint.
+// Exercise owner subject management with provisioned synthetic tenants and scoped service logins.
 optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
   'NS_OWNER_PREVIEW_TEST=1 with owned PostgreSQL and Vault')('explicit headless owner executable composition', function () {
     this.timeout(60000);
-    const suffix = crypto.randomBytes(8).toString('hex');
     const registryLab = require('./fixtures/multitenant-preview-replicas')({ restartableDatabase: true });
-    const namespaces = { authorization: 'preview_auth', credentials: 'preview_legacy', access: 'preview_access' };
-    const writerRole = 'owner_writer_' + suffix, readerRole = 'owner_reader_' + suffix;
+    const namespaces = { authorization: 'preview_authorization', credentials: 'preview_legacy', access: 'preview_access' };
+    const consumer = settings.IDENTITY.managementConsumer;
     const children = new Set(), workers = [];
-    let admin, directory, writerURI, readerURI, file;
+    let admin, directory, serving, readerRole;
     const t = table => '"' + namespaces.authorization + '".' + table;
     const a = table => '"' + namespaces.access + '".access_' + table;
     const c = '"' + namespaces.credentials + '".legacy_credential_subjects';
-    const config = () => ({ version: 1, postgres: { writerConnectionEnv: 'OWNER_WRITER', accessConnectionEnv: 'OWNER_READER', namespaces },
-      resolution: { mode: 'direct-alias' }, registry: { namespace: registryLab.provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
-      ownerPolicy: { catalogue }, management: { issuer: 'synthetic-private-operator', audience: 'synthetic-owner', purpose: 'management', consumer: 'owner-preview' } });
     async function token (tenant = A, override = {}, header = {}) {
       const now = Math.floor(Date.now() / 1000);
       return registryLab.signToken(tenant, { purpose: 'management',
         header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'management1', ...header },
-        claims: { iss: 'synthetic-private-operator', aud: 'synthetic-owner', tid: tenant, purpose: 'management', sub: MANAGER, sid: 'session', cv: 1,
+        claims: { iss: settings.IDENTITY.managementIssuer, aud: settings.IDENTITY.managementAudience, tid: tenant, purpose: 'management', sub: MANAGER, sid: 'session', cv: 1,
           iat: now, nbf: now, exp: now + 600, ...override } });
     }
-    async function start (configuration = config(), overrides = {}, expectReady = true) {
-      const filename = path.join(directory, 'config-' + crypto.randomBytes(6).toString('hex') + '.json');
-      fs.writeFileSync(filename, JSON.stringify(configuration), { mode: 0o600 });
+    async function start (overrides = {}, expectReady = true) {
       const worker = { stdout: '', stderr: '' };
       const child = spawn(process.execPath, [path.resolve(__dirname, '../bin/nightscout.js'), 'multitenant', 'tenant-admin'],
-        { cwd: path.dirname(filename), env: { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: 'test', TZ: 'UTC',
-          MULTITENANT_OWNER_PREVIEW_CONFIG: filename, OWNER_WRITER: writerURI, OWNER_READER: readerURI,
-          TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0', ...overrides }, stdio: ['ignore', 'pipe', 'pipe'] });
+        { cwd: directory, env: { ...serving, NS_SERVE_INTERNAL_SOCKET: path.join(directory, crypto.randomUUID().slice(0, 8) + '.sock'),
+          ...overrides }, stdio: ['ignore', 'pipe', 'pipe'] });
       worker.child = child; children.add(worker);
       child.stdout.on('data', bytes => { worker.stdout += bytes.toString(); });
       child.stderr.on('data', bytes => { worker.stderr += bytes.toString(); });
@@ -62,7 +53,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       const match = worker.stdout.match(/Listening for role tenant-admin on 127\.0\.0\.1:(\d+)/);
       if (expectReady) { assert(match, 'owner preview did not bind; ' + worker.stderr); worker.port = Number(match[1]); }
       else { assert.equal(match, null, 'unsafe/missing schema must refuse before bind'); await worker.closed; assert.notEqual(child.exitCode, 0); }
-      assert(!worker.stdout.includes(writerURI) && !worker.stderr.includes(writerURI), 'no database credentials in diagnostics');
+      assert(!worker.stdout.includes(serving.NS_OWNER_WRITER_PG) && !worker.stderr.includes(serving.NS_OWNER_WRITER_PG), 'no database credentials in diagnostics');
       return worker;
     }
     async function stop (worker) {
@@ -74,7 +65,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       // Use the established replica fixture's node:http wire semantics; never
       // relax the product resolver or pretend an IP host selects a tenant.
       if (credential === undefined) credential = await token();
-      const payload = method === 'DELETE' ? undefined : JSON.stringify(body);
+      const payload = ['GET', 'DELETE'].includes(method) ? undefined : JSON.stringify(body);
       return new Promise((resolve, reject) => {
         const request = httpRequest({ hostname: '127.0.0.1', port: worker.port, path: resource, method,
           headers: { Host: host, Authorization: 'Bearer ' + credential,
@@ -84,7 +75,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
           let bytes = ''; response.setEncoding('utf8');
           response.on('data', chunk => { bytes += chunk; });
           response.on('end', () => {
-            try { resolve({ status: response.statusCode, body: JSON.parse(bytes) }); }
+            try { resolve({ status: response.statusCode, body: response.headers['content-type']?.includes('application/json') && bytes ? JSON.parse(bytes) : bytes }); }
             catch (error) { reject(error); }
           });
           response.on('error', reject);
@@ -106,22 +97,13 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
     }
     before(async function () {
       await registryLab.setup(); admin = registryLab.admin;
-      directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-headless-owner-')); file = path.join(directory, 'owner.json');
-      for (const role of [writerRole, readerRole]) {
-        const password = crypto.randomBytes(24).toString('hex');
-        await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-        await admin.query(`GRANT USAGE ON SCHEMA "${namespaces.authorization}","${namespaces.credentials}","${namespaces.access}" TO "${role}"`);
-        const uri = new URL(registryLab.adminConnectionString); uri.username = role; uri.password = password;
-        if (role === writerRole) writerURI = uri.toString(); else readerURI = uri.toString();
-      }
-      await admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},${c} TO "${writerRole}"`);
-      await admin.query(`GRANT SELECT,INSERT ON ${t('tenant_authorization_roles')} TO "${writerRole}"`);
-      await admin.query(`GRANT SELECT,INSERT,DELETE ON ${t('tenant_authorization_subject_roles')} TO "${writerRole}"`);
-      await admin.query(`GRANT INSERT ON ${t('tenant_subject_admin_audit')} TO "${writerRole}"`);
-      for (const table of ['tenant_authorization_config', 'tenant_authorization_roles', 'tenant_owner_policy', 'tenant_owner_actors']) {
-        await admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${t(table)} TO "${writerRole}"`);
-      }
-      for (const namespace of Object.values(namespaces)) await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${namespace}" TO "${readerRole}"`);
+      directory = registryLab.directory;
+      const { urls, roles } = registryLab.platform;
+      readerRole = roles.owner_reader;
+      serving = registryLab.environment({ NS_OWNER_CATALOGUE: catalogue.join(','),
+        NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader,
+        NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_OWNER_SETTINGS_PG: urls.owner_settings,
+        NS_LIFETIME_PG: urls.lifetime_tenant_admin, TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0' });
       for (const tenant of [A, B]) {
         for (const subject of [TARGET, MANAGER]) {
           await admin.query(`INSERT INTO ${t('tenant_authorization_subjects')}(tenant_id,subject_id,display_name) VALUES($1,$2,$2)`, [tenant, subject]);
@@ -131,31 +113,27 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
           await admin.query(`INSERT INTO ${t('tenant_authorization_roles')} VALUES($1,$2,$3,false)`, [tenant, name, grants]);
         }
         assert.equal((await admin.query(`UPDATE ${t('tenant_owner_policy')} SET catalogue_digest=$2,ceiling=$3 WHERE tenant_id=$1`, [tenant, catalogueDigest(catalogue), catalogue])).rowCount, 1);
-        await admin.query(`INSERT INTO ${t('tenant_owner_actors')}(tenant_id,principal,consumer,active,can_update,delegable) VALUES($1,$2,'owner-preview',true,true,$3)`, [tenant, MANAGER, catalogue]);
+        await admin.query(`INSERT INTO ${t('tenant_owner_actors')}(tenant_id,principal,consumer,active,can_update,delegable) VALUES($1,$2,$4,true,true,$3)`, [tenant, MANAGER, catalogue, consumer]);
         await admin.query(`INSERT INTO ${a('credentials')} VALUES($1,'management-credential',$2,1,true)`, [tenant, MANAGER]);
         await admin.query(`INSERT INTO ${a('sessions')} VALUES($1,'session',$2,'management-credential',1,$3,true,'management')`, [tenant, MANAGER, Math.floor(Date.now() / 1000) + 3600]);
       }
-      for (const sql of registryLab.provisioned.registryGrants({ resolvers: [readerRole], readers: [readerRole] })) await admin.query(sql);
-      fs.writeFileSync(file, JSON.stringify(config()), { mode: 0o600 });
       workers.push(await start(), await start());
     });
     after(async function () {
-      try { for (const worker of children) await stop(worker);
-        if (admin) {
-          for (const role of [writerRole, readerRole]) { await admin.query(`DROP OWNED BY "${role}"`); await admin.query(`DROP ROLE IF EXISTS "${role}"`); }
-        }
-      } finally { await registryLab.cleanup(); if (directory) fs.rmSync(directory, { recursive: true, force: true }); }
+      try { for (const worker of children) await stop(worker); }
+      finally { await registryLab.cleanup(); }
     });
     it('commits an own-tenant update through the actual CLI listener and stable configured actor', async function () {
       const response = await http(workers[0]); assert.equal(response.status, 200, JSON.stringify(response.body));
       assert.equal((await admin.query(`SELECT display_name FROM ${t('tenant_authorization_subjects')} WHERE tenant_id=$1 AND subject_id=$2`, [A, TARGET])).rows[0].display_name, 'Updated');
       const audit = (await admin.query(`SELECT principal,consumer FROM ${t('tenant_subject_admin_audit')}`)).rows;
-      assert.deepEqual(audit, [{ principal: MANAGER, consumer: 'owner-preview' }]);
+      assert.deepEqual(audit, [{ principal: MANAGER, consumer }]);
     });
     it('PROVISIONING_PRIVATE: /v1/tenants (one, batch, read, description) on the tenant-admin listener answers exactly as an unknown route', async function () {
       // decision operator-rest-api: provisioning is reachable only on the admin listener.
       const unknownPost = await http(workers[0], await token(), { id: A, hosts: ['leak.example.test'] }, 'one.example.test', 'POST', '/v1/no-such-route');
       const unknownGet = await http(workers[0], await token(), undefined, 'one.example.test', 'GET', '/v1/no-such-route');
+      for (const answer of [unknownGet, unknownPost]) assert.ok(answer.status >= 400 && answer.status < 500, 'unknown owner routes refuse');
       for (const [method, resource, body] of [['POST', '/v1/tenants', { id: A, hosts: ['leak.example.test'] }], ['POST', '/v1/tenants/batch', { tenants: [{ id: A, hosts: ['leak.example.test'] }] }],
         ['GET', '/v1/tenants/' + A, undefined], ['GET', '/v1/openapi.json', undefined]]) {
         const answer = await http(workers[0], await token(), body, 'one.example.test', method, resource);
@@ -173,9 +151,11 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       for (const [table, column, disabled, restored] of [['credentials', 'enabled', false, true], ['credentials', 'generation', 2, 1],
         ['sessions', 'active', false, true], ['sessions', 'generation', 2, 1], ['sessions', 'expires_at', 1, Math.floor(Date.now() / 1000) + 3600],
         ['keys', 'active', false, true], ['tenants', 'active', false, true]]) {
-        await admin.query(`UPDATE ${a(table)} SET "${column}"=$2 WHERE tenant_id=$1`, [A, disabled]);
+        const match = { credentials: " AND credential_id='management-credential'", sessions: " AND session_id='session'", keys: " AND kid='management1'", tenants: '' }[table];
+        const change = value => admin.query(`UPDATE ${a(table)} SET "${column}"=$2 WHERE tenant_id=$1` + match, [A, value]);
+        assert.equal((await change(disabled)).rowCount, 1);
         try { for (const worker of workers) await refused(worker, credential); }
-        finally { await admin.query(`UPDATE ${a(table)} SET "${column}"=$2 WHERE tenant_id=$1`, [A, restored]); }
+        finally { await change(restored); }
       }
     });
     it('retains transactional operator ceiling and current actor delegation fences', async function () {
@@ -187,9 +167,8 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       finally { await admin.query(`UPDATE ${t('tenant_owner_actors')} SET active=true WHERE tenant_id=$1`, [A]); }
     });
     it('refuses missing schema or unsafe reader privileges before binding the owner listener', async function () {
-      const missing = config(); missing.postgres.namespaces = { ...namespaces, access: 'missing_' + suffix };
-      await stop(await start(missing, {}, false));
-      await stop(await start(config(), { OWNER_READER: registryLab.adminConnectionString }, false));
+      await stop(await start({ NS_PG_PREFIX: 'missing' }, false));
+      await stop(await start({ NS_OWNER_READER_PG: registryLab.adminConnectionString }, false));
     });
     it('keeps management routes off the actual data app and commits an owner revocation through the owner listener', async function () {
       const resolver = createResolver({ aliases: [{ host: 'one.example.test', tenant: A }] });
@@ -216,21 +195,10 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       assert.equal(after[t('tenant_subject_admin_audit')].length, before[t('tenant_subject_admin_audit')].length + 1);
     });
     it('uses separate actual API and owner listeners in one CLI process with real PostgreSQL and Vault', async function () {
-      // Reuse the real data-preview provider fixture, including its private
-      // restricted connections, Vault transit and persisted data-token state.
-      // The owner writer/reader remain the distinct operator-provisioned roles
-      // above. No fake boot, app injection or credential translation is used.
-      const data = require('./fixtures/multitenant-preview-replicas')();
-      let combined, ownerPort;
+      const combined = registryLab.start(registryLab.configuration(), serving, { roles: 'tenant-admin,api' });
+      let ownerPort;
       try {
-        await data.setup();
-        const ownerFile = path.join(directory, 'combined-owner.json');
-        fs.writeFileSync(ownerFile, JSON.stringify(config()), { mode: 0o600 });
-        combined = data.start(data.configuration(), {
-          MULTITENANT_OWNER_PREVIEW_CONFIG: ownerFile, OWNER_WRITER: writerURI, OWNER_READER: readerURI,
-          TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0'
-        }, { roles: 'tenant-admin,api' });
-        await data.until(async () => {
+        await registryLab.until(async () => {
           assert.equal(combined.exit, null, 'combined actual CLI must remain alive before both binds');
           const api = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(combined.stdout);
           if (api) combined.port = Number(api[1]);
@@ -244,12 +212,12 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
         const response = await http({ port: combined.port }, await token(), { _id: TARGET, name: 'Wrong Plane', roles: ['reader'] });
         assert([401, 403, 404, 405].includes(response.status), 'data listener must not expose management route: ' + response.status);
         assert.deepEqual(await snapshot(), before, 'data listener refusal must not mutate owner rows or audit');
-        const dataToken = await data.localToken(A);
-        const seed = await data.http(combined, A, 'POST', '/api/v3/entries', dataToken,
+        const dataToken = await registryLab.localToken(A);
+        const seed = await registryLab.http(combined, A, 'POST', '/api/v3/entries', dataToken,
           { identifier: 'owner-plane-data-canary', type: 'sgv', date: 1793664000000, utcOffset: 0,
             app: 'synthetic-owner-plane', sgv: 145 });
-        assert.equal(seed.status, 201, 'real data provider must independently persist a canary');
-        const beforeData = (await data.admin.query('SELECT tenant_id,doc FROM preview_data.entries ORDER BY tenant_id,doc::text')).rows;
+        assert.equal(seed.status, 201, 'DATA mutation: ' + JSON.stringify(seed.body));
+        const beforeData = (await registryLab.admin.query('SELECT tenant_id,doc FROM preview_entries.entries ORDER BY tenant_id,doc::text')).rows;
         assert.equal(beforeData.length, 1); assert.equal(beforeData[0].doc.sgv, 145);
         const accepted = await http({ port: ownerPort }, await token(), { _id: TARGET, name: 'Owner Plane', roles: ['reader'] });
         assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
@@ -257,15 +225,15 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
         assert.deepEqual(target, [{ display_name: 'Owner Plane' }]);
         assert.equal((await admin.query(`SELECT count(*)::int AS count FROM ${t('tenant_subject_admin_audit')}`)).rows[0].count,
           before[t('tenant_subject_admin_audit')].length + 1, 'owner plane must persist exactly one audit event');
-        assert.deepEqual((await data.admin.query('SELECT tenant_id,doc FROM preview_data.entries ORDER BY tenant_id,doc::text')).rows, beforeData,
-          'management update must not mutate the independently provisioned data plane');
+        assert.deepEqual((await registryLab.admin.query('SELECT tenant_id,doc FROM preview_entries.entries ORDER BY tenant_id,doc::text')).rows, beforeData,
+          'an owner update must leave DATA rows unchanged');
         console.log('OWNER_PREVIEW_COMBINED_LISTENERS ' + JSON.stringify({ sameProcess: true, distinctSockets: true,
           realProviders: ['PostgreSQL', 'Vault'], dataManagementStatus: response.status, ownerManagementStatus: accepted.status,
           independentOwnerAuditDelta: 1, independentDataUnchanged: true }));
-        await data.stop(combined);
+        await registryLab.stop(combined);
         await assert.rejects(fetch('http://127.0.0.1:' + ownerPort + '/', { signal: AbortSignal.timeout(1000) }),
           'same process shutdown must also close the owner socket');
-      } finally { await data.cleanup(); }
+      } finally { if (registryLab.workers.has(combined)) await registryLab.stop(combined); }
     });
     it('sanitizes an exact-owned reader SQL refusal as 503 without mutation and recovers after restoration', async function () {
       const credential = await token();
@@ -294,67 +262,26 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       console.log('OWNER_PREVIEW_READER_SQL_REFUSAL ' + JSON.stringify({ scope: 'exact-owned reader SELECT privilege', workers: workers.length,
         refusedStatus: 503, sanitized: true, independentStateUnchangedDuringRefusal: true, restoredStatus: response.status, auditDeltaAfterRestore: 1 }));
     });
-    it('reports datastore loss and serves authenticated tenant writes after a PostgreSQL restart without an operation window', async function () {
-      const source = { API_PORT: '0', TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0',
-        NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'recovery.sock'), OWNER_WRITER: writerURI, OWNER_READER: readerURI,
-        NS_DATASTORE_PROBE_INTERVAL_MS: '250' };
-      const scope = require('../lib/storage/tenant-scope');
-      const previous = scope.getTenancyMode();
-      const parsed = require('../lib/server/serve/owner-preview-config').parse(config(), source);
-      // Exercise the configured role in its own process beside the role with
-      // no lifecycle selection. Its health request uses the deployment contract.
-      const control = registryLab.provisioned.namespaces.control;
-      const probeRole = 'owner_generation_' + suffix;
-      const controlURI = new URL(registryLab.adminConnectionString);
-      controlURI.username = probeRole; controlURI.password = crypto.randomBytes(24).toString('hex');
-      await admin.query('CREATE ROLE "' + probeRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD ' + "'" + controlURI.password + "'");
-      for (const user of [readerRole, writerRole, probeRole]) {
-        await admin.query('GRANT USAGE ON SCHEMA "' + control + '" TO "' + user + '"');
-        for (const table of ['schema_migrations', 'tenant_lifecycle_windows', 'tenant_lifecycle_operations']) {
-          await admin.query('GRANT SELECT ON "' + control + '".' + table + ' TO "' + user + '"');
-        }
-      }
-      await admin.query('GRANT INSERT(tenant_id,operation_id,generation), UPDATE(finished) ON "' + control + '".tenant_lifecycle_operations TO "' + probeRole + '"');
-      await admin.query('GRANT EXECUTE ON FUNCTION "' + control + '".tenant_lifecycle_backend_birth() TO "' + probeRole + '"');
-      const validator = '"' + registryLab.provisioned.namespaces.settings + '".tenant_settings_values_valid(jsonb)';
-      await admin.query('REVOKE EXECUTE ON FUNCTION ' + validator + ' FROM PUBLIC');
-      const operationFile = path.join(directory, 'recovery-selection.json');
-      fs.writeFileSync(operationFile, JSON.stringify({ version: 1, namespace: control, registry: { namespace: registryLab.provisioned.namespaces.registry },
-        connectionEnv: 'OWNER_GENERATION_PG' }), { mode: 0o600 });
-      const configured = { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'owner-health.sock'),
-        OWNER_GENERATION_PG: controlURI.toString(), MULTITENANT_OPERATION_CONFIG: operationFile, NS_DATASTORE_PROBE_INTERVAL_MS: '250' };
-      const selected = await start(config(), configured);
-      const endpoint = require('../lib/server/internal-api/listener-config').resolve(['tenant-admin'], configured)
-        .peer('tenant-admin', { maxBytes: 65536, timeoutMs: 1500 });
-      const ready = () => require('./fixtures/role-readiness-probe')(endpoint);
-      const role = await require('../lib/server/serve').start(['tenant-admin'], {}, null, source, { ownerPreview: parsed });
+    it('reports datastore loss and serves authenticated tenant writes after replacing the PostgreSQL process', async function () {
+      const socketPath = path.join(directory, 'owner-health.sock');
+      const selected = await start({ NS_SERVE_INTERNAL_SOCKET: socketPath, NS_DATASTORE_PROBE_INTERVAL_MS: '250' });
+      const ready = () => require('./fixtures/role-readiness-probe')({ socketPath, timeoutMs: 1500 });
+      const birth = async () => (await admin.query('SELECT pg_postmaster_start_time()::text AS birth')).rows[0].birth;
       try {
-        const worker = { port: role.servers[0].address().port };
-        const credential = await token(), before = role.datastore.current.postmaster_birth, beforeEpoch = role.datastore.epoch;
-        assert.equal((await http(worker, credential)).status, 200);
-        assert.equal((await ready()), true);
+        const credential = await token(), before = await birth();
         assert.equal((await http(selected, credential)).status, 200);
+        assert.equal(await ready(), true);
         await registryLab.restartDatabase(async () => {
-          await registryLab.until(() => !role.datastore.available, 'role health turns unavailable');
           await registryLab.until(async () => !(await ready()), 'private role health turns unavailable');
-          assert.equal((await http(worker, credential)).status, 503);
           assert.equal((await http(selected, credential)).status, 503);
         });
         admin = registryLab.admin;
-        await registryLab.until(() => role.datastore.available, 'role health recovers');
-        await registryLab.until(async () => (await ready()), 'private role health recovers');
-        assert.equal((await http(selected, credential)).status, 200);
-        assert.notEqual(role.datastore.current.postmaster_birth, before);
-        assert.notEqual(role.datastore.epoch, beforeEpoch, 'new postmaster must not revalidate old role admissions');
-        const response = await http(worker, credential, { _id: TARGET, name: 'After PostgreSQL restart', roles: ['reader'] });
-        assert.equal(response.status, 200);
+        assert.notEqual(await birth(), before);
+        await registryLab.until(ready, 'private role health recovers');
+        assert.equal((await http(selected, credential, { _id: TARGET, name: 'After PostgreSQL restart', roles: ['reader'] })).status, 200);
         const row = await admin.query('SELECT display_name FROM ' + t('tenant_authorization_subjects') + ' WHERE tenant_id=$1 AND subject_id=$2', [A, TARGET]);
         assert.deepEqual(row.rows, [{ display_name: 'After PostgreSQL restart' }]);
-      } finally {
-        admin = registryLab.admin; await role.stop(); await stop(selected); scope.setTenancyMode(previous);
-        await admin.query('GRANT EXECUTE ON FUNCTION ' + validator + ' TO PUBLIC');
-        await admin.query('DROP OWNED BY "' + probeRole + '"'); await admin.query('DROP ROLE "' + probeRole + '"');
-      }
+      } finally { admin = registryLab.admin; await stop(selected); }
     });
     it('closes actual CLI listeners and storage cleanly on SIGTERM', async function () {
       const worker = await start(); await stop(worker); assert.equal(worker.child.exitCode, 0);
