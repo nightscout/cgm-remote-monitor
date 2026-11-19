@@ -145,6 +145,47 @@ describe('tenant registry resolver', function () {
     trusted.close();
   });
 
+  // Control (decision ack-path-tenant-independent): provisioning other tenants
+  // costs the cached active set no registry reads, so registry work during
+  // provisioning is the same at 10 and 1,000 tenants; removal still refuses
+  // at the next poll and another tenant's host never resolves to it.
+  it('RR_ADDRESSED: registry work while provisioning is independent of the roster; removal and cross-tenant refusal stay immediate', async function () {
+    async function provision (count) {
+      const s = fakeStore(), stamps = new Map();
+      let revision = 1;
+      Object.assign(s, {
+        add (tenant, host) { revision++; this.hosts.set('alias ' + host, tenant); this.states.set(tenant, 'active'); stamps.set(tenant, revision); },
+        remove (tenant) { revision++; for (const [key, value] of this.hosts) if (value === tenant) this.hosts.delete(key); this.states.set(tenant, 'removed'); stamps.set(tenant, revision); },
+        hosts: new Map(), states: new Map(),
+        async lookup (host, kind) { s.calls.lookup++; const tenant = this.hosts.get(kind + ' ' + host); return tenant ? { tenant, state: this.states.get(tenant) } : null; },
+        async entry (tenant) { s.calls.entry++; return this.states.has(tenant) ? { tenant, state: this.states.get(tenant), signingVersion: 1, keys: [] } : null; },
+        async revision () { s.calls.revision++; return String(revision); },
+        async changed (after, tenants) { s.calls.revision++; return { revision: String(revision), changed: tenants.filter(tenant => (stamps.get(tenant) || 0) > Number(after)) }; }
+      });
+      const active = ['a', 'b', 'c'].map(name => ({ tenant: randomUUID(), host: name + '.active.test' }));
+      active.forEach(row => s.add(row.tenant, row.host));
+      const r = createRegistryResolver({ store: s, refreshMs: 1000, now: () => 0, schedule: () => null, cancel: () => {} });
+      await r.start();
+      const use = async () => { for (const row of active) { assert.equal(await r.resolve(request(row.host)), row.tenant); await r.entry(row.tenant); } };
+      await use();
+      const before = s.calls.lookup + s.calls.entry;
+      for (let i = 0; i < count; i++) { s.add(randomUUID(), 'bulk-' + i + '.example.test'); await r.poll(); await use(); }
+      const work = s.calls.lookup + s.calls.entry - before;
+      // Revocation: a removed active tenant is refused after the next poll.
+      s.remove(active[0].tenant); await r.poll();
+      await assert.rejects(r.resolve(request(active[0].host)), { code: 'TENANT_HOST_UNKNOWN' });
+      await assert.rejects(r.entry(active[0].tenant), { code: 'TENANT_REMOVED' });
+      // Cross-tenant: one tenant's host with another's asserted id refuses.
+      await assert.rejects(r.resolve(request(active[1].host, ['X-Resolved-Tenant', active[2].tenant])), { code: 'TENANT_PROXY_UNTRUSTED' });
+      assert.equal(await r.resolve(request(active[1].host)), active[1].tenant);
+      r.close();
+      return work;
+    }
+    const small = await provision(10), large = await provision(1000);
+    assert.equal(small, 0, 'unaddressed revisions cost the cached active set nothing');
+    assert.equal(large, small, 'equal at 10 and 1,000 provisioned tenants');
+  });
+
   it('RR_BOUNDS: refuses unbounded cache or refresh settings', function () {
     assert.throws(() => createRegistryResolver({ store, maxTenants: 0 }));
     assert.throws(() => createRegistryResolver({ store, maxTenants: 100001 }));

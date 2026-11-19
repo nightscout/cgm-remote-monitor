@@ -9,8 +9,10 @@ async function registry (count, options = {}) {
   const rows = new Set(Array.from({ length: count }, (_, i) => tenant(i + 1)));
   const calls = { revisions: 0, pages: 0, builds: 0 };
   let revision = 1;
+  const stamps = new Map();
   const store = {
     async revision () { calls.revisions++; return String(revision); },
+    ...(options.addressed ? { async changed (after, ids) { calls.revisions++; return { revision: String(revision), changed: ids.filter(id => (stamps.get(id) || 0) > Number(after)) }; } } : {}),
     async page (cursor, limit) {
       calls.pages++;
       return { revision: String(revision), tenants: [...rows].sort().filter(id => id > cursor).slice(0, limit) };
@@ -18,8 +20,8 @@ async function registry (count, options = {}) {
     async lookup () {}, async entry () {}
   };
   const set = await demand({ store, settings: { refreshMs: 250, maxTenants: 10 }, maxTenants: 2,
-    build: id => { calls.builds++; return { id }; }, schedule: () => null, ...options });
-  return { set, calls, remove (id) { rows.delete(id); revision++; }, add (id) { rows.add(id); revision++; } };
+    build: id => { calls.builds++; return { id }; }, schedule: () => null, ...options, addressed: undefined });
+  return { set, calls, remove (id) { rows.delete(id); revision++; stamps.set(id, revision); }, add (id) { rows.add(id); revision++; stamps.set(id, revision); } };
 }
 
 describe('demand-driven registry membership', function () {
@@ -46,6 +48,33 @@ describe('demand-driven registry membership', function () {
       } finally { await set.close(); }
     });
   }
+  // Control (decision ack-path-tenant-independent): evaluator demand re-reads
+  // only the residents a revision addresses. Membership reads while other
+  // tenants are provisioned are the same at 10 and 1,000; removal of a
+  // resident still withdraws it at its next use.
+  it('membership work while provisioning is independent of the roster; removal still withdraws', async function () {
+    async function provision (count) {
+      const { set, calls, add, remove } = await registry(1, { addressed: true });
+      try {
+        const resident = tenant(1);
+        await set.lookup(resident);
+        const before = calls.pages;
+        for (let i = 0; i < count; i++) {
+          add(tenant(100 + i)); await set.poll();
+          assert.equal(set.isActive(resident), true);
+          await set.lookup(resident);
+        }
+        const work = calls.pages - before;
+        remove(resident); await set.poll();
+        assert.equal(set.isActive(resident), false, 'a changed resident is stale at once');
+        assert.equal(await set.lookup(resident), null, 'and withdrawn at its next use');
+        return work;
+      } finally { await set.close(); }
+    }
+    const small = await provision(10), large = await provision(1000);
+    assert.equal(small, 0);
+    assert.equal(large, small);
+  });
   it('bounds materialized tenants, reports excess demand and releases removed tenants', async function () {
     const { set, calls, remove } = await registry(10);
     const removed = [];
