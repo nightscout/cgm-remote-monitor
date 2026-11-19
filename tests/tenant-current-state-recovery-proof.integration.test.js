@@ -289,9 +289,15 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       return worker;
     }
     lifecycle('boots listenerless role and actual CLI and recovers current state on restart', async function () {
-      const a = await seed(), b = await seed(lab.B, 'preview-reading', 333); committed(a); committed(b);
       const config = lab.configure(), worker = await start(config);
-      const first = await worker.call('last'), physical = await lab.previewPhysical();
+      // Deliver both initial inputs through the maintained stream, which
+      // admits each addressed tenant before the later CLI restart.
+      const a = await seed(), b = await seed(lab.B, 'preview-reading', 333); committed(a); committed(b);
+      const first = await lab.wait(async () => {
+        const current = await worker.call('last');
+        return value(current) === 111 && value(await worker.call('last', lab.B)) === 333 && current;
+      });
+      const physical = await lab.previewPhysical();
       lab.tracePreview('preview-first-result', { first, physical });
       assert.equal(value(first), 111); assert.equal(first.eligible, true);
       assert.equal(value(await worker.call('last', lab.B)), 333);
@@ -484,7 +490,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
 
 }
 
-evaluatorLifecycleSuite('M5 evaluator registry lifecycle actual PostgreSQL', require('./fixtures/evaluator-preview-registry-lab'));
+evaluatorLifecycleSuite('M5 evaluator registry lifecycle actual PostgreSQL', require('./fixtures/evaluator-consumers-native'));
 // Historical static hot-file captures remain unchanged. The adopted product
 // rejects that configuration; its explicit refusal and restored registry boot
 // are exercised above while all clinical lifecycle checks remain native.
