@@ -104,6 +104,8 @@ describe('tenant commit clock source protocol', function () {
       const docs = [0, 1].map(i => ({ identifier: 'synthetic-clock-' + i, type: 'sgv', sgv: 100 + i,
         dateString: '2026-11-06T01:00:00+01:00', extra: { srvModified: 7 } }));
       const planned = step.plan({ op: 'create', docs });
+      assert.equal(f.calls.length, 0, 'PLANNING_MUST_NOT_QUERY_CLOCK');
+      assert(docs.every(doc => !Object.hasOwn(doc, 'srvModified')), 'PLANNING_MUST_NOT_ISSUE_CURSOR');
       const originals = docs.map(doc => ({ ...doc }));
       const filters = planned.ops.map(op => structuredClone(op.updateOne.filter));
       await f.connection.transaction(() => step.write(planned));
@@ -112,15 +114,80 @@ describe('tenant commit clock source protocol', function () {
         assert.equal(doc.srvModified, f.initial + i + 1);
         assert.equal(batches[0][i].doc.srvModified, doc.srvModified);
         assert.equal(batches[0][i].setOnInsert.srvCreated, doc.srvModified);
-        assert.deepEqual({ ...doc, srvModified: originals[i].srvModified }, originals[i]);
+        const { srvModified, ...withoutServerDate } = doc;
+        assert(Number.isSafeInteger(srvModified));
+        assert.deepEqual(withoutServerDate, originals[i]);
         assert.deepEqual(planned.ops[i].updateOne.filter, filters[i]);
         assert.equal(doc.extra.srvModified, 7);
       });
     });
   });
 
+  function implementation (mutate) {
+    const fs = require('node:fs'), vm = require('node:vm'), { createRequire } = require('node:module');
+    const file = require.resolve('../lib/storage/write-intent'), result = { exports: {} };
+    vm.runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(file, 'utf8')) + '\n})', { filename: file })(createRequire(file), result, result.exports);
+    return result.exports;
+  }
+
+  async function finalizationCriterion (library = intent) {
+    const f = fixture(), batches = [];
+    const storage = { findFiltered: async () => [], bulkUpsert: async ops => { batches.push(ops); return {}; } };
+    const step = library.forCollection(storage, 'entries', 'v1/internal', { env: {} });
+    await scope.withTenant(TENANT, async () => {
+      const doc = { identifier: 'synthetic-finalization', type: 'sgv', sgv: 111, date: 1793664000000, srvModified: 1234, srvCreated: 1234 };
+      const planned = step.plan({ op: 'create', docs: [doc] });
+      assert.equal(f.calls.length, 0, 'PLANNING_MUST_NOT_QUERY_CLOCK');
+      assert.equal(Object.hasOwn(doc, 'srvModified'), false, 'PLANNING_MUST_NOT_ISSUE_CURSOR');
+      assert.equal(Object.hasOwn(doc, 'srvCreated'), false, 'PLANNING_MUST_NOT_KEEP_CLIENT_CLOCK');
+      await f.connection.transaction(() => step.write(planned));
+      assert.equal(doc.srvModified, f.initial + 1, 'COMMITTED_REPLY_MUST_USE_DURABLE_CURSOR');
+      assert.equal(batches[0][0].doc.srvModified, doc.srvModified, 'REPLY_AND_STORED_CURSOR_MUST_AGREE');
+      assert.equal(f.floor(), doc.srvModified);
+    });
+  }
+
+  async function acknowledgeCriterion (library = intent) {
+    for (const datesPresent of [true, false]) {
+      const stored = { _id: 'synthetic-stored', identifier: 'synthetic-ack', ...(datesPresent ? { srvModified: 200, srvCreated: 100 } : {}) };
+      const storage = { findFiltered: async () => [{ ...stored }] };
+      const step = library.forCollection(storage, 'entries', 'v1/internal', { env: { write: { resend: 'acknowledge' } } });
+      await scope.withTenant(TENANT, async () => {
+        const doc = { identifier: stored.identifier, type: 'sgv', sgv: 123, date: 1793664000000 };
+        const planned = step.plan({ op: 'create', docs: [doc] });
+        const probe = library.entryResendProbe(storage, planned);
+        assert.equal((await probe()).items[0].outcome, 'unchanged');
+        for (const field of ['srvModified', 'srvCreated']) {
+          assert.equal(doc[field], stored[field], 'ACK_REPLY_MUST_USE_STORED_HISTORY_METADATA');
+          assert.equal(Object.hasOwn(doc, field), Object.hasOwn(stored, field), 'ACK_REPLY_MUST_PRESERVE_MISSING_METADATA');
+        }
+      });
+    }
+  }
+
+  it('planning issues no cursor; actual write and reply use the durable allocation', () => finalizationCriterion());
+  it('a read-only acknowledge returns stored history dates or their absence', () => acknowledgeCriterion());
+  it('red/restored: skipping finalization exposes a cursor that was never committed', async function () {
+    const broken = implementation(source => {
+      const needle = '  finalizeEntryServerDates(plan);';
+      assert(source.includes(needle), 'FINALIZATION_CONTROL_MUST_CHANGE_ACTUAL_WRITE');
+      return source.replace(needle, '  // finalization removed by semantic control');
+    });
+    await assert.rejects(finalizationCriterion(broken), /COMMITTED_REPLY_MUST_USE_DURABLE_CURSOR/);
+    await finalizationCriterion();
+  });
+  it('red/restored: skipping stored-date binding makes an acknowledge invent or omit its cursor', async function () {
+    const broken = implementation(source => {
+      const needle = '      entryReplyDates(plan.docs[i], row);';
+      assert(source.includes(needle), 'ACK_CONTROL_MUST_CHANGE_ACTUAL_PROBE');
+      return source.replace(needle, '      // stored-date binding removed by semantic control');
+    });
+    await assert.rejects(acknowledgeCriterion(broken), /ACK_REPLY_MUST_USE_STORED_HISTORY_METADATA/);
+    await acknowledgeCriterion();
+  });
+
   for (const [mode, outcome] of [['acknowledge', 'unchanged'], ['refuse', 'refused']]) {
-    it('keeps ' + mode + ' preplanned reply dates and does not advance the durable floor', async function () {
+    it('uses stored ' + mode + ' reply dates and does not advance the durable floor', async function () {
       const f = fixture();
       const { ObjectId } = require('mongodb');
       const stored = { _id: new ObjectId('111111111111111111111111'), identifier: 'synthetic-repeat',
@@ -132,10 +199,11 @@ describe('tenant commit clock source protocol', function () {
         const doc = { identifier: stored.identifier, type: 'sgv', sgv: 123,
           dateString: '2026-11-06T01:00:00+01:00' };
         const planned = step.plan({ op: 'create', docs: [doc] });
-        const provisional = doc.srvModified;
+        assert.equal(Object.hasOwn(doc, 'srvModified'), false, 'PLANNING_MUST_NOT_ISSUE_CURSOR');
         const result = await f.connection.transaction(() => step.write(planned));
         assert.equal(result.items[0].outcome, outcome);
-        assert.equal(doc.srvModified, provisional);
+        assert.equal(doc.srvModified, stored.srvModified);
+        assert.equal(doc.srvCreated, stored.srvCreated);
         assert.equal(String(doc._id), String(stored._id));
         assert.equal(f.floor(), f.initial);
         assert.equal(f.calls.some(call => call.sql && call.sql.startsWith('UPDATE')), false);
@@ -144,7 +212,7 @@ describe('tenant commit clock source protocol', function () {
   }
 });
 
-describe('tenant commit clock admitted-domain readiness source contract', function () {
+describe('admin tenant commit clock floor source contract', function () {
   const domains = require('../lib/server/serve/postgres-domains');
   const names = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
   const B = '22222222-2222-4222-8222-222222222222';
@@ -186,7 +254,7 @@ describe('tenant commit clock admitted-domain readiness source contract', functi
       const ddl = domains.get(name).catalogue.migrations.flatMap(m => m.up).find(sql => sql.startsWith('CREATE TABLE ' + name + ' '));
       assert.ok(ddl && /doc jsonb NOT NULL/.test(ddl), name + ' must provide the portable source field');
     }
-    await domains.assertServing(f.config, f.connection);
+    for (const tenant of f.config.bindings.keys()) await domains.checkTenantFloors(f.config, f.connection, tenant);
     const reads = f.calls.filter(call => call.sql.startsWith('SELECT last_stamp,'));
     assert.equal(reads.length, 2);
     for (const { sql } of reads) {
@@ -203,9 +271,9 @@ describe('tenant commit clock admitted-domain readiness source contract', functi
     ['overflow', [{ last_stamp: '8640000000000000', stored_max: null }]]]) {
     it('refuses a ' + label + ' floor after the all-domain positive setup', async function () {
       const f = fixture();
-      await domains.assertServing(f.config, f.connection);
+      for (const tenant of f.config.bindings.keys()) await domains.checkTenantFloors(f.config, f.connection, tenant);
       f.rows.set(TENANT, rows);
-      await assert.rejects(domains.assertServing(f.config, f.connection), /missing or stale/);
+      await assert.rejects(domains.checkTenantFloors(f.config, f.connection, TENANT), /missing or stale/);
     });
   }
 

@@ -49,7 +49,7 @@ async function fingerprints (previewDomains) {
     const graph = await previewDomains({ config, connection: connection(), exchange: async () => null, deferInitialization: true });
     const result = {};
     for (const [tenant] of TENANTS) {
-      await graph.initializeTenant(tenant); const row = graph.describeTenant(tenant);
+      await graph.prepareTenant(tenant); const row = graph.describeTenant(tenant);
       // Express's `env` app setting is the process NODE_ENV, not a tenant value;
       // its `views` setting is an absolute path under the process directory, so
       // the fingerprint keeps it relative to that directory (checkout-independent).

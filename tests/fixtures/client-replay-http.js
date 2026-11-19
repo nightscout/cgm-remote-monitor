@@ -19,11 +19,12 @@ const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb630240
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
-const namespaces = { entries: 'preview_data', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy' };
+const namespaces = { entries: 'preview_data', clock: 'preview_clock', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy' };
 const domainNames = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
 const allNamespaces = { ...namespaces, ...Object.fromEntries(domainNames.filter(name => name !== 'entries')
   .map(name => [name, 'preview_' + name])) };
 const catalogues = {
+  clock: require('../../migrations/candidates/postgres-write-clock-v1.json'),
   entries: require('../../migrations/candidates/postgres-entries-v1.json'),
   authorization: require('../../lib/tenant-authorization/postgres-candidate.json'),
   secrets: require('../../lib/secrets/postgres-candidate.json'),
@@ -46,7 +47,7 @@ const PROOF_NAMESPACE = 'client_replay_proof';
 function configuration (address, provisioned) {
   return {
     version: 1,
-    domains: domainNames, legacy: true, context: true,
+    domains: domainNames, legacy: true, context: true, writeClock: true,
     postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: allNamespaces },
     vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
     resolution: { mode: 'direct-alias' },
@@ -225,6 +226,7 @@ module.exports = function clientReplayHTTP () {
       await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_auth, preview_legacy TO preview_app');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
+      await admin.query('GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
       vaultRoot = random();
       execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
         '-e', 'VAULT_DEV_ROOT_TOKEN_ID', image, 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
@@ -241,7 +243,7 @@ module.exports = function clientReplayHTTP () {
       // Provisioning: the registry, each tenant's keys, root secret, anonymous denial and settings.
       await admin.query('CREATE ROLE preview_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
       provisioned = await provisionedTenants.create({ admin, adminURI, owner: 'preview_owner', vault: { address: address + '/', token: vaultRoot },
-        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy' } });
+        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', clock: 'preview_clock' } });
       for (const [i, tenant] of [A, B].entries()) roots[i] = (await provisioned.provision({ id: tenant, hosts: [HOSTS[i]], issueRootSecret: true })).rootSecret;
       for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
       for (const namespace of [provisioned.namespaces.settings, provisioned.namespaces.operatorPolicy]) {
@@ -263,7 +265,7 @@ module.exports = function clientReplayHTTP () {
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, readers: ['preview_app', 'preview_check'] });
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, readers: ['preview_app', 'preview_check'] });
     }
 
     async function close () {

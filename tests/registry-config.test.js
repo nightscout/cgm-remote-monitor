@@ -22,8 +22,8 @@ const evaluatorDocument = () => ({ ...structuredClone(evaluatorPlan.configs.eval
 const SOURCE = { APP_PG: 'postgres://app:synthetic@db.example.test/ns', CHECK_PG: 'postgres://check:synthetic@db.example.test/ns',
   SETTINGS_PG: 'postgres://settings:synthetic@db.example.test/ns', VAULT_TOKEN: 'synthetic-token', LIFE_PG: 'postgres://life:synthetic@db.example.test/ns' };
 function apiConfig (extra = {}) {
-  return { version: 1, postgres: { connectionEnv: 'APP_PG', readinessConnectionEnv: 'CHECK_PG',
-    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy' } },
+  return { version: 1, writeClock: true, postgres: { connectionEnv: 'APP_PG', readinessConnectionEnv: 'CHECK_PG',
+    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy', clock: 'ns_clock' } },
   vault: { address: 'https://vault.example.test/', mount: 'transit', tokenEnv: 'VAULT_TOKEN' }, resolution: { mode: 'direct-alias' },
   registry: { namespace: 'ns_registry', refreshMs: 1000 },
   tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } }, ...extra };
@@ -45,6 +45,29 @@ describe('registry-mode role configuration', function () {
     assert.equal(config.bindings, null);
     assert.deepEqual(config.tenantIds, ['registry:ns_registry']);
     assert.equal(config.registryVault.mount, 'transit');
+  });
+
+  function requiresWriteClock (loader = previewConfig.load) {
+    for (const writeClock of [undefined, false, 'true']) {
+      assert.throws(() => load(apiConfig({ writeClock }), loader),
+        error => error.code === 'API_WRITE_CLOCK_REQUIRED', 'API_WITHOUT_HISTORY_CLOCK_MUST_REFUSE');
+    }
+  }
+
+  it('requires the shared history clock for a one-process multitenant API too', function () {
+    requiresWriteClock();
+    assert.equal(load(apiConfig()).writeClock, true);
+  });
+
+  it('red/restored: accepting an API configuration without its history clock fails the gate', function () {
+    const vm = require('node:vm'), { createRequire } = require('node:module');
+    const file = require.resolve('../lib/server/serve/preview-config');
+    const source = fs.readFileSync(file, 'utf8'), needle = 'if (config.writeClock !== true) throw';
+    assert(source.includes(needle), 'CONFIG_CONTROL_MUST_REMOVE_ACTUAL_REFUSAL');
+    const modified = source.replace(needle, 'if (false) throw'), result = { exports: {} };
+    vm.runInThisContext('(function(require,module,exports){' + modified + '\n})', { filename: file })(createRequire(file), result, result.exports);
+    assert.throws(() => requiresWriteClock(result.exports.load), /API_WITHOUT_HISTORY_CLOCK_MUST_REFUSE/);
+    requiresWriteClock();
   });
 
   it('RC_TENANTS_REFUSED: a registry configuration that still carries a tenants list is refused', function () {

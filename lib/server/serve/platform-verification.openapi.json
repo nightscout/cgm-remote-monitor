@@ -61,6 +61,41 @@
           }
         }
       }
+    },
+    "/v1/platform-verification/tenants/{tenant}": {
+      "post": {
+        "summary": "Admin postcondition: record tenant insertion/history floors and encrypted-root completeness before activation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recorded verified tenant and current lifecycle generation"
+          },
+          "503": {
+            "description": "Tenant check failed, was invalidated, or result could not be recorded; keep tenant suspended"
+          }
+        }
+      }
     }
   }
 }

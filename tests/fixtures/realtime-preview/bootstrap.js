@@ -143,7 +143,7 @@ module.exports=async function bootstrap(input) {
     step='platform-proof';
     const prestart=require('../platform-prestart');
     const proof=await prestart.install(admin,{namespace:proofNamespace,adminURI:input.env.NS_TEST_POSTGRES_ADMIN_URI,
-      readers:[l.roles.api,l.roles.readiness,l.roles.evaluator,l.roles.realtime]});
+      registry: ns.registry, readers:[l.roles.api,l.roles.readiness,l.roles.evaluator,l.roles.realtime]});
     schemas.push(proof.namespace);roles.push(proof.writer);
     for(const role of ['api','evaluator','realtime']){
       try{await prestart.verify({namespace:proof.namespace,writerURI:proof.writerURI,source:{PATH:process.env.PATH,...roleEnvironments[role]},

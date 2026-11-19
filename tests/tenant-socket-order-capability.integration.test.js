@@ -26,7 +26,7 @@ optInSuite(process.env.NS_SOCKET_ORDER_CAPABILITY_TEST === '1' && !!process.env.
       catalogue: successor ? createOrderPort.catalogues[logical] : old[logical] };
   };
   const connection = { query: (...args) => admin.query(...args), transaction: fn => fn() };
-  const selected = (o, logical) => createOrderPort({ readinessConnectionString: uri, namespace: o.namespace, logical, connection });
+  const selected = (o, logical) => createOrderPort({ namespace: o.namespace, logical, connection });
   const insert = (o, logical, id) => require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO "${o.namespace}"."${logical}"(tenant_id,id_kind,doc) VALUES($1,'string',$2::jsonb)`,
     [A, JSON.stringify({ _id: id, eventType: 'Note', created_at: '2026-11-06T00:00:00.000Z' })]));
   before(async () => {
@@ -44,7 +44,8 @@ optInSuite(process.env.NS_SOCKET_ORDER_CAPABILITY_TEST === '1' && !!process.env.
       assert.equal((await run('check', o)).current, true);
       const successor = { ...o, catalogue: createOrderPort.catalogues[logical] };
       await assert.rejects(run('check', successor), { code: 'MIG_STALE' });
-      await assert.rejects(selected(o, logical), { code: 'MIG_STALE' });
+      // Admin's catalogue check above refuses the stale platform; the port
+      // constructor consumes that verified selection without repeating it.
       await run('up', successor);
       assert.equal((await run('check', successor)).current, true);
       await selected(o, logical);

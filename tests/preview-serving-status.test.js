@@ -54,8 +54,8 @@ function bootProtocol ({ hold, fail } = {}) {
     '../tenant-app/data-access': () => (req, res, next) => next(), '../tenant-app/exchange': () => async () => null,
     '../tenant-app': { createTenantApp: () => express.Router() },
     // The 'readiness' stage is the API's one platform proof check.
-    './platform-verification': require('./fixtures/platform-proof')(undefined, () => stage('readiness')), './postgres-domains': { assertServing: async () => { await stage('assertServing'); return { ensure: async () => {}, invalidateTenant () {} }; } },
-    './preview-domains': async options => { readState = options.servingState; await stage('domains'); return { data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, initializeTenant: async () => {} }; },
+    './platform-verification': require('./fixtures/platform-proof')(undefined, () => stage('readiness')), './tenant-floor-verification': { createReader: () => async () => {} },
+    './preview-domains': async options => { readState = options.servingState; await stage('domains'); return { data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, prepareTenant: async () => {} }; },
     '../realtime/private-api': { boot: async () => { await stage('private'); return { close: resource().end }; } }
   };
   Module._load = function (name, ...args) { return Object.hasOwn(stubs, name) ? stubs[name] : oldLoad.call(this, name, ...args); };
@@ -64,7 +64,7 @@ function bootProtocol ({ hold, fail } = {}) {
   // boot also has a dynamic selected private receiver import.
   const run = async config => { Module._load = function (name, ...args) { return Object.hasOwn(stubs, name) ? stubs[name] : oldLoad.call(this, name, ...args); };
     try { return await api.boot(config); } finally { Module._load = oldLoad; delete require.cache[file]; } };
-  return { events, started, release, state: () => readState, run: () => run({ bindings: new Map([[A, { principal: 'synthetic', consumer: 'api' }]]), providers: new Map(), namespaces: {}, socketForwarding: true }) };
+  return { events, started, release, state: () => readState, run: () => run({ bindings: new Map([[A, { principal: 'synthetic', consumer: 'api' }]]), providers: new Map(), namespaces: { clock: 'source_clock' }, socketForwarding: true }) };
 }
 describe('selected API-local serving status compatibility', function () {
   let old; before(() => { old = scope.getTenancyMode(); scope.setTenancyMode('multi'); }); after(() => scope.setTenancyMode(old));
@@ -83,13 +83,13 @@ describe('selected API-local serving status compatibility', function () {
     const fixture = bootProtocol({ hold: 'private' }); const pending = fixture.run(); await fixture.started; let role;
     try {
       assert.equal(fixture.state().read(), 'unavailable', 'API_NOT_LOADED_DURING_PRIVATE_BOOT'); fixture.release(); role = await pending;
-      assert.deepEqual(fixture.events.slice(0, 4), ['readiness', 'assertServing', 'domains', 'private'], 'API_BOOT_READINESS_REQUIRED');
+      assert.deepEqual(fixture.events.slice(0, 3), ['readiness', 'domains', 'private'], 'API_BOOT_READINESS_REQUIRED');
       assert.equal(fixture.state().read(), 'loaded'); await role.quiesce(); assert.equal(fixture.state().read(), 'unavailable', 'API_QUIESCE_INVALIDATES_STATUS');
       await role.close(); assert(fixture.events.includes('end')); await role.close();
     } finally { fixture.release(); role = role || await pending.catch(() => null); if (role) await Promise.allSettled([role.close()]); }
   });
   it('never returns a ready role after readiness/serving/domain/private failures and invalidates close before teardown', async function () {
-    for (const fail of ['readiness', 'assertServing', 'domains', 'private']) {
+    for (const fail of ['readiness', 'domains', 'private']) {
       const fixture = bootProtocol({ fail }); await assert.rejects(fixture.run(), /preview readiness or storage initialization refused/);
       if (fixture.state()) assert.equal(fixture.state().read(), 'unavailable');
     }

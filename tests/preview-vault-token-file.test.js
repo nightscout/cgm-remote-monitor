@@ -23,9 +23,9 @@ describe('preview Vault credential source: tokenEnv or tokenFile', function () {
     return file;
   }
   function config (vaults) {
-    return { version: 1,
+    return { version: 1, writeClock: true,
       postgres: { connectionEnv: 'TF_API_PG', readinessConnectionEnv: 'TF_READINESS_PG',
-        namespaces: { entries: 'tf_entries', authorization: 'tf_authorization', secrets: 'tf_secrets', legacy: 'tf_legacy' } },
+        namespaces: { entries: 'tf_entries', authorization: 'tf_authorization', secrets: 'tf_secrets', legacy: 'tf_legacy', clock: 'tf_clock' } },
       vault: { address: origin, mount: 'tf_transit', allowInsecureLoopback: true },
       resolution: { mode: 'direct-alias' },
       tenants: [A, B].map((id, i) => ({ id, aliases: [(i ? 'two' : 'one') + '.example.test'],

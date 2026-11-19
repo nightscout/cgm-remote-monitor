@@ -157,23 +157,33 @@ describe('storage intent event payload: tenant and stamp', function () {
     const bus = new EventEmitter();
     const events = listen(bus);
     const plain = { transaction: fn => fn() };
-    const step = port(plain, bus);
+    const step = port(plain, bus, 0);
     await scope.withTenant(A, () => step.write({ op: 'create' }));
     await scope.withTenant(B, () => step.write({ op: 'create' }));
     assert.deepEqual(events.map(event => event.tenant), [A, B], 'each event carries the tenant bound for its own write');
     assert.deepEqual(events.map(event => event.stamp), [null, null], 'no write clock, no stamp');
   });
 
-  it('the direct path carries the bound tenant and stamp null', async function () {
+  it('a direct non-history activity write carries the bound tenant and stamp null', async function () {
     const bus = new EventEmitter();
     const events = listen(bus);
     const storage = { findFiltered: async () => [], bulkUpsert: async () => ({}) };
-    const step = intent.forCollectionIntent(storage, 'entries', 'v1/internal', { env: {}, bus });
-    const doc = () => ({ identifier: 'synthetic-direct', type: 'sgv', sgv: 100, dateString: '2026-11-06T01:00:00+01:00' });
+    const step = intent.forCollectionIntent(storage, 'activity', 'v1/internal', { env: {}, bus });
+    const doc = () => ({ identifier: 'synthetic-direct', type: 'Exercise', created_at: '2026-11-06T01:00:00+01:00' });
     await scope.withTenant(A, () => step.write({ op: 'create', docs: [doc()] }));
     await scope.withTenant(B, () => step.write({ op: 'create', docs: [doc()] }));
     scope.withTenant(B, () => step.settle({ op: 'create' }, doc(), 'unchanged', 'synthetic'));
     assert.deepEqual(events.map(event => [event.tenant, event.stamp]), [[A, null], [B, null], [B, null]]);
+  });
+
+  it('a direct multitenant history write without an allocator refuses before publishing an event', async function () {
+    const bus = new EventEmitter(), events = listen(bus);
+    const storage = { findFiltered: async () => [], bulkUpsert: async () => { throw new Error('UNALLOCATED_WRITE_MUST_NOT_REACH_STORAGE'); } };
+    const step = intent.forCollectionIntent(storage, 'entries', 'v1/internal', { env: {}, bus });
+    const doc = { identifier: 'synthetic-no-clock', type: 'sgv', sgv: 100, dateString: '2026-11-06T01:00:00+01:00' };
+    await scope.withTenant(A, () => assert.rejects(step.write({ op: 'create', docs: [doc] }),
+      error => error.code === 'TENANT_WRITE_CLOCK_REQUIRED'));
+    assert.deepEqual(events, []);
   });
 
   it('under single tenancy the tenant is null, never a Symbol, and the event round-trips through JSON', async function () {

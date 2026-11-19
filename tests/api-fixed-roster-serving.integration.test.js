@@ -36,7 +36,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
 
     it('refuses a fixed-roster API without the shared clock before opening any listener', async function () {
       const refused = await f.refusedWithoutClock('api-1');
-      assert.match(refused.stderr, /API_REPLICAS_REQUIRE_WRITE_CLOCK/);
+      assert.match(refused.stderr, /API_WRITE_CLOCK_REQUIRED/);
       assert.doesNotMatch(refused.stdout, /Listening/);
     });
 

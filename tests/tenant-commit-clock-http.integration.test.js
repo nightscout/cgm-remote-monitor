@@ -64,7 +64,18 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
           }
         }
       }
-      if (errors.length) throw new AggregateError(errors, 'Clock HTTP case cleanup failed');
+      if (errors.length) throw new globalThis.AggregateError(errors, 'Clock HTTP case cleanup failed');
+    });
+
+    it('refuses an API configuration without the shared clock before opening a listener', async function () {
+      for (const value of [undefined, false]) {
+        const config = f.configuration();
+        if (value === undefined) delete config.writeClock;
+        else config.writeClock = value;
+        const worker = await f.refused(config);
+        assert.match(worker.stderr, /API_WRITE_CLOCK_REQUIRED/);
+        assert.doesNotMatch(worker.stdout, /Listening/);
+      }
     });
 
     it('orders equal-clock writes across API processes and returns the later exclusive-history record', async function () {
@@ -318,11 +329,9 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
           assert.ok(Number.isSafeInteger(sampleCount) && sampleCount >= 1 && sampleCount <= 1000);
           assert.ok(Number.isSafeInteger(concurrency) && concurrency >= 1 && concurrency <= 16);
           const warmupRequests = 8;
-          // OFF is an optional descriptive baseline, never a correctness claim
-          // for multiple uncoordinated writers. Each mode has independent data.
-          const clockModes = process.env.NS_TENANT_COMMIT_CLOCK_OFF_BASELINE === '1' ? [false, true] : [true];
-          const cohorts = clockModes.flatMap(clockEnabled =>
-            ['single-hot-tenant', 'balanced-two-tenants'].map(cohort => ({ clockEnabled, cohort })));
+          // Every serving API uses the shared history allocator. Missing-clock
+          // configurations are exercised by the startup-refusal case above.
+          const cohorts = ['single-hot-tenant', 'balanced-two-tenants'].map(cohort => ({ clockEnabled: true, cohort }));
           for (const { clockEnabled, cohort } of cohorts) {
             // Fresh services/data for EACH cohort: no +1h allocator fixtures,
             // and no hot-first/balanced-second shared cache/data history.

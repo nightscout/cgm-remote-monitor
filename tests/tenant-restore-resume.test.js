@@ -72,7 +72,7 @@ function fixture (options = {}, mutate) {
     loaded._compile(changed, FILE); exported = loaded.exports;
   } else exported = require(FILE);
   const api = exported.create({ namespace: 'synthetic_window', locks: [{ tenant: A, key: '41' }, { tenant: B, key: '42' }],
-    pool: { connect: async () => { m.connected = true; return client; } }, lockWaitMs: 0, intakeProfile:options.intakeProfile });
+    pool: { connect: async () => { m.connected = true; return client; } }, lockWaitMs: 0, intakeProfile:options.intakeProfile, beforeActivation: options.beforeActivation });
   return { m, api };
 }
 const wrote = m => m.trace.some(sql => sql.startsWith('UPDATE ') || sql.startsWith('INSERT INTO '));
@@ -148,6 +148,19 @@ describe('restore resume and historical operation inspection (simulated backend 
     assert.equal(once.m.durable.resumes.length, 1, 'RESUME_ONCE_PER_CLAIM');
     const again = fixture({ durable: { ...suspended('suspended'), resumes: [{ claim_id: CLAIM, generation: '2', interrupted: 'before-data' }] } });
     await assert.rejects(again.api.resume(A, { claimId: CLAIM }), code('LIFECYCLE_RESUME_AUDIT_CHANGED'));
+  });
+
+  it('awaits the admin postcondition before activation and stays suspended on failure; omission control goes red', async function () {
+    const criterion = async mutate => {
+      const { m, api } = fixture({ beforeActivation: async () => { throw Object.assign(new Error('floor invalid'), { code: 'TENANT_FLOOR_VERIFICATION_FAILED' }); } }, mutate);
+      try {
+        await assert.rejects(api.resume(A, { claimId: CLAIM }), { code: 'TENANT_FLOOR_VERIFICATION_FAILED' }, 'ADMIN_POSTCONDITION_MUST_PRECEDE_ACTIVATION');
+        assert.equal(m.durable.window.phase, 'suspended'); assert.equal(m.durable.resumes.length, 0);
+      } finally { await api.close(); }
+    };
+    await criterion();
+    await assert.rejects(criterion(source => source.replace('if (beforeActivation) await beforeActivation(tenant);', '/* omitted admin postcondition */')), /ADMIN_POSTCONDITION_MUST_PRECEDE_ACTIVATION/);
+    await criterion();
   });
 
   it('reports a lost commit reply as uncertain; inspect then shows the durable state', async function () {

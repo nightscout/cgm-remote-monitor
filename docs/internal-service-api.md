@@ -470,11 +470,43 @@ receipt; durable notification retries can repeat delivery. Restore coordination
 retains its pinned identity, nonce and suspension rules rather than synthesizing
 an acknowledgement after a failed request.
 
-Fixed-roster configurations with more than one API participant require
-`writeClock: true`. Startup refuses with `API_REPLICAS_REQUIRE_WRITE_CLOCK`
-before opening listeners when this shared allocator is absent: process-local
-history stamps cannot provide a common cursor across replicas. A single API
-keeps its existing configuration contract.
+Every multitenant API configuration requires `writeClock: true` and a provisioned
+`tenant_write_clock` row for each tenant. Startup refuses with
+`API_WRITE_CLOCK_REQUIRED` before opening listeners when the configuration omits
+this allocator. History-producing writes allocate and persist their cursors in
+the data transaction, independently of tenant cache lifetime and API replica.
+Single-tenant MongoDB keeps its existing in-process clock.
+
+
+The API serves a cold tenant inline after reading its admin-recorded floor result.
+Tenant service records and registry metadata share one LRU capacity. Eviction
+releases cache references; in-flight requests retain their selected record and
+ports. No tenant roster is warmed at boot, recovery or peer authorization.
+`NS_TENANT_READINESS=all` adds no API warmup requirement; evaluator and realtime
+keep their existing readiness behavior.
+
+| Environment variable | Default | Meaning |
+|---|---|---|
+| `NS_POOL_API_TENANT_CACHE_MAX` | registry `maxTenants`, or 10000 | Retained tenant records; this limits cache size, not the tenant population. |
+| `NS_POOL_API_TENANT_BUILD_CONCURRENCY` | 4 | Simultaneous service builds. |
+| `NS_POOL_API_TENANT_BUILD_QUEUE` | 64 | Builds allowed to wait; zero refuses excess immediately. |
+| `NS_POOL_API_TENANT_BUILD_WAIT_MS` | 1000 | Longest wait for a build slot. |
+
+A full or expired build queue returns `503 API_TENANT_BUILD_OVERLOADED` with
+`Retry-After`; it has no storage effect. A missing, failed or stale admin floor
+result returns `503 TENANT_FLOOR_VERIFICATION_REQUIRED`. Provisioning, migration
+verification and restore certify insertion/history floors and root completeness
+through admin. API requests read the recorded result and current generation;
+they do no floor scan or clock restoration. Settings invalidation, restore and
+datastore recovery discard disposable entries.
+
+Admin also verifies the presentation-settings catalogues and read privileges
+before issuing the API proof. The API opens presentation storage only on use,
+without repeating those screens on recovery or failed-read reopen. Presentation
+read failures remain visible and fail that read; raw DATA readiness stays available.
+Legacy entry planning allocates no multitenant history cursor. A stored write and
+its reply use the transaction-assigned dates; an acknowledged resend returns the
+stored dates, including their absence, without advancing the history floor.
 
 Evaluator background scheduling uses boot-owned authority-free contexts. Explicit private evaluator calls retain active same-tenant window reuse, including same-parent coalescing; borrowed work earns no fresh-window completion credit. An expired or foreign selected-window caller refuses before queue mutation. A parent trying to join independently queued work receives `EVALUATOR_JOB_PARENT_BUSY`, avoiding a one-client join that otherwise waits on the parent itself. Owned and borrowed pending work each have two fixed slots per tenant; deferred due/repeat/revision jobs always obtain fresh admission.
 

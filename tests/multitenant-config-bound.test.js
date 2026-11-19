@@ -29,9 +29,9 @@ function rosterTenant (i) {
     showRawbg: 'never', alarmTimeagoWarnMins: 15, alarmTimeagoUrgentMins: 30, language: 'en' } };
 }
 function apiConfig (count) {
-  return { version: 1,
+  return { version: 1, writeClock: true,
     postgres: { connectionEnv: 'CB_API_PG', readinessConnectionEnv: 'CB_READINESS_PG',
-      namespaces: { entries: 'cb_entries', authorization: 'cb_authorization', secrets: 'cb_secrets', legacy: 'cb_legacy' } },
+      namespaces: { entries: 'cb_entries', authorization: 'cb_authorization', secrets: 'cb_secrets', legacy: 'cb_legacy', clock: 'cb_clock' } },
     vault: { address: 'http://127.0.0.1:18200', mount: 'cb_transit', allowInsecureLoopback: true },
     resolution: { mode: 'direct-alias' },
     tenants: Array.from({ length: count }, (_, i) => rosterTenant(i + 1)) };

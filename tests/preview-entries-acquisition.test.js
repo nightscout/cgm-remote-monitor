@@ -72,6 +72,9 @@ async function fixture (mutate, populated = false, interleaved = false) {
   const graph = await implementation(mutate, graphs, contexts, completed)({ config: { domains, legacyEnabled: true, contextEnabled: true,
     bindings: new Map([[A, {}], [B, {}]]), environments: new Map([A, B].map(t => [t, environment()])),
     namespaces: Object.fromEntries(domains.map(d => [d, 'source_' + d])) }, connection, exchange: async () => null });
+  // Measure hot requests after explicitly constructing the two selected wrappers.
+  // Cold service construction is measured by the LRU suite.
+  for (const tenant of [A, B]) (await graph.prepareTenant(tenant)).legacy();
   sql.length = 0; graphs.length = 0; capturing = true;
   const app = express();
   app.use((req, res, next) => scope.withTenant(req.header('x-test-tenant') || A, () => {

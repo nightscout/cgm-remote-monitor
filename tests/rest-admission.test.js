@@ -172,8 +172,8 @@ describe('REST admission in the production api composition', function () {
       '../../tenant-authorization/postgres': async () => resource({ authorize: async () => false }),
       '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
       '../../secrets/component': { createSecrets: () => ({}) },
-      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { async readiness () {}, assertServing: async () => ({ async ensure () {}, invalidateTenant () {} }) },
-      './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async initializeTenant () {} }),
+      './platform-verification': require('./fixtures/platform-proof')(), './tenant-floor-verification': { createReader: () => async () => {} },
+      './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async prepareTenant () {}, invalidateTenant () {}, invalidateAll () {} }),
       '../tenant-app/data-access': () => async () => ({ tenant, principal: 'synthetic', consumer: 'api' }),
       '../tenant-app/exchange': () => async () => null,
       '../../human-session/runtime': { multi: async () => null },
@@ -192,13 +192,9 @@ describe('REST admission in the production api composition', function () {
     let role;
     try {
       role = await output.exports.boot({ bindings: new Map([[tenant, { principal: 'synthetic', consumer: 'api' }]]),
-        providers: new Map(), namespaces: {}, resolver: { resolve: async () => tenant }, socketForwarding: true });
+        providers: new Map(), namespaces: { clock: 'synthetic_clock' }, resolver: { resolve: async () => tenant }, socketForwarding: true });
     } catch (error) { fs.rmSync(directory, { recursive: true, force: true }); scope.setTenancyMode(previousMode); throw error; }
     const server = await listen(role.app);
-    // Every API is platform-verified and starts cold: warm the tenant on demand
-    // before measuring admission, so no TENANT_WARMING refusal is counted.
-    await fetch('http://127.0.0.1:' + server.address().port + '/api/v1/status.json').then(response => response.arrayBuffer(), () => {});
-    await role.warmed();
     return { role, store, internalCalls, port: server.address().port, internal: transport.client(internalOptions, descriptor),
       async close () {
         store.release();
@@ -256,7 +252,7 @@ describe('REST admission in the production api composition', function () {
         assert.deepEqual(replies.map(reply => reply.status).sort(), [201, 201, 201, 503, 503]);
         assert.equal(f.store.state.effects.length, N, 'exactly the admitted writes were stored');
         assert.deepEqual({ inflight: f.role.restAdmission().inflight, refused: f.role.restAdmission().refused, admitted: f.role.restAdmission().admitted },
-          { inflight: 0, refused: k, admitted: N + 1 }, 'the N held writes plus the one warming request');
+          { inflight: 0, refused: k, admitted: N }, 'only the admitted writes consume REST slots');
       } finally { await f.close(); }
     });
   });

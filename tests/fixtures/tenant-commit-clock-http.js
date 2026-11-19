@@ -33,7 +33,8 @@ function requestSummary (request) {
 
 module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) {
   assert.equal(typeof clockEnabled, 'boolean');
-  const base = createReplicaFixture();
+  // This fixture installs and seeds its own history clock before any API starts.
+  const base = createReplicaFixture({ writeClock: false });
   const clients = new Set();
   const locked = new Set();
   const backendFaultTargets = new WeakSet();
@@ -68,7 +69,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     }
     try { await connection.end(); } catch (error) { errors.push(error); }
     finally { clients.delete(connection); }
-    if (errors.length) throw new AggregateError(errors, 'Owned clock control connection cleanup failed');
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Owned clock control connection cleanup failed');
   }
 
   async function releaseControls () {
@@ -76,7 +77,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     for (const connection of [...clients]) {
       try { await closeClient(connection); } catch (error) { errors.push(error); }
     }
-    if (errors.length) throw new AggregateError(errors, 'Clock HTTP control cleanup failed');
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Clock HTTP control cleanup failed');
   }
 
   async function setup () {
@@ -108,7 +109,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     const errors = [];
     try { await releaseControls(); } catch (error) { errors.push(error); }
     try { await base.cleanup(); } catch (error) { errors.push(error); }
-    if (errors.length) throw new AggregateError(errors, 'Clock HTTP fixture cleanup failed');
+    if (errors.length) throw new globalThis.AggregateError(errors, 'Clock HTTP fixture cleanup failed');
   }
 
   function start (extra = {}) { return base.start(configuration(), extra); }

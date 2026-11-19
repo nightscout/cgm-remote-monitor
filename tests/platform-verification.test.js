@@ -6,6 +6,13 @@ const http = require('node:http');
 const platform = require('../lib/server/serve/platform-verification');
 const api = require('../lib/server/serve/platform-verification-admin').api;
 const diagnostics = require('../lib/server/serve/platform-verification-diagnostic');
+function isolated (relative, mocks) {
+  const file = require.resolve('../lib/' + relative), loaded = new (require('node:module'))(file, module);
+  loaded.filename = file; loaded.paths = require('node:module')._nodeModulePaths(require('node:path').dirname(file));
+  const normal = loaded.require.bind(loaded);
+  loaded.require = name => Object.hasOwn(mocks, name) ? mocks[name] : normal(name);
+  loaded._compile(require('node:fs').readFileSync(file, 'utf8'), file); return loaded.exports;
+}
 function sourceControl (before, after) {
   const file = require.resolve('../lib/server/serve/platform-verification'), source = require('node:fs').readFileSync(file, 'utf8');
   assert(source.includes(before));
@@ -38,6 +45,63 @@ describe('Internal admin platform verification contract', function () {
     assert.notEqual(platform.contract({ ...config, domains: ['entries', 'treatments'] }, 'api'), digest);
     const source = require('node:fs').readFileSync(require.resolve('../lib/server/serve/platform-verification'), 'utf8');
     assert.equal(/readFileSync|sourceGeneration/.test(source), false, 'NO_RUNTIME_SOURCE_HASHING');
+  });
+  it('binds the API proof to both presentation catalogues, reader namespaces and reader identity', function () {
+    const config = { connectionString: 'postgres://api:synthetic@localhost/synthetic', domains: ['entries'],
+      namespaces: { entries: 'synthetic_entries' }, tenantSettings: { connectionString: 'postgres://display:synthetic@localhost/synthetic',
+        namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } } };
+    const digest = platform.contract(config, 'api'), inputs = platform.contractInputs(config, 'api');
+    for (const source of [require('../lib/tenant-settings/postgres-candidate.json'), require('../lib/operator-policy/postgres-candidate.json')]) {
+      const selected = Object.entries(inputs.catalogues).find(([, catalogue]) => catalogue === source);
+      assert(selected, 'a selected presentation catalogue must be covered by the proof');
+      const changed = structuredClone(inputs);
+      changed.catalogues[selected[0]].migrations[0].checksum = '0'.repeat(64);
+      assert.notEqual(platform.contractFromInputs(changed, 'api'), digest, 'a catalogue change invalidates the previous proof');
+    }
+    for (const tenantSettings of [{ ...config.tenantSettings, namespaces: { ...config.tenantSettings.namespaces, settings: 'replacement_settings' } },
+      { ...config.tenantSettings, connectionString: 'postgres://replacement:synthetic@localhost/synthetic' }]) {
+      assert.notEqual(platform.contract({ ...config, tenantSettings }, 'api'), digest, 'a reader binding change invalidates the previous proof');
+    }
+  });
+  it('admin uses the strict settings constructor: unsafe or stale settings refuse the target, and omitting the constructor is red', async function () {
+    const previous = require('../lib/storage/tenant-scope').getTenancyMode();
+    require('../lib/storage/tenant-scope').setTenancyMode('multi');
+    const state = { unsafe: false, stale: false }, resource = () => ({ close: async () => {} });
+    const strictSettings = isolated('tenant-settings/effective-postgres', {
+      '../migrations/postgres-check': { ...require('../lib/migrations/postgres-check'), inspect: async () => ({ current: !state.stale }) },
+      '../storage/postgres-connection': async () => ({ end: async () => {}, async readOnly (sql) {
+        if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
+        if (sql.includes('AS creates')) return { rows: [{ creates: false, mutates: state.unsafe }] };
+        return { rows: [0, 1].map(() => ({ secured: true, owns: false, reads: true, writes: false })) };
+      } })
+    });
+    const config = { connectionString: 'postgres://api:synthetic@localhost/synthetic', namespaces: {}, tenantSettings: {
+      connectionString: 'postgres://display:synthetic@localhost/synthetic', namespaces: { settings: 'synthetic_settings', operatorPolicy: 'synthetic_policy' } } };
+    const target = settings => isolated('server/serve/platform-verification-admin', {
+      './platform-verification-lifecycle': { inspect: async () => null },
+      './postgres-domains': { readiness: async () => {}, screenServing: async () => {} },
+      '../../storage/postgres-connection': async () => ({ end: async () => {} }),
+      './tenant-floor-verification': { screenReader: async () => {} },
+      '../../secrets/legacy-postgres': async () => resource(),
+      '../../secrets/postgres': { createPostgresSecrets: async () => resource() },
+      '../../tenant-authorization/postgres': async () => resource(),
+      '../../tenant-settings/effective-postgres': settings
+    }).checkTarget({ config, role: 'api' });
+    async function criterion (settings) {
+      await target(settings);
+      for (const [property, causeCode] of [['unsafe', 'SETTINGS_SCOPE_UNSAFE'], ['stale', 'MIG_STALE']]) {
+        state[property] = true;
+        try { await assert.rejects(target(settings), error => {
+          assert.deepEqual(diagnostics.read(error), { targetRole: 'api', checkPhase: 'SETTINGS_READER', causeCode }); return true;
+        }); } finally { state[property] = false; }
+      }
+      await target(settings);
+    }
+    try {
+      await criterion(strictSettings);
+      await assert.rejects(criterion(async () => resource()), { code: 'ERR_ASSERTION' }, 'skipping the admin settings screen is red');
+      await criterion(strictSettings);
+    } finally { require('../lib/storage/tenant-scope').setTenancyMode(previous); }
   });
   it('retains only fixed target, phase and cause diagnostics', function () {
     const privateValue = 'PRIVATE_ERROR_PATH_OR_DATABASE_DETAIL';

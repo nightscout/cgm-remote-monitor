@@ -20,7 +20,7 @@ const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb630240
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
-const namespaces = { entries: 'preview_data', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy' };
+const namespaces = { entries: 'preview_data', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', clock: 'preview_clock' };
 const domainNames = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
 const allNamespaces = { ...namespaces, ...Object.fromEntries(domainNames.filter(name => name !== 'entries')
   .map(name => [name, 'preview_' + name])) };
@@ -28,7 +28,8 @@ const catalogues = {
   entries: require('../migrations/candidates/postgres-entries-v1.json'),
   authorization: require('../lib/tenant-authorization/postgres-candidate.json'),
   secrets: require('../lib/secrets/postgres-candidate.json'),
-  legacy: require('../lib/secrets/legacy-credentials-candidate.json')
+  legacy: require('../lib/secrets/legacy-credentials-candidate.json'),
+  clock: require('../migrations/candidates/postgres-write-clock-v1.json')
 };
 for (const logical of domainNames) catalogues[logical] =
   require('../lib/server/serve/postgres-domains').get(logical).catalogue;
@@ -40,7 +41,7 @@ const docker = args => execFileSync('docker', args, {
 
 function staticNegativeConfiguration (address, full = false) {
   return {
-    version: 1,
+    version: 1, writeClock: true,
     ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
     postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG',
       namespaces: full ? allNamespaces : namespaces },
@@ -66,7 +67,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     const roots = [], children = new Set(), tokens = [], publicKeys = [];
     let provisioned, roleToken;
     function configuration (address, full = false) {
-      return { version: 1, ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
+      return { version: 1, writeClock: true, ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
         postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: full ? allNamespaces : namespaces },
         vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
         resolution: { mode: 'direct-alias' }, registry: { namespace: provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
@@ -260,6 +261,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await admin.query('GRANT SELECT ON preview_access.schema_migrations TO preview_check');
       await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
       await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
+      await admin.query('GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
       vaultRoot = random();
       execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
         '-e', 'VAULT_DEV_ROOT_TOKEN_ID', image, 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
@@ -275,7 +277,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       }, 'owned Vault');
       await admin.query('CREATE ROLE preview_registry_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
       provisioned = await require('./fixtures/provisioned-tenants').create({ admin, adminURI, owner: 'preview_registry_owner',
-        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access' },
+        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access', clock: 'preview_clock' },
         vault: { address: address + '/', token: vaultRoot } });
       for (const [i, tenant] of [A, B].entries()) {
         roots[i] = (await provisioned.provision({ id: tenant, hosts: [(i ? 'two' : 'one') + '.example.test'], issueRootSecret: true })).rootSecret;

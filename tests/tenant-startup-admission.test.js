@@ -123,33 +123,42 @@ describe('independent tenant startup admission (source protocol)', function () {
         readCurrent:async()=>{throw new Error('broken shared dependency');},create:()=>{},fanout:async()=>{},recoveryIntervalMs:100,schedule:()=>1,cancel:()=>{}}),/broken shared dependency/);
     } finally { await f.window.close(); }
   });
-  it('actual API boot defers roots/dates and exposes lazy initializer to both HTTP and private socket composition (NS_TENANT_READINESS=all)', async function () {
+  it('actual API boot exposes inline preparation to HTTP and private sockets without warming the roster (NS_TENANT_READINESS=all)', async function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';
     try{await apiBootAll();}finally{if(previous===undefined)delete process.env.NS_TENANT_READINESS;else process.env.NS_TENANT_READINESS=previous;}
   });
   async function apiBootAll () {
-    const options={phases:{[A]:'suspended'}},f=fixture(options),reads=[],calls={},resources=[];
-    const resource=extra=>{const r={end:async()=>{},...extra};resources.push(r);return r;};
-    const authority=resource({authorize:async({tenant})=>{reads.push(['authority',tenant]);}});
-    const boot=load('lib/server/serve/preview-api.js',{
-      '../../storage/postgres-connection':async()=>resource(),
-      '../../secrets/legacy-postgres':async()=>resource({read:async tenant=>{reads.push(['root',tenant]);return {reference:{id:'synthetic'}};}}),
-      '../../tenant-authorization/postgres':async()=>authority,
-      '../../secrets/postgres':{createPostgresSecrets:async()=>resource({store:{get:async()=>({})}})},
-      '../../secrets/component':{createSecrets:()=>({})},
-      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains':{readiness:async()=>{},assertServing:async()=>({ensure:async tenant=>reads.push(['floor',tenant]),invalidateTenant:()=>{}})},
-      './preview-domains':async()=>({initializeTenant:async tenant=>reads.push(['dates',tenant]),data:()=>{},safeRoutes:{}}),
-      '../tenant-app/exchange':()=>()=>{},'../tenant-app/data-access':()=>()=>{},
-      '../tenant-app':{createTenantApp:input=>{calls.http=input.prepareTenant;return (req,res,next)=>next();}},
-      '../realtime/private-api':{boot:async input=>{calls.socket=input.prepareTenant;return {close:async()=>{}};}}
+    const options = { phases: { [A]: 'suspended' } }, f = fixture(options), reads = [], calls = {};
+    const resource = extra => ({ end: async () => {}, ...extra });
+    const boot = load('lib/server/serve/preview-api.js', {
+      '../../storage/connection-admission': { coldAdmission: () => { throw Error('API_MUST_NOT_USE_COLD_SCHEDULER'); }, wrapClient: Client => Client },
+      './tenant-startup': { create: () => { throw Error('API_MUST_NOT_BUILD_WARM_QUEUE'); } },
+      '../../storage/postgres-connection': async () => resource(),
+      '../../secrets/legacy-postgres': async () => resource({ read: async () => { throw Error('NO_WARM_ROOT_PROBE'); } }),
+      '../../tenant-authorization/postgres': async () => resource({ authorize: async () => { throw Error('NO_WARM_AUTHORITY_PROBE'); } }),
+      '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
+      '../../secrets/component': { createSecrets: () => ({}) },
+      './platform-verification': require('./fixtures/platform-proof')(),
+      './tenant-floor-verification': { createReader: () => async tenant => { reads.push(['verified-floor', tenant]); } },
+      './preview-domains': async () => ({ prepareTenant: async tenant => reads.push(['build', tenant]), invalidateTenant: tenant => reads.push(['invalidate', tenant]), invalidateAll () {}, data: () => {}, safeRoutes: {} }),
+      '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
+      '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } },
+      '../realtime/private-api': { boot: async input => { calls.socket = input.prepareTenant; return { close: async () => {} }; } }
     });
-    let role;try{
-      role=await boot.boot({bindings:new Map([[A,{}],[B,{}]]),providers:new Map(),namespaces:{},socketForwarding:true},{operationWindow:f.window});
-      assert.deepEqual(reads.map(row=>row[1]),[B,B,B,B],'API_A_NO_ROOT_FLOOR_DATE_READS');
-      options.phases[A]='active';await f.window.run(A,()=>calls.http(A));await f.window.run(A,()=>calls.socket(A));
-      assert.equal(reads.filter(row=>row[1]===A).length,4);
-      await role.invalidateTenant(A);await f.window.run(A,()=>calls.socket(A));assert.equal(reads.filter(row=>row[1]===A).length,8);
-    }finally{try{if(role)await role.close();}finally{await f.window.close();}}
+    let role;
+    try {
+      role = await boot.boot({ bindings: new Map([[A, {}], [B, {}]]), providers: new Map(), namespaces: { clock: 'synthetic_clock' }, socketForwarding: true }, { operationWindow: f.window });
+      assert.deepEqual(reads, [], 'API_BOOT_MUST_NOT_SCAN_OR_WARM_TENANTS');
+      await assert.rejects(f.window.run(A, () => calls.http(A)));
+      assert.deepEqual(reads, [], 'SUSPENDED_TENANT_MUST_NOT_BUILD');
+      options.phases[A] = 'active';
+      await f.window.run(A, () => calls.http(A));
+      await f.window.run(A, () => calls.socket(A));
+      assert.deepEqual(reads.map(row => row[0]), ['verified-floor', 'build', 'verified-floor']);
+      await role.invalidateTenant(A);
+      await f.window.run(A, () => calls.socket(A));
+      assert.deepEqual(reads.slice(-2).map(row => row[0]), ['invalidate', 'verified-floor']);
+    } finally { if (role) await role.close(); await f.window.close(); }
   }
   it('evaluator ignores all-tenant warmup and admits only addressed work within its tenant window', async function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';

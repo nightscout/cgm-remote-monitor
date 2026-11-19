@@ -32,6 +32,13 @@ function reader (ablation) {
 }
 // Any statement of the integrity screen (role, write scope, ledgers, objects).
 const SCREEN = /pg_roles|has_schema_privilege|to_regclass|relrowsecurity|ORDER BY name COLLATE/;
+// The shared pool still observes its initial role/backend/datastore identity.
+// P6 removes the full settings screen; P9 owns shared connection observations.
+const BACKEND_IDENTITY = 'SELECT rolsuper, rolbypassrls,pg_backend_pid() AS pid,current_user AS role,' +
+  '(SELECT extract(epoch from backend_start)::text FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS birth,' +
+  'current_database() AS database,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS database_oid,' +
+  'inet_server_addr()::text AS server_address,inet_server_port() AS server_port,extract(epoch from pg_postmaster_start_time())::text AS postmaster_birth FROM pg_roles WHERE rolname = current_user';
+const settingsScreens = texts => texts.filter(text => SCREEN.test(text) && text !== BACKEND_IDENTITY);
 
 optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRES_ADMIN_URI')('settings screen at open and owner check (actual PostgreSQL)', function () {
   this.timeout(60000);
@@ -104,6 +111,33 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRE
       console.log('    control B ablation: screen statements in 3 reads=' + screened);
       assert(screened > 0); assert.throws(() => assert(reads.every(texts => !texts.some(text => SCREEN.test(text)))), { code: 'ERR_ASSERTION' });
     } finally { await settings.close(); }
+  });
+
+  it('API proof admission suppresses the full settings screen at open, check and failed-read reopen while reads fail closed', async function () {
+    const binding = { connectionString: url.toString(), namespaces };
+    const presentation = require('../lib/tenant-settings/presentation-reader')(binding, { platformVerified: true });
+    const relation = '"' + namespaces.settings + '".tenant_settings';
+    try {
+      const opened = await counted(() => presentation.check());
+      assert.equal(settingsScreens(opened.texts).length, 0, 'verified open has no full settings screen');
+      assert(opened.texts.every(text => text === BACKEND_IDENTITY), 'opening sends only the shared foundational identity observation');
+      const first = await counted(() => presentation.read(tenant));
+      assert.equal(first.value.version, 1); assert.equal(settingsScreens(first.texts).length, 0);
+      await q(`REVOKE SELECT ON ${relation} FROM "${role}"`);
+      try {
+        await assert.rejects(presentation.read(tenant), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
+        assert.equal(presentation.health().ready, false, 'failed settings cannot supply a presentation');
+      } finally { await q(`GRANT SELECT ON ${relation} TO "${role}"`); }
+      const reopened = await counted(() => presentation.read(tenant));
+      assert.equal(reopened.value.version, 1); assert.equal(presentation.health().ready, true);
+      assert.equal(settingsScreens(reopened.texts).length, 0, 'verified reopen has no full settings screen');
+      const checked = await counted(() => presentation.check());
+      assert.equal(checked.texts.length, 0, 'verified owner check sends no SQL');
+      console.log('    API_SETTINGS full-screen statements: open=' + settingsScreens(opened.texts).length +
+        ' first-read=' + settingsScreens(first.texts).length + ' reopen=' + settingsScreens(reopened.texts).length +
+        ' check=' + settingsScreens(checked.texts).length + '; foundational-identity: open=' +
+        opened.texts.filter(text => text === BACKEND_IDENTITY).length + ' reopen=' + reopened.texts.filter(text => text === BACKEND_IDENTITY).length);
+    } finally { await q(`GRANT SELECT ON ${relation} TO "${role}"`).catch(() => {}); await presentation.close(); }
   });
 
   for (const [kind, [grant, revoke]] of Object.entries(grants)) {

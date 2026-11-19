@@ -23,7 +23,7 @@ async function until (fn, label, timeout = 20000) { const end = Date.now() + tim
 module.exports = function fixture () {
   let lab, provisioner, directory, edge, previousMode, config, map, slicePeers, routeReader;
   const roles = [], schemas = [], children = new Set(), workers = new Map(), roots = new Map(), credentials = new Map(), hosts = new Map(), edgeSockets = new Set();
-  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig, proof;
+  let api, activity, display, check, alarm, publisher, lastScreen, activityWriter, operationState, apiService, evaluator, producer, evaluatorConfig, realtimeConfig, proof, floorVerifier;
   const tenants = [];
   while (tenants.length < 2) { const id = randomUUID(); if (slice.bucket(id, 2) === tenants.length) tenants.push(id); }
   const q = (sql, values) => lab.admin.query(sql, values);
@@ -115,7 +115,7 @@ module.exports = function fixture () {
     evaluator = await role('evaluator');
     check = await role('check'); display = await role('display'); activity = await role('activity'); alarm = await role('alarm'); publisher = await role('publisher');
     proof = await prestart.install(lab.admin, { namespace: 'sr_proof_' + lab.id, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI,
-      readers: [lab.roles.api, check.name, evaluator.name, lab.roles.realtime] }); schemas.push(proof.namespace); roles.push(proof.writer);
+      registry: lab.namespaces.registry, readers: [lab.roles.api, check.name, evaluator.name, lab.roles.realtime] }); schemas.push(proof.namespace); roles.push(proof.writer);
     const apiNamespaces = { ...Object.fromEntries(domains.map(domain => [domain, ns[domain]])), clock: ns.clock, authorization: lab.namespaces.authorization, legacy: lab.namespaces.legacy, secrets: lab.namespaces.secrets };
     for (const name of Object.values(apiNamespaces)) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(check.name)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(check.name)); }
     await readerGrants(display, [lab.namespaces.settings, lab.namespaces.operatorPolicy]);
@@ -205,7 +205,15 @@ module.exports = function fixture () {
     const apiEnvironment = { ...operationEnvironment, MULTITENANT_PREVIEW_CONFIG: path.join(directory, 'api.json'), API_PG: lab.urls.api, CHECK_PG: check.url,
       DISPLAY_PG: display.url, ACTIVITY_PG: activity.url, ALARM_PG: alarm.url, VAULT_TOKEN: token,
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'api.sock'), API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_TENANT_READINESS: 'all' };
-    await preStart('api', apiEnvironment.MULTITENANT_PREVIEW_CONFIG, apiEnvironment);
+    floorVerifier = require('../../lib/server/serve/platform-verification-admin').create({
+      namespace: proof.namespace, connectionString: proof.writerURI, targets: [{ role: 'api', configFile: apiEnvironment.MULTITENANT_PREVIEW_CONFIG,
+        ...(apiEnvironment.MULTITENANT_OPERATION_CONFIG ? { operationConfigFile: apiEnvironment.MULTITENANT_OPERATION_CONFIG } : {}) }]
+    }, { PATH: process.env.PATH, ...apiEnvironment });
+    await floorVerifier.verify();
+    await provisioner.close();
+    provisioner = require('../../lib/tenant-registry/provision').createProvisioning({
+      ...lab.provisioningOptions({ checkpoints }), postcondition: tenant => floorVerifier.verifyTenant(tenant)
+    });
     api = await ready(start('api', 'api', apiEnvironment), 'api');
     async function seedEntries () {
       for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
@@ -284,6 +292,7 @@ module.exports = function fixture () {
     return tenant;
   }
   async function cleanup () {
+    await floorVerifier?.close();
     if (directory) for (const file of fs.readdirSync(directory).filter(name=>name.startsWith('hold-') || name.startsWith('fail-'))) fs.unlinkSync(path.join(directory,file));
     for (const socket of edgeSockets) socket.destroy(); if (edge) await new Promise(resolve => edge.close(resolve));
     for (const child of [...children]) await stop(child).catch(() => {});

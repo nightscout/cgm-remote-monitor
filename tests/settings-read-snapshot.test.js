@@ -57,7 +57,7 @@ function fixture (ablation) {
   loaded._compile(source, filename);
   const screens = () => calls.filter(call => call.sql.includes('FROM pg_roles')).length;
   const values = () => calls.filter(call => call.sql.includes('JOIN') && !call.sql.includes('pg_namespace')).length;
-  return { state, calls, pools, screens, values, open: () => loaded.exports(config) };
+  return { state, calls, pools, screens, values, open: (trusted, binding = config) => loaded.exports(binding, trusted) };
 }
 const mutations = [
   ...['rolsuper', 'rolbypassrls', 'rolcreaterole', 'rolcreatedb', 'rolreplication'].map(key => ['role', { [key]: true }, /unsafe settings identity/]),
@@ -92,6 +92,25 @@ describe('settings owned read snapshot guard sequence', function () {
     const factory = require('../lib/tenant-settings/effective-postgres');
     assert.equal(factory.SCREEN_INTERVAL_MS, undefined);
     assert.doesNotMatch(fs.readFileSync(path.resolve(__dirname, '../lib/tenant-settings/effective-postgres.js'), 'utf8'), /screenIntervalMs|admitBackend|AsyncLocalStorage/);
+  });
+  it('an API admitted by the platform opens and checks without metadata SQL, while a config key cannot bypass the strict default', async function () {
+    async function criterion (ablation) {
+      const f = fixture(ablation), reader = await f.open({ platformVerified: true });
+      try {
+        assert.equal(f.calls.length, 0, 'verified open sends no metadata SQL');
+        await reader.check(); assert.equal(f.calls.length, 0, 'verified owner check sends no metadata SQL');
+        await reader.read(A); f.state.value++;
+        assert.equal((await reader.read(A)).version, 2, 'settings stay fresh');
+        assert(f.calls.every(call => call.backend === 'snapshot' && call.sql.includes('JOIN')), 'API reads send only the value SELECT');
+        assert.equal(f.pools[0].displaySettings, true); assert.equal(f.pools[0].max, 4);
+      } finally { await reader.close(); }
+    }
+    await criterion();
+    await assert.rejects(criterion('perRead'), { code: 'ERR_ASSERTION' }, 'restoring a read-time metadata screen is red');
+    const strict = fixture(); strict.state.role = { rolsuper: true };
+    await assert.rejects(strict.open(undefined, { ...config, platformVerified: true }), /unsafe settings identity/,
+      'only the internal second argument conveys the already-admitted proof');
+    await criterion();
   });
   it('refuses role/scope/object and catalogue mutations at open and at check(), and passes again once restored', async function () {
     for (const [part, value, expected] of mutations) {

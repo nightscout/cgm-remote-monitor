@@ -47,16 +47,17 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const catalogue = require('../lib/server/serve/postgres-domains').get('entries').catalogue;
     await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: entries, catalogue });
     const api = lab.roles.api;
-    for (const name of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy]) await q(`GRANT USAGE ON SCHEMA "${name}" TO "${api}"`);
+    for (const name of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy, lab.namespaces.clock]) await q(`GRANT USAGE ON SCHEMA "${name}" TO "${api}"`);
     await require('./fixtures/tenant-insertion-grants').grant(lab.admin, { namespace: entries, domain: 'entries', role: api, catalogue });
     await q(`GRANT SELECT ON ALL TABLES IN SCHEMA "${lab.namespaces.authorization}", "${lab.namespaces.legacy}" TO "${api}"`);
     await q(`GRANT SELECT, INSERT ON "${lab.namespaces.secrets}".secret_records TO "${api}"`);
     await q(`GRANT INSERT ON "${lab.namespaces.secrets}".secret_audit TO "${api}"`);
+    await q(`GRANT SELECT, UPDATE(last_stamp,last_delete_stamp) ON "${lab.namespaces.clock}".tenant_write_clock TO "${api}"`);
     for (const role of ['check', 'settings']) {
       const name = 'trl_' + role + '_' + lab.id, password = crypto.randomBytes(18).toString('hex');
       await q(`CREATE ROLE "${name}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = name; url.password = password;
-      if (role === 'check') { check = { name, url: url.toString() }; for (const ns of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy]) {
+      if (role === 'check') { check = { name, url: url.toString() }; for (const ns of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy, lab.namespaces.clock]) {
         await q(`GRANT USAGE ON SCHEMA "${ns}" TO "${name}"`); await q(`GRANT SELECT ON "${ns}".schema_migrations TO "${name}"`);
       } } else {
         settings = { name, url: url.toString() };
@@ -72,9 +73,9 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       `path "${lab.mount}/verify/tenant-signing-*" { capabilities = ["update"] }`].join('\n') });
     const apiToken = (await lab.vaultRequest('auth/token/create', { policies: [lab.mount + '_api'], no_default_policy: true, ttl: '1h' })).auth.client_token;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-api-registry-'));
-    const config = { version: 1,
+    const config = { version: 1, writeClock: true,
       postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG',
-        namespaces: { entries, authorization: lab.namespaces.authorization, secrets: lab.namespaces.secrets, legacy: lab.namespaces.legacy } },
+        namespaces: { entries, authorization: lab.namespaces.authorization, secrets: lab.namespaces.secrets, legacy: lab.namespaces.legacy, clock: lab.namespaces.clock } },
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 2000 },
       resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: REFRESH_MS },

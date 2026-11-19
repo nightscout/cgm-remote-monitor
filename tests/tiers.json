@@ -423,7 +423,8 @@
         "tests/pgstream-work-admission.test.js",
         "tests/tenant-api-admission.test.js",
         "tests/tenant-api-settings-reader.test.js",
-        "tests/tenant-api-authority-ownership.test.js"
+        "tests/tenant-api-authority-ownership.test.js",
+        "tests/tenant-floor-verification.test.js"
       ],
       "env": true,
       "require": [
@@ -679,7 +680,9 @@
         "tests/realtime-completed-readiness.integration.test.js",
         "tests/native-operation-control-readiness.integration.test.js",
         "tests/pgstream-assigned-worker.integration.test.js",
-        "tests/tenant-api-write-cost.integration.test.js"
+        "tests/tenant-api-write-cost.integration.test.js",
+        "tests/api-tenant-lru.integration.test.js",
+        "tests/tenant-floor-verification.integration.test.js"
       ],
       "env": true,
       "require": [

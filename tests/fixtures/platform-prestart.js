@@ -14,10 +14,13 @@ const { execFileSync } = require('node:child_process');
 
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 
-async function install (admin, { namespace, adminURI, readers }) {
+async function install (admin, { namespace, adminURI, readers, registry }) {
   const writer = namespace + '_writer', password = crypto.randomBytes(24).toString('hex');
   await admin.query('CREATE ROLE ' + quote(writer) + " LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '" + password + "'");
   await require('../../lib/server/serve/platform-verification').install(admin, { namespace, writer, readers });
+  if (registry) {
+    for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: registry, enumerators: [writer] })) await admin.query(sql);
+  }
   const url = new URL(adminURI); url.username = writer; url.password = password;
   return Object.freeze({ namespace, writer, writerURI: url.toString() });
 }

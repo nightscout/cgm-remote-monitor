@@ -9,7 +9,8 @@
     "vault",
     "resolution",
     "registry",
-    "tenantSettings"
+    "tenantSettings",
+    "writeClock"
   ],
   "additionalProperties": false,
   "properties": {
@@ -41,7 +42,8 @@
             "entries",
             "authorization",
             "secrets",
-            "legacy"
+            "legacy",
+            "clock"
           ],
           "additionalProperties": false,
           "properties": {
@@ -106,7 +108,7 @@
               "description": "A PostgreSQL schema name."
             }
           },
-          "description": "One namespace per selected domain, plus access when accessTokens is given and clock when writeClock is true."
+          "description": "One namespace per selected domain, plus the required history clock and access when accessTokens is given."
         }
       }
     },
@@ -399,7 +401,6 @@
   },
   "dependentRequired": {
     "socketForwarding": [
-      "writeClock",
       "legacy"
     ]
   }

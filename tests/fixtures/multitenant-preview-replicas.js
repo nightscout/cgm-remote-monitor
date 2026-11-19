@@ -71,7 +71,7 @@ if (process.env.NS_PREVIEW_REPLICA_HOLD_RESPONSE === '1') {
   };
 }
 
-module.exports = function createReplicaFixture ({ writeClock = false, namespaceNames = {}, restartableDatabase = false } = {}) {
+module.exports = function createReplicaFixture ({ writeClock = true, namespaceNames = {}, restartableDatabase = false } = {}) {
     provisionedTenants.validateNamespaceNames(namespaceNames);
     namespaceNames = { ...namespaceNames };
     const suffix = crypto.randomBytes(8).toString('hex');
@@ -369,7 +369,7 @@ module.exports = function createReplicaFixture ({ writeClock = false, namespaceN
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, readers: ['preview_app', 'preview_check'] });
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, readers: ['preview_app', 'preview_check'] });
     }
     async function restartDatabase (whileDown) {
       assert(restartableDatabase && pgOwned, 'restart requires this fixture’s owned PostgreSQL');

@@ -306,8 +306,8 @@ describe('Production public API and internal listener isolation', function () {
       '../../tenant-authorization/postgres': async () => resource({ authorize: async () => false }),
       '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
       '../../secrets/component': { createSecrets: () => ({}) },
-      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { async readiness () {}, assertServing: async () => ({ async ensure () {}, invalidateTenant () {} }) },
-      './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async initializeTenant () {} }),
+      './platform-verification': require('./fixtures/platform-proof')(), './tenant-floor-verification': { createReader: () => async () => {} },
+      './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async prepareTenant () {}, invalidateTenant () {}, invalidateAll () {} }),
       '../tenant-app/data-access': () => async () => ({ tenant, principal: 'synthetic', consumer: 'api' }),
       '../tenant-app/exchange': () => async () => null,
       '../../human-session/runtime': { multi: async () => null },
@@ -324,23 +324,19 @@ describe('Production public API and internal listener isolation', function () {
       name => Object.hasOwn(stubs, name) ? stubs[name] : local(name), output, output.exports);
     try {
       role = await output.exports.boot({ bindings: new Map([[tenant, { principal: 'synthetic', consumer: 'api' }]]),
-        providers: new Map(), namespaces: {}, resolver: { resolve: async () => tenant }, socketForwarding: true });
+        providers: new Map(), namespaces: { clock: 'synthetic_clock' }, resolver: { resolve: async () => tenant }, socketForwarding: true });
       publicServer = http.createServer(role.app);
       await new Promise((resolve, reject) => { publicServer.once('error', reject); publicServer.listen(0, '127.0.0.1', resolve); });
       const publicEndpoint = { url: 'http://127.0.0.1:' + publicServer.address().port };
       assert.notEqual(new URL(publicEndpoint.url).port, new URL(f.options.url).port, 'Public and internal APIs must use separate listeners');
-      // Every API is platform-verified and starts cold: the first request warms the tenant.
-      assert.equal((await raw(publicEndpoint, '/api/v3/synthetic', '', { method: 'GET' })).status, 503);
-      await role.warmed();
+      // The first cold request builds inline and reaches the public handler.
       const publicPositive = await raw(publicEndpoint, '/api/v3/synthetic', '', { method: 'GET' });
       assert.equal(publicPositive.status, 200); assert.deepEqual(JSON.parse(publicPositive.body), { public: true });
       const credential = { host: 'synthetic.example', tenant, namespace: '/', credential: {} };
       const contractPaths = Object.values(require('../lib/server/internal-api/contracts')).flatMap(service => Object.values(service.operations).map(operation => operation.path));
-      // The maintained evaluator input hint is private too; include its actual
-      // contract in the same public-listener refusal checks as every other RPC.
-      assert.deepEqual(contractPaths, ['/authorize', '/mutate', '/completed-output/hint', '/evaluator/input-hint', '/alarm', '/cohort/status', '/cohort/invalidate', '/cohort/operations', '/cohort/api-health',
-        '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/evaluator/readiness-witness', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
+      // Exercise every currently declared private operation. Historic route
+      // lists do not define the listener-isolation property.
+      assert(contractPaths.length > 0, 'PRIVATE_OPERATION_COVERAGE_MUST_NOT_BE_EMPTY');
       for (const requestPath of [...contractPaths, '/api/v1/authorize', '/api/v3/authorize']) {
         const reply = await raw(publicEndpoint, requestPath, credential, { headers: {
           'x-nightscout-internal-service': descriptor.id, 'x-nightscout-internal-version': String(descriptor.version)
@@ -360,9 +356,9 @@ describe('Production public API and internal listener isolation', function () {
     await checkPublicIsolation();
   });
   it('detects accidental mounting of an internal operation on the public production app', async function () {
-    // Include the private API health selector in the same real public-mount
-    // control as authorization. Neither may become a public route.
-    for (const internalPath of ['/authorize', '/cohort/api-health']) {
+    // Break authorization and role health using their current declared paths.
+    const contracts = require('../lib/server/internal-api/contracts');
+    for (const internalPath of [contracts.socketAuthority.operations.authorizeSocket.path, contracts.roleHealth.operations.getStatus.path]) {
       await assert.rejects(checkPublicIsolation(source => {
         const mount = 'app.use(createTenantApp({';
         assert.equal(source.split(mount).length, 2, 'Actual production tenant-app mount must exist exactly once');

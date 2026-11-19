@@ -57,14 +57,14 @@ describe('explicit profile socket insertion-order source contract', function () 
       assert.throws(() => cataloguesFor({ socketOrderDomains: value }), /reviewed/);
     }
   });
-  it('consumed selected socket composition checks successor and returns actual profile factory port', async function () {
+  it('selected socket composition uses the admin-verified profile port without a catalogue check', async function () {
     const migration = require('../lib/migrations/postgres'), original = migration.run, seen = [];
     migration.run = async (action, opts) => { seen.push({ action, opts }); return { current: true }; };
     try {
       delete require.cache[require.resolve('../lib/server/tenant-socket-order-port')];
       const create = require('../lib/server/tenant-socket-order-port');
-      const port = await create({ readinessConnectionString: 'postgres://synthetic', namespace: 'profile_source', logical: 'profile', connection: database([]) });
-      assert.equal(seen[0].action, 'check'); assert.equal(seen[0].opts.catalogue, successor);
+      const port = await create({ namespace: 'profile_source', logical: 'profile', connection: database([]) });
+      assert.equal(seen.length, 0, 'PORT_CONSTRUCTION_MUST_NOT_VERIFY_PLATFORM');
       assert.equal(typeof port.fallbackGetDate, 'function', 'PROFILE_REAL_FACTORY domain wrapper remains consumed');
       assert.equal(await reads.findOne(port.storage, { NSCLIENT_ID: 'synthetic' }), null);
     } finally { migration.run = original; delete require.cache[require.resolve('../lib/server/tenant-socket-order-port')]; }

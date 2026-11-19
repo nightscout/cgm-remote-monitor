@@ -112,9 +112,9 @@ describe('preview root subject administration configuration', function () {
   after(() => fs.rmSync(dir, { recursive: true, force: true }));
   function parse (subjectAdmin, extra = {}) {
     const file = path.join(dir, 'config.json');
-    fs.writeFileSync(file, JSON.stringify({ version: 1,
+    fs.writeFileSync(file, JSON.stringify({ version: 1, writeClock: true,
       postgres: { connectionEnv: 'RA_API_PG', readinessConnectionEnv: 'RA_READINESS_PG',
-        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy' } },
+        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock' } },
       vault: { address: 'http://127.0.0.1:8200', mount: 'ra_transit', allowInsecureLoopback: true },
       resolution: { mode: 'direct-alias' },
       tenants: [{ id: A, aliases: ['one.example.test'], vault: { tokenEnv: 'RA_VAULT', encryptionKey: 'a-data', signingKey: 'a-signing', signingVersion: 1 } }],
@@ -165,15 +165,15 @@ describe('preview API boot composes root subject administration only when select
       },
       '../tenant-app/data-access': () => () => null, '../tenant-app/exchange': () => async () => null,
       '../tenant-app': { createTenantApp: options => { seen.rootAdmin = options.rootAdmin; return express.Router(); } },
-      './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { readiness: async () => {}, assertServing: async () => ({ ensure: async () => {}, invalidateTenant () {} }) },
-      './preview-domains': async () => ({ data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, initializeTenant: async () => {} })
+      './platform-verification': require('./fixtures/platform-proof')(), './tenant-floor-verification': { createReader: () => async () => {} },
+      './preview-domains': async () => ({ data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, prepareTenant: async () => {}, invalidateTenant () {}, invalidateAll () {} })
     };
     const oldLoad = Module._load;
     const file = require.resolve('../lib/server/serve/preview-api'); delete require.cache[file];
     Module._load = function (name, ...args) { return Object.hasOwn(stubs, name) ? stubs[name] : oldLoad.call(this, name, ...args); };
     try {
       const role = await require(file).boot({ bindings: new Map([[A, { tenant: A, principal: 'preview-api', consumer: 'tenant-api' }]]),
-        providers: new Map(), namespaces: { authorization: 'ra_authorization', legacy: 'ra_legacy' }, ...(subjectAdmin ? { subjectAdmin } : {}) });
+        providers: new Map(), namespaces: { authorization: 'ra_authorization', legacy: 'ra_legacy', clock: 'ra_clock' }, ...(subjectAdmin ? { subjectAdmin } : {}) });
       await role.close();
     } finally { Module._load = oldLoad; delete require.cache[file]; }
     return seen;

@@ -235,6 +235,23 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       await held;
     });
 
+    it('returns stored dates on an acknowledged legacy resend without allocating a new cursor', async function () {
+      await write(0, 'acknowledged-cursor');
+      const stored = (await lab.rows())[0], before = await lab.floor(lab.A);
+      const step = createLegacy({ connection: lab.clocks[1], table: lab.table, logical: 'entries',
+        source: 'v1/internal', env: { write: { resend: 'acknowledge' } }, naturalOrder: true });
+      await scope.withTenant(lab.A, async () => {
+        const doc = document(stored.identifier), planned = step.plan({ op: 'create', docs: [doc] });
+        assert.equal(Object.hasOwn(doc, 'srvModified'), false, 'PLANNING_MUST_NOT_ISSUE_CURSOR');
+        const result = await step.write(planned);
+        assert.equal(result.items[0].outcome, 'unchanged');
+        assert.equal(doc.srvModified, stored.srvModified, 'ACK_REPLY_MUST_USE_STORED_HISTORY_METADATA');
+        assert.equal(doc.srvCreated, stored.srvCreated);
+      });
+      assert.equal(await lab.floor(lab.A), before, 'ACK_MUST_NOT_ADVANCE_CURSOR');
+      assert.deepEqual(await lab.rows(), [stored]);
+    });
+
     it('queues an insert on the ordinal after acquiring history, then admits another writer after release', async function () {
       await write(0, 'seed-ordinal');
       const entered = deferred(), release = deferred();
@@ -295,6 +312,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
           assert.equal(row.utcOffset, 60);
           assert.deepEqual(row.nested, before[i].nested);
           assert.equal(row.srvCreated, row.srvModified);
+          assert.equal(docs[i].srvModified, row.srvModified, 'COMMITTED_REPLY_AND_HISTORY_CURSOR_MUST_AGREE');
           assert.deepEqual(planned.ops[i].updateOne.filter, filters[i]);
           assert.equal(String(docs[i]._id), row._id);
         });
@@ -304,21 +322,21 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
     it('refuses absent, stale and overprivileged provisioning without repairing state', async function () {
       const config = { writeClock: true, domains: ['entries'], namespaces: lab.namespaces,
         bindings: new Map([[lab.A, {}], [lab.B, {}]]) };
-      await postgresDomains.assertServing(config, lab.raw[0]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
       await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock WHERE tenant_id=$1', [lab.A]);
-      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
       await assert.rejects(write(0, 'missing-floor'), /not provisioned/);
       assert.deepEqual(await lab.rows(), []);
       await lab.reset();
       await write(0, 'stored-ahead');
       await lab.admin.query('UPDATE "' + lab.namespaces.clock + '".tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [lab.A]);
-      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
       assert.equal(await lab.floor(lab.A), 0);
       await lab.reset();
       await lab.admin.query('GRANT UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock TO "' + lab.role + '"');
-      try { await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /unsafe write clock privileges/); }
+      try { await assert.rejects(postgresDomains.screenServing(config, lab.raw[0]), /unsafe write clock privileges/); }
       finally { await lab.admin.query('REVOKE UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock FROM "' + lab.role + '"'); }
-      await postgresDomains.assertServing(config, lab.raw[0]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
     });
 
     it('preserves refusal to acquire a new commit boundary inside an unrelated raw transaction', async function () {
@@ -391,10 +409,10 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       }
       await lab.admin.query('UPDATE "' + lab.namespaces.clock +
         '".tenant_write_clock SET last_stamp=CASE WHEN tenant_id=$1 THEN 104 ELSE 1000000 END', [lab.A]);
-      await postgresDomains.assertServing(config, lab.raw[0]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
       await lab.admin.query('UPDATE "' + lab.namespaces.clock +
         '".tenant_write_clock SET last_stamp=103 WHERE tenant_id=$1', [lab.A]);
-      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
       assert.equal(await lab.floor(lab.A), 103, 'Readiness must not repair a stale floor');
       for (const domain of lab.domains) {
         await lab.admin.query('DELETE FROM "' + lab.namespaces[domain] + '"."' + domain +
@@ -402,12 +420,12 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       }
       await lab.admin.query('UPDATE "' + lab.namespaces.clock +
         '".tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [lab.A]);
-      await postgresDomains.assertServing(config, lab.raw[0]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
       await lab.admin.query('GRANT UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock TO "' + lab.role + '"');
-      try { await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /unsafe write clock privileges/); }
+      try { await assert.rejects(postgresDomains.screenServing(config, lab.raw[0]), /unsafe write clock privileges/); }
       finally { await lab.admin.query('REVOKE UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock FROM "' + lab.role + '"'); }
-      await postgresDomains.assertServing(config, lab.raw[0]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
       await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock WHERE tenant_id=$1', [lab.A]);
-      await assert.rejects(postgresDomains.assertServing(config, lab.raw[0]), /missing or stale/);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
     });
   });
