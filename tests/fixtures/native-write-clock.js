@@ -28,8 +28,10 @@ async function provision (admin, { connectionString, namespace, role, tenants })
 }
 
 // The api's data connection: the plain connection decorated with the clock.
+// Reads delegate at call time, so a fixture's fault injection on the plain
+// connection's query reaches them as it did before the decoration.
 function clocked (connection, namespace) {
-  return decorate(connection, namespace);
+  return Object.assign(decorate(connection, namespace), { query: (...args) => connection.query(...args) });
 }
 
 // A MongoDB differential oracle has no database clock, but under the process's
