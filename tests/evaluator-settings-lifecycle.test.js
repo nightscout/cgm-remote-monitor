@@ -156,7 +156,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
     ...nativeBoot.mocks({events:calls.native}),
       '../../tenant-settings/presentation-reader':()=>{throw Error('retired product settings reader must not be constructed');},
       '../../storage/postgres-durable-replay':()=>({configureStream:binding=>nativeBoot.replay({events:calls.native}).configureStream(binding),invalidateStream:async()=>{},acceptTransaction:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_SETTINGS_FIXTURE');}}),
-      '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
+      '../../storage/postgres-connection':Object.assign(async options=>options?.application_name==='nightscout-evaluator-receiver'?{async end(){}}:connection,{readopt:async()=>{}}),
       './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},
       './registry-tenant-set':{openDemand:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},onRemove:listener=>{prepared=listener;}})},

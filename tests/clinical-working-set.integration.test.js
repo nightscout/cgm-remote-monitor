@@ -20,7 +20,7 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
   const checkpoint = 'synthetic_window_work.tenant_consumer_checkpoint';
   function newHandle(factory=replayFactory){
     const result=factory({connection,checkpointTable:checkpoint,clockTable:'synthetic_window_clock.tenant_write_clock',domains,consumer:'evaluator-synthetic',projectionVersion:'clinical-current-rows-v1',pageSize:5,maxRows:limits.maxRows,stream:true});
-    result.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
+    result.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:tenant=>recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic',tenant),maxBytes:limits.maxBytes});
     return result;
   }
   before(async () => {
@@ -138,7 +138,7 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     const broken = brokenModule('../lib/storage/postgres-durable-replay', 'const boundedSource = policy ? await windowSourceSql(policy) : null;', 'const boundedSource = null;');
     await scope.withTenant(A, () => connection.query('UPDATE ' + checkpoint + ' SET projection=NULL WHERE tenant_id=$1', [A]));
     const bad = broken({ connection, checkpointTable: checkpoint, clockTable: 'synthetic_window_clock.tenant_write_clock', domains, consumer: 'evaluator-synthetic', projectionVersion: 'clinical-current-rows-v1', pageSize: 5, maxRows: limits.maxRows, stream: true });
-    bad.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic'),maxBytes:limits.maxBytes});
+    bad.configureStream({recovery,expectedSource:source,generation:()=> 'fixture:1',assertFence:async()=> 'fixture:1',lockKey:tenant=>recoveryFactory.lockKey('synthetic_window_work','evaluator-synthetic',tenant),maxBytes:limits.maxBytes});
     await assert.rejects(scope.withTenant(A, () => bad.reconcile({ ...limits, signature: true, policy: policy.create(env, at) })), /REPLAY_SNAPSHOT_ROW_BOUND/);
     await reconcile();
   });

@@ -49,7 +49,7 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
    async query(sql){assert.equal(sql,'IDENTIFY_SYSTEM');streamStep('identify');return {rows:[{systemid:'123',timeline:1,dbname:'synthetic'}]};}
    async end(){streamStep('close');}
   }},
-  '../../pgstream/snapshot-recovery':{lockKey:()=> '123',create:()=>{streamStep('recovery');return {close:async()=>{}};}},
+  '../../pgstream/snapshot-recovery':{create:()=>{streamStep('recovery');return {lockKey:()=>'123',close:async()=>{}};}},
   './evaluator-runtime':async options=>{runtime=await runtimeFactory(options);return runtime;},
   '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
   '../../storage/postgres-durable-replay':()=>({configureStream(){},invalidateStream:async()=>{},acceptClinical:async()=>{throw Error('CLINICAL_INPUT_OUTSIDE_STARTUP_FIXTURE');}}), '../../data/tenant-projection-evaluator':fakeEvaluator,
@@ -458,7 +458,6 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
  });
  it('refuses a missing maintained transport instead of starting a legacy discovery stack',async()=>{const f=fixture({pgstreamEnabled:false});try{await assert.rejects(f.boot(),/maintained pgstream evaluator configuration required/);assert.equal(f.state().output,undefined);}finally{await f.window.close();}});
 
- it('refuses direct unsupported boot before registry, readiness, or member registration effects; removing the guard goes red',async()=>{const needle="  if(config.partition?.partitioned)require('./evaluator-config').assertSupportedPartition(config.partition);";async function criterion(sourceTransform){const f=fixture({partitioned:true,sourceTransform});let service;try{f.prepare.resolve();try{service=await f.boot();assert.fail('unsupported boot must refuse');}catch(error){assert.equal(error.code,'PGSTREAM_EVALUATOR_PARTITION_UNQUALIFIED');}assert.deepEqual(f.trace,[],'UNSUPPORTED_PARTITION_MUST_NOT_OPEN_RESOURCES');assert.equal(f.state().checks,0);}finally{await service?.close();await f.window.close();}}await assert.rejects(criterion(text=>{assert(text.includes(needle));return text.replace(needle,'');}));await criterion(text=>text);});
 
 });
 

@@ -147,22 +147,12 @@ describe('pool membership primitive', function () {
       await member.close();
       assert.equal((await member.slice()).eligible, false);
     });
-    it('pure evaluator partition metadata remains available and refuses a member count in the environment', function () {
-      const evaluatorConfig = require('../lib/server/serve/evaluator-config');
-      assert.deepEqual(evaluatorConfig.partitionFor({}), { kind: 'evaluator', partitioned: false });
-      const env = { MULTITENANT_POOL_EVALUATOR_PARTITION: 'on', MULTITENANT_POOL_EVALUATOR_ORDINAL: '0',
-        MULTITENANT_POOL_EVALUATOR_DATABASE_URL: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test', MULTITENANT_POOL_EVALUATOR_NAMESPACE: 'pool_ops' };
-      assert.equal(evaluatorConfig.partitionFor(env).partitioned, true);
-      assert.throws(() => evaluatorConfig.partitionFor({ ...env, MULTITENANT_POOL_EVALUATOR_MEMBERS: '2' }), /setPoolMembers/);
-      assert.throws(() => evaluatorConfig.partitionFor({ MULTITENANT_POOL_EVALUATOR_ORDINAL: '0' }), /partition is off/);
-    });
-    it('serves the inspection read when partitioned, and standalone only with serve.internal configured explicitly', function () {
+    it('serves the evaluator inspection read only with serve.internal configured explicitly', function () {
       const { inspectionFor } = require('../lib/server/serve/evaluator-config');
-      assert.equal(inspectionFor({ partitioned: true }, {}), true);
-      assert.equal(inspectionFor({ partitioned: false }, {}), false);
-      assert.equal(inspectionFor({ partitioned: false }, { XDG_RUNTIME_DIR: '/run/user/1000' }), false);
-      assert.equal(inspectionFor({ partitioned: false }, { NS_SERVE_INTERNAL_SOCKET: '/run/ns-ipc/evaluator.sock' }), true);
-      assert.equal(inspectionFor({ partitioned: false }, { NS_SERVE_INTERNAL_HOST: '127.0.0.1', NS_SERVE_INTERNAL_PORT: '7001' }), true);
+      assert.equal(inspectionFor({}), false);
+      assert.equal(inspectionFor({ XDG_RUNTIME_DIR: '/run/user/1000' }), false);
+      assert.equal(inspectionFor({ NS_SERVE_INTERNAL_SOCKET: '/run/ns-ipc/evaluator.sock' }), true);
+      assert.equal(inspectionFor({ NS_SERVE_INTERNAL_HOST: '127.0.0.1', NS_SERVE_INTERNAL_PORT: '7001' }), true);
     });
   });
 });

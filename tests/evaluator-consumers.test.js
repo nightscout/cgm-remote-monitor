@@ -199,7 +199,7 @@ describe('selected evaluator role consumes notification composition', function (
     const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
       if(Object.hasOwn(nativePorts,name))return nativePorts[name];
       if (name === '../../storage/postgres-durable-replay') return () => nativeBoot.replay({events:nativeEvents});
-      if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
+      if (name === '../../storage/postgres-connection') return Object.assign(async options => options?.application_name === 'nightscout-evaluator-receiver' ? { end: async () => {} } : clinical,{readopt:async()=>{}});
       if (name === './registry-tenant-set') return {openDemand:async()=>{
         const tenants = new Map([[A,parse.registryEntry(A)]]);
         return {tenants,lookup:async tenant=>tenants.get(tenant),isActive:()=>true,revision:()=>1,stats:()=>({}),onRemove(){},close:async()=>{}};

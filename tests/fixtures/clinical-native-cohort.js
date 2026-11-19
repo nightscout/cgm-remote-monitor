@@ -26,7 +26,7 @@ async function create({admin,pool,prefix='synthetic_cohort_'+randomBytes(4).toSt
    await admin.query('INSERT INTO '+table+' (tenant_id,consumer,contract_digest,projection) VALUES ($1,$2,$3,$4::jsonb),($1,$5,$6,$7::jsonb)',[tenant,consumer,snapshotDigest,JSON.stringify([state.empty(),journal.empty()]),consumer+'-completed',completedDigest,JSON.stringify([{kind:'evaluator-work-v2',output:null}])]);
   }
  }catch(error){for(const schema of created.reverse())await admin.query('DROP SCHEMA '+schema+' CASCADE');throw error;}
- function sqlOptions(expectedSource,{generation='fixture:1',assertFence=async()=>generation,lockKey='124252342164564'}={}){
+ function sqlOptions(expectedSource,{generation='fixture:1',assertFence=async()=>generation,lockKey=()=>'124252342164564'}={}){
   return {pool,observeBackend:async()=>{},table,consumer,snapshotDigest,completedConsumer:consumer+'-completed',completedDigest,routes,expectedSource,assertFence,lockKey,maxRows,maxBytes,maxTransactionRows:1024,maxTransactionBytes:4194304};
  }
  async function seed(client,tenant,boundary,{policy}={}){

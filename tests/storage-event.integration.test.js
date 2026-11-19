@@ -61,7 +61,7 @@ optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with 
   }
   if(frames)throw new Error('NATIVE_WAL_INCOMPLETE_COHORT');return changes;
  };
- const options=envelope=>({pool,observeBackend:async()=>{},table,consumer,envelope,routes:['entries','food','activity'].map(domain=>({schema:'synthetic_raw',table:domain,domain})),expectedSource:source,assertFence:async()=> 'fixture:1',lockKey:recoveryFactory.lockKey('synthetic_raw_work',consumer),snapshotDigest:digest,completedConsumer:consumer+'-completed',completedDigest,...limits,maxTransactionRows:256,maxTransactionBytes:400000});
+ const options=envelope=>({pool,observeBackend:async()=>{},table,consumer,envelope,routes:['entries','food','activity'].map(domain=>({schema:'synthetic_raw',table:domain,domain})),expectedSource:source,assertFence:async()=> 'fixture:1',lockKey:tenant=>recoveryFactory.lockKey('synthetic_raw_work',consumer,tenant),snapshotDigest:digest,completedConsumer:consumer+'-completed',completedDigest,...limits,maxTransactionRows:256,maxTransactionBytes:400000});
  const accept=event=>sql.acceptTransaction(options(event.cohort));
  const tail=async(tenant=A)=>(await db.query("SELECT projection->1 AS storage FROM "+table+' WHERE tenant_id=$1 AND consumer=$2',[tenant,consumer])).rows[0].storage;
  it('actual FULL WAL includes old public identifier and TOAST document, while unchanged metadata emits no client update',async()=>{
