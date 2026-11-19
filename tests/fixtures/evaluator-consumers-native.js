@@ -20,20 +20,14 @@ module.exports = function consumersLab () {
   const name = 'consumer_join_' + randomUUID().replace(/-/g, '').slice(0, 16), children = new Set();
   const outboxOwner = name + '_owner';
   const roles = { outbox: name + '_outbox', reader: name + '_reader', writer: name + '_writer' };
-  const namespaces = { outbox: name + '_outbox', alarm: name + '_alarm' };
-  let directory, source, sink, writer, configuredFile, schemaReady = false;
+  const namespaces = { outbox: lab.name + '_outbox', alarm: lab.name + '_alarm' };
+  let directory, source, sink, writer, configured, schemaReady = false;
   const createdRoles = new Set(), ownedSchemas = new Set(); const held = [];
   lab.consumerNamespaces = namespaces; lab.consumerRoles = roles; lab.observations = []; lab.sinkEffects = [];
   lab.sinkMode = 'accept';
-  lab.extraEnv = {}; // additional selected-role credentials owned by an extending test
   lab.open = async () => {
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'm5-consumers-')); fs.chmodSync(directory, 0o700);
     const adminUrl = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
-    const evaluatorPassword = randomBytes(24).toString('hex');
-    // This base fixture created this exact fresh role; expose new credentials only
-    // to our owned worker environment, never to logs or correspondence.
-    await lab.admin.query(`ALTER ROLE "${lab.previewRole}" PASSWORD '${evaluatorPassword}'`);
-    const evaluatorUrl = new URL(adminUrl); evaluatorUrl.username = lab.previewRole; evaluatorUrl.password = evaluatorPassword;
     const urls = {};
     for (const [kind, role] of Object.entries(roles)) {
       const password = randomBytes(24).toString('hex');
@@ -68,8 +62,8 @@ module.exports = function consumersLab () {
     writer = await connect({ connectionString: urls.writer, max: 2, statement_timeout: 5000 });
     const receive = createReceiver({ connection: writer, namespace: namespaces.alarm,
       async admitAckInTransaction (operation) {
-        if (!configuredFile) throw new Error('Selected consumer config not yet bound');
-        const linked = parser.loadMetadata({...lab.environment({ file: configuredFile }), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG:configuredFile});
+        if (!configured) throw new Error('Selected consumer config not yet bound');
+        const linked = parser.loadMetadata({ ...lab.environment(configured), NS_ALARM_PG: urls.writer });
         const current = await linked.readCurrent(operation.operation.tenant, undefined, lab.registryAdmission);
         if (!current) throw new Error('Selected consumer tenant unavailable');
         return require('../../lib/tenant-notifications/ack-admission')({namespace:namespaces.outbox,consumer:linked.consumers.realtime.route.id,
@@ -84,26 +78,17 @@ module.exports = function consumersLab () {
       contextForSocket: async () => ({ tenant, credential: { id: tenant } }),
       transport: envelope => receive({ syntheticTransport: true, tenant }, envelope)
     }).forward({ socket: {}, namespace: '/alarm', event: 'ack', args: [level, group, duration] });
-    source = { NS_COMPOSED_EVAL: evaluatorUrl.toString(), NS_COMPOSED_OUTBOX: urls.outbox, NS_COMPOSED_READER: urls.reader,
+    source = { NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.reader,
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'rt.sock') };
     await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'] });
     for (const role of Object.values(roles)) await lab.grantOperationReader(role);
-    lab.document.postgres.connectionEnv = 'NS_COMPOSED_EVAL'; lab.document.maxRows = 3; lab.document.pageSize = 1;
-    lab.document.consumers = { realtime: {
-      outbox: { connectionEnv: 'NS_COMPOSED_OUTBOX', namespace: namespaces.outbox, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
-      suppression: { connectionEnv: 'NS_COMPOSED_READER', namespace: namespaces.alarm, maxRows: 100, maxBytes: 1048576, maxConnections: 2 },
-      route: { id: 'realtime-joined-native', maxMessageBytes: 131072, operationTimeoutMs: 1000 },
-      maxPayloadBytes: 65536, maxInflight: 2, attemptTimeoutMs: 5000, retryDelayMs: 10, pollIntervalMs: 1000000, retryIntervalMs: 1000000 } };
+    lab.extraEnvironment = { ...lab.extraEnvironment, ...source };
+    lab.document.consumers = require('../../lib/server/serve/deployment-settings').evaluator(lab.environment()).consumers;
     schemaReady = true;
   };
-  lab.configureConsumers = (change = () => {}) => {
-    const document = structuredClone(lab.document);
-    change(document);
-    const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
-    // Recovery credentials exist only after prepareProduct creates the owned
-    // stream role. Validate shape now; the worker validates all live identities.
-    parser.parseMetadata(document);
-    configuredFile = file; return { document, file };
+  lab.configureConsumers = change => {
+    configured = lab.configure(change);
+    return configured;
   };
   lab.writerConnection = () => writer;
   lab.epoch = async () => Number((await lab.admin.query('SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS now')).rows[0].now);
@@ -139,13 +124,8 @@ module.exports = function consumersLab () {
     if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: false, env: {
-      PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',
-      // These labs read results right after boot: all-tenants readiness, as the
-      // api's boot-protocol test (decision readiness-serve-then-warm); serve is
-      // covered by tests/evaluator-gap-alert.test.js and the eval-gap gate.
-      NS_TENANT_READINESS: process.env.NS_TENANT_READINESS || 'all',
-      ...lab.environment(config), ...source, ...lab.extraEnv, MULTITENANT_EVALUATOR_CONFIG: config.file } });
+    const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), config.args, {
+      silent: true, detached: false, env: lab.environment(config) });
     const birthRaw = fs.readFileSync('/proc/' + child.pid + '/stat', 'utf8');
     const birthFields=birthRaw.slice(birthRaw.lastIndexOf(')')+2).trim().split(/\s+/);
     const birth=birthFields[19],processGroup=Number(birthFields[2]);
@@ -154,7 +134,7 @@ module.exports = function consumersLab () {
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const startup = setTimeout(() => {
       lab.traceConsumer('role-startup-watchdog', { phases: stdout.split('\n').filter(line => line.startsWith('Internal listener') || line.startsWith('Evaluator preview started')),
-        pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) });
+        pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ') || line.startsWith('Evaluator startup refused ')).slice(-8) });
       child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog'));
     }, 15000);
     const worker = { child, birth, processGroup, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
@@ -163,7 +143,7 @@ module.exports = function consumersLab () {
     } };
     child.on('message', message => {
       if(message.nativeFailure){lab.traceConsumer('native-receipt-refused',message.nativeFailure);return;}
-      if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; if (message.bootError) lab.traceConsumer('role-boot-refusal', { ...message, pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ')).slice(-8) }); clearTimeout(startup); resolve({ ...worker, startup: message }); }
+      if (message.ready || message.bootError) { child.fixtureBootRefused = !!message.bootError; if (message.bootError) lab.traceConsumer('role-boot-refusal', { ...message, pgstreamDiagnostics: stderr.split('\n').filter(line => line.startsWith('Pgstream ') || line.startsWith('Evaluator startup refused ')).slice(-8) }); clearTimeout(startup); resolve({ ...worker, startup: message }); }
       else if (pending.has(message.id)) { const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
         if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value); }
     });

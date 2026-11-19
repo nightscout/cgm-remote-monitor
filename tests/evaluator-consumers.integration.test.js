@@ -77,15 +77,35 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(await lab.requests(lab.B),[]); lab.traceConsumer('committed-per-cycle',{rows:await lab.requests(),state:await lab.producerState(),foreign:await lab.requests(lab.B)});
       await lab.stopConsumer(worker);
     });
-    it('recovers retained producer normal-state clear after actual evaluator process restart without repeated clear UUIDs', async function () {
-      await reading(50); const first=await boot(); const alarm=(await lab.requests())[0]; await lab.stopConsumer(first);
+    async function restartClear (configure) {
+      await reading(50);
+      const first = await boot(configure);
+      const alarm = (await lab.requests())[0];
+      assert.equal(alarm.state, 'accepted');
+      await lab.stopConsumer(first);
       await lab.writeCanonical({planned:{op:'update',form:'merge',target:{_id:'synthetic-0'},fields:{sgv:111}}});
-      const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true);
-      await lab.wait(async () => (await lab.requests()).some(row=>row.payload.clear&&row.state==='accepted'));
-      const clears=(await lab.requests()).filter(row=>row.payload.clear); lab.traceConsumer('restart-clear-before-verdict',{alarm,clears,state:await lab.producerState()}); assert.equal(clears.length,1,'M5_CONSUMER_RESTART_CLEAR');
-      assert.equal(clears[0].payload.message,"Auto ack'd alarm(s)"); assert.equal(clears[0].state,'accepted');
-      await next.call('tick'); await next.call('flush'); assert.equal((await lab.requests()).filter(row=>row.payload.clear).length,1,'M5_CONSUMER_CLEAR_ORIGIN_ONCE');
-      lab.traceConsumer('restart-normal-clear',{alarm,clears:await lab.requests(),state:await lab.producerState()}); await lab.stopConsumer(next);
+      const restartedAt = Date.now();
+      const next = await lab.workerConsumers(lab.configureConsumers(configure));
+      assert.equal(next.startup.ready, true);
+      await lab.wait(async () => (await lab.requests()).some(row=>row.payload.clear && row.state==='accepted'));
+      const clearAfterMs = Date.now() - restartedAt;
+      const clears = (await lab.requests()).filter(row=>row.payload.clear);
+      lab.traceConsumer('restart-clear-before-verdict', { alarm, clears, clearAfterMs, state: await lab.producerState() });
+      assert.equal(clears.length,1,'M5_CONSUMER_RESTART_CLEAR');
+      assert.equal(clears[0].payload.message,"Auto ack'd alarm(s)");
+      assert.equal(clears[0].state,'accepted');
+      await next.call('tick'); await next.call('flush');
+      assert.equal((await lab.requests()).filter(row=>row.payload.clear).length,1,'M5_CONSUMER_CLEAR_ORIGIN_ONCE');
+      lab.traceConsumer('restart-normal-clear',{alarm,clears:await lab.requests(),state:await lab.producerState()});
+      await lab.stopConsumer(next);
+    }
+    it('recovers retained producer normal-state clear after actual evaluator process restart without repeated clear UUIDs', async function () {
+      await restartClear();
+    });
+    it('delivers the recovered clear before the fallback discovery poll', async function () {
+      // The ordinary deployment can recover this work on its 1 s poll. Put
+      // both discovery clocks past the 10 s observation window for this case.
+      await restartClear(doc => Object.assign(doc.consumers.realtime, { pollIntervalMs: 30000, retryIntervalMs: 30000 }));
     });
     it('retries a still-current uncertain request with the same UUID after actual process death while permitting one fresh cycle event', async function () {
       const configure = doc => { doc.consumers.realtime.retryDelayMs = 1500; };
@@ -102,7 +122,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       lab.traceConsumer('uncertain-process-restart',{original,after,death,all:await lab.requests()}); await lab.stopConsumer(next);
     });
     it('clears a committed authorized ACK despite failed clinical acquisition and keeps the other tenant independent', async function () {
-      await reading(50); await reading(50,lab.B); const first=await boot();
+      const smallWindow = doc => { doc.maxRows = 3; doc.pageSize = 1; };
+      await reading(50); await reading(50,lab.B); const first=await boot(smallWindow);
       let worker=first; const completed=await lab.previewCompleted(lab.A);
       await reading(50,lab.A,4);
       // Source COMMIT does not imply recoverable CDC acceptance. The prior
@@ -117,7 +138,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(await lab.previewCompleted(lab.A),completed,'M5_CONSUMER_REFUSAL_RETAINS_DURABLE_CLINICAL_RESULT');
       await lab.stopConsumer(worker);
       await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], units: 'mmol' }, lab.A);
-      const changed = lab.configureConsumers();
+      const changed = lab.configureConsumers(smallWindow);
       worker = await lab.workerConsumers(changed); assert.equal(worker.startup.ready,true);
       await worker.call('flush',lab.A); await worker.call('flush',lab.B);
       assert.equal(await worker.call('last',lab.A),null,'M5_CONSUMER_COLD_NO_CLINICAL_RESULT');

@@ -83,7 +83,7 @@ process.on('message', async request => {
   } catch (error) { process.send({ id: request.id, error: failure(error) }); }
 });
 starting = (async () => {
-  const configured = require('../../lib/cli/commands/multitenant').configure(['evaluator'], process.env);
+  const configured = require('./evaluator-native-configuration')(process.argv[2], process.env);
   running = await require('../../lib/server/serve').start(['evaluator'], { HOSTNAME: '127.0.0.1', PORT: 1337 }, null,
     process.env, configured);
   context = running.contexts.evaluator;

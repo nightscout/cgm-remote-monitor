@@ -63,7 +63,7 @@ module.exports=function openProtocol({env,...options}={}) {
         const owned=[],all={...input.namespaces},ids=new Set();
         try {
           for(const kind of ['registry','legacy','secrets','authorization','access','control','settings','operatorPolicy']){
-            const namespace='protocol_'+kind.toLowerCase();await input.admin.query('CREATE SCHEMA "'+namespace+'"');owned.push(namespace);all[kind]=namespace;
+            const namespace=input.namespaceNames[kind];await input.admin.query('CREATE SCHEMA "'+namespace+'"');owned.push(namespace);all[kind]=namespace;
           }
           return {namespaces:all,registryGrants:()=>[],async provision({id}){ids.add(id);},provisioning:{async get(id){return ids.has(id)?{state:'active'}:null;}},async close(){for(const namespace of owned.reverse())await input.admin.query('DROP SCHEMA "'+namespace+'" CASCADE');}};
         } catch(error){for(const namespace of owned.reverse())await input.admin.query('DROP SCHEMA "'+namespace+'" CASCADE');throw error;}

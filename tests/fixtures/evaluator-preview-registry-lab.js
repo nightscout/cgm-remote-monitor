@@ -10,8 +10,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { fork, spawn } = require('node:child_process');
 const scope = require('../../lib/storage/tenant-scope');
-const createReplay = require('../../lib/storage/postgres-durable-replay');
 const base = require('./m5-current-state-proof');
+const deployment = require('../../lib/server/serve/deployment-settings');
 const configParser = require('../../lib/server/serve/evaluator-config');
 const provisionedTenants = require('./provisioned-tenants');
 const assert = require('node:assert/strict');
@@ -21,11 +21,15 @@ const stream = require('./pgstream-native');
 module.exports = function evaluatorPreviewRegistryLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
   const children = new Set(), addedRoles = new Set();
-  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, operationFile, registryReady = false;
-  lab.consumerName = 'evaluator-native-proof';
+  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, receiverURL, registryReady = false;
+  const layout = deployment.layout({ NS_PG_PREFIX: lab.name });
+  Object.assign(lab.catalogues, require('../../lib/server/tenant-socket-order-port').catalogues);
+  lab.replayNamespace = layout.namespaces.eval_checkpoint;
+  lab.consumerName = deployment.IDENTITY.evaluatorConsumer;
   lab.previewRole = lab.name + '_evaluator';
   lab.open = async () => {
     const capability = stream.capability(process.env);
+    receiverURL = 'http://127.0.0.1:' + capability.receiverPort + '/';
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-preview-'));
     const password = crypto.randomBytes(24).toString('hex');
     await lab.admin.query('CREATE ROLE "' + lab.previewRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + password + '\'');
@@ -43,7 +47,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     }
     for (const domain of Object.keys(lab.tables)) await require('./tenant-insertion-grants').grant(lab.admin, {
       namespace: namespaces[domain], domain, role: lab.previewRole,
-      catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue, mode: 'reader' });
+      catalogue: lab.catalogues[domain], mode: 'reader' });
     await lab.admin.query('GRANT UPDATE(checkpoint,projection,contract_digest,' + require('../../lib/pgstream/checkpoint').WORK_COLUMNS.join(',') + ') ON "' + lab.replayNamespace +
       '".tenant_consumer_checkpoint TO "' + lab.previewRole + '"');
     const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = lab.previewRole; url.password = password;
@@ -52,15 +56,12 @@ module.exports = function evaluatorPreviewRegistryLab () {
     await lab.admin.query('CREATE ROLE "' + owner + '" NOLOGIN NOSUPERUSER NOBYPASSRLS'); addedRoles.add(owner);
     const settingsPassword = crypto.randomBytes(24).toString('hex');
     await lab.admin.query('CREATE ROLE "' + settingsRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + settingsPassword + '\''); addedRoles.add(settingsRole);
-    const replay = createReplay({ connection: lab.reader, checkpointTable: lab.replayNamespace + '.tenant_consumer_checkpoint',
-      clockTable: lab.namespaces.clock + '.tenant_write_clock', domains: lab.tables, consumer: lab.consumerName,
-      projectionVersion: 'clinical-current-rows-v1', pageSize: 3, maxRows: 10000 });
     // The inherited lab primes clock rows. Strict provisioning must create its
     // own rows in the registry transaction, never adopt these synthetic rows.
     await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock');
+    const { clock, ...namespaceNames } = require('../../lib/server/ordinary-deployment-grants').provisioningNamespaces(layout.namespaces);
     provisioned = await provisionedTenants.create({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, owner,
-      namespaces: { clock: lab.namespaces.clock }, checkpoints: [{ namespace: lab.replayNamespace, consumer: lab.consumerName, digest: replay.digest },
-        { namespace: lab.replayNamespace, consumer: lab.consumerName + '-completed', digest: crypto.createHash('sha256').update(JSON.stringify(['evaluator-work-v2', lab.replayNamespace, lab.consumerName])).digest('hex') }] });
+      namespaceNames, namespaces: { clock }, checkpoints: deployment.checkpoints(layout).filter(row => row.namespace === lab.replayNamespace) });
     const registry = provisioned.namespaces;
     // Match canonical DBA grants: the lifetime role may execute only its
     // lifecycle birth function; settings validation belongs to provisioning.
@@ -93,35 +94,18 @@ module.exports = function evaluatorPreviewRegistryLab () {
     const trustedWorker = { clock: namespaces.clock, activity: registry.control, settings: registry.settings, operatorPolicy: registry.operatorPolicy };
     for (const statement of require('../../lib/trusted-worker/postgres').grants({ namespaces: trustedWorker, roles: [lab.previewRole] })) await lab.admin.query(statement);
     for (const [index, id] of [lab.A, lab.B].entries()) await provisioned.provision({ id, hosts: ['evaluator-' + index + '.example.test'] });
-    lab.document = { version: 1, postgres: { connectionEnv: 'NS_EVALUATOR_FIXTURE_CONNECTION', namespaces },
-      consumer: lab.consumerName, pageSize: 3, maxRows: 10000, maxBytes: 4 * 1024 * 1024, maxTenants: 2,
-      timeIntervalMs: 1000000,
-      pgstream: stream.configuration({ prefix: lab.name, evaluatorRole: lab.previewRole, capability }), trustedWorker,
-      activity: { connectionEnv: 'NS_EVALUATOR_FIXTURE_ACTIVITY', namespace: registry.control },
-      registry: { namespace: registry.registry, maxTenants: 2, refreshMs: 250 },
-      tenantSettings: { connectionEnv: 'NS_EVALUATOR_FIXTURE_SETTINGS', namespaces: { settings: registry.settings, operatorPolicy: registry.operatorPolicy } } };
+    lab.document = deployment.evaluator(env());
+    // This base lab exercises clinical acquisition without a notification sink.
+    // The consumer extension provisions the deployment's outbox and suppression roles.
+    delete lab.document.consumers;
     lab.registryNamespaces = registry;
     lab.registryAdmission = { namespace: registry.registry, allows: async tenant => (await provisioned.provisioning.get(tenant))?.state === 'active' };
-    operationFile = path.join(directory, 'operation.json');
     lab.prepareProduct = async config => {
       const selected = { ...config.document, namespaces: config.document.postgres.namespaces };
       const identity = JSON.stringify([selected.consumer, selected.namespaces, selected.trustedWorker, selected.pgstream]);
       if (producer && producerIdentity === identity) return;
       assert(![...children].some(child => child.exitCode === null && child.signalCode === null), 'fixture cannot rebind a live producer');
       if (producer) { await producer.close(); producer = null; }
-      const plan = require('./multitenant-plan'), layout = plan.layout('ev_' + crypto.createHash('sha256').update(lab.name).digest('hex').slice(0, 16));
-      Object.assign(layout.namespaces, namespaces, { eval_checkpoint: lab.replayNamespace,
-        authorization: registry.authorization, secrets: registry.secrets, legacy: registry.legacy,
-        access: registry.access, control: registry.control });
-      const documents = plan.documents({ layout });
-      for (const document of Object.values(documents.configs)) {
-        document.registry = { ...config.document.registry };
-        if (document.tenantSettings) document.tenantSettings = structuredClone(config.document.tenantSettings);
-      }
-      documents.configs.evaluator = config.document;
-      fs.writeFileSync(operationFile, JSON.stringify({ ...documents.operations.evaluator,
-        namespace: registry.control, connectionEnv: 'NS_EVALUATOR_FIXTURE_LIFETIME',
-        registry: { namespace: registry.registry } }), { mode: 0o600 });
       producer = await stream.setup({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, directory,
         config: selected, evaluatorRole: lab.previewRole });
       producerIdentity = identity;
@@ -163,12 +147,13 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.configure = (change = () => {}) => {
     const document = structuredClone(lab.document);
     change(document);
-    const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
     // Validate shape without requiring a recovery credential before setup has
     // created its restricted replication role. Actual identity parsing follows
     // that setup; no placeholder URI is supplied to the product parser.
     configParser.parseMetadata(document);
-    const configured = { document, file, async identity (tenant) {
+    const standard = deployment.evaluator(env({ document }));
+    const args = require('node:util').isDeepStrictEqual(document, standard) ? [] : [JSON.stringify(document)];
+    const configured = { document, args, async identity (tenant) {
       await lab.prepareProduct(configured);
       const parsed = configParser.parse(document, env(configured));
       return (await configParser.withSettings(parsed, configParser.registryEntry(tenant), tenant)).identity;
@@ -211,16 +196,19 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.tracePreview = (phase, data) => { const value = lab.encode({ phase, ...data }); console.log('M5_EVALUATOR_OBSERVATION ' + JSON.stringify(value)); return data; };
   function env (config) {
     return { PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH,
-      NODE_ENV: 'test', TZ: 'UTC', MULTITENANT_EVALUATOR_CONFIG: config.file, NS_EVALUATOR_FIXTURE_CONNECTION: connectionString,
-      NS_EVALUATOR_FIXTURE_SETTINGS: settingsConnection, NS_EVALUATOR_FIXTURE_ACTIVITY: activityConnection,
-      NS_EVALUATOR_FIXTURE_LIFETIME: lifetimeConnection, MULTITENANT_OPERATION_CONFIG: operationFile,
+      NODE_ENV: 'test', TZ: 'UTC', NS_PG_PREFIX: lab.name, NS_SECRETS_DIR: directory,
+      NS_REGISTRY_MAX_TENANTS: '2', NS_REGISTRY_REFRESH_MS: '250',
+      NS_PGSTREAM_RECEIVER_URL: receiverURL, NS_PGSTREAM_RECEIVER_BIND_HOST: '127.0.0.1',
+      NS_PGSTREAM_GENERATION: config?.document?.pgstream.generation ?? lab.document?.pgstream.generation,
+      NS_EVALUATOR_PG: connectionString, NS_DISPLAY_PG: settingsConnection, NS_ACTIVITY_PG: activityConnection,
+      NS_LIFETIME_PG: lifetimeConnection,
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
       ...producer?.environment,
       ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
-      NS_TENANT_READINESS: config.tenantReadiness || process.env.NS_TENANT_READINESS || 'all' };
+      NS_TENANT_READINESS: config?.tenantReadiness || process.env.NS_TENANT_READINESS || 'all' };
   }
   lab.worker = async (config, { detached = false } = {}) => {
     if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
@@ -229,7 +217,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
-    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), [], { env: env(config), silent: true, detached });
+    const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), config.args, { env: env(config), silent: true, detached });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
     children.add(child); child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     const timeout = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('Evaluator worker startup watchdog')); }, 15000);
@@ -296,6 +284,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
     worker.child.send({ id: 0, action: 'exit' }); return stopped;
   };
   lab.cli = async config => {
+    assert.equal(config.args.length, 0, 'the real CLI uses the deployment configuration');
     await lab.prepareProduct(config);
     const child = spawn(process.execPath, [path.join(__dirname, '../../bin/nightscout.js'), 'multitenant', 'evaluator'],
       { env: env(config), stdio: ['ignore', 'pipe', 'pipe'] });

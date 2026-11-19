@@ -9,7 +9,7 @@ const decorate = require('../../lib/storage/postgres-write-clock');
 const scope = require('../../lib/storage/tenant-scope');
 
 module.exports = function clockPortLab ({ replicas = 2 } = {}) {
-  const name = 'clock_test_' + crypto.randomBytes(8).toString('hex');
+  const name = 'clock_' + crypto.randomBytes(8).toString('hex');
   const role = name + '_app';
   const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
   const namespaces = { ...Object.fromEntries(domains.map(domain => [domain, name + '_' + domain])), clock: name + '_clock' };
@@ -19,6 +19,7 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
   let admin, mode, roleCreated = false;
   const ownedSchemas = new Set();
   const lab = { name, role, namespaces, domains, A, B, raw, clocks,
+    catalogues: Object.fromEntries(domains.map(domain => [domain, require('../../lib/server/serve/postgres-domains').get(domain).catalogue])),
     table: namespaces.entries + '.entries',
     async open () {
       mode = scope.getTenancyMode();
@@ -33,8 +34,7 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
       await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
       roleCreated = true;
       for (const [kind, catalogue] of Object.entries({
-        ...Object.fromEntries(domains.map(domain => [domain,
-          require('../../lib/server/serve/postgres-domains').get(domain).catalogue])),
+        ...lab.catalogues,
         clock: require('../../migrations/candidates/postgres-write-clock-v1.json')
       })) {
         await admin.query('CREATE SCHEMA "' + namespaces[kind] + '"');
@@ -44,7 +44,7 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
       }
       for (const domain of domains) {
         await require('./tenant-insertion-grants').grant(admin, { namespace: namespaces[domain], domain, role,
-          catalogue: require('../../lib/server/serve/postgres-domains').get(domain).catalogue });
+          catalogue: lab.catalogues[domain] });
       }
       await admin.query(`GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;
