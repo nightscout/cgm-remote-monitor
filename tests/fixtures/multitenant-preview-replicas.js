@@ -144,11 +144,11 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
       if (unexpected) worker.port = Number(unexpected[1]);
       assert.doesNotMatch(worker.stdout, /Listening/, 'refused configuration must never bind');
       const exit = await worker.exited;
-      assert.deepEqual(exit, { code, signal: null });
       assert.doesNotMatch(worker.stdout, /Listening/);
       for (const credential of [appURI, checkURI, settingsURI, vaultRoot, roleToken, ...roots]) {
         assert.ok(!worker.stderr.includes(credential), 'startup diagnostic must not disclose credentials');
       }
+      assert.deepEqual(exit, { code, signal: null }, worker.stderr);
       children.delete(worker);
       return worker;
     }

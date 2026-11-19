@@ -35,7 +35,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
 
     it('refuses API startup when its readiness identity cannot read the shared clock catalogue', async function () {
       const refused = await f.refusedWithoutClock('api-1');
-      assert.match(refused.stderr, /preview startup failed/);
+      assert.match(refused.stderr, /readiness or storage initialization refused/);
       assert.doesNotMatch(refused.stdout, /Listening/);
     });
 

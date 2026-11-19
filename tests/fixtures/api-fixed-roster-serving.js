@@ -63,7 +63,7 @@ module.exports = function create ({ environment = {}, drainTimeoutMs = 10000 } =
     async refusedWithoutClock (id) {
       const role = base.platform.roles.readiness;
       await base.admin.query('REVOKE SELECT ON preview_clock.schema_migrations FROM "' + role + '"');
-      try { return await base.refused(config, environments.get(id), { code: 1 }); }
+      try { return await base.refused(config, environments.get(id)); }
       finally { await base.admin.query('GRANT SELECT ON preview_clock.schema_migrations TO "' + role + '"'); }
     },
     get lifetimeConnectionString () { return lifetimeURI; }, get operatorPool () { return operatorPool; },
