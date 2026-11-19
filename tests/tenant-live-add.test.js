@@ -32,6 +32,16 @@ describe('live registry admission and dynamic worker rosters',function(){
       hold.resolve();removed.resolve();await r.value.drained();assert.equal(r.value.isActive(A),false,'LIVE_NO_LATE_PREPARE_RESURRECTION');assert.equal(rolled,true);}
     finally{hold.resolve();removed.resolve();await r.value.close();}
   });
+  it('reports over-bound legacy discovery until the registered population fits again',async function(){
+    const alerts=[];
+    const r=registry([B],{maxTenants:1,alert:code=>alerts.push(code)});
+    try {
+      r.add(A);await r.value.poll();await r.value.poll();
+      assert.deepEqual(alerts,['TENANT_REGISTRY_OVER_BOUND']);
+      assert.equal(r.value.stats().failure,'TENANT_REGISTRY_OVER_BOUND');
+      r.remove(A);await r.value.poll();assert.equal(r.value.stats().failure,null);
+    } finally {await r.value.close();}
+  });
   it('starts empty, bounds burst admission concurrency, and reads no full roster on unchanged revision',async function(){
     const r=registry([]);let inflight=0,peak=0;
     await r.value.follow({concurrency:1,prepare:async()=>{inflight++;peak=Math.max(peak,inflight);await Promise.resolve();inflight--;return ()=>{};},activate:()=>{},remove:async()=>{}});

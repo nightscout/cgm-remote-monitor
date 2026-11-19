@@ -99,4 +99,41 @@ optInSuite(!!ADMIN && /test/i.test(new URL(ADMIN || 'postgres://x/none').pathnam
       have += 1;
     }
   });
+  it('demand discovery opens with constant SQL and admits a new tenant without restart', async function () {
+    const { openDemand } = require('../lib/server/serve/registry-tenant-set');
+    const counts = [];
+    for (const n of [10, 1000]) {
+      await q(`DELETE FROM "${ns}".tenant_registry_hosts`);
+      await q(`DELETE FROM "${ns}".tenant_registry`);
+      await add(Array.from({ length: n }, () => randomUUID()));
+      // Count actual driver submissions only for the role's own connection.
+      const query = Client.prototype.query;
+      let statements = 0, set;
+      const applicationName = 'registry-demand-test-' + id;
+      Client.prototype.query = function (...args) {
+        if (this.application_name === applicationName || this.connectionParameters.application_name === applicationName) statements++;
+        return query.apply(this, args);
+      };
+      try {
+        set = await openDemand({ settings: { namespace: ns, refreshMs: 60000 }, connectionString: url,
+          applicationName, maxTenants: 2, build: registryEntry });
+        assert.equal(set.tenants.size, 0);
+        counts.push(statements);
+        const late = randomUUID();
+        await add([late]);
+        assert.equal((await set.lookup(late)).tenant, late);
+        assert.equal(set.isActive(late), true);
+        await q(`DELETE FROM "${ns}".tenant_registry_hosts WHERE tenant_id=$1`, [late]);
+        await set.poll();
+        assert.equal(await set.lookup(late), null);
+      } finally {
+        Client.prototype.query = query;
+        await set?.close();
+      }
+    }
+    console.log('      registry boot SQL at 10 / 1000:', counts.join(' / '));
+    assert.ok(counts[0] > 0);
+    assert.equal(counts[0], counts[1]);
+  });
+
 });
