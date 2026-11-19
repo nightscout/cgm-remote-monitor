@@ -31,6 +31,16 @@ describe('selected API evaluator metadata without worker credentials',function()
   let dir,file;
   beforeEach(function(){dir=fs.mkdtempSync(path.join(os.tmpdir(),'metadata-'));file=path.join(dir,'evaluator.json');fs.writeFileSync(file,JSON.stringify(config()));});
   afterEach(function(){fs.rmSync(dir,{recursive:true,force:true});});
+ it('uses the application default for an omitted evaluator working-set limit and preserves explicit limits',()=>{
+  const document=config();
+  const original=parse.parseMetadata(document);
+  delete document.maxTenants;
+  document.registry.maxTenants=16;
+  assert.equal(parse.parseMetadata(document).maxTenants,10000);
+  assert.equal(original.maxTenants,2);
+  document.maxTenants=null;
+  assert.throws(()=>parse.parseMetadata(document));
+ });
   it('links samefile with no worker credential or route environment and shares exact worker tenant identity',async function(){
     const value=config(),worker=parse.parse(value,env),metadata=parse.parseMetadata(value);
     const effective=version=>require('../lib/tenant-settings/component').resolveEffectiveSettings({version,values:{enable:['simplealarms'],SHOW_SECONDS:version>1}},{generation:1,deployment:{},overrides:{}});

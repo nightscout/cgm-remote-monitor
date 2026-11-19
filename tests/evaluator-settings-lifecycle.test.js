@@ -158,7 +158,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
       '../../storage/postgres-connection':Object.assign(async()=>connection,{readopt:async()=>{}}),
       './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':Object.assign(async()=>{}, {provisionTenant:async()=>{}}),
       './evaluator-consumers':{prepare:async()=>null},
-      './registry-tenant-set':{open:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},follow:async handlers=>{prepared=handlers;}})},
+      './registry-tenant-set':{openDemand:async()=>({tenants:new Map([[A,evaluator.registryEntry(A)],[B,evaluator.registryEntry(B)]]),isActive:tenant=>tenant===B||active,revision:()=>1,stats:()=>({}),close:async()=>{},onRemove:listener=>{prepared=listener;}})},
       '../../trusted-worker/postgres':{create:options=>{const reader=trusted.create(options);return {...reader,async close(){calls.settingsClose++;await reader.close();closed.push('settings');if(outcome.includes('close-fail'))throw Error('synthetic close failure');}};}},
       // Stream recovery owns the first metadata snapshot; emulate its real
       // ready callback instead of relying on the removed duplicate boot scan.
@@ -167,7 +167,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
       '../../migrations/postgres':{run:async()=>{}},
       './tenant-startup':{create:()=>({warm:async()=>{},isReady:()=>true,close:async()=>{},health:()=>({})})},
       './evaluator-runtime':async options=>{
-        const first=await options.readCurrent(A),other=await options.readCurrent(B);assert.equal(first.env.settings.units,'mg/dl');assert.equal(first.env.settings.showSeconds,true);assert.equal(other.env.settings.showSeconds,false);assert.equal(calls.settingsRead,2);
+        await options.readMetadata([A,B]);const first=await options.readCurrent(A),other=await options.readCurrent(B);assert.equal(first.env.settings.units,'mg/dl');assert.equal(first.env.settings.showSeconds,true);assert.equal(other.env.settings.showSeconds,false);assert.equal(calls.settingsRead,2);
         active=false;assert.equal(await options.readCurrent(A),null);assert.equal(calls.settingsRead,2,'registry withdrawal precedes settings access');active=true;assert.equal((await options.readCurrent(A)).identity,first.identity);assert.equal(calls.settingsRead,2,'unchanged streamed settings reuse the trusted cache');
         rows.get(A).version++;rows.get(A).values.SHOW_SECONDS=false;await options.readMetadata([A]);const changed=await options.readCurrent(A);assert.notEqual(changed.identity,first.identity,'CURRENT_SETTINGS_VERSION_MUST_REFRESH');assert.equal(changed.env.settings.showSeconds,false);
         rows.get(A).generation++;rows.get(A).policy.overrides.DISPLAY_UNITS={mode:'pinned',pin:'mmol'};await options.readMetadata([A]);assert.equal((await options.readCurrent(A)).env.settings.units,'mmol');assert.equal((await options.readCurrent(B)).identity,other.identity,'A owner/policy changes must not invalidate or alter B');assert.equal(calls.settingsRead,4);
@@ -177,7 +177,7 @@ describe('evaluator settings ownership at maintained role boot', function () {
     const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;await window.ready();let role;
     try{
       if(outcome==='startup-failure')await assert.rejects(boot.boot(config,{operationWindow:window}),/initialization refused/);
-      else{role=await boot.boot(config,{operationWindow:window});assert.equal(typeof prepared.prepare,'function');if(outcome.includes('close-fail')){await assert.rejects(role.close(),error=>error.errors.length===(outcome==='both-close-fail'?2:1)&&error.errors.some(cause=>/synthetic close failure/.test(cause.message)));await assert.rejects(role.close(),/shutdown refused/);}else{await role.close();await role.close();}}
+      else{role=await boot.boot(config,{operationWindow:window});assert.equal(typeof prepared,'function');if(outcome.includes('close-fail')){await assert.rejects(role.close(),error=>error.errors.length===(outcome==='both-close-fail'?2:1)&&error.errors.some(cause=>/synthetic close failure/.test(cause.message)));await assert.rejects(role.close(),/shutdown refused/);}else{await role.close();await role.close();}}
       for(const event of ['identify-created','identify-connected','identify-closed','native-configured','native-recovery-created','native-recovery-closed'])
         assert.equal(calls.native.filter(value=>value===event).length,1,'OWNED_NATIVE_CAPABILITY_'+event);
       assert.equal(calls.settingsClose,1);assert.equal(calls.clinicalClose,1);assert.equal(calls.runtimeClose,outcome==='startup-failure'?0:1);assert(closed.indexOf('settings')<closed.indexOf('clinical'),'owned settings capability must close before clinical connection teardown');

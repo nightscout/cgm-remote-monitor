@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors={},registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({clinicalTenants=0,assignedTenants,sourceBlocked=false,startupError,streamErrors={},registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,blockSource;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
@@ -16,10 +16,10 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors=
   if (Object.hasOwn(streamErrors, step)) throw streamErrors[step];
  }
  const connection={async end(){closed=true;if(cleanupError)throw cleanupError;}};
- const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active'},signature:{stamp:1,deleted:0}}]]);
+ const metadata=new Map([[A,{settings:1,policy:1,activity:{state:'active',version:'1',paused:false,suspended:false},signature:{stamp:1,deleted:0}}]]);
  const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
  const reader={scan,current:t=>metadata.get(t),state:scan.state,async close(){},health:()=>({available:true})};
- const startup={async warm(){},isReady:()=>true,async ensure(){trace.push('tenant-admitted');},async close(){},health:()=>({})};
+ const startup={addTenant(tenant){trace.push('startup-add:'+tenant);},async warm(){},isReady:()=>true,async ensure(){trace.push('tenant-admitted');},async close(){},health:()=>({})};
  const readiness=async()=>{checks++;if(holdAdmission)await admission.promise;};readiness.provisionTenant=async()=>{};
  let store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);revision++;output={tenant,identity,inputCheckpoint:value.result.checkpoint,contentDigest:notificationStartup?require('../lib/server/serve/evaluator-runtime').contentDigest(value.result):'digest'+revision,outputRevision:revision,result:value.result};trace.push('completed');commitWake?.({tenant,kind:'complete'});return {output,changed:true};},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};
  if(pendingRace){
@@ -37,7 +37,7 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors=
    if(text.startsWith('UPDATE')){Object.assign(row,{work_completed:args[3],work_due_at:args[4],work_pending_at:args[5],work_completed_at:args[6],output_identity:args[7],output_digest:args[8],output_revision:String(args[9]),output_restore_generation:args[10]});if(args[12])row.projection=JSON.parse(args[12]);completions.push(snapshot());return {rowCount:1};}
    throw Error('UNEXPECTED_SYNTHETIC_SQL '+text);
   }};
-  const backend={...connection,query:sql.query,readOnly:sql.query,holdAdvisoryLock:async()=>({available:true,withTenant:async(tenant,fn)=>fn(),close:async()=>{}}),observeEvaluatorTyped:options=>work.observeInTransaction({client:sql,...options})};
+  const backend={...connection,query:sql.query,readOnly:sql.query,admitEvaluatorTyped:async({tenants})=>{trace.push(['admit',...tenants]);},holdAdvisoryLock:async()=>({available:true,withTenant:async(tenant,fn)=>fn(),close:async()=>{}}),observeEvaluatorTyped:options=>work.observeInTransaction({client:sql,...options})};
   store=require('../lib/pgstream/typed-checkpoint').create({connection:backend,namespace:'synthetic_checkpoint',consumer:'evaluator-test',maxBytes:100000,timeIntervalMs:60000});row.contract_digest=store.digest;
   const owned=store.own(()=>{}),begin=store.begin;store={...store,begin:async tenant=>{await owned;return begin(tenant);},snapshot};
  }
@@ -57,18 +57,22 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors=
   // The role's one platform check is its unconditional startup admission.
   './platform-verification':require('./fixtures/platform-proof')(undefined,()=>readiness()),
   '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},async register(){trace.push('member-registered');},async close(){}})},
-  './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,close(){}})},
+  './evaluator-pool':{create:()=>({partitioned:false,start(){},async refresh(){},admits:()=>true,addTenant(){},close(){}})},
   '../../trusted-worker/postgres':{create:()=>reader},
   '../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},async close(){}}),
   '../internal-api/clients':{completedOutput:()=>({hintCompletedOutput:async()=>{}})},
   '../../pgstream/evaluator':{open:async({onCommit,onInput,assignment,schemaStartup})=>{streamStep('open');if(startupError)throw startupError;if(schemaStartup!==undefined)throw Error('RETIRED_SCHEMA_STARTUP_OPTION');selectedAssignment=assignment;blockSource=()=>{schemaAvailable=false;trace.push('source-blocked');};commitWake=onCommit;receive=require('../lib/pgstream/receiver').create({routes:[{schema:'synthetic_settings',table:'tenant_settings',kind:'settings'}],store,onInput,onSchema:async()=>{},clinical:{maxTransactionRows:10,maxTransactionBytes:10000,acceptTransaction:async(envelope,{observations})=>(await store.observeMany(observations)).map((row,index)=>({...row,tenant:observations[index].tenant}))}});
     if (sourceBlocked) blockSource();
     return {store,async ready(){streamStep('ready');if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
-  './registry-tenant-set':{open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
+  './registry-tenant-set':{openDemand:async()=>{
+    const tenants=new Map(), provisioned=new Set([A,...Array.from({length:clinicalTenants-1},(_,i)=>'22222222-2222-4222-8222-'+String(i).padStart(12,'0'))]);
+    return {tenants,async lookup(tenant){trace.push(['lookup',tenant]);if(!provisioned.has(tenant))return null;tenants.set(tenant,current);return current;},isActive:tenant=>tenants.has(tenant),onRemove(){},stats:()=>({}),revision:()=>1,async close(){}};
+  },open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
   './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){streamTrace.push('delivery-prepare');trace.push('delivery-prepare');await prepare.promise;assertOperational();return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
   './evaluator-inspection':()=>()=>({}), '../../language':()=>({set(){}})
  };
+ if(clinicalTenants) mocks['./evaluator-consumers']={prepare:async()=>null};
  if(notificationStartup){
   const file=require.resolve('../lib/server/serve/evaluator-consumers'),consumerModule=new Module(file,module);consumerModule.filename=file;consumerModule.paths=module.paths;
   let firstSelection=true;
@@ -96,7 +100,8 @@ function fixture({assignedTenants,sourceBlocked=false,startupError,streamErrors=
  const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
- return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health([A]).tenants[0],closed,started,delivered,componentClosed,checks,peerClosed})};
+ if(clinicalTenants)delete config.consumers;
+ return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health().tenants.find(row=>row.tenant===A),closed,started,delivered,componentClosed,checks,peerClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    startupPhase = 'DELIVERY_STARTUP';\n    {\n      consumers = await",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 // Every evaluator is platform-verified and starts lazily (decision
@@ -132,6 +137,18 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   await criterion();
   await assert.rejects(criterion({sourceTransform:removeRecovery,futureDue:true}),/FUTURE_DUE_MUST_RECOVER_WITHOUT_FRESH_INPUT/);
   await criterion({futureDue:true});
+ });
+ it('materializes the single due tenant after a clinical-only restart at 1000 provisioned without new input', async()=>{
+  const f=fixture({clinicalTenants:1000,platformVerification:true,pendingRace:true,futureDue:true});
+  let service;
+  try {
+   service=await f.boot();
+   await Promise.race([f.evaluating.promise,new Promise((_,reject)=>{const timeout=setTimeout(()=>reject(new Error('COLD_DUE_STARVED')),1500);timeout.unref();})]);
+   f.finishCycle.resolve();
+   for(let n=0;n<80&&!f.completions.length;n++)await settle();
+   assert(f.completions.length,'COLD_DUE_MUST_COMPLETE');
+   assert.deepEqual(f.trace.filter(Array.isArray),[['lookup',A],['admit',A]],'ONLY_DUE_TENANT_MATERIALIZED');
+  } finally { f.finishCycle.resolve();await service?.close();await f.window.close(); }
  });
  it('refuses evaluator pool max one before constructing a zero-slot scheduler',async()=>{
   const prior=process.env.NS_POOL_EVALUATOR_MAX;process.env.NS_POOL_EVALUATOR_MAX='1';const f=fixture();

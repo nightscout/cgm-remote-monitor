@@ -10,7 +10,6 @@
     "pageSize",
     "maxRows",
     "maxBytes",
-    "maxTenants",
     "timeIntervalMs",
     "registry",
     "tenantSettings",

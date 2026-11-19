@@ -27,12 +27,20 @@ describe('static evaluator ingress and process assignment',()=>{
   const uuid=i=>crypto.createHash('sha256').update('roster-'+i).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5');
   const ids=Array.from({length:10001},(_,i)=>uuid(i)),options={namespace:'synthetic_checkpoint',consumer:'evaluator-static'};
   let active=ids;const worker=assigned.configure({slice:{count:1,ordinal:0},roster:()=>active,currentGeneration:()=>1},options);
-  assert.equal(worker.tenants.length,10001);assert.equal(worker.filter([]).values[0].length,10001);
+  assert.equal(worker.tenants.length,10001);assert.deepEqual(worker.filter([]),{sql:' AND TRUE',values:[]});
   active=[...ids,ids[0]];assert.throws(()=>worker.tenants,/EVALUATOR_STATIC_ROSTER_REFUSED/);
   active=[...ids.slice(1),ids[0].toUpperCase()];assert.throws(()=>worker.tenants,/FOREIGN_TENANT/);
   const half=assigned.configure({slice:{count:2,ordinal:0},roster:()=>ids,currentGeneration:()=>1},options);
   assert.throws(()=>half.tenants,/FOREIGN_TENANT/);
   assert.equal(assigned.configure({slice:{count:2,ordinal:0},roster:()=>ids.filter(id=>slice.bucket(id,2)===0),currentGeneration:()=>1},options).tenants.length,ids.filter(id=>slice.bucket(id,2)===0).length);
+ });
+ it('filters durable work by process slice even before the first tenant is in memory',()=>{
+  const params=['evaluator-synthetic-completed',1234];
+  const worker=assigned.configure({slice:{count:7,ordinal:3},roster:()=>{throw new Error('ROSTER_ENUMERATED');},currentGeneration:()=>1},{namespace:'synthetic_checkpoint',consumer:'evaluator-static'});
+  const filter=worker.filter(params);
+  assert.equal(filter.values,params);
+  assert.equal(filter.sql,' AND '+slice.sqlPredicate(7,3));
+  assert.throws(()=>slice.sqlPredicate(2,2),/Pool slice/);
  });
  it('preserves original boundary/source/count while validating increasing projected gaps and its own rows',()=>{
   const rows=[native.row('a',123,'I',A),native.row('b',130,'I',B),native.row('c',140,'I',A)];

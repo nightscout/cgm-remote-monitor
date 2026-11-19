@@ -52,6 +52,17 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable NS_TEST_POSTGRES
   await assert.rejects(criterion(true),error=>error.code==='ERR_ASSERTION'&&error.message.includes('MIXED_OWNERS_MUST_REFUSE'));await criterion(false);
  });
 
+ it('discovers owned pending rows with an empty process roster and the full-width SQL slice rule',async()=>{
+  const slice=require('../lib/pool-membership/slice');
+  const ids=Array.from({length:1000},(_,i)=>crypto.createHash('sha256').update(String(i)).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
+  for(const count of [1,2,3,7,1024]) {
+   const ordinal=count-1,owner=slice.predicate(count,ordinal);
+   const worker=require('../lib/pgstream/assigned-worker').configure({slice:{count,ordinal},roster:()=>[],currentGeneration:()=>1},{namespace,consumer:'evaluator-assigned'});
+   const filter=worker.filter([ids]);
+   const rows=(await admin.query('SELECT tenant_id FROM unnest($1::uuid[]) AS r(tenant_id) WHERE TRUE'+filter.sql+' ORDER BY tenant_id',filter.values)).rows;
+   assert.deepEqual(rows.map(row=>row.tenant_id),ids.filter(owner).sort(),'COLD_SLICE_MUST_FIND_OWNED_WORK');
+  }
+ });
  it('static slices: one held owner excludes duplicate and mixed K, and a lost backend cannot overwrite its same-ordinal replacement',async()=>{
   const left=actor(),right=actor(),mixed=actor(),duplicate=actor();
   const shape={count:2,ordinal:0};

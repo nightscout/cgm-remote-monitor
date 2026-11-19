@@ -7,7 +7,7 @@ const trustedWorker = require('../lib/trusted-worker/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const nativeBoot = require('./fixtures/evaluator-native-recovery-protocol');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text) {
+function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text, clinicalOnly = false) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
   const calls = { native:[],scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [], streamInvalidated: [] };
@@ -31,7 +31,7 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const peers = [0,1].map(id => ({ id: String(id), roles: ['evaluator'], endpoint: {} }));
   const config = { tenants, registry: {}, pgstream:nativeBoot.config({slot:'work_stream',bounds:{recoveryMs:30000,stepMs:5000,pendingMs:30000}}),
     trustedWorker: { activity: 'work_activity', clock: 'work_clock', settings: 'work_settings', operatorPolicy: 'work_policy' },
-    namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: {}, maxTenants: 20000,maxRows:10000,maxBytes:10000,pageSize:64 };
+    namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: clinicalOnly ? undefined : {realtime:{}}, maxTenants: 20000,maxRows:10000,maxBytes:10000,pageSize:64 };
   if (selected) Object.assign(config, { partition: { partitioned: true, ordinal, namespace: 'work_membership', leaseMs: 3000 },
     selectedIntake: { profile, workers: ['0','1'], connectionString: 'postgres://intake:synthetic@localhost/test', controlConnectionString: 'postgres://control:synthetic@localhost/test' },
     consumers: { realtime: { partitionMetadata: {}, route: { id: 'synthetic-realtime' } } } });
@@ -48,7 +48,9 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     '../../data/tenant-projection-evaluator': { domains: [] },
     './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
     './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
-    './registry-tenant-set': { async open () { return { tenants, isActive:()=>true, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
+    './registry-tenant-set': { async openDemand () {
+      return {tenants:new Map(), lookup:async id=>tenants.get(id), isActive:()=>false, revision:()=>1, stats:()=>({}), onRemove(){}, async close(){}};
+    }, async open () { return { tenants, isActive:()=>true, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
     './platform-verification': require('./fixtures/platform-proof')(undefined, () => readiness()), './evaluator-readiness': readiness,
     '../../pool-membership': { async member () { return member; } },
     './evaluator-pool': { create: () => gate },
@@ -91,7 +93,27 @@ describe('evaluator schema work bounds', function () {
     // The platform proof is checked once at start (decision
     // platform-application-boundary); no schema event or stream recovery
     // re-verifies or scans while serving.
-    for (const count of [1, 65, 500]) it(name + ' boot scans only once for durable recovery at cohort ' + count, async () => {
+    it('clinical-only boot scans zero provisioned tenants at 10 and 1000, with a restored per-tenant SQL control', async () => {
+      async function check(count, change = text => text) {
+        const f = fixture(count, false, 0, change, false, text=>text, true);
+        const service = await f.boot(() => f.callbacks().onRecovered(f.store));
+        try {
+          assert.deepEqual(f.calls.scans, [], 'BOOT_TENANT_SQL');
+          assert.deepEqual(f.calls.pages, [], 'BOOT_TENANT_RECEIPTS');
+          assert.equal(f.runtimeOptions().tenants.length, 0);
+        } finally { await service.close(); }
+      }
+      const scanAtBoot = text => {
+        const needle = 'const demand = !config.consumers?.realtime';
+        assert.equal(text.split(needle).length, 2);
+        return text.replace(needle, 'const demand = false');
+      };
+      for (const count of [10,1000]) {
+        await assert.rejects(check(count,scanAtBoot),/BOOT_TENANT_SQL/);
+        await check(count);
+      }
+    });
+    for (const count of [1, 65, 500]) it(name + ' notification recovery pages the selected cohort ' + count, async () => {
       const f = fixture(count, selected);
       const service = await f.boot(async () => {
         assert.equal(Object.hasOwn(f.callbacks(), 'onSchema'), false, 'NO_IN_PLACE_SCHEMA_CALLBACK');
@@ -99,7 +121,7 @@ describe('evaluator schema work bounds', function () {
         await f.callbacks().onRecovered(f.store);
         assert.equal(f.calls.readiness, 1, 'NO_PLATFORM_RECHECK_AFTER_STREAM_RECOVERY');
         console.log(JSON.stringify({ entry: name, cohort: count, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
-        assert.equal(f.calls.scans.length, 1, 'RECOVERY_RECONCILES_ONCE');
+        assert.equal(f.calls.scans.length, Math.ceil(count / 64), 'RECOVERY_RECONCILES_ONCE_PER_PAGE');
         assert.equal(f.calls.scans.flat().length, count, 'RECOVERY_COVERS_ENTIRE_COHORT');
         assert.equal(f.calls.pages.flat().length, count, 'DURABLE_BOOTSTRAP_COVERS_COHORT');
         assert(f.calls.pages.every(page => page.length <= 64), 'DURABLE_PAGES_STAY_BOUNDED');
@@ -154,7 +176,7 @@ describe('evaluator schema work bounds', function () {
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(f.calls.scans.length, scans); assert.equal(f.calls.verify, verified); assert.equal(f.calls.wakes.length, wakes);
       await f.callbacks().onRecovered(f.store);
-      assert.deepEqual(f.calls.scans.at(-1), f.ids, 'ACTUAL_RECOVERY_RECONCILES_ROSTER');
+      assert.deepEqual(f.calls.scans.flat(), f.ids, 'NOTIFICATION_RECOVERY_RECONCILES_ROSTER');
     } finally { await service.close(); }
   }
   for (const selected of [false]) {
