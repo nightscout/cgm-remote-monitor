@@ -42,6 +42,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
           retryDelayMs: Math.min(POLL_MS, 1000), attemptTimeoutMs: 10000 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      // Fixture provisioning predates the slot. Establish the initial snapshot before live input.
+      await worker.call('acquire', lab.A); await worker.call('acquire', lab.B);
       await reading(50, lab.A, 'synthetic-a'); await reading(50, lab.B, 'synthetic-b');
       await lab.wait(async () => alarms(lab.A).length >= 1 && alarms(lab.B).length >= 1);
       await sleep(Math.floor(Math.random() * EVALUATOR_MS)); // random phase against the evaluator timers
