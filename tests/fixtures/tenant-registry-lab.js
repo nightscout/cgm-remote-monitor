@@ -62,7 +62,8 @@ async function createLab ({ servingApi = false } = {}) {
   if (servingApi) {
     const plan = require('./multitenant-plan');
     const deployment = require('../../lib/server/serve/deployment-settings').layout({ NS_PG_PREFIX: prefix });
-    const catalogues = require('./realtime-preview/bootstrap-grants').catalogues();
+    const catalogues = { ...require('./realtime-preview/bootstrap-grants').catalogues(),
+      owner_configuration: require('../../lib/tenant-settings/owner-authority-candidate.json') };
     const selected = {};
     for (const [kind, catalogue] of Object.entries(catalogues)) {
       const namespace = deployment.namespaces[kind];

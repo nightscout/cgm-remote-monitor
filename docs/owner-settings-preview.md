@@ -1,28 +1,22 @@
 # Explicit headless owner settings composition
 
-Source implementation; native PostgreSQL/CLI acceptance is UNMEASURED. This is
-the projected tenant configuration surface, separate from API3 settings documents,
-subject grants, operator policy administration and human identity/session issuance.
+An owner uses the private tenant-admin listener and the tenant's issued management bearer to
+read or replace their projected display settings. Compose and Kubernetes mount one service
+login as `ns_owner_settings_pg` under `NS_SECRETS_DIR`. Its namespaces come from the deployment's
+`NS_PG_PREFIX`. Each tenant's values, versions, history, policy and configure grants live in
+PostgreSQL. The same deployment settings serve all tenants.
 
-The existing tenant-admin preview remains subject-only unless its explicit JSON
-selects `ownerSettings`. Its management issuer, audience, purpose, tenant key and
-maximum 600-second verification policy remain unchanged. A new independently
-operator-provisioned relationship grants configuration; a data wildcard, root
-credential, anonymous role or subject can_update flag grants none.
+The private operator's ownership add, transfer and recovery initialize configure authority for
+a newly assigned principal and consumer in the same transaction as the ownership change.
+Transfer and recovery retire former owners' configure authority. On upgrade, an existing owner
+whose grant is absent can be initialized by calling the ordinary private ownership add operation
+with that owner and the current expected owner list. The operator can obtain that list through
+ownership list. Repeating add preserves an existing inactive or denied grant. A DATA permission
+or the subject administration flag cannot grant configuration rights.
 
-```json
-{"ownerSettings":{"connectionEnv":"OWNER_SETTINGS_CONNECTION","namespaces":{
-  "settings":"owner_settings","operatorPolicy":"operator_policy",
-  "authority":"owner_configuration"}}}
-```
-
-The third identity must differ from subject writer/current-access reader, use
-the same database, and have no schema creation, table ownership, bypass RLS or
-unrelated write authority. Operator applies existing settings/operator policy
-catalogues and NEW `lib/tenant-settings/owner-authority-candidate.json` explicitly
-in separate namespaces. The original settings migration is unchanged; its appended projected-catalogue migration must be applied explicitly. Boot
-runs checks, never migrations or credential/row provisioning. Omitted optional
-configuration needs no new tables or identity.
+The login differs from the subject writer and access reader and uses the same database. The
+deployment bootstrap installs the settings, operator policy and configuration authority
+catalogues. Serving processes check their grants and migration ledgers when starting.
 
 Grant settings identity SELECT/INSERT/UPDATE on tenant_settings, SELECT/INSERT on
 tenant_settings_history, SELECT ONLY on tenant_operator_policy, SELECT plus
@@ -55,52 +49,24 @@ unavailable/unsafe dependencies503. Errors never return SQL, connection strings
 or private diagnostics. Owner routes stay off DATA; operator and DATA handlers
 stay off this owner router. Existing subject routes retain their own writer fence.
 
-Optional DATA configuration selects a distinct restricted reader:
+## Reading owner settings
 
-```json
-{"tenantSettings":{"connectionEnv":"DISPLAY_SETTINGS_CONNECTION","namespaces":{
-  "settings":"owner_settings","operatorPolicy":"operator_policy"}}}
-```
+The API reads the current settings and operator policy through the deployment's read-only
+`NS_DISPLAY_PG` login. The deployment grants that login SELECT on the current values,
+policy and their ledgers. API presentation reads use the admitted display login and open its
+pool on demand. Unavailable policy reads refuse presentation with HTTP 503. A restored read
+succeeds on the next request. Raw uploads and credential exchange are independent of the
+display store.
 
-DATA boot parses configuration syntax and registers an owned lazy resource; it
-never connects to display storage before the raw listener starts. The first
-presentation operation validates a SELECT-only capability before reading any
-configuration rows. Unsafe/unavailable configuration gives presentation503,
-without blocking uploads/exchange even after restart. Failures close the failed
-pool and the next presentation retries fresh; shutdown drains pending
-initialization and closes late-created pools before finishing. OWNER selected
-settings readiness still refuses unsafe/unavailable configuration before bind.
-The reader joins current owner state and operator policy and reuses the same
-strict merge. All projected values affect presentation/status/derived READs. Each operation gets a separate safe environment; shared boot objects
-are never mutated. The next authenticated status operation in another worker
-must show a committed change/pin. Raw uploads, credential exchange and raw
-collection paths never invoke the presentation reader or reinterpret incoming
-SGV/treatment/date values. All static projected values must be migrated explicitly before selecting persisted settings; overlapping static values reject. Extended settings stay separate. Only the actual projected catalogue is supported. Older binaries reject the new explicit optional keys; rolling migration
-requires operator coordination.
-
-The separate default-opt-out owner-configuration native suite prepares actual
-owner/DATA workers, independent stored-state oracles, revocation, CAS/history,
-policy fences, presentation visibility, raw-upload independence and boundary
-controls. Original owner9 remains unchanged. Source fixtures include meaningful
-GET-authority, write-authority, generation and boot-environment controls; their
-modeled/source effects are not native acceptance. Whole application, provider,
-performance and production identity acceptance remain separate.
-
+Each presentation operation uses its own effective settings. The next authenticated status
+request in any worker sees a committed change or policy pin. Changing display units affects
+presentation and preserves the original stored glucose values and timestamps.
 
 ## Evaluator and notification identity
 
-The evaluator JSON may select the same `tenantSettings` shape shown above with
-an independent SELECT-only identity, separate from clinical storage and its
-settings/operator-policy namespaces. Its tenant `settings` object must then be
-empty: migrate static projected values to operator defaults or owner snapshots
-before selection. Older configurations without this key keep existing behavior.
-
-Every `readCurrent` reads committed settings and current operator policy, then
-closes its finite reader before returning or refusing. This also applies to the
-notification metadata reader: the API uses its own settings-reader environment
-reference, never the worker credential. The data-store endpoint must match the
-explicit descriptor when present. Per-operation pool/check cost and latency are
-UNMEASURED; no capacity claim follows from source tests.
+The evaluator and the API's notification metadata reader use their respective deployment
+display-reader bindings. Reads combine the tenant's stored values with current operator policy.
+The evaluator constructs the effective settings per operation.
 
 The effective values and settings version enter evaluator output identity.
 Settings-only changes preserve the source identity and rebuild clinical views
@@ -111,7 +77,7 @@ Notification current-identity checks refuse old output while retaining input
 for the settings-only transition. Stored SGV values and mg/dL thresholds never
 change because presentation switches to mmol.
 
-The expansion is source-tested with listener-free synthetic persistence and SQL
-read doubles. Native migration, actual HTTP, PostgreSQL cross-worker behavior,
-browser presentation and joined notification/evaluator acceptance remain
-UNMEASURED for the next coherent candidate.
+The opt-in owner configuration suite runs the shipping CLI with PostgreSQL and Vault. It
+exercises operator-issued management sessions, persisted cross-worker CAS, restart reads,
+neighbor isolation, policy pins, operator revocation and refusal of writes from the display reader.
+Browser presentation and joined notification/evaluator acceptance are separate measurements.

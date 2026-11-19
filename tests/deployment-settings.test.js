@@ -32,6 +32,7 @@ describe('deployment settings: the environment builds the deployment\'s document
 
   it('DS_ADMIN: the admin configuration equals the deployment document; the completed checkpoint carries the native contract digest', function () {
     const expected = structuredClone(golden.admin), built = settings.configuration('admin', env);
+    expected.ownership.configurationNamespace = settings.layout(env).namespaces.owner_configuration;
     const completed = expected.provisioning.checkpoints.find(row => row.consumer.endsWith('-completed'));
     // The deployment replaced this digest with the native selection's when it
     // attached the selection at bootstrap; the role now computes it itself.

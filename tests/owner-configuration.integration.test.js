@@ -58,8 +58,45 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
       }
     });
 
+    it('initializes an existing owner only on explicit assignment, preserving denials', async function () {
+      const owner = { principal: lab.SUBJECT, consumer: lab.consumer };
+      const add = () => lab.ownership.addOwner({ tenant: A, owner, expectedOwners: [owner], delegable: ['*'] });
+      await lab.data.admin.query(`DELETE FROM ${lab.authorityTable} WHERE tenant_id=$1`, [A]);
+      assert.equal((await lab.http(left, A, 'GET', endpoint, await lab.token(A))).status, 403);
+      assert.equal((await add()).outcome, 'applied');
+      assert.equal((await lab.http(right, A, 'GET', endpoint, await lab.token(A))).status, 200);
+      await lab.configure(A, true, false);
+      assert.equal((await add()).code, 'OWNERSHIP_ALREADY_OWNER');
+      assert.equal((await lab.http(left, A, 'GET', endpoint, await lab.token(A))).status, 403);
+    });
+
+    it('retires a transferred owner’s issued session for settings and preserves the neighbor', async function () {
+      const currentOwner = { principal: lab.SUBJECT, consumer: lab.consumer };
+      const successor = { principal: 'successor', consumer: lab.consumer };
+      await lab.data.admin.query(`INSERT INTO ${lab.namespaces.authorization}.tenant_authorization_subjects(tenant_id,subject_id) VALUES ($1,$2)`, [A, successor.principal]);
+      try {
+        assert.equal((await lab.ownership.transferOwner({ tenant: A, from: currentOwner, to: successor, expectedOwners: [currentOwner] })).outcome, 'applied');
+        assert.equal((await owner(right, A, 'GET', undefined, await lab.token(A))).status, 403);
+        assert.equal((await owner(left, B, 'GET', undefined, await lab.token(B))).status, 200);
+      } finally {
+        assert.equal((await lab.ownership.transferOwner({ tenant: A, from: successor, to: currentOwner, expectedOwners: [successor] })).outcome, 'applied');
+      }
+    });
+
+    it('uses the newly assigned owner session across a serving restart and keeps the neighbor unchanged', async function () {
+      const jwt = await lab.token(A);
+      const accepted = await owner(left, A, 'PUT', { expectedVersion: 1, values: { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true } }, jwt);
+      assert.equal(accepted.status, 200);
+      await lab.stop(left); left = await lab.start();
+      const read = await owner(left, A, 'GET', undefined, jwt);
+      assert.equal(read.status, 200); assert.equal(read.body.version, 2);
+      assert.equal(read.body.effective.DISPLAY_UNITS.value, 'mmol');
+      assert.equal((await status(left, B)).body.settings.units, 'mg/dl');
+      assert.equal((await owner(left, B, 'GET', undefined, jwt)).status, 401);
+    });
+
     it('requires first-class configure for GET despite data wildcard and subject can_update', async function () {
-      const explicitSubject = (await lab.data.admin.query(`SELECT can_update FROM preview_auth.tenant_owner_actors
+      const explicitSubject = (await lab.data.admin.query(`SELECT can_update FROM ${lab.namespaces.authorization}.tenant_owner_actors
         WHERE tenant_id=$1 AND principal=$2 AND consumer=$3`, [A, lab.SUBJECT, lab.consumer])).rows[0];
       assert.equal(explicitSubject.can_update, true);
       await lab.configure(A, true, false);
@@ -172,18 +209,18 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
         const upload = await lab.data.http(right, A, 'POST', '/api/v1/entries.json', credential,
           [{ type: 'sgv', sgv: 147, date: now, dateString: new Date(now).toISOString(), identifier: 'owner-config-raw-' + now }]);
         assert.equal(upload.status, 200, JSON.stringify(upload.body));
-        const stored = (await lab.data.admin.query(`SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2`,
+        const stored = (await lab.data.admin.query(`SELECT doc FROM ${lab.namespaces.entries}.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2`,
           [A, 'owner-config-raw-' + now])).rows;
         assert.equal(stored.length, 1); assert.equal(stored[0].doc.sgv, 147); assert.equal(stored[0].doc.date, now);
         const exchange = await lab.data.exchange(right, A); assert.equal(exchange.status, 200);
       } finally { await lab.data.admin.query(`GRANT SELECT ON ${lab.policyTable} TO "${lab.roles.display}"`); }
       assert.equal((await status(right, A)).status, 200);
     });
-    it('cold boots DATA with unsafe or unavailable display role while raw upload/exchange and lazy recovery remain independent', async function () {
+    it('cold boots DATA with missing policy access or unavailable display role while raw upload/exchange and lazy recovery remain independent', async function () {
       assert.equal((await owner(left, A, 'PUT', { expectedVersion: 1, values: { DISPLAY_UNITS: 'mmol', SHOW_SECONDS: true } })).status, 200);
       const scenarios = [
-        { name: 'unsafe', disable: `GRANT INSERT ON ${lab.policyTable} TO "${lab.roles.display}"`,
-          restore: `REVOKE INSERT ON ${lab.policyTable} FROM "${lab.roles.display}"` },
+        { name: 'missing-read', disable: `REVOKE SELECT ON ${lab.policyTable} FROM "${lab.roles.display}"`,
+          restore: `GRANT SELECT ON ${lab.policyTable} TO "${lab.roles.display}"` },
         { name: 'unavailable', disable: `ALTER ROLE "${lab.roles.display}" NOLOGIN`,
           restore: `ALTER ROLE "${lab.roles.display}" LOGIN` }
       ];
@@ -196,7 +233,7 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
           const upload = await lab.data.http(worker, A, 'POST', '/api/v1/entries.json', await lab.data.localToken(A),
             [{ type: 'sgv', sgv: 167, date: now, dateString: new Date(now).toISOString(), identifier }]);
           assert.equal(upload.status, 200, scenario.name + ': cold display validation must not block authorized raw upload');
-          const stored = (await lab.data.admin.query(`SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2`, [A, identifier])).rows;
+          const stored = (await lab.data.admin.query(`SELECT doc FROM ${lab.namespaces.entries}.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2`, [A, identifier])).rows;
           assert.equal(stored.length, 1); assert.equal(stored[0].doc.sgv, 167); assert.equal(stored[0].doc.date, now);
           assert.equal((await lab.data.exchange(worker, A)).status, 200, scenario.name + ': exchange must not initialize display reader');
           assert.equal((await status(worker, A)).status, 503, scenario.name + ': presentation lazily refuses display dependency');
@@ -230,6 +267,7 @@ optInSuite(process.env.NS_OWNER_CONFIGURATION_DOCKER_TEST === '1', 'NS_OWNER_CON
       assert.equal((await lab.queryAs('settings', A, `UPDATE ${lab.authorityTable} SET owner_fence=true`)).rowCount, 1);
       for (const sql of [
         `SELECT * FROM ${lab.historyTable}`, `SELECT * FROM ${lab.authorityTable}`,
+        `INSERT INTO ${lab.policyTable} DEFAULT VALUES`, `UPDATE ${lab.policyTable} SET generation=generation+1`,
         `UPDATE ${lab.settingsTable} SET values='{}'`
       ]) await assert.rejects(lab.queryAs('display', A, sql), error => error.code === '42501');
       assert.deepEqual(await lab.state(), before, 'sentinel and refused SQL cannot change settings/history');

@@ -1,181 +1,173 @@
 'use strict';
 
-// Synthetic operator provisioning around the existing unchanged actual CLI/
-// PostgreSQL/Vault fixture. No provisioning runs until explicit setup().
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const { Client } = require('pg');
-const { run } = require('../../lib/migrations/postgres');
-const { catalogueDigest } = require('../../lib/subject-admin/owner-policy');
+const { createLab } = require('./tenant-registry-lab');
+const scope = require('../../lib/storage/tenant-scope');
+const settings = require('../../lib/server/serve/deployment-settings');
+const { createProvisioning } = require('../../lib/tenant-registry/provision');
 const SUBJECT = '000000000000000000000001';
-const catalogue = ['api:entries:read', 'api:entries:create'];
-const consumer = 'owner-configuration';
-const random = () => crypto.randomBytes(12).toString('hex');
+const consumer = settings.IDENTITY.managementConsumer;
+const random = () => crypto.randomBytes(8).toString('hex');
 
 module.exports = function ownerConfigurationFixture () {
-  const data = require('./multitenant-preview-replicas')();
-  const [A, B] = data.tenants, workers = [];
-  const suffix = crypto.randomBytes(6).toString('hex');
-  const namespaces = { settings: 'owner_settings_' + suffix, operatorPolicy: 'operator_policy_' + suffix,
-    authority: 'owner_configuration_' + suffix };
-  const roles = Object.fromEntries(['writer', 'access', 'settings', 'display'].map(kind => [kind, 'owner_config_' + kind + '_' + suffix]));
-  const connections = {};
-  let directory;
-  const settingsTable = '"' + namespaces.settings + '".tenant_settings';
-  const historyTable = '"' + namespaces.settings + '".tenant_settings_history';
-  const policyTable = '"' + namespaces.operatorPolicy + '".tenant_operator_policy';
-  const authorityTable = '"' + namespaces.authority + '".tenant_owner_configuration_authority';
-  const candidates = { settings: require('../../lib/tenant-settings/postgres-candidate.json'),
-    operatorPolicy: require('../../lib/operator-policy/postgres-candidate.json'),
-    authority: require('../../lib/tenant-settings/owner-authority-candidate.json') };
-  const t = name => 'preview_auth.' + name;
-
-  function ownerConfiguration () {
-    return { version: 1, postgres: { writerConnectionEnv: 'OWNER_SUBJECT_CONNECTION', accessConnectionEnv: 'OWNER_ACCESS_CONNECTION',
-      namespaces: { authorization: 'preview_auth', credentials: 'preview_legacy', access: 'preview_access' } },
-    resolution: { mode: 'direct-alias' }, registry: { namespace: data.provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
-    ownerPolicy: { catalogue }, ownerSettings: { connectionEnv: 'OWNER_SETTINGS_CONNECTION', namespaces },
-    management: { issuer: 'synthetic-owner-configuration', audience: 'synthetic-management', purpose: 'management', consumer } };
+  const { tenants: [A, B], hosts, http: request } = require('./multitenant-preview-replicas')();
+  const workers = [], ownerTokens = {}, credentials = {}, connections = {}, roles = {};
+  let settingsTable, historyTable, policyTable, authorityTable, namespaces, lab, dir, scopeBefore, operator, ownership;
+  let servingEnv;
+  const host = id => hosts[id === A ? 0 : 1];
+  const hash = text => crypto.createHash('sha1').update(text).digest('hex');
+  function spawnRole (role, env) {
+    const child = spawn(process.execPath, [path.resolve(__dirname, '../../bin/nightscout.js'), 'multitenant', role], {
+      env: { PATH: process.env.PATH, NS_PG_PREFIX: lab.prefix, NS_SECRETS_DIR: dir, NS_VAULT_ADDR: lab.vault.address,
+        NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_REGISTRY_REFRESH_MS: '250', ...env },
+      cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+    const worker = { child, exit: null, stdout: '', stderr: '' };
+    child.stdout.on('data', bytes => { worker.stdout += bytes; });
+    child.stderr.on('data', bytes => { worker.stderr += bytes; });
+    worker.exited = new Promise(resolve => child.once('exit', (code, signal) => { worker.exit = { code, signal }; resolve(worker.exit); }));
+    workers.push(worker);
+    return worker;
   }
-  function dataConfiguration () {
-    const config = data.configuration();
-    config.tenantSettings = { connectionEnv: 'DISPLAY_SETTINGS_CONNECTION',
-      namespaces: { settings: namespaces.settings, operatorPolicy: namespaces.operatorPolicy } };
-    return config;
+  async function until (condition, description) {
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      if (await condition()) return;
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+    throw new Error('Timeout waiting for ' + description);
   }
-  async function token (tenant = A, overrides = {}, headerOverrides = {}) {
-    const now = Math.floor(Date.now() / 1000);
-    return data.signToken(tenant, { purpose: 'management',
-      header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'management1', ...headerOverrides },
-      claims: { iss: 'synthetic-owner-configuration', aud: 'synthetic-management', purpose: 'management', tid: tenant,
-        sub: SUBJECT, sid: 'owner-configuration-session', cv: 1, iat: now, nbf: now, exp: now + 600, ...overrides } });
+  function port (worker, role) {
+    if (worker.exit) throw new Error(role + ' exited before listening: ' + worker.stderr);
+    const match = new RegExp('Listening for role ' + role + ' on 127[.]0[.]0[.]1:([0-9]+)').exec(worker.stdout);
+    return match && Number(match[1]);
   }
-
+  async function vaultToken (label, policy) {
+    const name = lab.prefix + '_' + label;
+    await lab.vaultRequest('sys/policies/acl/' + name, { policy });
+    return (await lab.vaultRequest('auth/token/create', { policies: [name], no_default_policy: true, ttl: '30m' })).auth.client_token;
+  }
   async function setup () {
-    await data.setup();
-    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'owner-configuration-'));
-    const params = data.admin.connectionParameters;
-    // Private URI derived exclusively from this fixture-owned live connection.
-    const uri = new URL('postgres:' + '//'+ encodeURIComponent(params.user) + ':' + encodeURIComponent(params.password) +
-      '@' + params.host + ':' + params.port + '/' + encodeURIComponent(params.database));
-    for (const [kind, catalogue] of Object.entries(candidates)) await run('up', {
-      direct: true, connectionString: uri.toString(), namespace: namespaces[kind], catalogue });
-    for (const [kind, role] of Object.entries(roles)) {
-      const password = random();
-      await data.admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-      const address = new URL(uri); address.username = role; address.password = password; connections[kind] = address.toString();
-    }
-    const ownerSchemas = ['preview_auth', 'preview_legacy', 'preview_access'];
-    for (const role of [roles.writer, roles.access]) await data.admin.query(`GRANT USAGE ON SCHEMA ${ownerSchemas.join(',')} TO "${role}"`);
-    await data.admin.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ${t('tenant_authorization_subjects')},preview_legacy.legacy_credential_subjects TO "${roles.writer}"`);
-    await data.admin.query(`GRANT SELECT,INSERT ON ${t('tenant_authorization_roles')} TO "${roles.writer}"`);
-    await data.admin.query(`GRANT SELECT,INSERT,DELETE ON ${t('tenant_authorization_subject_roles')} TO "${roles.writer}"`);
-    await data.admin.query(`GRANT INSERT ON ${t('tenant_subject_admin_audit')} TO "${roles.writer}"`);
-    for (const table of ['tenant_authorization_config', 'tenant_authorization_roles', 'tenant_owner_policy', 'tenant_owner_actors']) {
-      await data.admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${t(table)} TO "${roles.writer}"`);
-    }
-    for (const schema of ownerSchemas) await data.admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA ${schema} TO "${roles.access}"`);
-    for (const schema of Object.values(namespaces)) {
-      await data.admin.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${roles.settings}"`);
-      await data.admin.query(`GRANT SELECT ON "${schema}".schema_migrations TO "${roles.settings}"`);
-    }
-    for (const schema of [namespaces.settings, namespaces.operatorPolicy]) {
-      await data.admin.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${roles.display}"`);
-      await data.admin.query(`GRANT SELECT ON "${schema}".schema_migrations TO "${roles.display}"`);
-    }
-    for (const sql of require('../../lib/tenant-settings/function-privileges').writerGrants({namespace:namespaces.settings,role:roles.settings})) await data.admin.query(sql);
-    await data.admin.query(`GRANT SELECT,INSERT,UPDATE ON ${settingsTable} TO "${roles.settings}"`);
-    await data.admin.query(`GRANT SELECT,INSERT ON ${historyTable} TO "${roles.settings}"`);
-    await data.admin.query(`GRANT SELECT ON ${policyTable} TO "${roles.settings}","${roles.display}"`);
-    await data.admin.query(`GRANT SELECT,UPDATE(owner_fence) ON ${authorityTable} TO "${roles.settings}"`);
-    await data.admin.query(`GRANT SELECT ON ${settingsTable} TO "${roles.display}"`);
-    for (const sql of data.provisioned.registryGrants({ resolvers: [roles.access], readers: [roles.access] })) await data.admin.query(sql);
-    for (const tenant of [A, B]) {
-      const policy = await data.admin.query(`UPDATE ${t('tenant_owner_policy')} SET catalogue_digest=$2,ceiling=$3 WHERE tenant_id=$1`,
-        [tenant, catalogueDigest(catalogue), catalogue]);
-      assert.equal(policy.rowCount, 1, 'actual provisioning created owner policy');
-      await data.admin.query(`INSERT INTO ${t('tenant_owner_actors')}(tenant_id,principal,consumer,active,can_update,delegable)
-        VALUES($1,$2,$3,true,true,$4)`, [tenant, SUBJECT, consumer, catalogue]);
-      await data.admin.query(`UPDATE ${t('tenant_authorization_roles')} SET permissions=ARRAY['*'] WHERE tenant_id=$1 AND name='viewer'`, [tenant]);
-      await data.admin.query(`INSERT INTO preview_access.access_credentials VALUES($1,'owner-configuration-credential',$2,1,true)`, [tenant, SUBJECT]);
-      await data.admin.query(`INSERT INTO preview_access.access_sessions VALUES($1,'owner-configuration-session',$2,
-        'owner-configuration-credential',1,$3,true,'management')`, [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 3600]);
-      assert.equal((await data.admin.query("SELECT active FROM preview_access.access_keys WHERE tenant_id=$1 AND kid='management1' AND purpose='management'", [tenant])).rows[0].active, true);
-    }
-    await reset();
+    scopeBefore = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    lab = await createLab({ servingApi: true });
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'owner-configuration-'));
+    namespaces = settings.layout({ NS_PG_PREFIX: lab.prefix }).namespaces;
+    settingsTable = namespaces.display_settings + '.tenant_settings';
+    historyTable = namespaces.display_settings + '.tenant_settings_history';
+    policyTable = namespaces.operator_policy + '.tenant_operator_policy';
+    authorityTable = namespaces.owner_configuration + '.tenant_owner_configuration_authority';
+    Object.assign(roles, { settings: lab.roles.owner_settings, display: lab.roles.display_reader });
+    Object.assign(connections, { settings: lab.urls.owner_settings, display: lab.urls.display_reader });
+    const authorityOwner = lab.prefix + '_management_authority';
+    await lab.admin.query('CREATE ROLE "' + authorityOwner + '" NOLOGIN NOSUPERUSER NOBYPASSRLS');
+    // The function owner is a separate NOLOGIN identity, as in the deployment bootstrap.
+    const ns = Object.fromEntries(['registry', 'access', 'authorization', 'control'].map(k => [k, namespaces[k]]));
+    const grants = require('../../lib/management-sessions/authority').grants({ namespaces: ns, issuer: lab.roles.management_issuer, authorityOwner });
+    for (const sql of [...grants.authorityOwner, ...grants.issuer]) await lab.admin.query(sql);
+    const signer = await vaultToken('signer', ['keys', 'sign'].map((op, i) =>
+      'path "' + lab.mount + '/' + op + '/tenant-management-*" { capabilities=["' + (i ? 'update' : 'read') + '"] }').join('\n'));
+    const roleToken = await vaultToken('serving', ['decrypt/tenant-data-', 'encrypt/tenant-data-', 'hmac/tenant-signing-', 'verify/tenant-signing-']
+      .map(op => 'path "' + lab.mount + '/' + op + '*" { capabilities=["update"] }').join('\n'));
+    servingEnv = { NS_VAULT_TOKEN: roleToken, NS_API_PG: lab.urls.api, NS_READINESS_PG: lab.urls.readiness,
+      NS_API_ROOT_WRITER_PG: lab.urls.root_writer, NS_ALARM_PG: lab.urls.alarm, NS_DISPLAY_PG: lab.urls.display_reader,
+      NS_OWNER_WRITER_PG: lab.urls.owner_writer, NS_OWNER_READER_PG: lab.urls.owner_reader,
+      NS_OWNER_CREDENTIALS_PG: lab.urls.owner_credentials, NS_OWNER_SETTINGS_PG: lab.urls.owner_settings };
+    operator = spawnRole('admin', { ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '0', NS_OWNERSHIP_PG: lab.urls.ownership_operator,
+      NS_MANAGEMENT_SESSIONS_PG: lab.urls.management_issuer, NS_VAULT_TOKEN: signer });
+    await until(() => (operator.port = port(operator, 'admin')), 'private admin');
+    ownership = require('../../lib/server/internal-api/clients').ownershipOperations({
+      url: 'http://127.0.0.1:' + operator.port + '/', trust: 'network', maxBytes: 1048576, timeoutMs: 10000 });
+    const provisioning = createProvisioning(lab.provisioningOptions());
+    try {
+      for (const id of [A, B]) {
+        const provisioned = await provisioning.provision({ id, hosts: [host(id)], issueRootSecret: true });
+        const root = provisioned.rootSecret;
+        await lab.admin.query('INSERT INTO ' + ns.authorization + '.tenant_authorization_subjects(tenant_id,subject_id,display_name) VALUES($1,$2,$3)', [id,SUBJECT,'Owner']);
+        await lab.admin.query('INSERT INTO ' + ns.authorization + ".tenant_authorization_roles VALUES($1,'viewer',ARRAY['*'])", [id]);
+        await lab.admin.query('INSERT INTO ' + ns.authorization + ".tenant_authorization_subject_roles VALUES($1,$2,'viewer')", [id,SUBJECT]);
+        const prefix = 'viewer', material = require('../../lib/secrets/legacy-verifiers').prepare(Buffer.from(root), [{ subjectId: SUBJECT, tokenPrefix: prefix }]);
+        await lab.admin.query('INSERT INTO ' + namespaces.legacy + '.legacy_credential_subjects(tenant_id,subject_id,token_prefix,verifier_token_prefix,verifiers) VALUES ($1,$2,$3,$3,$4)',
+          [id, SUBJECT, prefix, material.subjects[0].verifiers]);
+        credentials[id] = prefix + '-' + hash(hash(root) + SUBJECT).slice(0,16);
+        assert.equal((await ownership.addOwner({ tenant: id, owner: { principal: SUBJECT, consumer }, expectedOwners: [], delegable: ['*'] })).outcome, 'applied');
+        assert.deepEqual((await lab.admin.query('SELECT active,can_configure FROM ' + authorityTable +
+          ' WHERE tenant_id=$1 AND principal=$2 AND consumer=$3', [id, SUBJECT, consumer])).rows, [{ active: true, can_configure: true }]);
+        const requestId = crypto.randomUUID();
+        const result = await request(operator, id, 'POST', '/v1/tenants/' + id + '/management-sessions', undefined, { subjectId: SUBJECT, requestId }, { 'idempotency-key': requestId });
+        assert.equal(result.status, 201, JSON.stringify(result.body));
+        ownerTokens[id] = result.body.token;
+      }
+    } finally { await provisioning.close(); }
   }
-  async function reset () {
-    for (const table of [historyTable, settingsTable, policyTable, authorityTable]) await data.admin.query('DELETE FROM ' + table);
-    for (const tenant of [A, B]) {
-      await data.admin.query(`INSERT INTO ${settingsTable} VALUES($1,1,'{}')`, [tenant]);
-      await data.admin.query(`INSERT INTO ${historyTable}(tenant_id,version,values,principal,consumer,operation,event_time)
-        VALUES($1,1,'{}','operator','provisioning','replace',$2)`, [tenant, Date.now()]);
-      await data.admin.query(`INSERT INTO ${policyTable} VALUES($1,1,$2,'operator','provisioning',$3)`,
-        [tenant, { deployment: {}, overrides: {} }, Date.now()]);
-      await data.admin.query(`INSERT INTO ${authorityTable}(tenant_id,principal,consumer,active,can_configure)
-        VALUES($1,$2,$3,true,true)`, [tenant, SUBJECT, consumer]);
-    }
+  async function token (tenant = A, overrides) {
+    if (!overrides) return ownerTokens[tenant];
+    const [hdr, payload] = ownerTokens[tenant].split('.');
+    const claims = { ...JSON.parse(Buffer.from(payload, 'base64url')), ...overrides };
+    const input = hdr + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
+    const key = require('../../lib/tenant-registry/rules').vaultKey(tenant, 'management');
+    const signed = await lab.vaultRequest(lab.mount + '/sign/' + key, { input: Buffer.from(input).toString('base64'), key_version: 1 });
+    return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
   }
-  async function start ({ ownerConfig = ownerConfiguration(), dataConfig = dataConfiguration(), extra = {}, refused = false } = {}) {
-    const file = path.join(directory, 'owner-' + random() + '.json');
-    fs.writeFileSync(file, JSON.stringify(ownerConfig), { mode: 0o600 });
-    const queryAudit = path.join(directory, 'queries-' + random() + '.json');
-    const worker = data.start(dataConfig, {
-      MULTITENANT_OWNER_PREVIEW_CONFIG: file, OWNER_SUBJECT_CONNECTION: connections.writer,
-      OWNER_ACCESS_CONNECTION: connections.access, OWNER_SETTINGS_CONNECTION: connections.settings,
-      DISPLAY_SETTINGS_CONNECTION: connections.display, TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0',
-      NODE_OPTIONS: '--require ' + path.join(__dirname, 'owner-configuration-controls.js'),
-      NS_OWNER_CONFIGURATION_QUERY_AUDIT: queryAudit,
-      ...(process.env.NS_OWNER_CONFIGURATION_CONTROL ? { NS_OWNER_CONFIGURATION_CONTROL: process.env.NS_OWNER_CONFIGURATION_CONTROL } : {}), ...extra
-    }, { roles: 'tenant-admin,api' });
-    worker.queryAudit = queryAudit; workers.push(worker);
+  async function start ({ extra = {}, refused = false } = {}) {
+    const queryAudit = path.join(dir, random() + '.json');
+    const worker = spawnRole('tenant-admin,api', { ...servingEnv, TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0',
+      API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_SERVE_INTERNAL_SOCKET: path.join(dir, random() + '.sock'),
+      NODE_OPTIONS: '--require ' + path.join(__dirname, 'owner-configuration-controls.js'), NS_OWNER_CONFIGURATION_QUERY_AUDIT: queryAudit,
+      ...(process.env.NS_OWNER_CONFIGURATION_CONTROL ? { NS_OWNER_CONFIGURATION_CONTROL: process.env.NS_OWNER_CONFIGURATION_CONTROL } : {}), ...extra });
+    worker.queryAudit = queryAudit;
     if (refused) {
-      await data.until(async () => worker.exit !== null || /Listening/.test(worker.stdout), 'refused owner configuration boot');
-      assert.doesNotMatch(worker.stdout, /Listening/, 'unsafe owner configuration must never bind');
-      const exit = await worker.exited; assert.equal(exit.code, 1);
+      await until(() => worker.exit || /Listening/.test(worker.stdout), 'unsafe owner role refusal');
+      assert.doesNotMatch(worker.stdout, /Listening/);
+      assert.equal(worker.exit.code, 1);
     } else {
-      await data.until(async () => {
-        assert.equal(worker.exit, null, 'configuration worker exited before readiness');
-        const owner = /Listening for role tenant-admin on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
-        const api = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
-        if (owner) worker.ownerPort = Number(owner[1]);
-        if (api) worker.port = Number(api[1]);
-        return owner && api;
-      }, 'actual owner and DATA listeners');
-      assert.notEqual(worker.ownerPort, worker.port);
-      await data.ready(worker);
-    }
-    for (const credential of Object.values(connections)) {
-      assert.ok(!worker.stdout.includes(credential) && !worker.stderr.includes(credential), 'diagnostics must not disclose credentials');
+      await until(() => (worker.ownerPort = port(worker, 'tenant-admin')) && (worker.port = port(worker, 'api')), 'owner and DATA listeners');
     }
     return worker;
   }
   async function stop (worker) {
-    await data.stop(worker);
-    await assert.rejects(fetch('http://127.0.0.1:' + worker.ownerPort + '/', { signal: AbortSignal.timeout(1000) }));
-    const audit = JSON.parse(fs.readFileSync(worker.queryAudit));
-    assert.equal(audit.ddl, 0, 'serving boot/runtime must not issue DDL');
+    if (!worker.exit) worker.child.kill('SIGTERM');
+    await worker.exited;
+    if (worker.queryAudit) assert.equal(JSON.parse(fs.readFileSync(worker.queryAudit)).ddl, 0);
   }
-  function http (worker, tenant, method, resource, credential, body, selectors) {
-    return data.http({ port: worker.ownerPort }, tenant, method, resource, credential, body, selectors);
+  const exchange = (worker, tenant) => request(worker, tenant, 'GET', '/api/v2/authorization/request/' + credentials[tenant]);
+  async function localToken (tenant) {
+    const result = await exchange(workers.find(w => w.port && w.ownerPort && !w.exit), tenant);
+    assert.equal(result.status, 200);
+    return result.body.token;
+  }
+  const data = { http: request, localToken, exchange, until, get admin () { return lab?.admin; } };
+  const http = (worker, ...args) => request({ port: worker.ownerPort }, ...args);
+  async function reset () {
+    for (const table of [historyTable, settingsTable, policyTable, authorityTable]) await lab.admin.query('DELETE FROM ' + table);
+    for (const tenant of [A, B]) {
+      await lab.admin.query(`INSERT INTO ${settingsTable} VALUES($1,1,'{}')`, [tenant]);
+      await lab.admin.query(`INSERT INTO ${historyTable}(tenant_id,version,values,principal,consumer,operation,event_time)
+        VALUES($1,1,'{}','operator','provisioning','replace',$2)`, [tenant, Date.now()]);
+      await lab.admin.query(`INSERT INTO ${policyTable} VALUES($1,1,$2,'operator','provisioning',$3)`,
+        [tenant, { deployment: {}, overrides: {} }, Date.now()]);
+      await lab.admin.query(`INSERT INTO ${authorityTable}(tenant_id,principal,consumer,active,can_configure)
+        VALUES($1,$2,$3,true,true)`, [tenant, SUBJECT, consumer]);
+    }
   }
   async function state () {
-    return { current: (await data.admin.query(`SELECT tenant_id,version,values FROM ${settingsTable} ORDER BY tenant_id`)).rows,
-      history: (await data.admin.query(`SELECT tenant_id,version,values,principal,consumer,operation,restored_from FROM ${historyTable}
+    return { current: (await lab.admin.query(`SELECT tenant_id,version,values FROM ${settingsTable} ORDER BY tenant_id`)).rows,
+      history: (await lab.admin.query(`SELECT tenant_id,version,values,principal,consumer,operation,restored_from FROM ${historyTable}
         ORDER BY tenant_id,version`)).rows };
   }
   async function configure (tenant, active, enabled = active) {
-    await data.admin.query(`UPDATE ${authorityTable} SET active=$2,can_configure=$3 WHERE tenant_id=$1 AND principal=$4 AND consumer=$5`,
+    await lab.admin.query(`UPDATE ${authorityTable} SET active=$2,can_configure=$3 WHERE tenant_id=$1 AND principal=$4 AND consumer=$5`,
       [tenant, active, enabled, SUBJECT, consumer]);
   }
   async function policy (tenant, value, generation = 2) {
-    await data.admin.query(`UPDATE ${policyTable} SET policy=$2,generation=$3 WHERE tenant_id=$1`, [tenant, value, generation]);
+    await lab.admin.query(`UPDATE ${policyTable} SET policy=$2,generation=$3 WHERE tenant_id=$1`, [tenant, value, generation]);
   }
   function barrier (kind) {
-    const file = path.join(directory, kind + '-' + random());
+    const file = path.join(dir, kind + '-' + random());
     return { file, arm () { fs.writeFileSync(file + '.armed', 'armed', { mode: 0o600 }); },
       release () { fs.writeFileSync(file, 'released', { mode: 0o600 }); } };
   }
@@ -189,9 +181,16 @@ module.exports = function ownerConfigurationFixture () {
     } finally { await client.query('ROLLBACK'); await client.end(); }
   }
   async function cleanup () {
-    try { await data.cleanup(); }
-    finally { if (directory) fs.rmSync(directory, { recursive: true, force: true }); }
+    for (const w of workers) if (!w.exit) await stop(w);
+    if (lab) {
+      await lab.admin.query('DROP OWNED BY "' + lab.prefix + '_management_authority"').catch(() => {});
+      await lab.admin.query('DROP ROLE IF EXISTS "' + lab.prefix + '_management_authority"').catch(() => {});
+      await lab.close();
+    }
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    scope.setTenancyMode(scopeBefore);
   }
-  return { setup, reset, start, stop, cleanup, http, state, configure, policy, barrier, token, data, queryAs,
-    A, B, SUBJECT, consumer, namespaces, roles, workers, settingsTable, historyTable, policyTable, authorityTable };
+  return { setup, reset, start, stop, cleanup, http, state, configure, policy, barrier, token, data, queryAs, A, B, SUBJECT, consumer, roles,
+    get ownership () { return ownership; }, get namespaces () { return namespaces; }, get settingsTable () { return settingsTable; },
+    get historyTable () { return historyTable; }, get policyTable () { return policyTable; }, get authorityTable () { return authorityTable; } };
 };
