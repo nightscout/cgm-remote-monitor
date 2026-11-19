@@ -50,20 +50,20 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const docs=plan.documents({selected,layout,publicKeys,paths});for(const name of ['api','realtime','evaluator','tenant-admin'])fs.writeFileSync(paths[name],JSON.stringify(docs[name]));
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
-    const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,MULTITENANT_PREVIEW_CONFIG:paths.api,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_API_PG:url('api'),
+    const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,RT_BOOTSTRAP_API_PG:url('api'),
       RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role'};
-    const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,MULTITENANT_EVALUATOR_CONFIG:paths.evaluator,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
-    const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,MULTITENANT_REALTIME_CONFIG:paths.realtime,RT_BOOTSTRAP_RT_PG:url('realtime')};
-    const accepted=require('../lib/server/serve/preview-config').load(api);
+    const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
+    const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,RT_BOOTSTRAP_RT_PG:url('realtime')};
+    // The lab's documents through each role's own validator (parse); roles read their
+    // configuration from the environment (lib/server/serve/deployment-settings.js).
+    const previewConfig=require('../lib/server/serve/preview-config'),evaluatorConfig=require('../lib/server/serve/evaluator-config');
+    const accepted=previewConfig.parse(docs.api,api);
     assert.deepEqual(docs.api.activity,{namespace:layout.namespaces.control},'API_ACTIVITY_USES_SHARED_SERVING_CONNECTION');
     assert.deepEqual(accepted.activity,docs.api.activity);
-    const obsoleteActivity=path.join(dir,'obsolete-api-activity.json');
-    fs.writeFileSync(obsoleteActivity,JSON.stringify({...docs.api,activity:{...docs.api.activity,connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG'}}));
-    assert.throws(()=>require('../lib/server/serve/preview-config').load({...api,MULTITENANT_PREVIEW_CONFIG:obsoleteActivity}),/invalid preview configuration fields/,'OBSOLETE_API_ACTIVITY_CONNECTION_REFUSED');
-    assert.deepEqual(require('../lib/server/serve/preview-config').load(api).activity,accepted.activity,'RESTORED_SHARED_ACTIVITY_PARSER');
-    const evaluated=require('../lib/server/serve/evaluator-config').load(worker);
-    const delivered=require('../lib/server/realtime/config').load(realtime);
-    assert.equal(accepted.socketForwarding.consumerState.consumer,evaluated.consumers.realtime.route.id,'BOOTSTRAP_SAME_CONSUMER_LOCK_BINDING');
+    assert.throws(()=>previewConfig.parse({...docs.api,activity:{...docs.api.activity,connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG'}},api),/invalid preview configuration fields/,'OBSOLETE_API_ACTIVITY_CONNECTION_REFUSED');
+    assert.deepEqual(previewConfig.parse(docs.api,api).activity,accepted.activity,'RESTORED_SHARED_ACTIVITY_PARSER');
+    const evaluated=evaluatorConfig.parse(docs.evaluator,worker);
+    const delivered=require('../lib/server/realtime/config').parse(docs.realtime,realtime);
     assert.equal(delivered.registry.namespace,evaluated.registry.namespace,'BOOTSTRAP_SHARED_REGISTRY');
     assert.equal(delivered.completedOutput.namespace,evaluated.namespaces.checkpoint,'BOOTSTRAP_ACTUAL_COMPLETED_SOURCE');
     assert.equal(delivered.completedOutput.consumer,evaluated.consumer);
@@ -72,29 +72,16 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const recoveryReference=docs.evaluator.pgstream.recovery.connectionEnv;
     assert.equal(evaluated.pgstream.recovery.connectionString,worker[recoveryReference],'EVALUATOR_RESOLVES_DECLARED_RECOVERY_IDENTITY');
     assert.equal(evaluated.pgstream.transactionRows,10000,'TRANSPORT_ROWS_INDEPENDENT_OF_CLINICAL_CACHE');
-    const metadataSource=new Proxy(api,{get(target,key){if(key===recoveryReference)throw Error('API_MUST_NOT_READ_RECOVERY_CREDENTIAL');return Reflect.get(target,key);}});
-    const metadata=require('../lib/server/serve/evaluator-config').loadMetadata(metadataSource);
-    assert.equal(metadata.pgstream.recovery.connectionEnv,recoveryReference);
-    assert.equal(metadata.pgstream.recovery.connectionString,undefined,'METADATA_RETAINS_REFERENCE_ONLY');
-    assert.doesNotThrow(()=>require('../lib/server/serve/preview-config').load(metadataSource));
     for(const changed of [undefined,url('evaluator'),(()=>{const u=new URL(worker[recoveryReference]);u.port='15433';return u.href;})()]){
-      assert.throws(()=>require('../lib/server/serve/evaluator-config').load({...worker,[recoveryReference]:changed}),/invalid explicit evaluator preview configuration/,'RECOVERY_REQUIRES_EXACT_ROLE_AND_ENDPOINT');
+      assert.throws(()=>evaluatorConfig.parse(docs.evaluator,{...worker,[recoveryReference]:changed}),/invalid explicit evaluator preview configuration/,'RECOVERY_REQUIRES_EXACT_ROLE_AND_ENDPOINT');
     }
     for(const key of ['changeFeed','recoveryIntervalMs','settingsRefreshMs','tenants'])assert.equal(Object.hasOwn(docs.evaluator,key),false);
     assert.notEqual(evaluated.namespaces.checkpoint,delivered.namespaces.checkpoint);
     assert.equal(Object.keys(api).some(key=>/EVAL_PG|OUTBOX_PG|SUPPRESSION_PG|STREAM_RECOVERY_PG/.test(key)),false,'BOOTSTRAP_API_NO_WORKER_CREDENTIALS');
     assert.equal(Object.keys(realtime).some(key=>/VAULT|SIGN|DECRYPT|SECRET/.test(key)),false);
     assert.deepEqual(Object.keys(require('./fixtures/realtime-preview/bootstrap-grants').catalogues()).sort(),Object.keys(layout.namespaces).sort());
-    const ownerSource={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_TENANT_ADMIN_INTERNAL_SOCKET,MULTITENANT_OWNER_PREVIEW_CONFIG:paths['tenant-admin'],NS_OWNER_WRITER_PG:url('owner-writer'),NS_OWNER_READER_PG:url('owner-reader')};
-    const owned=require('../lib/server/serve/owner-preview-config').load(ownerSource);
-    for(const [role,source,option]of [['api',api,{preview:accepted}],['evaluator',worker,{evaluatorPreview:evaluated}],['realtime',realtime,{realtimePreview:delivered}],['tenant-admin',ownerSource,{ownerPreview:owned}]]){
-      const file=path.join(dir,role+'-operation.json');fs.writeFileSync(file,JSON.stringify(docs.operations[role]));
-      const prefix=role.replace('-','_').toUpperCase();
-      const environment={API_HOSTNAME:'127.0.0.1',API_PORT:'1337',...source,[prefix+'_HOSTNAME']:'127.0.0.1',[prefix+'_PORT']:'0',MULTITENANT_OPERATION_CONFIG:file,RT_BOOTSTRAP_LIFETIME_PG:url('lifetime-'+role)};
-      const operationConfig=require('../lib/server/serve/operation-cohort-config').load(environment);
-      const preflight=require('../lib/server/serve').preflight([role],environment,{...option,operationConfig});
-      assert.equal(preflight.participant.id,role,'actual role lifetime manifest must match parsed resources');
-    }
+    const ownerSource={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_TENANT_ADMIN_INTERNAL_SOCKET,NS_OWNER_CREDENTIALS_PG:url('owner-credentials'),NS_OWNER_WRITER_PG:url('owner-writer'),NS_OWNER_READER_PG:url('owner-reader')};
+    require('../lib/server/serve/owner-preview-config').parse(docs['tenant-admin'],ownerSource);
 
   });
   it('keeps the initial explicit cold evaluator bound below realtime while both actual role configuration parsers accept it and infrastructure stays pinned',async function(){
@@ -110,9 +97,6 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const evaluated=require('../lib/server/serve/evaluator-config').parse(docs.evaluator,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_EVALUATOR_INTERNAL_SOCKET});
     const delivered=require('../lib/server/realtime/config').parse(docs.realtime,{...env,NS_SERVE_INTERNAL_SOCKET:env.NS_REALTIME_INTERNAL_SOCKET});
     assert.equal(evaluated.maxRows,3,'BOOTSTRAP_COLD_EVALUATOR_BOUND');assert.equal(delivered.maxRows,100,'BOOTSTRAP_REALTIME_REMAINS_ADMITTED');
-    const link=require('../lib/server/realtime/notification-state-config')({evaluatorConfigEnv:'LINK'},{...env,LINK:paths.evaluator},{namespace:layout.namespaces.alarm,connectionString:url('ack')});
-    assert.equal(link.consumer,evaluated.consumers.realtime.route.id,'registry metadata keeps exact producer linkage without opening a SQL connection in source-only tests');
-    docs.evaluator.maxRows++;fs.writeFileSync(paths.evaluator,JSON.stringify(docs.evaluator));await assert.rejects(link.readCurrent(plan.A),/restart/,'cold test must not change infrastructure after API boot');
     for(const changes of [{evaluatorMaxRows:0},{evaluatorMaxRows:3,pageSize:4},{realtimeMaxRows:3,pageSize:4}]) {
       assert.throws(()=>plan.parse({...input,env:{...input.env,NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify({...options,...changes})}}),/INPUT_REFUSED/);
     }
@@ -238,9 +222,8 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const layout=plan.layout('0123456789abcdef'),grants=require('./fixtures/realtime-preview/bootstrap-grants').grants(layout);
     const quote=name=>'"'+name+'"',ledger=quote(layout.namespaces.alarm)+'."schema_migrations"';
     const expected='GRANT SELECT ON '+ledger+' TO '+quote(layout.roles.alarm);
-    const admission=path.join(dir,'admission.json');fs.writeFileSync(admission,JSON.stringify({version:1,mode:'preview-socket-allowlist',tenants:[{id:plan.A,enabled:true,aliases:['one.example.test']}]}));
     const migrations=require('../lib/migrations/postgres'),original=migrations.run,boot=require('../lib/server/realtime/private-api').boot;
-    const config={bindings:new Map([[plan.A,{}]]),readinessConnectionString:'synthetic-readiness',socketForwarding:{admissionFile:admission,maxTenants:1,
+    const config={registry:{namespace:layout.namespaces.registry},resolver:{resolve:async()=>plan.A},prepareRegistryTenant:async()=>({}),readinessConnectionString:'synthetic-readiness',socketForwarding:{maxTenants:1,
       alarm:{namespace:layout.namespaces.alarm,connectionString:'synthetic-ack-writer'}}};
     try {
       for(const selected of [grants,grants.filter(sql=>sql!==expected)]) {

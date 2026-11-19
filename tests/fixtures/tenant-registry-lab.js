@@ -25,6 +25,8 @@ const CATALOGUES = {
   operatorPolicy: () => require('../../lib/operator-policy/postgres-candidate.json'),
   checkpoint: () => require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json')
 };
+// Lab kinds whose deployment layout kind differs.
+const LAYOUT_KIND = { settings: 'display_settings', operatorPolicy: 'operator_policy', checkpoint: 'rt_checkpoint' };
 const enabled = () => !!process.env.NS_TEST_POSTGRES_ADMIN_URI && /test/i.test(new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI || 'postgres://x/none').pathname) &&
   (process.env.NS_VAULT_DOCKER_TEST === '1' || !!process.env.NS_TEST_VAULT_ADDR);
 
@@ -48,13 +50,16 @@ async function startVault () {
 async function createLab () {
   const ADMIN = process.env.NS_TEST_POSTGRES_ADMIN_URI;
   const id = randomUUID().replace(/-/g, '').slice(0, 10);
-  const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, 'trl_' + kind.toLowerCase() + '_' + id]));
+  // Names follow the deployment layout, <prefix>_<kind> (lib/server/serve/deployment-settings.js),
+  // so a role process started with NS_PG_PREFIX=prefix reads this lab's schemas.
+  const prefix = 'trl_' + id;
+  const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, prefix + '_' + (LAYOUT_KIND[kind] || kind)]));
   const owner = 'trl_owner_' + id;
   const roles = { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
   const urls = {};
   const admin = new Client({ connectionString: ADMIN }); await admin.connect();
   const vault = await startVault();
-  const mount = 'transit_' + id;
+  const mount = prefix + '_transit';
   const q = (sql, values) => admin.query(sql, values);
   await q(`CREATE ROLE "${owner}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
   for (const [kind, role] of Object.entries(roles)) {
@@ -72,7 +77,7 @@ async function createLab () {
     }
     await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
   }
-  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }];
+  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }], extraSchemas = [];
   for (const sql of registry.grants({ namespace: namespaces.registry, resolvers: [roles.api], enumerators: [roles.realtime], readers: [roles.api] })) await q(sql);
   for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: consumers })) await q(sql);
   const vaultRequest = async (path, body, method = body === undefined ? 'GET' : 'POST') => {
@@ -88,7 +93,25 @@ async function createLab () {
     `path "${mount}/encrypt/tenant-data-*" { capabilities = ["update"] }`].join('\n') });
   const provisionToken = (await vaultRequest('auth/token/create', { policies: [mount + '_provision'], no_default_policy: true, ttl: '1h' })).auth.client_token;
   return {
-    id, namespaces, roles, urls, owner, admin, mount, consumers,
+    id, prefix, namespaces, roles, urls, owner, admin, mount, consumers,
+    // The environment of an admin process that provisions into this lab:
+    // adds the evaluator checkpoint schema and grants the provisioner the
+    // checkpoint rows the admin role derives. The Vault token goes in dir.
+    async adminEnvironment (dir) {
+      const settings = require('../../lib/server/serve/deployment-settings'), layout = settings.layout({ NS_PG_PREFIX: prefix });
+      const evaluator = layout.namespaces.eval_checkpoint;
+      if (!extraSchemas.includes(evaluator)) {
+        await q(`CREATE SCHEMA "${evaluator}"`);
+        await run('up', { direct: true, connectionString: ADMIN, namespace: evaluator, catalogue: CATALOGUES.checkpoint() });
+        for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [evaluator])).rows) await q(`ALTER TABLE "${evaluator}"."${row.tablename}" OWNER TO "${owner}"`);
+        await q(`ALTER SCHEMA "${evaluator}" OWNER TO "${owner}"`);
+        extraSchemas.push(evaluator);
+        for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: settings.checkpoints(layout) })) await q(sql);
+      }
+      const { writeFileSync } = require('node:fs');
+      writeFileSync(require('node:path').join(dir, 'vault-token'), provisionToken, { mode: 0o600 });
+      return { NS_PG_PREFIX: prefix, NS_SECRETS_DIR: dir, NS_VAULT_ADDR: vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_PROVISIONER_PG: urls.provisioner };
+    },
     vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
     vaultRequest,
     provisioningOptions: (extra = {}) => ({ connectionString: urls.provisioner, namespaces: { ...namespaces }, checkpoints: consumers,
@@ -106,7 +129,7 @@ async function createLab () {
       return out;
     },
     async close () {
-      for (const namespace of Object.values(namespaces)) await q(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`).catch(() => {});
+      for (const namespace of [...Object.values(namespaces), ...extraSchemas]) await q(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`).catch(() => {});
       for (const role of [...Object.values(roles), owner]) {
         await q(`DROP OWNED BY "${role}"`).catch(() => {});
         await q(`DROP ROLE IF EXISTS "${role}"`).catch(() => {});

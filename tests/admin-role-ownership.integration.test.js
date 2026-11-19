@@ -34,7 +34,8 @@ const IMAGE = process.env.NS_ADMIN_ROLE_PG_IMAGE || 'postgres@sha256:9e2cf6287f2
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const CONSUMER = 'tenant-admin';
-const OPERATOR = { principal: 'synthetic_operator', consumer: 'operator_plane' };
+const { IDENTITY } = require('../lib/server/serve/deployment-settings');
+const OPERATOR = { principal: IDENTITY.operator, consumer: IDENTITY.ownership };
 const CEILING = ['api:*:read', 'api:entries:create'];
 const ROOT = path.join(__dirname, '..');
 const ref = principal => ({ principal, consumer: CONSUMER });
@@ -57,13 +58,10 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
 
   async function startRole () {
     const port = await freePort();
-    const file = path.join(configDir, crypto.randomBytes(4).toString('hex') + '.json');
-    fs.writeFileSync(file, JSON.stringify({ version: 1, maxBytes: 65536, timeoutMs: 10000,
-      ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: NS, lifecycleNamespace: CONTROL, operator: OPERATOR, registry: { namespace: lab.namespaces.registry } } }), { mode: 0o600 });
     const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], {
       cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
       env: { PATH: process.env.PATH, ADMIN_HOSTNAME: ADMIN_HOST, ADMIN_PORT: String(port),
-        MULTITENANT_ADMIN_CONFIG: file, NS_OWNERSHIP_PG: identityURI }
+        NS_PG_PREFIX: layout.prefix, NS_SECRETS_DIR: configDir, NS_OWNERSHIP_PG: identityURI }
     });
     const out = { stdout: '', stderr: '' };
     child.stdout.on('data', chunk => { out.stdout += chunk; });
@@ -145,7 +143,8 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
     await admin.query(`ALTER SCHEMA "${CONTROL}" OWNER TO "${layout.owner}"`);
     // Tenant A through provisioning (registry row, hosts, keys, its window and
     // authorization rows); tenant B only as rows, absent from the registry.
-    lab = await provisionedTenants.create({ admin, adminURI, owner: layout.owner, namespaces: { authorization: NS, control: CONTROL } });
+    lab = await provisionedTenants.create({ admin, adminURI, owner: layout.owner, namespaces: { authorization: NS, control: CONTROL },
+      namespaceNames: { registry: layout.prefix + '_registry' } });
     await lab.provision({ id: A, hosts: ['one.example.test'] });
     await admin.query(`INSERT INTO "${CONTROL}".tenant_lifecycle_windows (tenant_id,lock_key,phase,generation) VALUES ($1,'810002','active',1)`, [B]);
     const grants = plan.grants(layout).filter(sql => sql.endsWith(' TO "' + IDENTITY + '"'));

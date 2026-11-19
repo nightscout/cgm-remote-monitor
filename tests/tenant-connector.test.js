@@ -5,10 +5,7 @@
 // and the cycle's slice/activity gating. Synthetic data only.
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const fs = require('node:fs');
 const http = require('node:http');
-const os = require('node:os');
-const path = require('node:path');
 const config = require('../lib/tenant-connector/config');
 const frame = require('../lib/tenant-connector/frame');
 const runtime = require('../lib/tenant-connector/runtime');
@@ -17,17 +14,21 @@ const { validate } = require('../lib/server/internal-api/schema');
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const env = { VC_SECRETS_PG: 'postgres://vc:synthetic@127.0.0.1:5432/preview', VC_ACTIVITY_PG: 'postgres://vca:synthetic@127.0.0.1:5432/preview',
-  VC_VAULT_A: 'synthetic-a', VC_VAULT_B: 'synthetic-b' };
-const tenant = (id, i) => ({ id, host: 'ns-' + i + '.localhost',
-  vault: { encryptionKey: 't' + i + '-data', signingKey: 't' + i + '-sign', signingVersion: 1, tokenEnv: 'VC_VAULT_' + i.toUpperCase() },
-  connector: { collections: ['entries', 'treatments'], sourceEndpoint: 'src-endpoint', sourceCredential: 'src-credential',
-    sourceCredentialKind: 'token', writeCredential: 'write-credential' } });
+  VC_DEFINITIONS_PG: 'postgres://vcd:synthetic@127.0.0.1:5432/preview', VC_VAULT: 'synthetic-vault' };
+const connector = () => ({ collections: ['entries', 'treatments'], sourceEndpoint: 'src-endpoint', sourceCredential: 'src-credential',
+  sourceCredentialKind: 'token', writeCredential: 'write-credential' });
+// Registry mode: tenants and their connector definitions come from the registry
+// and the definitions store (lib/tenant-connector/registry-view.js).
 const document = () => ({ version: 1, api: { url: 'http://127.0.0.1:1337/' },
   postgres: { connectionEnv: 'VC_SECRETS_PG', namespaces: { secrets: 'preview_secrets' } },
-  vault: { address: 'http://127.0.0.1:8200/', mount: 'transit', allowInsecureLoopback: true },
+  vault: { address: 'http://127.0.0.1:8200/', mount: 'transit', allowInsecureLoopback: true, tokenEnv: 'VC_VAULT' },
   activity: { connectionEnv: 'VC_ACTIVITY_PG', namespace: 'preview_lifecycle' },
   sources: { allowHosts: ['127.0.0.1'], allowInsecureHttp: true }, cycleMs: 1000, pollIntervalMs: 1000,
-  tenants: [tenant(A, 'a'), tenant(B, 'b')] });
+  registry: { namespace: 'preview_registry' }, definitions: { connectionEnv: 'VC_DEFINITIONS_PG',
+    namespaces: { settings: 'preview_settings', registry: 'preview_registry', secrets: 'preview_secrets', control: 'preview_lifecycle' } } });
+// The tenant view the runtime works through, as the registry view supplies it.
+const tenants = () => new Map([A, B].map((id, i) => [id, Object.freeze({ id, host: 'ns-' + 'ab'[i] + '.localhost', connector: config.connectorOf(connector()),
+  binding: Object.freeze({ tenant: id, principal: 'vcpool', consumer: 'tenant-connector' }) })]));
 const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
 
 function server (handler) {
@@ -41,31 +42,32 @@ const close = s => new Promise(resolve => s.close(resolve));
 
 describe('vcpool tenant-side connector', function () {
   describe('configuration', function () {
-    it('parses tenants, secret references, the allow-list and timing', function () {
+    it('parses the registry selection, secret references, the allow-list and timing', function () {
       const parsed = config.parse(document(), env);
-      assert.deepEqual([...parsed.tenants.keys()], [A, B]);
+      assert.equal(parsed.tenants.size, 0, 'tenants come from the registry');
+      assert.equal(parsed.registry.namespace, 'preview_registry');
       assert.equal(parsed.api, 'http://127.0.0.1:1337/');
-      assert.deepEqual(parsed.tenants.get(A).binding, { tenant: A, principal: 'vcpool', consumer: 'tenant-connector' });
-      assert.deepEqual(parsed.tenants.get(A).connector.collections, ['entries', 'treatments']);
       assert.deepEqual(parsed.egress, { proxy: null });
       assert.equal(parsed.retryMs, config.DEFAULTS.retryMs);
     });
-    it('refuses a document without activity, allow-list, distinct references or a known collection', function () {
+    it('refuses a document without activity, allow-list or registry, or with a tenant list, and a connector without distinct references or a known collection', function () {
       const cases = [
         doc => { delete doc.activity; },
         doc => { doc.sources.allowHosts = []; },
         doc => { doc.sources.allowHosts = ['Upper.Example']; },
-        doc => { doc.tenants[0].connector.writeCredential = 'src-credential'; },
-        doc => { doc.tenants[0].connector.collections = ['food']; },
-        doc => { doc.tenants[0].connector.sourceCredentialKind = 'password'; },
-        doc => { doc.tenants[1].vault.encryptionKey = 'ta-data'; },
         doc => { doc.api.url = 'http://user:pw@127.0.0.1:1337/'; },
         doc => { doc.activity.connectionEnv = 'VC_SECRETS_PG'; },
-        doc => { doc.tenants[0].secret = 'inline'; }
+        doc => { delete doc.registry; },
+        doc => { doc.tenants = []; },
+        doc => { doc.secret = 'inline'; }
       ];
       for (const change of cases) {
         const doc = document(); change(doc);
         assert.throws(() => config.parse(doc, env), { code: 'CONNECTOR_CONFIG_INVALID' }, change.toString());
+      }
+      for (const change of [c => { c.writeCredential = 'src-credential'; }, c => { c.collections = ['food']; }, c => { c.sourceCredentialKind = 'password'; }, c => { c.secret = 'inline'; }]) {
+        const value = connector(); change(value);
+        assert.throws(() => config.connectorOf(value), { code: 'CONNECTOR_CONFIG_INVALID' }, change.toString());
       }
     });
     it('reads the member egress proxy from its own environment only', function () {
@@ -83,19 +85,17 @@ describe('vcpool tenant-side connector', function () {
         assert.throws(() => config.sourceEndpoint(bad, sources), { code: 'CONNECTOR_SOURCE_REFUSED' }, bad);
       }
     });
-    it('loads the file, and refuses partition values while the vcpool flag is off', function () {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vcpool-config-'));
-      try {
-        const file = path.join(dir, 'vcpool.json');
-        fs.writeFileSync(file, JSON.stringify(document()));
-        const loaded = config.load({ ...env, MULTITENANT_VCPOOL_CONFIG: file });
-        assert.deepEqual(loaded.partition, { kind: 'vcpool', partitioned: false });
-        assert.throws(() => config.load({ ...env, MULTITENANT_VCPOOL_CONFIG: file, MULTITENANT_POOL_VCPOOL_ORDINAL: '1' }),
-          error => error.code === 'CONNECTOR_CONFIG_INVALID' && /MULTITENANT_POOL_VCPOOL_ORDINAL/.test(error.message));
-        // Another kind's variables are not this kind's.
-        assert.deepEqual(config.load({ ...env, MULTITENANT_VCPOOL_CONFIG: file, MULTITENANT_POOL_EVALUATOR_ORDINAL: '1' }).partition,
-          { kind: 'vcpool', partitioned: false });
-      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    it('builds its configuration from the environment', function () {
+      const source = { NS_PG_PREFIX: 'preview', NS_VAULT_ADDR: 'http://127.0.0.1:8200/', NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_VAULT_TOKEN: 'synthetic-vault',
+        NS_VCPOOL_API_URL: 'http://127.0.0.1:1337/', NS_VCPOOL_ALLOW_HOSTS: 'ns.example.org, other.example.org',
+        NS_VCPOOL_SECRETS_PG: env.VC_SECRETS_PG, NS_VCPOOL_ACTIVITY_PG: env.VC_ACTIVITY_PG, NS_VCPOOL_DEFINITIONS_PG: env.VC_DEFINITIONS_PG };
+      const loaded = config.load(source);
+      assert.equal(loaded.registry.namespace, 'preview_registry');
+      assert.deepEqual(loaded.definitions.namespaces, { settings: 'preview_display_settings', registry: 'preview_registry', secrets: 'preview_secrets', control: 'preview_control' });
+      assert.deepEqual([...loaded.sources.allowHosts], ['ns.example.org', 'other.example.org']);
+      for (const missing of ['NS_VCPOOL_API_URL', 'NS_VCPOOL_ALLOW_HOSTS']) {
+        assert.throws(() => config.load({ ...source, [missing]: '' }), error => error.code === 'CONNECTOR_CONFIG_INVALID' && error.message.includes(missing));
+      }
     });
   });
 
@@ -173,7 +173,7 @@ describe('vcpool tenant-side connector', function () {
 
   describe('cycle', function () {
     function fixture ({ slice = { eligible: true, includes: () => true }, states = {} } = {}) {
-      const parsed = config.parse(document(), env);
+      const parsed = { ...config.parse(document(), env), tenants: tenants() };
       const runs = [], built = [];
       const fake = {
         create: options => {

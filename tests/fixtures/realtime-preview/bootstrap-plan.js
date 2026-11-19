@@ -153,9 +153,8 @@ function documents ({selected,layout: l,paths}) {
     vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
     registry,tenantSettings,activity:{namespace:ns.control},
     accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},
-    socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
-      consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
-  const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin}).configs['tenant-admin'];
+    socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm}}};
+  const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin,settings:{NS_VAULT_ALLOW_INSECURE_LOOPBACK:'true'}}).configs['tenant-admin'];
   const configs={api,evaluator,realtime,'tenant-admin':owner};
   const operations=Object.fromEntries(Object.keys(configs).map(role=>[role,{version:1,namespace:ns.control,connectionEnv:'RT_BOOTSTRAP_LIFETIME_PG',registry:{namespace:ns.registry}}]));
   return {...configs,operations,paths};

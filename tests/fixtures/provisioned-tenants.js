@@ -7,7 +7,7 @@
 // identity with exactly provisionerGrants, and a dev-mode Vault Transit mount,
 // then provisions tenants through the shipping createProvisioning. The role
 // under test is then started with `registry` in place of `tenants` and without
-// MULTITENANT_STATIC_TENANTS. Synthetic only; close() removes what create() made.
+// a tenant list. Synthetic only; close() removes what create() made.
 //
 //   const lab = await provisionedTenants.create({ admin, adminURI, owner, namespaces: { authorization, control } });
 //   await lab.provision({ id, hosts: ['one.example.test'] });

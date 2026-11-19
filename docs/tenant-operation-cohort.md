@@ -1,9 +1,10 @@
 # Tenant-local restore operation cohort
 
-The explicit multitenant preview can select `MULTITENANT_OPERATION_CONFIG`
-through its private service environment. The configuration names a provisioned
-operation-control schema, a database environment reference, and each tenant's
-unique positive advisory-lock key. The fixed manifest covers API, evaluator, realtime and
+A tenant-serving role runs the operation lease when it has the lifetime identity
+`NS_LIFETIME_PG` ([role settings](multitenant-settings.md)); the control schema
+and the registry follow `NS_PG_PREFIX`, and lock keys follow the tenant-id rule.
+The participant manifest described below is no longer configured (decision
+config-few-dozen-env); lane S retires the cohort topology. The fixed manifest covers API, evaluator, realtime and
 tenant-admin across separately launched processes; API replicas can be declared
 as separate participants. The earlier v1 co-located form remains available for
 component tests. Single-tenant commands do not select this option.

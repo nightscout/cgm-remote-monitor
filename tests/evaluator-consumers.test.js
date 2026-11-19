@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+const fs = require('node:fs'), path = require('node:path');
 const scope = require('../lib/storage/tenant-scope');
 const parse = require('../lib/server/serve/evaluator-config');
 const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
@@ -42,17 +42,7 @@ describe('explicit evaluator consumer configuration', function () {
     const d = document(); d.consumers = selected();
     assert.throws(() => parse.parse(d, { ...source, OUTBOX_PG: source.OUTBOX_PG.replace('composition_test', 'another_test') }), /evaluator consumer/);
   });
-  it('requires restart for consumer infrastructure or credential changes without granting tenant admission from the worker file', async function () {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'consumer-config-')), file = path.join(dir, 'config.json');
-    try {
-      const d = document(); d.consumers = selected(); fs.writeFileSync(file, JSON.stringify(d));
-      const env = { ...source, MULTITENANT_EVALUATOR_CONFIG: file }, loaded = parse.load(env);
-      assert.equal(await loaded.readCurrent(A),null,'worker file never substitutes for current admitted registry state');
-      d.consumers.realtime.retryIntervalMs++; fs.writeFileSync(file, JSON.stringify(d)); await assert.rejects(loaded.readCurrent(A), /requires restart/);
-      d.consumers.realtime.retryIntervalMs--; fs.writeFileSync(file, JSON.stringify(d));
-      env.OUTBOX_PG = env.OUTBOX_PG.replace(':synthetic@', ':changed-synthetic@'); await assert.rejects(loaded.readCurrent(A), /requires restart/);
-    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
-  });
+
 });
 
 describe('selected actual database consumer readiness protocols', function () {

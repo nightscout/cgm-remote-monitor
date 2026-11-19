@@ -132,27 +132,27 @@ listener plane rule keeps on loopback (unless `ADMIN_INSECURE_BIND_ACKNOWLEDGED=
 off every interface, and off the consumer listener's port when it shares that
 listener's address. The listener serves exactly the
 `ownership-operations` routes over the shared internal transport, with no credential
-of its own (D7). `MULTITENANT_ADMIN_CONFIG` names its JSON configuration
-(`lib/server/serve/admin-config.js`):
+of its own (D7). It is composed when the admin process has `NS_OWNERSHIP_PG`
+(`docs/multitenant-settings.md`); the value `lib/server/serve/admin-config.js` validates:
 
 ```json
 { "version": 1, "maxBytes": 65536, "timeoutMs": 10000,
   "ownership": { "connectionEnv": "NS_OWNERSHIP_PG", "namespace": "<authorization namespace>",
                  "lifecycleNamespace": "<lifecycle control namespace>",
                  "operator": { "principal": "<operator>", "consumer": "<operator plane>" },
-                 "tenants": ["<tenant uuid>"] } }
+                 "registry": { "namespace": "<registry namespace>" } } }
 ```
 
 The connection string is read from the named variable and must be the separate
 ownership identity: startup refuses a superuser, `BYPASSRLS`, `CREATEROLE`,
 `CREATEDB` or replication identity, and any table privilege other than the table
-above. The composed operator acts only for the listed tenants
-(`tenantSetAuthority`). The deployment plan's identity is
+above. The composed operator acts only for the registry's active tenants
+(`registryAuthority`). The deployment plan's identity is
 `<prefix>_ownership_operator` in nightscout-deploy's deployment plan and
 ownership-operations overlay. Core tests use `tests/fixtures/multitenant-plan.js`.
 
 The admin role is not a lifecycle operation-cohort participant: serve refuses it
-together with `MULTITENANT_OPERATION_CONFIG`. A restore proceeds while it is
+together with `NS_LIFETIME_PG`. A restore proceeds while it is
 connected: the restore census in `lib/server/serve/role-topology.js` accepts a
 non-participant backend whose database identity, checked in the catalogue at
 census time, holds no privilege on any clinical table

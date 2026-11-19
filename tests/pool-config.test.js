@@ -47,17 +47,11 @@ describe('multitenant pool configuration', function () {
   });
   it('sizes the operation lifetime pool from the environment', function () {
     const cohort = require('../lib/server/serve/operation-cohort-config');
-    const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-pool-config-')), file = path.join(dir, 'operation.json');
-    this.cleanup = () => fs.rmSync(dir, { recursive: true, force: true });
-    fs.writeFileSync(file, JSON.stringify({ version: 1, namespace: 'synthetic_control', connectionEnv: 'NS_SYNTHETIC_PG',
-      locks: [{ tenant: '11111111-1111-4111-8111-111111111111', key: '1' }] }), { mode: 0o600 });
-    const env = { MULTITENANT_OPERATION_CONFIG: file, NS_SYNTHETIC_PG: 'postgres://synthetic:synthetic@127.0.0.1/synthetic' };
+    const env = { NS_PG_PREFIX: 'synthetic', NS_LIFETIME_PG: 'postgres://synthetic:synthetic@127.0.0.1/synthetic' };
     assert.equal(cohort.load(env).poolOptions.max, 8);
     assert.equal(cohort.load({ ...env, NS_POOL_OPERATION_MAX: '20', NS_POOL_OPERATION_CONNECT_TIMEOUT_MS: '9000' }).poolOptions.max, 20);
     assert.equal(cohort.load({ ...env, NS_POOL_OPERATION_CONNECT_TIMEOUT_MS: '9000' }).poolOptions.connectionTimeoutMillis, 9000);
     assert.throws(() => cohort.load({ ...env, NS_POOL_OPERATION_MAX: '0' }), /NS_POOL_OPERATION_MAX/);
-    this.cleanup();
   });
 });
 

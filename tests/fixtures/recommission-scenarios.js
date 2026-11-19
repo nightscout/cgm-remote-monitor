@@ -103,7 +103,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         ownerCatalogue: ['*'], ownerActors: [{ principal: 'subject_a', consumer: 'native_owner', active: true, canUpdate: true, delegable: ['api:*:read'] }],
         ownerConfiguration: [{ principal: 'subject_a', consumer: 'native_owner', active: true, canConfigure: true }],
         operatorPolicy: { deployment: {}, overrides: {} }, subjectPolicy: { grants, code: grants, operator: grants },
-        access: { active: true, keys: selected.map(key => ({ purpose: key.purpose, kid: key.kid, publicKey: key.public_key })) }, replays: replays(), ...(native?{nativeSource:{source:profile.binding.source,generation:profile.binding.generation}}:{}) };
+        access: { active: true, keys: selected.map(key => ({ purpose: key.purpose, kid: key.kid, publicKey: key.public_key })) }, replays: replays() };
     }
     async function snapshot (tenant) {
       return admin(async client => {
@@ -208,11 +208,8 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       await ready(() => admin(async () => {})); await ready(() => vaultRequest('sys/health'));
       const kinds = [...lifecycle.admittedCatalogue().map(entry => entry.kind), 'lifecycle', 'alarm_suppression', 'notification_outbox',...(native?['evaluator_checkpoint']:[])];
       ns = Object.fromEntries(kinds.map(kind => [kind, prefix + '_' + kind]));
-      profile = native ? await admin(async client=>{
-        const slot='nrc_'+id;await client.query("SELECT pg_create_logical_replication_slot($1,'pgoutput')",[slot]);
-        const row=(await client.query('SELECT s.system_identifier::text AS system_id,c.timeline_id::integer AS timeline,current_database() AS database FROM pg_control_system() s CROSS JOIN pg_control_checkpoint() c')).rows[0];
-        return require('../../lib/tenant-lifecycle/native-selection').create({namespace:ns.evaluator_checkpoint,lifecycleNamespace:ns.lifecycle,consumer:'evaluator-native-recommission',source:{...row,slot},generation:'native-recommission-v1'});
-      }) : require('../../lib/pgstream/pool-intake-profile').create({ namespace: ns.checkpoint, membershipNamespace: prefix + '_membership',
+      // The native selection names no database identity (decision stream-source-identity-in-data).
+      profile = native ? require('../../lib/tenant-lifecycle/native-selection').create({namespace:ns.evaluator_checkpoint,lifecycleNamespace:ns.lifecycle,consumer:'evaluator-native-recommission'}) : require('../../lib/pgstream/pool-intake-profile').create({ namespace: ns.checkpoint, membershipNamespace: prefix + '_membership',
         lifecycleNamespace: ns.lifecycle, role: intakeRole, operatorRole: assignmentRole, consumer: 'evaluator-native-recommission',
         codec: require('../../lib/pgstream/pool-intake-profile').CODEC, generationDomain: require('../../lib/pgstream/pool-intake-profile').GENERATION_DOMAIN,
         sliceRule: require('../../lib/pool-membership/slice').RULE });
@@ -433,7 +430,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       assert.deepEqual(await snapshot(B), beforeB);
       await refusedRestore(first, { code: 'LIFECYCLE_RETENTION_EXPIRED' }, { now: () => first.at + 30 * DAY });
       configMissing = true;
-      try { await refusedRestore(first, { code: native?'LIFECYCLE_NATIVE_SOURCE_CHANGED':'LIFECYCLE_RECOMMISSION_REPLAY_REQUIRED' }); }
+      try { await refusedRestore(first, { code: 'LIFECYCLE_RECOMMISSION_REPLAY_REQUIRED' }); }
       finally { configMissing = false; }
       if(native)await refusedRestore(first,/NATIVE_BEFORE_DATA_INTERRUPT/,{onRow(){throw new Error('NATIVE_BEFORE_DATA_INTERRUPT');}});
       for (let cycle = 0, record = first; cycle < 2; cycle++) {
@@ -534,24 +531,6 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const artifact = await life.exportTenant(port, { tenant: A, namespaces: ns, sourceCommit });
       await assert.rejects(life.recommission(port, artifact, { tenant: A, namespaces: ns, ledgerNamespace: ns.lifecycle,
         requestId: crypto.randomUUID(), maintenanceClaim: Object.freeze({ forged: true }) }), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' });
-      assert.deepEqual(await snapshot(A), beforeA); assert.deepEqual(await snapshot(B), beforeB);
-    });
-
-    // The non-native branch checked only the retired remote cohort's profile
-    // match (decision restore-suspend-drain-replace); the native source checks remain.
-    if(native)it('refuses a different current selected profile before draining or changing tenant rows', async function () {
-      const beforeA = await snapshot(A), beforeB = await snapshot(B);
-      if(native){
-        const connection={query:(sql,values)=>admin(client=>client.query(sql,values))};
-        const configuration=await currentConfiguration({tenant:A,connection});
-        const selected=require('../../lib/tenant-lifecycle/native-selection');
-        assert.throws(()=>selected.validate({...profile}),{code:'LIFECYCLE_NATIVE_SELECTION_REQUIRED'});
-        const foreign=selected.create({...profile.binding,source:{...profile.binding.source,system_id:profile.binding.source.system_id+'1'}});
-        await assert.rejects(selected.assertCurrent(connection,foreign,{nativeSource:{source:foreign.binding.source,generation:foreign.binding.generation}}),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
-        configuration.nativeSource.generation='foreign-generation';
-        await assert.rejects(require('../../lib/tenant-lifecycle/native-selection').assertCurrent(connection,profile,configuration),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
-        assert.deepEqual(await snapshot(A),beforeA);assert.deepEqual(await snapshot(B),beforeB);return;
-      }
       assert.deepEqual(await snapshot(A), beforeA); assert.deepEqual(await snapshot(B), beforeB);
     });
 

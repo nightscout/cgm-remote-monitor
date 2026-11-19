@@ -188,9 +188,8 @@ access is materialized per tenant on demand, follows the registry entry revision
 and keeps at most the configured registry tenant-cache bound. These bounds are
 resource limits, not an operating-envelope claim.
 
-Static tenant lists require `MULTITENANT_STATIC_TENANTS=lab`, with a startup
-notice. Fixtures convert to provisioning before static mode is removed. The
-connector pool reads [durable connector definitions](tenant-connector.md) from
+Static tenant lists are removed; every role reads its tenants from the
+registry. The connector pool reads [durable connector definitions](tenant-connector.md) from
 tenant settings and uses the registry as its tenant roster.
 
 

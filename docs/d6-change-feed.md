@@ -19,8 +19,8 @@ configuration and transport and do not qualify the maintained replacement.
 The platform runs pgstream independently and owns its process restart policy.
 The evaluator accepts durable observations at its private receiver and reports
 delivery freshness; it retains clinical state, due work and ownership fences
-across a stream restart. The [deployment plan contract](multitenant-plan-contract.md#independent-streaming-service)
-defines the endpoint and responsibility boundary.
+across a stream restart. Its receiver address is the setting
+`NS_PGSTREAM_RECEIVER_URL` ([role settings](multitenant-settings.md)).
 
 Current runtime responsibilities are implemented in
 [`lib/pgstream/evaluator.js`](../lib/pgstream/evaluator.js),

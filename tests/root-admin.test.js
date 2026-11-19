@@ -5,14 +5,11 @@
 // tenant root secret reaches the single-site admin tools routes on the DATA
 // listener, bound to the resolved tenant, through the owner-aware root plane.
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const express = require('express');
 const request = require('supertest');
 const { createRootAdminRouter, createRootAuthentication } = require('../lib/server/tenant-app/root-admin');
 const { createOwnerPolicy } = require('../lib/subject-admin/owner-policy');
-const { load, PreviewConfigError } = require('../lib/server/serve/preview-config');
+const { PreviewConfigError } = require('../lib/server/serve/preview-config');
 
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const ROOT = { [A]: 'a'.repeat(40), [B]: 'b'.repeat(40) };
@@ -132,20 +129,17 @@ describe('tenant root admin tools routes (no database)', function () {
 });
 
 describe('preview root subject administration configuration', function () {
-  let dir;
   const url = name => 'postgres://synthetic-' + name + ':synthetic@127.0.0.1:15432/root_admin_test';
-  before(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-root-admin-')); });
-  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // The api's validator on a registry-mode configuration value.
   function parse (subjectAdmin, extra = {}) {
-    const file = path.join(dir, 'config.json');
-    fs.writeFileSync(file, JSON.stringify({ version: 1, writeClock: true,
+    return require('../lib/server/serve/preview-config').parse({ version: 1, writeClock: true,
       postgres: { connectionEnv: 'RA_API_PG', readinessConnectionEnv: 'RA_READINESS_PG',
         namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock' } },
-      vault: { address: 'http://127.0.0.1:8200', mount: 'ra_transit', allowInsecureLoopback: true },
-      resolution: { mode: 'direct-alias' },
-      tenants: [{ id: A, aliases: ['one.example.test'], vault: { tokenEnv: 'RA_VAULT', encryptionKey: 'a-data', signingKey: 'a-signing', signingVersion: 1 } }],
-      ...(subjectAdmin === undefined ? {} : { subjectAdmin }) }));
-    return load({ MULTITENANT_PREVIEW_CONFIG: file, RA_API_PG: url('api'), RA_READINESS_PG: url('readiness'), RA_VAULT: 'synthetic', ...extra });
+      vault: { address: 'http://127.0.0.1:8200', mount: 'ra_transit', allowInsecureLoopback: true, tokenEnv: 'RA_VAULT' },
+      resolution: { mode: 'direct-alias' }, registry: { namespace: 'ra_registry' },
+      tenantSettings: { connectionEnv: 'RA_SETTINGS_PG', namespaces: { settings: 'ra_settings', operatorPolicy: 'ra_policy' } },
+      ...(subjectAdmin === undefined ? {} : { subjectAdmin }) },
+    { RA_API_PG: url('api'), RA_READINESS_PG: url('readiness'), RA_SETTINGS_PG: url('settings'), RA_VAULT: 'synthetic', ...extra });
   }
 
   it('is absent by default and selects a separate writer identity on the same database', function () {

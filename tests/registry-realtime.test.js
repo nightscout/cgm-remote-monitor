@@ -17,7 +17,7 @@ const request = host => ({ rawHeaders: ['Host', host], socket: {} });
 // A registry resolver double: hosts map to tenants; the registry decides activity.
 const resolverOf = hosts => ({ resolve: async req => { const host = req.rawHeaders[1]; if (!hosts.has(host)) throw Object.assign(new Error('TENANT_HOST_UNKNOWN'), { code: 'TENANT_HOST_UNKNOWN' }); return hosts.get(host); } });
 
-describe('registry mode: realtime, socket forwarding, removal and the static lab gate', function () {
+describe('registry mode: realtime, socket forwarding and removal', function () {
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
@@ -132,9 +132,9 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     const existing = { namespaces: { entries: 'rr_entries' }, connections: ['postgres://app:synthetic@db.example.test/ns'] };
     const value = { maxTenants: 10, maxMessageBytes: 10000, operationTimeoutMs: 1000, alarm: { connectionEnv: 'ALARM_PG', namespace: 'rr_alarm' } };
     const source = { ALARM_PG: 'postgres://alarm:synthetic@db.example.test/ns', ADMISSION: '/tmp/a.json' };
-    assert.equal(privateConfig(value, source, { ...existing, registry: true }).admissionFile, null);
+    assert.equal(privateConfig(value, source, { ...existing, registry: true }).maxTenants, 10);
     assert.throws(() => privateConfig({ ...value, admissionFileEnv: 'ADMISSION' }, source, { ...existing, registry: true }), { code: 'SOCKET_PRIVATE_CONFIG_REFUSED' });
-    assert.throws(() => privateConfig(value, source, existing), { code: 'SOCKET_PRIVATE_CONFIG_REFUSED' }, 'static mode still needs its admission file');
+    assert.throws(() => privateConfig(value, source, existing), { code: 'SOCKET_PRIVATE_CONFIG_REFUSED' }, 'socket admission comes from the registry only');
   });
 
   it('RR_WARM: the registry-mode warm names the tenant only; the api prepares an admitted tenant and answers denied; static mode refuses a hostless call', async function () {
@@ -204,18 +204,6 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     } finally { await new Promise(resolve => server.close(resolve)); }
   });
 
-  it('RR_STATIC_LAB: a role configuration that lists tenants is refused without MULTITENANT_STATIC_TENANTS=lab; registry mode needs no flag', function () {
-    const gate = require('../lib/server/serve/static-tenants');
-    const configs = { preview: { registry: null }, adminPreview: { ownership: { tenants: [A] } }, operationConfig: { locks: [{ tenant: A, key: '1' }] } };
-    assert.throws(() => gate.check({}, configs), error => error.code === 'STATIC_TENANTS_REFUSED' && /api, admin, operation cohort/.test(error.message));
-    assert.match(gate.check({ MULTITENANT_STATIC_TENANTS: 'lab' }, configs), /lab and test only\): api, admin, operation cohort/);
-    assert.throws(() => gate.check({ MULTITENANT_STATIC_TENANTS: 'yes' }, configs), { code: 'STATIC_TENANTS_REFUSED' });
-    const registry = { preview: { registry: { namespace: 'r' } }, realtimePreview: { registry: { namespace: 'r' } }, evaluatorPreview: { registry: { namespace: 'r' } },
-      ownerPreview: { registry: { namespace: 'r' } }, adminPreview: { ownership: { registry: { namespace: 'r' } }, provisioning: {} }, operationConfig: { locks: null } };
-    assert.equal(gate.check({}, registry), null);
-    assert.equal(gate.check({}, { adminPreview: { provisioning: {} } }), null, 'provisioning alone lists no tenants');
-    assert.deepEqual(gate.staticRoles({ vcpoolPreview: {} }), ['vcpool'], 'vcpool has no registry mode yet');
-  });
 });
 
 // Actual registry resolver, admission and protocol. No network or database.
