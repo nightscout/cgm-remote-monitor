@@ -10,6 +10,7 @@ const request = require('supertest');
 const { Client } = require('pg');
 const { MongoClient, ObjectId } = require('mongodb');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 const environment = require('../lib/server/tenant-app/environment');
 const snapshot = require('../lib/server/tenant-app/snapshot');
 const sharedContext = require('../lib/server/tenant-app/shared-rest-context');
@@ -149,6 +150,7 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
     await admin.query(`GRANT INSERT ON ${namespaces.secrets}.secret_audit TO "${role}"`);
     const url = new URL(adminURI);
     url.username = role; url.password = password; appURI = url.toString();
+    await writeClock.provision(admin, { connectionString: adminURI, namespace: prefix + '_clock', role, tenants: [A, B] });
     for (const [i, tenant] of [A, B].entries()) {
       await admin.query(`INSERT INTO ${namespaces.identity}.legacy_credential_config VALUES ($1,$2)`, [tenant, 'root-' + i]);
       await admin.query(`INSERT INTO ${namespaces.identity}.legacy_credential_subjects VALUES ($1,$2,'sameviewer')`, [tenant, SUBJECT]);
@@ -228,7 +230,7 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
         }
         const mongoStorage = backend === 'mongo' ? new MongoCollection(ctx, env, 'settings', 'settings', []) : undefined;
         const col = new Collection({ ctx, env, app: routeApp, colName: 'settings', storageColName: 'settings',
-          ...(backend === 'pg' ? settingsOptions({ connection, table: namespaces.data + '.settings', bus, env }) : {
+          ...(backend === 'pg' ? settingsOptions({ connection: writeClock.clocked(connection, prefix + '_clock'), table: namespaces.data + '.settings', bus, env }) : {
             storage: mongoStorage, intentFactory: () => writeIntent.forCollectionResolved(mongoStorage, 'settings', 'v3', { env })
           }) });
         col.mapRoutes();
@@ -253,7 +255,8 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
             if (!who) throw Object.assign(new Error('invalid credential'), { status: 401 });
             req.tenantContext = who;
           };
-          scope.withTenant(tenant, next);
+          if (backend === 'mongo') writeClock.referenceClock(tenant, () => scope.withTenant(tenant, next));
+          else scope.withTenant(tenant, next);
         });
         app.use('/api/v1', routers.legacy);
         app.use('/api/v2', routers.legacy, routers.v2);
@@ -313,7 +316,7 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
     for (const service of [authority, legacy, persistence]) if (service) await service.close();
     if (connection) await connection.end();
     if (admin) {
-      for (const namespace of Object.values(namespaces)) await admin.query(`DROP SCHEMA "${namespace}" CASCADE`);
+      for (const namespace of [...Object.values(namespaces), prefix + '_clock']) await admin.query(`DROP SCHEMA "${namespace}" CASCADE`);
       await admin.query(`DROP ROLE IF EXISTS "${prefix}_app"`);
       await admin.end();
     }

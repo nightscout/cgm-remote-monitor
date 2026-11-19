@@ -25,6 +25,7 @@ const { createSecrets } = require('../../lib/secrets/component');
 const { createVaultTransit } = require('../../lib/secrets/vault-transit');
 const legacyAuthorization = require('../../lib/server/tenant-app/legacy-authorization');
 const purifier = require('../../lib/server/purifier');
+const writeClock = require('./native-write-clock');
 const defaults = require('../../lib/api3/const.json');
 const factories = { settings: require('../../lib/server/tenant-app/settings') };
 const catalogues = { settings: require('../../migrations/candidates/postgres-settings-v1.json'),
@@ -122,7 +123,7 @@ module.exports = function settingsFixture () {
       for (const method of ['post', 'put', 'patch', 'delete']) app[method] = routes[method].bind(routes);
       for (const logical of Object.keys(factories)) {
         const options = reference ? {} : factories[logical]({
-          connection: worker.connection, table: schemas[logical] + '.' + logical, bus: ctx.bus, env
+          connection: writeClock.clocked(worker.connection, name + '_clock'), table: schemas[logical] + '.' + logical, bus: ctx.bus, env
         });
         const col = new Collection({
           ctx, env, app, colName: logical, storageColName: env[logical + '_collection'], ...options
@@ -255,6 +256,8 @@ module.exports = function settingsFixture () {
       await admin.query(`GRANT INSERT ON "${schemas.secrets}".secret_audit TO "${role}"`);
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       url.username = role; url.password = password; uri = url.toString();
+      await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: name + '_clock', role, tenants: [A, B] });
       await vault('sys/mounts/' + transitMount, { type: 'transit' });
       ownsTransitMount = true;
       for (const [i, tenant] of [A, B].entries()) {
@@ -285,7 +288,7 @@ module.exports = function settingsFixture () {
       referenceApp.use((req, res, next) => {
         const trie = shiro.new(); mongoGrants.forEach(grant => trie.add(grant));
         authentication.bind(req, { shiros: [trie], subject: { name: mongoName } });
-        scope.withTenant(A, next);
+        writeClock.referenceClock(A, () => scope.withTenant(A, next));
       });
       referenceApp.use('/api/v3', ...require('../../lib/api3/shared/jsonParser')(), graph.routes);
       await http('get', '/api/v3/settings/not-present').expect(404);
@@ -307,7 +310,7 @@ module.exports = function settingsFixture () {
           await mongo.close();
         }
         if (admin) {
-          for (const namespace of Object.values(schemas)) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
+          for (const namespace of [...Object.values(schemas), name + '_clock']) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
           await admin.end();
         }
