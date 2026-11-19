@@ -61,7 +61,7 @@ describe('durable pending and due reconstruction discriminators', function () {
     }finally{await value.close();}
   }
   it('detects dropping recovered pending work before clinical execution',async function(){
-    await assert.rejects(criterion(text=>{const needle="enqueue(row.tenant,row.pendingAt!==null?'clock':'due');";assert(text.includes(needle));return text.replace(needle,'');},false),/RECOVERED_PENDING_MUST_RUN/);
+    await assert.rejects(criterion(text=>{const needle="enqueue(row.tenant, row.pendingAt !== null ? 'clock' : 'due');";assert(text.includes(needle));return text.replace(needle,'');},false),/RECOVERED_PENDING_MUST_RUN/);
     await criterion(text=>text,false);
   });
   it('detects omitting durable due reconstruction without another input wake',async function(){

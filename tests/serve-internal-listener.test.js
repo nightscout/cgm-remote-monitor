@@ -69,7 +69,7 @@ describe('serve.internal: one private listener per role process', function () {
     };
     try {
       const running = await serve(roles).start(['api', 'realtime'], {}, null, {}, { internal,
-        preview: { socketForwarding: BOUNDS }, realtimePreview: { ...BOUNDS, api: internal.peer('api', { maxBytes: BOUNDS.maxMessageBytes, timeoutMs: BOUNDS.operationTimeoutMs }) } });
+        preview: { writeClock: true, socketForwarding: BOUNDS }, realtimePreview: { ...BOUNDS, api: internal.peer('api', { maxBytes: BOUNDS.maxMessageBytes, timeoutMs: BOUNDS.operationTimeoutMs }) } });
       assert.deepEqual([...running.internalListener.routes].sort(), [...routes(contracts.socketAuthority), ...routes(contracts.alarmDelivery)].sort(), 'INTERNAL_ROUTES_FROM_ROLE_CODE');
       assert.deepEqual(events, ['boot:api', 'boot:realtime', 'authorize:' + A]);
       const peer = internal.peer('realtime', { maxBytes: 100000, timeoutMs: 2000 });

@@ -99,7 +99,7 @@ describe('explicit headless owner preview trust boundary', function () {
       listeners.close = async () => {};
       const result = await serve.start(['tenant-admin', 'api'], { HOSTNAME: '127.0.0.1', PORT: 0 }, null,
         { TENANT_ADMIN_HOSTNAME: '127.0.0.1', TENANT_ADMIN_PORT: '0', API_HOSTNAME: '127.0.0.1', API_PORT: '0' },
-        { preview: {}, ownerPreview: {} });
+        { preview: { writeClock: true }, ownerPreview: {} });
       try {
         assert.equal(result.servers.find(server => server.role === 'api').app.routes.includes('/api/v2/authorization/subjects'), false,
           'data listener must not expose management route');

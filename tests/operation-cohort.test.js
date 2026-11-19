@@ -110,7 +110,7 @@ describe('Actual serving and CLI selection composition (source protocol)', funct
     const running=await serve.start(['realtime','evaluator','api','tenant-admin'],{},null,{}, {
       operationConfig:{namespace:'control',poolOptions:{},locks:[{tenant:A,key:'17'}]},
       datastoreProbe:{probe:async()=>{},readmit:async()=>({restarted:false}),adopt(){}},
-      preview:cfg('api'),ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:{...cfg('rt_checkpoint'),ownership:{count:1,ordinal:0}}
+      preview:{...cfg('api'),writeClock:true},ownerPreview:cfg('owner'),evaluatorPreview:evaluator,realtimePreview:{...cfg('rt_checkpoint'),ownership:{count:1,ordinal:0}}
     });
     assert.ok(events.indexOf('boot:api')<events.indexOf('boot:realtime'));
     assert.ok(events.includes('pool-listens:error'),'an idle operation-pool backend loss has a listener');
