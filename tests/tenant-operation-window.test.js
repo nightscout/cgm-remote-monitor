@@ -204,7 +204,7 @@ describe('PostgreSQL pools enforce the selected tenant generation scope', functi
         if (observed !== kind || !unsafe) return;
         if (kind === 'role') rows[0].elevated = true; else rows[0].secured = false;
       } });
-      const catalogue = require('../lib/server/serve/platform-verification-lifecycle');
+      const catalogue = require('../lib/server/serve/lifecycle-catalogue-check');
       class Driver {
         constructor () { this.processID = f.client.processID; }
         async connect () {}

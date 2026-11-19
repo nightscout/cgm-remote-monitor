@@ -163,14 +163,6 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   owner.ownerCredentials = { connectionEnv: 'NS_OWNER_CREDENTIALS_PG', namespace: ns.secrets, vault: { ...tokenVault } };
   Object.assign(env['tenant-admin'], { NS_OWNER_SETTINGS_PG: urls.owner_settings, NS_OWNER_ACTIVITY_PG: urls.owner_activity, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_VAULT_TOKEN: 'synthetic-placeholder' });
   const admin = docs.admin.config;
-  for (const role of ['api', 'evaluator', 'realtime']) docs.configs[role].platformVerification = { namespace: named('platform_verification'), role };
-  // vcpool checks the proof at start too (decision vcpool-proof-role); it has no operation plane.
-  docs.vcpool.config.platformVerification = { namespace: named('platform_verification'), role: 'vcpool' };
-  admin.platformVerification = { connectionEnv: 'NS_PLATFORM_VERIFY_PG', namespace: named('platform_verification'),
-    targets: ['api', 'evaluator', 'realtime'].map(role => ({ role, configFile: CONFIG_DIRECTORY + '/verification/' + role + '.config.json',
-      operationConfigFile: CONFIG_DIRECTORY + '/verification/' + role + '.operation.json', environmentFile: CONFIG_DIRECTORY + '/verification/' + role + '.env.json' }))
-      .concat([{ role: 'vcpool', configFile: CONFIG_DIRECTORY + '/verification/vcpool.config.json', environmentFile: CONFIG_DIRECTORY + '/verification/vcpool.env.json' }]) };
-  docs.admin.environment.NS_PLATFORM_VERIFY_PG = urls.provisioner;
 
   admin.pools = { connectionEnv: 'NS_POOL_OPERATOR_PG', namespace: named('pool'), kinds: ['evaluator'] };
   admin.provisioning.mode = 'canonical-internal';

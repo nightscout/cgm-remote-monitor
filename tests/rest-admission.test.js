@@ -172,7 +172,7 @@ describe('REST admission in the production api composition', function () {
       '../../tenant-authorization/postgres': async () => resource({ authorize: async () => false }),
       '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
       '../../secrets/component': { createSecrets: () => ({}) },
-      './platform-verification': require('./fixtures/platform-proof')(), './tenant-floor-verification': { createReader: () => async () => {} },
+      './role-readiness': require('./fixtures/role-readiness')(),
       './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async prepareTenant () {}, invalidateTenant () {}, invalidateAll () {} }),
       '../tenant-app/data-access': () => async () => ({ tenant, principal: 'synthetic', consumer: 'api' }),
       '../tenant-app/exchange': () => async () => null,

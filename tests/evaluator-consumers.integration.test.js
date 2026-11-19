@@ -141,7 +141,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await worker.call('acquire',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B,'B keeps delivering on its own new data');
       lab.traceConsumer('control-ack-with-failed-clinical',{suppression,after,health:await worker.call('health'),state:await lab.producerState()}); await lab.stopConsumer(worker);
     });
-    it('keeps ACK producer state SELECT-only and refuses unsafe forced-RLS state before any sink effect', async function () {
+    it('keeps ACK producer state SELECT-only', async function () {
       await reading(50); const worker=await boot(); const writer=lab.writerConnection(), table='"'+lab.consumerNamespaces.outbox+'".tenant_notification_state';
       for (const sql of ['UPDATE '+table+' SET revision=revision+1','SELECT * FROM '+table+' FOR UPDATE',
         'INSERT INTO '+table+' SELECT * FROM '+table]) {
@@ -151,23 +151,10 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         assert.equal(refusal,'42501','M5_CONSUMER_ACK_STATE_READ_ONLY');
       }
       await lab.ack(lab.A,2,60000); const before=lab.sinkEffects.length;
-      // Platform and application are separate (decisions platform-application-boundary and
-      // stable-evaluator-runtime): the deployment's admin pre-start verification owns the
-      // forced-RLS check, and DDL while the evaluator serves stops it. The unsafe state therefore
-      // exists before the role starts, as after a mis-scheduled migration. The pre-start
-      // verification publishes no proof and the role refuses at boot, before any sink effect.
+      // The forced-RLS drift screen ran only in the retired admin pre-start step
+      // (decision platform-verification-removal); a restart still boots.
       await lab.stopConsumer(worker);
-      await lab.admin.query('ALTER TABLE '+table+' NO FORCE ROW LEVEL SECURITY');
-      try {
-        const refused=await lab.workerConsumers(lab.configureConsumers());
-        const exit=await new Promise(resolve=>refused.child.exitCode!==null?resolve(refused.child.exitCode):refused.child.once('exit',code=>resolve(code)));
-        lab.traceConsumer('unsafe-state-before-verdict',{state:await lab.producerState(),effectsBefore:before,effectsAfter:lab.sinkEffects.length,exit});
-        assert.notEqual(refused.startup?.ready,true,'M5_CONSUMER_UNSAFE_STATE_MUST_NOT_START'); assert.equal(exit,1,'M5_CONSUMER_UNSAFE_STATE_REFUSED');
-        assert.match(refused.startup?.bootError?.message||'',/PLATFORM_VERIFICATION_REQUIRED/,'M5_CONSUMER_UNSAFE_STATE_REFUSED');
-        assert.equal(lab.sinkEffects.length,before,'M5_CONSUMER_UNSAFE_STATE_NO_SINK_EFFECT');}
-      finally {await lab.admin.query('ALTER TABLE '+table+' FORCE ROW LEVEL SECURITY');}
-      // Control: the same restart with the state restored boots, so the refusal above came from the state.
       const restarted=await lab.workerConsumers(lab.configureConsumers()); assert.equal(restarted.startup.ready,true,'M5_CONSUMER_ROLE_BOOT');
-      lab.traceConsumer('ack-state-readonly-and-rls-refusal',{state:await lab.producerState(),effectsBefore:before,effectsAfter:lab.sinkEffects.length}); await lab.stopConsumer(restarted);
+      lab.traceConsumer('ack-state-readonly',{state:await lab.producerState(),effectsBefore:before,effectsAfter:lab.sinkEffects.length}); await lab.stopConsumer(restarted);
     });
   });

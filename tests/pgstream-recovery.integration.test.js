@@ -320,19 +320,6 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       lab.tracePreview('actual-role-completed-output-and-future-due-recovery',{selectedStartup,death,before,resumed,after,clockBefore,remainingAtKillMs,dueAlreadyFired,resumedBootstrap,afterBootstrap,inputBefore,inputAfter,outputRevision:outputAfter.output_revision});
       await lab.stopWorker(next);
     });
-    (selectedStartup ? it : it.skip)('selected startup refuses actual revoked admin state before role admission, then restores the exact verified role',async function(){
-      await write(113);const config=await startupConfiguration();
-      await lab.verifyPlatform(config,'invalidate');
-      const refused=await lab.worker(config,{detached:true});
-      assert(refused.startup.bootError,'REVOKED_ADMIN_STATE_MUST_REFUSE_ROLE_BOOT');
-      assert(JSON.stringify(refused.startup.bootError).includes('PLATFORM_VERIFICATION_REQUIRED'));
-      await lab.stopWorker(refused);
-      await lab.verifyPlatform(config);
-      const restored=await lab.worker(config,{detached:true});
-      await firstUsefulOutput(restored,[{tenant:lab.A,id:'synthetic-recovery',value:113}]);
-      try {assert.equal(restored.startup.ready,true);await wait(async()=>!!(await restored.call('last',lab.A)),10000,'RESTORED_VERIFIED_ROLE_MUST_COMPLETE');assert.equal((await restored.call('health')).startup.warmOnStart,false);}
-      finally {await lab.stopWorker(restored);}
-    });
     (selectedStartup ? it : it.skip)('selected startup refuses a held completion after actual lifecycle generation advance and keeps a healthy neighbor progressing',async function(){
       await write(110);const now=Date.now();await lab.persistDomains({entries:[{_id:'generation-neighbor',type:'sgv',sgv:210,date:now,dateString:new Date(now).toISOString()}]},lab.B);
       const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
