@@ -9,7 +9,6 @@ const { Client } = require('pg');
 const { MongoClient, ObjectId } = require('mongodb');
 const shiro = require('shiro-trie');
 const authentication = require('../lib/api3/tenant-authentication');
-const srvDates = require('../lib/server/srv-dates');
 const express = require('express');
 const request = require('supertest');
 const { run } = require('../lib/migrations/postgres');
@@ -29,6 +28,7 @@ const entriesOptions = require('../lib/server/tenant-app/entries');
 const purifier = require('../lib/server/purifier');
 const provider = require('./fixtures/tenant-credential-provider');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -151,7 +151,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         env, app: routeApp, colName: 'entries', storageColName: 'entries',
         fallbackGetDate: doc => new Date(doc.srvModified),
         dedupFallbackFields: ['date', 'type'], fallbackDateField: 'date',
-        ...entriesOptions({ connection: worker.connection, table: 'credential_data.entries', bus, env })
+        ...entriesOptions({ connection: writeClock.clocked(worker.connection, 'credential_clock'), table: 'credential_data.entries', bus, env })
       });
       routeCollection.mapRoutes();
       worker.collections.set(tenant, routeCollection);
@@ -230,6 +230,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     url.username = role;
     url.password = appPassword;
     appURI = url.toString();
+    await writeClock.provision(admin, { connectionString: adminURI, namespace: 'credential_clock', role, tenants: [A, B] });
     await admin.query(`INSERT INTO credential_identity.legacy_credential_config VALUES
       ($1, 'operator-import-a'), ($2, 'operator-import-b')`, [A, B]);
     for (const [index, tenant] of [A, B].entries()) {
@@ -467,7 +468,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
           app.set('API3_DEDUP_FALLBACK_ENABLED', true);
           app.setENVTruthy = () => undefined;
           app.use(...require('../lib/api3/shared/jsonParser')());
-          app.use((req, res, next) => scope.withTenant(A, next));
+          app.use((req, res, next) => writeClock.referenceClock(A, () => scope.withTenant(A, next)));
           app.use((req, res, next) => {
             const grants = shiro.new();
             grants.add('api:entries:create');
@@ -485,8 +486,14 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
             env, app, colName: 'entries', storageColName: name,
             dedupFallbackFields: ['date', 'type'], fallbackDateField: 'date'
           }).mapRoutes();
-          const next = srvDates.next;
-          srvDates.next = () => 1793664999000;
+          // History dates are server-owned: PostgreSQL stamps them from the
+          // tenant write clock in the write's transaction, MongoDB from the
+          // process clock, so the differential compares everything else.
+          const serverDates = value => {
+            const copy = { ...value };
+            for (const field of ['srvModified', 'srvCreated', 'lastModified']) delete copy[field];
+            return copy;
+          };
           try {
             const pgEnv = workers[0].environments.get(A);
             const bBefore = (await rows()).filter(row => row.tenant_id === B);
@@ -507,22 +514,23 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
               const reference = await request(app).post('/entries').send(body);
               const actual = await post(body);
               assert.equal(actual.status, index === 0 ? 201 : 200);
-              assert.deepEqual(actual.body, reference.body);
-              for (const header of ['location', 'last-modified']) assert.equal(actual.headers[header], reference.headers[header]);
+              assert.deepEqual(serverDates(actual.body), serverDates(reference.body));
+              assert.equal(actual.headers.location, reference.headers.location);
+              assert.equal(typeof actual.headers['last-modified'], typeof reference.headers['last-modified']);
               const expected = await mongo.db().collection(name).findOne({});
               const stored = (await admin.query(`SELECT doc FROM credential_data.entries
                 WHERE tenant_id = $1 AND identifier = 'mutation-literal'`, [A])).rows[0].doc;
               const withoutIdentity = value => {
-                const copy = { ...value };
+                const copy = serverDates(value);
                 delete copy._id;
                 return copy;
               };
+              assert.equal(typeof stored.srvModified, 'number');
               assert.deepEqual(withoutIdentity(stored), withoutIdentity(expected));
               assert.deepEqual(workers[0].events.map(event => event.event), mongoEvents.map(event => event.event));
               assert.deepEqual((await rows()).filter(row => row.tenant_id === B), bBefore);
             }
           } finally {
-            srvDates.next = next;
             await mongo.db().collection(name).drop();
             await mongo.close();
           }
@@ -718,7 +726,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
           const app = express(), bus = new EventEmitter(), referenceEvents = [];
           app.setENVTruthy = () => undefined;
           app.use(...require('../lib/api3/shared/jsonParser')());
-          app.use((req, res, next) => scope.withTenant(A, next));
+          app.use((req, res, next) => writeClock.referenceClock(A, () => scope.withTenant(A, next)));
           app.use((req, res, next) => {
             const grants = shiro.new();
             for (const permission of permissionsList) grants.add(permission);

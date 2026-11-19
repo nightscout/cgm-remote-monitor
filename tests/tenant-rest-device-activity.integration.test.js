@@ -25,6 +25,7 @@ const Collection = require('../lib/api3/generic/collection');
 const configureApi3 = require('../lib/api3');
 const purifier = require('../lib/server/purifier');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 const domains = ['devicestatus', 'activity'];
 const factories = {
   devicestatus: require('../lib/server/tenant-app/devicestatus'),
@@ -130,7 +131,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         ctx.deviceEnv = env;
         const ports = new Map();
         for (const logical of domains) {
-          ports.set(logical, factories[logical]({ connection, table: tables[logical], env, bus: ctx.bus, source: 'v1/internal' }));
+          ports.set(logical, factories[logical]({ connection: writeClock.clocked(connection, name + '_clock'), table: tables[logical], env, bus: ctx.bus, source: 'v1/internal' }));
         }
         ctx.storagePorts = { resolve: ({ logical, source }) => source === 'v1/internal' ? ports.get(logical) : undefined };
         for (const domain of domains) ctx[domain] = constructors[domain](env, ctx);
@@ -145,7 +146,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         for (const key of ['API3_SECURITY_ENABLE', 'API3_DEDUP_FALLBACK_ENABLED', 'API3_CREATED_AT_FALLBACK_ENABLED', 'API3_MAX_LIMIT']) {
           v3.set(key, defaults[key]);
         }
-        const options = factories.devicestatus({ connection, table: tables.devicestatus, env, bus: ctx.bus });
+        const options = factories.devicestatus({ connection: writeClock.clocked(connection, name + '_clock'), table: tables.devicestatus, env, bus: ctx.bus });
         const col = new Collection({ ctx, env, app: v3, colName: 'devicestatus',
           fallbackGetDate: doc => new Date(doc.created_at), fallbackDateField: 'created_at',
           dedupFallbackFields: ['created_at', 'device'], ...options });
@@ -248,6 +249,8 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await admin.query(`GRANT INSERT ON "${secretNamespace}".secret_audit TO "${role}"`);
       const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       uri.username = role; uri.password = password; appURI = uri.toString();
+      await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: name + '_clock', role, tenants: [A, B] });
       for (const tenant of [A, B]) {
         await admin.query(`INSERT INTO "${auth}".tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
         await admin.query(`INSERT INTO "${auth}".tenant_authorization_subjects
@@ -317,12 +320,12 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       mongoContext.authorization = require('../lib/authorization')(env, mongoContext);
       for (const domain of domains) mongoContext[domain] = constructors[domain](env, mongoContext);
       oracle = express();
-      oracle.use((req, res, next) => scope.withTenant(A, () => {
+      oracle.use((req, res, next) => writeClock.referenceClock(A, () => scope.withTenant(A, () => {
         mongoContext.authorization.storage.reload(error => {
           if (error) return next(error);
           next();
         });
-      }));
+      })));
       const mongoLegacy = legacy(mongoContext, env);
       oracle.use('/api/v1', mongoLegacy);
       oracle.use('/api/v2', require('../lib/api2')(env, mongoContext, mongoLegacy, { compatibilityOnly: true }));
@@ -357,7 +360,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
           await mongo.close();
         }
         if (admin) {
-          for (const namespace of [...Object.values(schemas), auth, secretNamespace]) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
+          for (const namespace of [...Object.values(schemas), auth, secretNamespace, name + '_clock']) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
           await admin.end();
         }
