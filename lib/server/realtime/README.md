@@ -1,11 +1,11 @@
 # Realtime completed-output consumer
 
 The multitenant realtime role delivers the evaluator's typed completed output to
-current authorized viewers. Select `realtime` through the multitenant CLI and
-supply `MULTITENANT_REALTIME_CONFIG`. The ordinary single-tenant server uses its
+current authorized viewers. Select `realtime` through the multitenant CLI; its
+configuration comes from the role settings (`docs/multitenant-settings.md`). The ordinary single-tenant server uses its
 existing socket composition.
 
-`config.js` requires version 1 and these explicit fields:
+`config.js` validates the value the settings build, version 1 with these fields:
 
 - `postgres`: `connectionEnv` and `namespaces` containing `clock` and `checkpoint`.
 - `consumer`: a `realtime-` name; `maxRows`, `maxBytes`, `maxTenants`,
@@ -16,7 +16,7 @@ existing socket composition.
 
 `authorizationRecheckMs` and `unauthorizedDeadlineMs` are optional authority
 bounds. Configuration references environment variables for connection values.
-The boot file carries process configuration; live tenant membership and settings
+The settings carry process configuration; live tenant membership and settings
 come from the registry and committed presentation records. Static tenant lists,
 admission files, raw clinical namespace lists, `changeFeed`, `socketOrderDomains`,
 `pageSize`, `recoveryIntervalMs` and `settingsRefreshMs` are refused. A file that

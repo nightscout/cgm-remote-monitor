@@ -1,8 +1,8 @@
 # Explicit evaluator preview lifecycle
 
 Contributor-facing source and acceptance contract. Selected only by
-`nightscout multitenant evaluator` with `MULTITENANT_EVALUATOR_CONFIG` naming a
-trusted operator JSON file. No listener, provider delivery, human credential,
+`nightscout multitenant evaluator`, configured by the
+[role settings](multitenant-settings.md). No listener, provider delivery, human credential,
 ack state, notification handoff or lease is selected. Existing single behavior
 and unselected roles remain unchanged. Lifecycle native acceptance is UNMEASURED
 until its separately reviewed frozen-source run; accepted bounded acquisition on

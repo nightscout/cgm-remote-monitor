@@ -356,8 +356,8 @@ is not ready (a replica draining behind the service address); it never retries
 `executeSocketMutation`
 ([`realtime/api-client.js`](../lib/server/realtime/api-client.js)).
 
-Maintenance never uses the service address. In the operation configuration
-(`MULTITENANT_OPERATION_CONFIG`, version 2) a role named by more than one
+Maintenance never uses the service address. In the retired operation document
+(version 2; no longer read, decision config-few-dozen-env) a role named by more than one
 participant is a fixed roster: every row naming it carries its own instance
 `address`, `{"url": "http://api-2:7001"}` or `{"socket": "/run/ns-ipc/api-2.sock"}`.
 Rows without an `address` keep the role's peer address, so a one-api

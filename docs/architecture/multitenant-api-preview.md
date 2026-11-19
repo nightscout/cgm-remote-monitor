@@ -1,10 +1,11 @@
 # Explicit multitenant API preview
 
 `nightscout multitenant api` runs the existing tenant credential exchange and
-PostgreSQL collection APIs using Vault Transit. It requires an explicit JSON file:
+PostgreSQL collection APIs using Vault Transit. It is configured by
+[environment settings and mounted secret files](../multitenant-settings.md):
 
 ```sh
-MULTITENANT_PREVIEW_CONFIG=/operator/config/preview.json \
+NS_PG_PREFIX=nsdemo NS_VAULT_ADDR=https://vault.example.test:8200 NS_SECRETS_DIR=/run/ns-config \
 API_HOSTNAME=127.0.0.1 API_PORT=1337 nightscout multitenant api
 ```
 

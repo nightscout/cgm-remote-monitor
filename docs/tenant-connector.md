@@ -67,7 +67,8 @@ not mounted on DATA, owner or component-private listeners.
 
 ## Registry-mode worker
 
-`MULTITENANT_VCPOOL_CONFIG` replaces `tenants` and per-tenant Vault bindings with:
+The role builds this configuration from its [settings](multitenant-settings.md)
+(`NS_PG_PREFIX`, `NS_VCPOOL_API_URL`, `NS_VCPOOL_ALLOW_HOSTS`, the Vault token file):
 
 ```json
 {
@@ -90,7 +91,7 @@ not mounted on DATA, owner or component-private listeners.
 Existing API destination, secrets/activity identities, source host allowlist,
 cycle/poll/retry timing and egress proxy settings are still required. Definitions,
 activity and secrets use separate database identities. A registry configuration
-refuses a tenant list; static tenant lists remain behind the explicit lab flag.
+refuses a tenant list.
 
 Normal refresh reads one registry revision. A changed revision triggers bounded
 pages of registry tenant IDs and tenant-bound source definitions; no full tenant

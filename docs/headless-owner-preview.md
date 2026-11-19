@@ -1,9 +1,9 @@
 # Explicit headless tenant-owner preview
 
-`nightscout multitenant tenant-admin` selects a separate owner listener only
-with `MULTITENANT_OWNER_PREVIEW_CONFIG`, `TENANT_ADMIN_HOSTNAME` and
-`TENANT_ADMIN_PORT`. `api,tenant-admin` selects two sockets in one process;
-API retains its independent `MULTITENANT_PREVIEW_CONFIG`. The existing listener
+`nightscout multitenant tenant-admin` selects a separate owner listener with
+`TENANT_ADMIN_HOSTNAME` and `TENANT_ADMIN_PORT`; its configuration comes from the
+[role settings](multitenant-settings.md). `api,tenant-admin` selects two sockets
+in one process. The existing listener
 resolver refuses overlapping bound endpoints. Single and API defaults are
 unchanged. No private operator listener is implemented by this preview.
 

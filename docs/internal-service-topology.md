@@ -7,7 +7,7 @@
 [internal service contracts](internal-service-api.md). These diagrams describe
 the binding; they are not a measurement of a running deployment or an assertion
 that its ports are universal defaults. The deployment companion owns packaging;
-core publishes the [deployment plan contract](multitenant-plan-contract.md)
+core documents the [role settings](multitenant-settings.md)
 and keeps a small [synthetic registry plan](../tests/fixtures/multitenant-plan.js)
 for its own tests.
 

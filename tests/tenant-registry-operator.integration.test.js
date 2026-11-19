@@ -238,10 +238,10 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   });
 
   describe('through the admin role (REST, CLI) and a killed process', function () {
-    let dir, config, port, base, role;
+    let dir, environment, port, base, role;
     async function start () {
       const child = spawn(process.execPath, [path.join(ROOT, 'bin/nightscout.js'), 'multitenant', 'admin'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
-        env: { PATH: process.env.PATH, ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: String(port), MULTITENANT_ADMIN_CONFIG: config, NS_PROVISIONER_PG: lab.urls.provisioner } });
+        env: { PATH: process.env.PATH, ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: String(port), ...environment } });
       role = { child, out: { stdout: '', stderr: '' } };
       child.stdout.on('data', chunk => { role.out.stdout += chunk; });
       child.stderr.on('data', chunk => { role.out.stderr += chunk; });
@@ -258,13 +258,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
 
     before(async function () {
       dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-operator-provision-'));
-      const tokenFile = path.join(dir, 'vault-token');
-      fs.writeFileSync(tokenFile, await lab.vault.getToken(), { mode: 0o600 });
-      config = path.join(dir, 'admin.json');
-      fs.writeFileSync(config, JSON.stringify({ version: 1, maxBytes: 262144, timeoutMs: 60000,
-        provisioning: { connectionEnv: 'NS_PROVISIONER_PG', namespaces: Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, lab.namespaces[kind]])),
-          checkpoints: lab.consumers, vault: { address: lab.vault.address, mount: lab.mount, tokenFile, allowInsecureLoopback: true },
-          operator: { principal: 'registry-lab-operator', consumer: 'registry-lab' } } }), { mode: 0o600 });
+      environment = await lab.adminEnvironment(dir);
       port = await freePort(); base = 'http://127.0.0.1:' + port;
       await start();
     });
