@@ -6,7 +6,7 @@ const scope=require('../lib/storage/tenant-scope');
 const A='11111111-1111-4111-8111-111111111111',identity='a'.repeat(64);
 const deferred=()=>{let resolve,reject;const promise=new Promise((ok,no)=>{resolve=ok;reject=no;});return {promise,resolve,reject};};
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({clinicalTenants=0,assignedTenants,sourceBlocked=false,startupError,streamErrors={},registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
+function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=false,startupError,streamErrors={},registryError,cleanupError,platformVerification=false,futureDue=false,holdAdmission=false,pgstreamEnabled=true,partitioned=false,sourceTransform=text=>text,pendingRace=false,notificationStartup=false,consumerTransform=text=>text,runtimeFactory=require('../lib/server/serve/evaluator-runtime')}={}){
  const producerEntered=deferred(),producerRelease=deferred(),consumerTimers=[],notificationFiles=notificationStartup?require('./fixtures/tenant-notifications')():null;
  const prepare=deferred(),admission=deferred(),evaluating=deferred(),finishCycle=deferred(),trace=[],current={tenant:A,identity,env:{settings:{language:'en'}},settingsVersion:1,policyGeneration:1,sourceIdentity:'source'};
  const completions=[];let selectedAssignment,registryFollowed=false;let commitWake,receive,notificationConsumer,blockSource;let peerClosed=0;let schemaAvailable=true;let runtime,output,evaluatingEntered=false,cycle=0,revision=0,closed=false,started=false,delivered=0,componentClosed=false,checks=0;
@@ -94,12 +94,25 @@ function fixture({clinicalTenants=0,assignedTenants,sourceBlocked=false,startupE
   require('node:vm').runInThisContext('(function(require,module,exports,setInterval,clearInterval){'+source+'\n})',{filename:file})(consumerModule.require.bind(consumerModule),consumerModule,consumerModule.exports,interval,()=>{});
   mocks['./evaluator-consumers']={prepare:async options=>{trace.push('delivery-prepare');notificationConsumer=await consumerModule.exports.prepare(options);return notificationConsumer;}};
  }
+ if (registryRace) {
+  mocks['./registry-tenant-set'] = { openDemand: registryRace.open };
+  mocks['./evaluator-consumers'] = { prepare: async () => null };
+  reader.read = registryRace.settings;
+  registryRace.activity = metadata.get(A).activity;
+  // Addressed withdrawal drains through these role ports.
+  const replay = mocks['../../storage/postgres-durable-replay']();
+  mocks['../../storage/postgres-durable-replay'] = () => ({ ...replay, forgetTenant () {} });
+  reader.remove = startup.removeTenant = () => {};
+  const gate = mocks['./evaluator-pool'].create();
+  mocks['./evaluator-pool'] = { create: () => ({ ...gate, removeTenant () {} }) };
+ }
  loaded.require=name=>Object.hasOwn(mocks,name)?mocks[name]:Module.prototype.require.call(loaded,name);
  loaded._compile(sourceTransform(fs.readFileSync(filename,'utf8')),filename);
  const window=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true}).window;
  const config={...(platformVerification?{platformVerification:{namespace:'synthetic_verification',role:'evaluator'}}:{}),partition:{kind:'evaluator',partitioned},registry:{namespace:'synthetic_registry'},pgstream:pgstreamEnabled?{generation:'a'.repeat(32),transactionRows:10000,recovery:{connectionString:'synthetic',timeoutMs:1000,maxQueued:1},receiver:{maxBytes:10000},outputPeer:{},bounds:{recoveryMs:1000,pendingMs:1000}}:undefined,trustedWorker:{activity:'synthetic_activity'},consumers:{realtime:notificationStartup?{outbox:{connectionString:'synthetic',namespace:'notification_test',maxRows:10,maxBytes:65536,maxConnections:2},suppression:{connectionString:'synthetic',namespace:'alarm_protocol',maxRows:10,maxBytes:65536,maxConnections:2},route:{id:'synthetic'},maxPayloadBytes:10000,maxInflight:2,attemptTimeoutMs:1000,retryDelayMs:100,pollIntervalMs:100,retryIntervalMs:200}:{slicePeers:{close(){peerClosed++;}}}},tenants:new Map([[A,current]]),connectionString:'synthetic',
   namespaces:{entries:'synthetic_entries',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',maxTenants:1,maxRows:10,maxBytes:10000,pageSize:10,
   timeIntervalMs:60000,readCurrent:async()=>current};
+ if (registryRace) { config.tenantSettings = {}; delete config.consumers; }
  if(clinicalTenants)delete config.consumers;
  return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!platformVerification)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health().tenants.find(row=>row.tenant===A),closed,started,delivered,componentClosed,checks,peerClosed})};
 }
@@ -138,6 +151,78 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
   await assert.rejects(criterion({sourceTransform:removeRecovery,futureDue:true}),/FUTURE_DUE_MUST_RECOVER_WITHOUT_FRESH_INPUT/);
   await criterion({futureDue:true});
  });
+ for (const transition of ['unrelated add', 'add during settings read', 'removal', 'removal during settings read', 'membership read refusal', 'registry poll refusal', 'policy override', 'paused', 'suspended']) {
+  it('revalidates addressed completion authority across ' + transition, async () => {
+   const neighbor = '22222222-2222-4222-8222-222222222222';
+   const members = new Set([A]);
+   let version = 1, pages = 0, registry, beforeSettings, override = false, refuseMembership = false, refusePoll = false;
+   const registryRace = {
+    async open (options) {
+     const store = {
+      async revision () { if (refusePoll) throw new Error('synthetic registry unavailable'); return String(version); },
+      async page (cursor, limit) {
+       if (refuseMembership) throw new Error('synthetic lookup unavailable');
+       pages++;
+       assert.equal(limit, 1);
+       return { revision: String(version), tenants: [...members].sort().filter(id => id > cursor).slice(0, limit) };
+      },
+      async lookup () {}, async entry () {}
+     };
+     registry = await require('../lib/server/serve/registry-demand')({ ...options, store,
+      settings: { maxTenants: 8, refreshMs: 2000 }, schedule: () => null, now: () => 1 });
+     return registry;
+    },
+    async settings () {
+     if (beforeSettings) { const apply = beforeSettings; beforeSettings = null; await apply(); }
+     const generation = override ? 2 : 1;
+     const overrides = override ? { DISPLAY_UNITS: { mode: 'pinned', pin: 'mmol' } } : {};
+     return { ...require('../lib/tenant-settings/component').resolveEffectiveSettings({ version: 1, values: {} },
+      { generation, deployment: {}, overrides }), policyGeneration: generation, readAt: 1 };
+    }
+   };
+   const f = fixture({ registryRace, platformVerification: true, pendingRace: true });
+   let service;
+   async function updateRegistry () {
+    if (transition.startsWith('removal')) members.delete(A);
+    else members.add(neighbor);
+    version++;
+    await registry.poll();
+    assert.equal(registry.isActive(A), false);
+   }
+   try {
+    service = await f.boot();
+    await f.evaluating.promise;
+    assert.equal(pages, 1, 'initial admitted tenant only');
+    if (transition.endsWith('during settings read')) beforeSettings = updateRegistry;
+    else if (transition === 'policy override') override = true;
+    else if (transition === 'paused' || transition === 'suspended') registryRace.activity[transition] = true;
+    else {
+     refuseMembership = transition === 'membership read refusal';
+     refusePoll = transition === 'registry poll refusal';
+     await updateRegistry();
+    }
+    f.finishCycle.resolve();
+    for (let turn = 0; turn < 100 && f.state().clinical?.jobs.running; turn++) await settle();
+    if (transition === 'unrelated add' || transition === 'add during settings read') {
+     assert.equal(f.completions.length, 1, 'unchanged active tenant must commit the original acquisition');
+     assert.equal(f.state().clinical.progress.completedAcquisitions, 1);
+     assert.equal(f.state().clinical.progress.failedCompletions, 0);
+     assert.equal(pages, 2, 'one extra addressed membership read for one unrelated registry change');
+     assert.equal(registry.tenants.has(neighbor), false);
+    } else {
+     if (transition.startsWith('removal')) {
+      assert.equal(registry.tenants.has(A), false, 'addressed removal must reach the registry');
+     } else {
+      assert.equal(f.state().clinical.progress.failedCompletions, 1, 'the refused attempt stays visible');
+     }
+     assert.equal(f.completions.length, 0, 'stale or ineligible evaluation must never commit');
+     assert.equal(f.snapshot().output_revision, '0');
+     assert.notEqual(f.snapshot().work_pending_at, null);
+    }
+    assert.equal(registry.stats().failure, refusePoll ? 'TENANT_REGISTRY_UNAVAILABLE' : null);
+   } finally { f.finishCycle.resolve(); await service?.close(); await f.window.close(); }
+  });
+ }
  it('materializes the single due tenant after a clinical-only restart at 1000 provisioned without new input', async()=>{
   const f=fixture({clinicalTenants:1000,platformVerification:true,pendingRace:true,futureDue:true});
   let service;
