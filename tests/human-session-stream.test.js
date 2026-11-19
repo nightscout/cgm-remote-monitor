@@ -173,7 +173,7 @@ describe('human current authority on consumed socket factories (no listeners)', 
     let admitted = true, legacy = 0;
     const multi = streamAuthority({ tenant }), multiToken = (await multi.login()).token;
     const authority = createAuthority({ humanSessions: multi.worker(), secrets: { verifyLegacyCredential: async () => { legacy++; throw new Error(); } },
-    authority: { subjectSnapshot: async () => null, authorize: async () => false },
+    authority: { subjectAuthorizationSnapshot: async () => null, permissionSnapshot: async () => ({ allows: () => false }) },
     verifierContext: async tenant => ({ tenant }), admission: { allows: async () => admitted } });
     const operation = { tenant, namespace: '/', credential: { token: multiToken } };
     assert.equal((await authority.verify(operation)).principal.subjectId, actor.subject);
@@ -208,7 +208,7 @@ describe('human current authority on consumed socket factories (no listeners)', 
         if (machine) return machine(input);
         throw new Error('Unexpected headless fallback');
       } },
-      authority: { subjectSnapshot: async () => null, authorize: async () => false },
+      authority: { subjectAuthorizationSnapshot: async () => null, permissionSnapshot: async () => ({ allows: () => false }) },
       verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
     return { authority, counts };
   }

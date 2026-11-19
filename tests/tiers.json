@@ -519,6 +519,7 @@
         "tests/tenant-jwt-http.integration.test.js",
         "tests/tenant-operations.integration.test.js",
         "tests/tenant-authorization-postgres.integration.test.js",
+        "tests/realtime-socket-write-authority.integration.test.js",
         "tests/tenant-credential-http.integration.test.js",
         "tests/api3.entries-create.http.test.js",
         "tests/api3.entries-crud.http.test.js",

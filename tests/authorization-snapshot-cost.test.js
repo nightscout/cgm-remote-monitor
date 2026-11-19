@@ -117,14 +117,12 @@ describe('operation-local authorization snapshots', function () {
     assert.throws(() => next.allows('invalid permission'), { code: 'TENANT_AUTHORITY_PERMISSION_INVALID' });
   });
 
-  it('control: removing operation-local reuse restores repeated queries and makes the cost assertion red', async function () {
+  it('has no per-permission path: an adapter without one snapshot per operation is refused', async function () {
     const f = await fixture();
     const authority = { ...f.authority }; delete authority.permissionSnapshot;
-    const socket = createSocketAuthority({ authority, secrets: { async verifyLegacyCredential () { return { kind: 'anonymous' }; } },
-      verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
-    await socket.verify({ tenant: A, namespace: '/', credential: {} });
-    assert.equal(f.queries.length, 9, 'control really restores the per-permission SQL path');
-    assert.throws(() => assert.equal(f.queries.length, 1, 'AUTHZ_SOCKET_ONE_QUERY'), /AUTHZ_SOCKET_ONE_QUERY/);
+    assert.throws(() => createSocketAuthority({ authority, secrets: { async verifyLegacyCredential () { return { kind: 'anonymous' }; } },
+      verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } }), TypeError);
+    assert.equal(f.queries.length, 0);
   });
 
   it('control: retaining a snapshot across requests permits revoked access and makes the refusal assertion red', async function () {
