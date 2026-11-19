@@ -83,6 +83,36 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('role readiness: /healthz/isolatio
     assert.equal(answer.code, 0, answer.text);
   });
 
+  it('checks the selected API login on its private listener while boot is held', async function () {
+    const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-probe-')), socketPath = path.join(dir, 'internal.sock');
+    const check = endpoint => healthcheck.probe(null, { socketPath, path: '/healthz/' + endpoint, timeout: 5000 });
+    const api = require('../lib/server/serve/preview-api'), originalBoot = api.boot;
+    let running;
+    try {
+      api.boot = async function () {
+        assert.equal((await check('live')).status, 200);
+        assert.equal((await check('ready')).status, 503);
+        await admin.query(`ALTER ROLE "${login}" BYPASSRLS`);
+        try {
+          const result = await check('isolation');
+          assert.equal(result.status, 503, 'unsafe serving login during role boot');
+          assert.equal(JSON.parse(result.body).code, 'PLATFORM_SERVING_IDENTITY_UNSAFE');
+        } finally { await admin.query(`ALTER ROLE "${login}" NOBYPASSRLS`); }
+        assert.equal((await check('isolation')).status, 200, 'restored login passes its own isolation check');
+        assert.equal((await check('ready')).status, 503, 'boot is still in progress');
+        return { app: (req, res) => res.end(), health: () => ({ storageReady: true }) };
+      };
+      running = await require('../lib/server/serve').start(['api'], { HOSTNAME: '127.0.0.1', PORT: 0 }, null,
+        { NS_SERVE_INTERNAL_SOCKET: socketPath }, { preview: { connectionString: serving(), domains: [], namespaces: {}, writeClock: true } });
+      assert.equal((await check('ready')).status, 200);
+      assert.equal((await check('isolation')).status, 200);
+    } finally {
+      api.boot = originalBoot;
+      try { await running?.stop(); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
   it('control: a tenant-data table with row-level security not forced fails with the typed code, and refuses start', async function () {
     const table = `"${namespace}".tenant_lifecycle_requests`;
     await admin.query(`ALTER TABLE ${table} NO FORCE ROW LEVEL SECURITY`);
