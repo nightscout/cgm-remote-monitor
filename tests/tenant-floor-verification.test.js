@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const { Readable } = require('node:stream');
 const route = require('../lib/server/serve/platform-verification-admin').api;
 const tenant = '11111111-1111-4111-8111-111111111111';
-async function call ({ method = 'POST', body = '{}', service, admitted = () => true } = {}) {
-  const req = Readable.from([Buffer.from(body)]); req.method = method; req.url = '/v1/platform-verification/tenants/' + tenant; req.headers = { 'content-type': 'application/json' };
+async function call ({ method = 'POST', body = '{}', url = '/v1/platform-verification/tenants/' + tenant, service, admitted = () => true } = {}) {
+  const req = Readable.from([Buffer.from(body)]); req.method = method; req.url = url; req.headers = { 'content-type': 'application/json' };
   const result = {}, res = { writeHead (status, headers) { result.status = status; result.headers = headers; }, end (bytes) { result.body = JSON.parse(bytes); } };
   await route({ service, admitted, fallback: () => assert.fail('Known private tenant endpoint') })(req, res);
   return result;
@@ -17,6 +17,17 @@ describe('private admin tenant floor operation', function () {
     assert.deepEqual(calls, [tenant]);
     assert.equal((await call({ service, method: 'GET' })).status, 405);
     assert.equal((await call({ service, admitted: () => false })).status, 503);
+  });
+  it('runs the versioned migration backfill only on its own explicit POST', async function () {
+    const url = '/v1/platform-verification/backfills/tenant-floor-v1', calls = [];
+    const service = { async verify () { calls.push('platform'); return {}; },
+      async backfillTenantFloorsV1 () { calls.push('backfill'); return { version: 1, status: 'verified', verified: 2 }; } };
+    assert.equal((await call({ service, url: '/v1/platform-verification' })).status, 200);
+    assert.equal((await call({ service, url, method: 'DELETE' })).status, 405);
+    assert.equal((await call({ service, url, method: 'GET' })).status, 405);
+    assert.equal((await call({ service, url, body: '{"version":2}' })).status, 422);
+    assert.deepEqual((await call({ service, url })).body, { version: 1, status: 'verified', verified: 2 });
+    assert.deepEqual(calls, ['platform', 'backfill']);
   });
   it('reports fixed floor failures without driver detail or caller data', async function () {
     const result = await call({ service: { async verifyTenant () { throw Object.assign(new Error('private detail'), { code: 'TENANT_FLOOR_VERIFICATION_FAILED' }); } } });

@@ -96,6 +96,30 @@
           }
         }
       }
+    },
+    "/v1/platform-verification/backfills/tenant-floor-v1": {
+      "post": {
+        "summary": "Explicit migration backfill of existing tenant floors at the current epoch and generation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification complete for the enumerated tenants; verified contains the count"
+          },
+          "503": {
+            "description": "Incomplete backfill; inspect the failure and retry after repair"
+          }
+        }
+      }
     }
   }
 }

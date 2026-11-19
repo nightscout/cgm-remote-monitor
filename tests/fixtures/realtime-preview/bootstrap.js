@@ -143,10 +143,10 @@ module.exports=async function bootstrap(input) {
     step='platform-proof';
     const prestart=require('../platform-prestart');
     const proof=await prestart.install(admin,{namespace:proofNamespace,adminURI:input.env.NS_TEST_POSTGRES_ADMIN_URI,
-      registry: ns.registry, readers:[l.roles.api,l.roles.readiness,l.roles.evaluator,l.roles.realtime]});
+      registry: ns.registry, floorReaders: [l.roles.api], readers:[l.roles.api,l.roles.readiness,l.roles.evaluator,l.roles.realtime]});
     schemas.push(proof.namespace);roles.push(proof.writer);
     for(const role of ['api','evaluator','realtime']){
-      try{await prestart.verify({namespace:proof.namespace,writerURI:proof.writerURI,source:{PATH:process.env.PATH,...roleEnvironments[role]},
+      try{await prestart.verify({backfillSeededTenants:role==='api',namespace:proof.namespace,writerURI:proof.writerURI,source:{PATH:process.env.PATH,...roleEnvironments[role]},
         targets:[{role,configFile:paths[role],operationConfigFile:roleEnvironments[role].MULTITENANT_OPERATION_CONFIG}]});}
       catch(error){await observe({phase:'bootstrap-platform-proof-refused',role,diagnostic:error.verificationDiagnostic||null});throw error;}
     }

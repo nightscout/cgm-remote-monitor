@@ -99,12 +99,12 @@ enabled('admin-owned tenant floor verification on native PostgreSQL', function (
     // admin migration. No pre-created floor table can make this gate vacuous.
     const platformSource = require.resolve('../lib/server/serve/platform-verification');
     const legacy = { exports: {} }, text = fs.readFileSync(platformSource, 'utf8');
-    const installation = "  await require('./tenant-floor-verification').install(client, { namespace, writer, readers });";
+    const installation = "  await require('./tenant-floor-verification').install(client, { namespace, writer, floorReaders });";
     assert(text.includes(installation));
-    vm.runInThisContext('(function(require,module,exports){' + text.replace(installation, '').replace("'api','evaluator','realtime','vcpool'", "'api','evaluator','realtime'") + '\n})', { filename: platformSource })(createRequire(platformSource), legacy, legacy.exports);
+    vm.runInThisContext('(function(require,module,exports){' + text.replace(installation, '').replace('CONSTRAINT verified_role_types_v4 ', '').replace("'api','evaluator','realtime','vcpool'", "'api','evaluator','realtime'") + '\n})', { filename: platformSource })(createRequire(platformSource), legacy, legacy.exports);
     await legacy.exports.install(admin, { namespace: namespaces.platform, writer: roles.writer, readers: [roles.api] }); owned.push(namespaces.platform);
     assert.equal((await admin.query('SELECT to_regclass($1) AS relation', [namespaces.platform + '.verified_tenant_floor'])).rows[0].relation, null);
-    const upgraded = await platform.upgrade(admin, { namespace: namespaces.platform, writer: roles.writer, readers: [roles.api, roles.vcpool] });
+    const upgraded = await platform.upgrade(admin, { namespace: namespaces.platform, writer: roles.writer, floorReaders: [roles.api], readers: [roles.api, roles.vcpool] });
     assert.equal(upgraded.created, true); assert.equal(upgraded.status, 'revoked');
     assert.equal(String(upgraded.epoch), '2');
     // Existing v3 deployments admitted only three roles. Prove the upgraded
@@ -138,6 +138,21 @@ enabled('admin-owned tenant floor verification on native PostgreSQL', function (
     const rows = await window.run(A, () => readerConnection.withTenant(A, () => readerConnection.query('SELECT tenant_id::text FROM ' + q(namespaces.platform) + '.verified_tenant_floor')));
     assert.deepEqual(rows.rows.map(row => row.tenant_id), [A], 'RESULT_ROWS_KEEP_TENANT_ISOLATION');
     await assert.rejects(window.run(A, () => readerConnection.withTenant(A, () => readerConnection.query('UPDATE ' + q(namespaces.platform) + ".verified_tenant_floor SET status='verified'"))), error => error.code === '42501', 'API_CANNOT_WRITE_FLOOR_PROOF');
+  });
+  it('preserves valid rows on repeated upgrade and narrows the former broad reader grant', async function () {
+    const ns = q(namespaces.platform), table = ns + '.verified_tenant_floor';
+    const snapshot = async () => (await admin.query('SELECT xmin::text,tenant_id,status,epoch,generation,contract_digest FROM ' + table + ' ORDER BY tenant_id')).rows;
+    const prior = await snapshot();
+    await admin.query('ALTER POLICY tenant_floor_reader ON ' + table + ' TO ' + [roles.api, roles.vcpool].map(q).join(','));
+    await admin.query('GRANT SELECT ON ' + table + ' TO ' + q(roles.vcpool));
+    const selected = { namespace: namespaces.platform, writer: roles.writer, floorReaders: [roles.api], readers: [roles.api, roles.vcpool] };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await platform.upgrade(admin, selected);
+      assert.equal(result.status, 'current'); assert.equal(String(result.epoch), '2');
+      assert.deepEqual(await snapshot(), prior, 'UNCHANGED_UPGRADE_MUST_PRESERVE_TENANT_ROWS');
+      assert.equal((await admin.query("SELECT has_table_privilege($1,$2,'SELECT') AS reads", [roles.vcpool, table])).rows[0].reads, false);
+      await read(A); await read(B);
+    }
   });
   it('records the same native lifecycle selection in floor and serving proofs', async function () {
     const nativeSelection = require('../lib/tenant-lifecycle/native-selection').create({

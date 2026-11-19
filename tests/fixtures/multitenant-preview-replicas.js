@@ -369,7 +369,15 @@ module.exports = function createReplicaFixture ({ writeClock = true, namespaceNa
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, readers: ['preview_app', 'preview_check'] });
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, floorReaders: ['preview_app'], readers: ['preview_app', 'preview_check'] });
+      if (writeClock) backfillSeededTenants(localConfiguration());
+    }
+    function backfillSeededTenants (config) {
+      fs.writeFileSync(configFile, JSON.stringify(config), { mode: 0o600 });
+      const result = prestart.verifySync({ directory: fixtureDirectory, ...proof,
+        targets: [{ role: 'api', configFile }], source: environment(), backfillSeededTenants: true });
+      assert.equal(result.status, 'verified', 'seeded tenant backfill failed: ' + JSON.stringify(result));
+
     }
     async function restartDatabase (whileDown) {
       assert(restartableDatabase && pgOwned, 'restart requires this fixture’s owned PostgreSQL');
@@ -421,7 +429,7 @@ module.exports = function createReplicaFixture ({ writeClock = true, namespaceNa
       assert.deepEqual(result, { code: null, signal: 'SIGKILL' });
       children.delete(worker);
     }
-    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, localToken, signToken, restartDatabase, environment,
+    return { setup, cleanup, backfillSeededTenants, start, ready, stop, kill, refused, http, exchange, localToken, signToken, restartDatabase, environment,
       operatorVault: vault, hosts: HOSTS,
       get roleToken () { return roleToken; }, get provisioned () { return provisioned; },
       get vaultAddress () { return address; },

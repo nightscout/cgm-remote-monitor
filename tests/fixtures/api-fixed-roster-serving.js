@@ -51,7 +51,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
         namespace: config.platformVerification.namespace, connectionString: proofWriter,
         targets: [{ role: 'api', configFile: roleFile, operationConfigFile: file }]
       }, base.environment(extra));
-      try { await verifier.verify(); } catch (error) {
+      try { await verifier.verify(); await verifier.backfillTenantFloorsV1(); } catch (error) {
         throw new Error('Roster API pre-start refused: ' + JSON.stringify(error.verificationDiagnostic), { cause: error });
       } finally { await verifier.close(); }
     }
@@ -77,7 +77,8 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     proofWriter = await roleURI('preview_roster_verifier');
     config.platformVerification = { namespace: 'preview_roster_proof', role: 'api' };
     await require('../../lib/server/serve/platform-verification').install(admin, { namespace: config.platformVerification.namespace,
-      writer: 'preview_roster_verifier', readers: ['preview_app','preview_check'] });
+      writer: 'preview_roster_verifier', floorReaders: ['preview_app'], readers: ['preview_app','preview_check'] });
+    for (const sql of base.provisioned.registryGrants({ enumerators: ['preview_roster_verifier'] })) await admin.query(sql);
     for (const role of ['preview_app', 'preview_check', 'preview_settings', 'preview_lifetime_api']) {
       await admin.query('GRANT USAGE ON SCHEMA preview_control TO ' + q(role));
       await admin.query('GRANT SELECT ON preview_control.schema_migrations,preview_control.tenant_lifecycle_windows,preview_control.tenant_lifecycle_operations TO ' + q(role));

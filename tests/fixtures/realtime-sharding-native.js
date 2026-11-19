@@ -115,7 +115,7 @@ module.exports = function fixture () {
     evaluator = await role('evaluator');
     check = await role('check'); display = await role('display'); activity = await role('activity'); alarm = await role('alarm'); publisher = await role('publisher');
     proof = await prestart.install(lab.admin, { namespace: 'sr_proof_' + lab.id, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI,
-      registry: lab.namespaces.registry, readers: [lab.roles.api, check.name, evaluator.name, lab.roles.realtime] }); schemas.push(proof.namespace); roles.push(proof.writer);
+      registry: lab.namespaces.registry, floorReaders: [lab.roles.api], readers: [lab.roles.api, check.name, evaluator.name, lab.roles.realtime] }); schemas.push(proof.namespace); roles.push(proof.writer);
     const apiNamespaces = { ...Object.fromEntries(domains.map(domain => [domain, ns[domain]])), clock: ns.clock, authorization: lab.namespaces.authorization, legacy: lab.namespaces.legacy, secrets: lab.namespaces.secrets };
     for (const name of Object.values(apiNamespaces)) { await q('GRANT USAGE ON SCHEMA ' + quote(name) + ' TO ' + quote(check.name)); await q('GRANT SELECT ON ' + quote(name) + '.schema_migrations TO ' + quote(check.name)); }
     await readerGrants(display, [lab.namespaces.settings, lab.namespaces.operatorPolicy]);
@@ -210,6 +210,7 @@ module.exports = function fixture () {
         ...(apiEnvironment.MULTITENANT_OPERATION_CONFIG ? { operationConfigFile: apiEnvironment.MULTITENANT_OPERATION_CONFIG } : {}) }]
     }, { PATH: process.env.PATH, ...apiEnvironment });
     await floorVerifier.verify();
+    await floorVerifier.backfillTenantFloorsV1();
     await provisioner.close();
     provisioner = require('../../lib/tenant-registry/provision').createProvisioning({
       ...lab.provisioningOptions({ checkpoints }), postcondition: tenant => floorVerifier.verifyTenant(tenant)

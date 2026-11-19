@@ -14,10 +14,10 @@ const { execFileSync } = require('node:child_process');
 
 const quote = name => '"' + name.replaceAll('"', '""') + '"';
 
-async function install (admin, { namespace, adminURI, readers, registry }) {
+async function install (admin, { namespace, adminURI, readers, floorReaders, registry }) {
   const writer = namespace + '_writer', password = crypto.randomBytes(24).toString('hex');
   await admin.query('CREATE ROLE ' + quote(writer) + " LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '" + password + "'");
-  await require('../../lib/server/serve/platform-verification').install(admin, { namespace, writer, readers });
+  await require('../../lib/server/serve/platform-verification').install(admin, { namespace, writer, readers, floorReaders });
   if (registry) {
     for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: registry, enumerators: [writer] })) await admin.query(sql);
   }
@@ -25,9 +25,13 @@ async function install (admin, { namespace, adminURI, readers, registry }) {
   return Object.freeze({ namespace, writer, writerURI: url.toString() });
 }
 
-async function verify ({ namespace, writerURI, targets, source }) {
+async function verify ({ namespace, writerURI, targets, source, backfillSeededTenants = false }) {
   const service = require('../../lib/server/serve/platform-verification-admin').create({ namespace, connectionString: writerURI, targets }, source);
-  try { return await service.verify(); } finally { await service.close(); }
+  try {
+    const result = await service.verify();
+    if (backfillSeededTenants) await service.backfillTenantFloorsV1();
+    return result;
+  } finally { await service.close(); }
 }
 
 // For fixtures whose start() returns its child synchronously. Never throws:

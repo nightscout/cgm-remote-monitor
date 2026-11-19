@@ -103,6 +103,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     await base.admin.query('GRANT USAGE ON SCHEMA preview_clock TO preview_app, preview_check');
     await base.admin.query('GRANT SELECT, UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
     await base.admin.query('GRANT SELECT ON preview_clock.schema_migrations TO preview_check');
+    if (clockEnabled) base.backfillSeededTenants(configuration());
   }
 
   async function cleanup () {

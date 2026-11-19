@@ -265,7 +265,10 @@ module.exports = function clientReplayHTTP () {
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, readers: ['preview_app', 'preview_check'] });
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, floorReaders: ['preview_app'], readers: ['preview_app', 'preview_check'] });
+      fs.writeFileSync(configFile, JSON.stringify(configuration(address, provisioned.namespaces)), { mode: 0o600 });
+      const initialized = prestart.verifySync({ directory: fixtureDirectory, ...proof, targets: [{ role: 'api', configFile }], source: environment(), backfillSeededTenants: true });
+      assert.equal(initialized.status, 'verified', 'seeded tenant backfill failed: ' + JSON.stringify(initialized));
     }
 
     async function close () {

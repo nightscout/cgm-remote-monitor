@@ -496,7 +496,12 @@ A full or expired build queue returns `503 API_TENANT_BUILD_OVERLOADED` with
 `Retry-After`; it has no storage effect. A missing, failed or stale admin floor
 result returns `503 TENANT_FLOOR_VERIFICATION_REQUIRED`. Provisioning, migration
 verification and restore certify insertion/history floors and root completeness
-through admin. API requests read the recorded result and current generation;
+through admin. Ordinary platform verification checks role structure independently
+of tenant count. Existing tenants can be certified after a migration via the
+private admin `POST /v1/platform-verification/backfills/tenant-floor-v1` with an
+empty JSON object. An invalid tenant stops the backfill and remains unavailable.
+After explicit epoch invalidation, renew the structural verification and the
+affected tenant proofs. API requests read the recorded result and current generation;
 they do no floor scan or clock restoration. Settings invalidation, restore and
 datastore recovery discard disposable entries.
 
