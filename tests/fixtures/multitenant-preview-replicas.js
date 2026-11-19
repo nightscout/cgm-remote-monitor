@@ -182,9 +182,12 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
       });
     }
 
-    function subjectCredential (tenant) {
+    function rootCredential (tenant) {
       assert.ok(tenant === A || tenant === B, 'expected a fixture tenant');
-      return 'sameviewer-' + hash(hash(roots[tenant === A ? 0 : 1]) + SUBJECT).slice(0, 16);
+      return hash(roots[tenant === A ? 0 : 1]);
+    }
+    function subjectCredential (tenant) {
+      return 'sameviewer-' + hash(rootCredential(tenant) + SUBJECT).slice(0, 16);
     }
 
     async function exchange (worker, tenant) {
@@ -352,7 +355,7 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
       assert.deepEqual(result, { code: null, signal: 'SIGKILL' });
       children.delete(worker);
     }
-    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, subjectCredential, localToken, signToken, restartDatabase, whilePaused, environment,
+    return { setup, cleanup, start, ready, stop, kill, refused, http, exchange, subjectCredential, rootCredential, localToken, signToken, restartDatabase, whilePaused, environment,
       operatorVault: vault, hosts: HOSTS,
       get roleToken () { return roleToken; }, get provisioned () { return provisioned; }, get platform () { return platform; },
       get vaultAddress () { return address; },
