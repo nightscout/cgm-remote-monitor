@@ -44,6 +44,13 @@ function vcpoolBoot ({ proof = true, transform } = {}) {
 }
 
 describe('vcpool platform proof (decision vcpool-proof-role)', function () {
+  // The vcpool entrypoint makes the process multitenant; later files in this
+  // mocha process are single-tenant.
+  const scope = require('../lib/storage/tenant-scope');
+  let tenancy;
+  beforeEach(function () { tenancy = scope.getTenancyMode(); });
+  afterEach(function () { scope.setTenancyMode(tenancy); });
+
   it('checks the proof once at start and runs no ledger, catalogue or privilege screen while serving', async function () {
     const lab = vcpoolBoot(), role = await lab.boot();
     try {
