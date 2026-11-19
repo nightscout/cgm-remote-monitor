@@ -56,6 +56,28 @@ describe('vcpool platform proof (decision vcpool-proof-role)', function () {
     } finally { await role.close(); }
   });
 
+  it('requires the connector definitions reader to pass its admin pre-start check', async function () {
+    const definitions = { connectionString: 'postgresql://reader@synthetic/db', namespaces: { settings: 'synthetic_settings' } };
+    let checks = 0;
+    const admin = load('lib/server/serve/platform-verification-admin.js', {
+      './platform-verification-lifecycle': { inspect: async () => null },
+      '../../tenant-connector/postgres-sources': { create: async options => {
+        assert.equal(options.connectionString, definitions.connectionString);
+        assert.equal(options.namespaces, definitions.namespaces);
+        assert.equal(options.platformVerified, undefined);
+        checks++;
+        throw Object.assign(new Error('CONNECTOR_DEFINITION_UNSAFE'), { code: 'CONNECTOR_DEFINITION_UNSAFE' });
+      } }
+    });
+    await assert.rejects(admin.checkTarget({ role: 'vcpool', config: { definitions } }), error => {
+      assert.deepEqual(error.verificationDiagnostic, {
+        targetRole: 'vcpool', checkPhase: 'CONNECTOR_DEFINITIONS', causeCode: 'CONNECTOR_DEFINITION_UNSAFE'
+      });
+      return true;
+    });
+    assert.equal(checks, 1);
+  });
+
   it('refuses to start without the proof, with its typed code and no store or cycle', async function () {
     const lab = vcpoolBoot({ proof: false });
     await assert.rejects(lab.boot(), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
