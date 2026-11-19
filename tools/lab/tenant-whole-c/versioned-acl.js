@@ -4,7 +4,7 @@
 // and a failed product ACL guard never triggers a fallback or a wider grant.
 const assert = require('node:assert/strict');
 const common = require('../../../lib/tenant-operations/common');
-const { validateAcl } = require('../../../lib/tenant-operations/restore');
+const { validateAcl } = require('./fixture-acl');
 const CLASSES = ['api', 'readiness', 'alarm', 'realtime', 'evaluator', 'suppression', 'outbox'];
 function fingerprint (admission) {
   return admission.catalogues.map(entry => ({ kind: entry.kind, candidateDigest: common.sha256(common.canonical(entry.catalogue)), tables: entry.tables.slice() }));

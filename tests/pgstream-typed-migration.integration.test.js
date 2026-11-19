@@ -168,21 +168,8 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   }
   await commit('2');assert.deepEqual(await store.pending(),[tenant]);
  });
- it('restores both checkpoint tables with a pending revision and a settled neighbour through deployment backup and restore',async()=>{
-  const ops=require('../lib/tenant-operations'), other='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  const catalogues=[{kind:'checkpoint',namespace,catalogue:require('../migrations/candidates/postgres-realtime-output-v2.json')},
-   {kind:'evaluator_checkpoint',namespace:source,catalogue:candidate}].map(entry=>({...entry,tables:['tenant_consumer_checkpoint']}));
-  await provision(other);await commit('7',other);await commit('9');
-  const done=await store.work([other]);await store.finish(done,ok(done));
-  const backup=await ops.backup(admin,{catalogues,sourceCommit:'abcdef1'});
-  assert(!backup.manifest.catalogues[0].tables[0].columns.some(row=>row.name==='output_pending_tenant'));
-  for(const order of [catalogues,[...catalogues].reverse()]){
-   await admin.query(`DELETE FROM ${obligations}`);await admin.query(`DELETE FROM ${table}`);
-   await ops.restore(admin,backup,{catalogues:order});
-   assert.deepEqual(await store.pending(),[tenant]);
-   assert.deepEqual(await store.work([tenant,other]),[{tenant,received:'9'}]);
-   assert.equal((await row(other)).completed,'7');
-  }
+ it('refuses to finish a page whose pending receipt was deleted',async()=>{
+  await commit('9');
   const old=await store.work([tenant]);
   await admin.query(`DELETE FROM ${obligations} WHERE tenant_id=$1`,[tenant]);
   assert.deepEqual(await store.pending(),[]);

@@ -103,8 +103,8 @@ require current restore authority and the inserting backend's own identity.
 
 These live authority/window/operation/audit relations are excluded from ordinary
 tenant clinical restore. Restoring old subjects cannot replace current private
-operator authorization. Whole-deployment backup preserves control forensic state
-under its separate explicit inventory; it cannot silently activate restored claims.
+operator authorization. Database recovery preserves control forensic state. The operator separately validates
+restored claims before activating a recovered deployment.
 
 ## Evidence boundary
 

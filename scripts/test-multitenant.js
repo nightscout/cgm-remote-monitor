@@ -193,7 +193,7 @@ const INVENTORY = [
   { file: 'tests/operation-window-minimum-native.integration.test.js', flags: { NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'admin pre-start screening, live permission/tenant/restore/COMMIT fences and absence of warm global digest queries; baseline-only counter stays optional' },
   { file: 'tests/tenant-operations.integration.test.js', flags: { NS_TENANT_OPERATIONS_PG_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
-    note: 'representative entries/clock recovery and upgrade contracts; full populated deployment recovery is separate' },
+    note: 'schema upgrade and original-tenant PostgreSQL COPY roundtrip with ciphertext and forced row-level security' },
   { file: 'tests/tenant-commit-clock-port.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-commit-clock-http.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'functional cases enabled; benchmark remains pending unless NS_TENANT_COMMIT_CLOCK_BENCHMARK=1' },

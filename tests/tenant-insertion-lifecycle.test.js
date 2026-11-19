@@ -1,11 +1,11 @@
 'use strict';
-// covers: lib/tenant-lifecycle/insertion-inventory.js, lib/tenant-lifecycle/index.js, lib/tenant-operations/catalogues.js, lib/tenant-operations/common.js, lib/tenant-operations/restore.js
+// covers: lib/tenant-lifecycle/insertion-inventory.js, lib/tenant-lifecycle/index.js, lib/tenant-operations/catalogues.js, lib/tenant-operations/common.js, tools/lab/tenant-whole-c/fixture-acl.js
 const assert = require('node:assert/strict');
 const insertion = require('../lib/tenant-lifecycle/insertion-inventory');
 const lifecycle = require('../lib/tenant-lifecycle');
 const artifacts = require('../lib/tenant-lifecycle/artifact');
 const common = require('../lib/tenant-operations/common');
-const restore = require('../lib/tenant-operations/restore');
+const restore = require('../tools/lab/tenant-whole-c/fixture-acl');
 const { createdTables } = require('../lib/tenant-operations/catalogues');
 const candidate = require('../migrations/candidates/postgres-entries-v1.json');
 const A = '11111111-1111-4111-8111-111111111111';
@@ -125,15 +125,10 @@ describe('tenant-local insertion lifecycle inventory and refusal', function () {
     assert.throws(() => restore.validateAcl({ ...acl, tenantInsertion: [{ ...declaration, mode: 'serving' }] }, steps), { code: 'RESTORE_TENANT_COUNTER_BROAD_GRANT' });
   });
 
-  it('captures full SQL timestamp precision before the driver Date conversion', async function () {
-    const expected = [{ tenant_id: A, owner_birth: '2026-11-07T00:00:00.123456Z' }];
-    let sql;
-    const actual = await common.readRows({ query: async text => { sql = text; return { rows: expected }; } }, 'owned_control', 'tenant_lifecycle_operations', [
-      { name: 'tenant_id', type: 'uuid' }, { name: 'owner_birth', type: 'timestamp with time zone' }
+  it('keeps PostgreSQL timestamp precision in COPY restore parameters', function () {
+    const { fields } = require('../lib/tenant-lifecycle/copy-table');
+    assert.deepEqual(fields('"2026-11-07 00:00:00.123456+00","",,"a,b"\n'), [
+      ['2026-11-07 00:00:00.123456+00', '', null, 'a,b']
     ]);
-    assert(sql.includes('AT TIME ZONE \'UTC\''));
-    assert(sql.includes('HH24:MI:SS.US"Z"'));
-    assert.deepEqual(actual, expected);
-    assert(common.encodeTable(actual).text.includes('.123456Z'));
   });
 });

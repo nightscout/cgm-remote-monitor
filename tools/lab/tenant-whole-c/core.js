@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const { Client } = require('pg');
 const operations = require('../../../lib/tenant-operations');
 const common = require('../../../lib/tenant-operations/common');
-const restoreModule = require('../../../lib/tenant-operations/restore');
+const restoreModule = require('./fixture-acl');
 const lifecycle = require('../../../lib/tenant-lifecycle');
 const migrations = require('../../../lib/migrations/postgres');
 const oracle = require('./oracle');
@@ -178,52 +178,6 @@ async function run (config, selected = 'all') {
       }
     }
   }
-  async function writeProbe (cohort, roleClass, kind, table, operation = 'INSERT', column) {
-    const conn = new Client({ connectionString: cohort.runtime.urls[roleClass] }); await conn.connect();
-    let code = null, count = null;
-    try {
-      await conn.query('BEGIN'); await conn.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
-      const qualified = q(cohort.ns[kind]) + '.' + q(table);
-      let result;
-      if (operation === 'INSERT') {
-        if (table === 'tenant_notification_state') result = await conn.query('INSERT INTO ' + qualified + '(tenant_id,consumer,revision,config_identity,producer) VALUES($1,$2,1,$3,$4::jsonb)', [A, marker(), 'sql-core', JSON.stringify({ alarms: [], effects: [], acks: [], output: null })]);
-        else {
-          // Explicit identity value prevents a missing sequence grant from
-          // masquerading as a clinical INSERT denial in the broadening control.
-          const identityColumns = (await observer.query("SELECT attname FROM pg_attribute WHERE attrelid=$1::regclass AND attidentity<>'' AND attnum>0", [qualified])).rows;
-          const column = identityColumns[0]?.attname;
-          result = await conn.query('INSERT INTO ' + qualified + '(tenant_id,id_kind,doc' + (column ? ',' + q(column) : '') + ')' +
-            (column ? ' OVERRIDING SYSTEM VALUE' : '') + ' VALUES($1,\'string\',$2::jsonb' + (column ? ',999999' : '') + ')', [A, JSON.stringify({ _id: marker(), date: cohort.epoch })]);
-        }
-      } else if (operation === 'UPDATE') result = await conn.query('UPDATE ' + qualified + ' SET ' + q(column) + '=' + q(column) + ' WHERE tenant_id=$1', [A]);
-      else result = await conn.query('DELETE FROM ' + qualified + ' WHERE tenant_id=$1', [A]);
-      count = result.rowCount;
-    } catch (error) { code = error.code; }
-    finally { await conn.query('ROLLBACK'); await conn.end(); }
-    emit('actual-role-statement', { roleClass, kind, table, operation, column, code, count });
-    assert.equal(code, '42501', 'WHOLE_C_ROLE_DENIAL ' + roleClass + ':' + kind + ':' + operation);
-  }
-  async function denials (cohort) {
-    for (const role of ['realtime', 'evaluator']) for (const kind of ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity']) await writeProbe(cohort, role, kind, kind);
-    for (const operation of ['INSERT', 'UPDATE', 'DELETE']) await writeProbe(cohort, 'alarm', 'notification_outbox', 'tenant_notification_state', operation, 'producer');
-    await writeProbe(cohort, 'lifecycle_owner', 'entries', 'entries', 'DELETE');
-  }
-  async function sequenceProbes (cohort) {
-    const conn = new Client({ connectionString: cohort.runtime.urls.api }); await conn.connect();
-    try {
-      for (const kind of ['entries', 'treatments', 'devicestatus', 'profile']) {
-        const table = q(cohort.ns[kind]) + '.' + q(kind);
-        const max = (await observer.query('SELECT max(insertion_ordinal)::text AS n FROM ' + table)).rows[0].n;
-        await conn.query('BEGIN');
-        try {
-          await conn.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
-          const next = (await conn.query('INSERT INTO ' + table + '(tenant_id,id_kind,doc) VALUES($1,\'string\',$2::jsonb) RETURNING insertion_ordinal::text AS n', [A, JSON.stringify({ _id: marker(), date: cohort.epoch })])).rows[0].n;
-          emit('actual-writer-next-identity', { kind, max, next });
-          assert.ok(BigInt(next) > BigInt(max), 'WHOLE_C_NEXT_IDENTITY ' + kind);
-        } finally { await conn.query('ROLLBACK'); }
-      }
-    } finally { await conn.end(); }
-  }
   const codes = error => { const found = []; for (let e = error; e; e = e.cause) if (e.code) found.push(e.code); return found; };
   async function expectedFailure (fn, expectedCode, label, beforeVerdict) {
     let failure; try { await fn(); } catch (error) { failure = error; }
@@ -234,61 +188,6 @@ async function run (config, selected = 'all') {
   }
   let upgradeState;
   const cases = {
-    async C1 () {
-      const source = await make();
-      assert.equal(source.admission.census.tables, 37); assert.equal(source.admission.catalogues.length, 21);
-      const before = await physical('C1-source-before-verdict', source.admission);
-      for (const [key, table] of Object.entries(before)) for (const tenant of [A, B]) assert.ok(table.rows.some(row => row.tenant_id === tenant), 'WHOLE_C_EMPTY_DOMAIN ' + key);
-      const artifact = await source.deployment.backup(admin, { sourceCommit: config.sourceHead });
-      await oracle.artifact(source.directory, before, value => emit('C1-independent-artifact-before-verdict', value));
-      const reloaded = await source.deployment.load(operations.artifactName(artifact));
-      assert.deepEqual(reloaded, artifact, 'WHOLE_C_DURABLE_READBACK');
-      const target = await make({ seed: false });
-      await target.deployment.restore(admin, reloaded, { acl: target.acl });
-      const after = await physical('C1-restored-before-verdict', target.admission);
-      oracle.sameRows(before, after);
-      await denials(target); await sequenceProbes(target);
-      oracle.sameRows(before, await physical('C1-after-denials-before-verdict', target.admission));
-    },
-    async C2 () {
-      const source = await make(); const artifact = await source.deployment.backup(admin, { sourceCommit: config.sourceHead });
-      const target = await make({ seed: false });
-      const empty = await physical('C2-empty-before', target.admission);
-      const bad = structuredClone(artifact), key = Object.keys(bad.tables).find(key => bad.tables[key].length > 0);
-      const changedRows = bad.tables[key].trimEnd().split('\n').map(line => JSON.parse(line));
-      changedRows[0].doc.extension.zero = 17;
-      bad.tables[key] = changedRows.map(row => JSON.stringify(row)).join('\n') + '\n';
-      const statements = [], completed = [], recording = { query: async (text, values) => { statements.push(text); const result = await admin.query(text, values); completed.push({ command: text.trim().split(/\s+/)[0], rowCount: result.rowCount }); return result; } };
-      await expectedFailure(() => target.deployment.restore(recording, bad, { acl: target.acl }), 'RESTORE_DIGEST_MISMATCH', 'tampered-file', async () => {
-        emit('C2-tamper-actual-statements-before-verdict', statements.map(text => text.trim().split(/\s+/)[0]));
-        emit('C2-tamper-completed-SQL-before-verdict', completed);
-        await physical('C2-tamper-physical-before-verdict', target.admission);
-      });
-      emit('C2-tamper-statement-categories', statements.map(text => text.trim().split(/\s+/)[0]));
-      assert.equal(statements.filter(text => /^(INSERT|GRANT|SELECT setval)/.test(text)).length, 0, 'WHOLE_C_DAMAGE_PREWRITE');
-      oracle.sameRows(empty, await physical('C2-damaged-target-before-verdict', target.admission));
-      for (const boundary of ['write', 'file-sync', 'directory-sync', 'rename', 'readback']) {
-        const directory = path.join(source.directory, boundary); await fs.promises.mkdir(directory, { mode: 0o700 });
-        let renamed = false;
-        const io = { ...fs.promises,
-          open: async (...args) => {
-            const handle = await fs.promises.open(...args), writable = Boolean(args[1] & fs.constants.O_WRONLY);
-            return { writeFile: async (...values) => { if (boundary === 'write') throw new Error('owned write interruption'); return handle.writeFile(...values); },
-              readFile: async (...values) => { if (boundary === 'readback' && renamed) throw new Error('owned readback interruption'); return handle.readFile(...values); }, stat: () => handle.stat(),
-              sync: async () => { if ((boundary === 'file-sync' && writable) || (boundary === 'directory-sync' && !writable)) throw new Error('owned sync interruption'); return handle.sync(); }, close: () => handle.close() };
-          },
-          rename: async (...args) => { if (boundary === 'rename') throw new Error('owned rename interruption'); const result = await fs.promises.rename(...args); renamed = true; return result; }
-        };
-        await expectedFailure(() => operations.saveArtifact(artifact, { directory, io }), 'BACKUP_DURABILITY_FAILED', boundary, async () => emit('C2-durability-physical-before-verdict', { boundary, renamed, files: await fs.promises.readdir(directory) }));
-        const files = await fs.promises.readdir(directory); emit('C2-durability-physical', { boundary, files, renamed });
-        assert.equal(files.length, renamed ? 1 : 0, 'WHOLE_C_PUBLICATION_STATE ' + boundary);
-      }
-      await assert.rejects(target.deployment.restore(admin, artifact, { acl: target.acl, onRow: ({ total }) => { if (total === 3) throw Object.assign(new Error('owned restore interruption'), { code: 'WHOLE_C_RESTORE_INTERRUPT' }); } }), { code: 'WHOLE_C_RESTORE_INTERRUPT' });
-      const interrupted = await physical('C2-interrupted-before-verdict', target.admission);
-      oracle.sameRows(empty, interrupted);
-      await target.deployment.restore(admin, artifact, { acl: target.acl });
-      oracle.sameRows(await physical('C2-source', source.admission), await physical('C2-rerun-before-verdict', target.admission));
-    },
     async C3 () {
       // Actual OLDsource, no invented migration. Guarded OLDprofile is empty.
       const old = await make({ old: true });
@@ -298,20 +197,11 @@ async function run (config, selected = 'all') {
       assert.equal(old.admission.census.tables, 31);
       assert.equal(before['profile.profile'].rows.length, 0);
       assert.ok(before['lifecycle.tenant_lifecycle_requests'].rows.length > 0);
-      let independentOldArtifact = false;
-      const observedMigrate = async (action, input) => {
-        if (action === 'up' && !independentOldArtifact) { const head = await oracle.artifact(target.directory, before, value => emit('C3-independent-OLD-artifact-before-NEW', value)); assert.equal(head.manifest.sourceCommit, config.oldHead); independentOldArtifact = true; }
-        return migrate(action, input);
-      };
-      const result = await target.deployment.upgrade(admin, { source: { root: config.oldRoot, sourceCommit: config.oldHead, namespaces: old.ns, selection: old.selection }, sourceCommit: config.sourceHead, migrate: observedMigrate });
-      assert.equal(independentOldArtifact, true, 'WHOLE_C_OLD_ARTIFACT_PRECEDES_NEW');
+      const result = await target.deployment.upgrade(admin, { source: { root: config.oldRoot, sourceCommit: config.oldHead, namespaces: old.ns, selection: old.selection }, sourceCommit: config.sourceHead, migrate });
       // Fixture bootstrap explicitly applies the reviewed CURRENT role context
       // after successful schema migration; product upgrade does not grant rights.
       await applyAcl(target.admission, target.acl);
       emit('C3-upgrade-record', result.record);
-      const retained = await operations.loadArtifact({ directory: target.directory, name: result.record.backup.name });
-      assert.deepEqual(retained, result.artifact, 'WHOLE_C_OLD_DURABLE_ARTIFACT');
-      assert.equal(retained.manifest.catalogues.length, 18);
       const after = await physical('C3-NEW-before-verdict', target.admission);
       oracle.preserved(before, after);
       assert.equal(after['lifecycle.tenant_lifecycle_ceremony'].rows.length, 0, 'WHOLE_C_NO_IMPLICIT_CONFIRMATION');
@@ -324,36 +214,25 @@ async function run (config, selected = 'all') {
       const interruptedTarget = await make({ existing: { ...interruptedOld.ns, ...interruptedExtra }, prepare: false });
       const life = { catalogues: interruptedOld.admission.catalogues.filter(e => e.kind === 'lifecycle') };
       const prior = await physical('C3-interruption-lifecycle-before', life);
-      const interruptedBefore = await physical('C3-interruption-OLD-before', interruptedOld.admission);
-      let interruptedArtifactChecked = false;
-      const interruptedMigrate = async (action, input) => {
-        if (action === 'up' && !interruptedArtifactChecked) {
-          const head = await oracle.artifact(interruptedTarget.directory, interruptedBefore, value => emit('C3-interrupted-OLD-artifact-before-NEW', value));
-          assert.equal(head.manifest.sourceCommit, config.oldHead); interruptedArtifactChecked = true;
-        }
-        return migrate(action, input);
-      };
       const trigger = config.prefix + '_abort_lifecycle', functionName = q(interruptedOld.ns.lifecycle) + '.whole_c_abort';
       await admin.query('CREATE FUNCTION ' + functionName + "() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN IF current_schema() = '" + interruptedOld.ns.lifecycle + "' AND current_query() LIKE 'ALTER TABLE tenant_lifecycle_requests ADD CONSTRAINT%' THEN RAISE EXCEPTION USING ERRCODE='57014', MESSAGE='whole-c-owned-interruption'; END IF; END $$");
       emit('C3-owned-DDL-interruption', { trigger, functionName, namespace: interruptedOld.ns.lifecycle });
       await admin.query('CREATE EVENT TRIGGER ' + q(trigger) + ' ON ddl_command_end WHEN TAG IN (\'ALTER TABLE\') EXECUTE FUNCTION ' + functionName + '()');
       let failure;
       try {
-        try { await interruptedTarget.deployment.upgrade(admin, { source: { root: config.oldRoot, sourceCommit: config.oldHead, namespaces: interruptedOld.ns, selection: interruptedOld.selection }, sourceCommit: config.sourceHead, migrate: interruptedMigrate }); } catch (error) { failure = error; }
+        try { await interruptedTarget.deployment.upgrade(admin, { source: { root: config.oldRoot, sourceCommit: config.oldHead, namespaces: interruptedOld.ns, selection: interruptedOld.selection }, sourceCommit: config.sourceHead, migrate }); } catch (error) { failure = error; }
       } finally {
         await admin.query('DROP EVENT TRIGGER ' + q(trigger)); await admin.query('DROP FUNCTION ' + functionName + '()');
       }
       const physicalAfter = await physical('C3-interrupted-lifecycle-before-verdict', life);
-      emit('C3-interruption-failure', { codes: codes(failure), retainedArtifact: Boolean(failure?.artifact) });
+      emit('C3-interruption-failure', { codes: codes(failure) });
       assert.ok(codes(failure).includes('57014'), 'WHOLE_C_ACTUAL_MIGRATION_INTERRUPTION');
-      assert.ok(failure.artifact);
-      assert.deepEqual(await interruptedTarget.deployment.load(operations.artifactName(failure.artifact)), failure.artifact);
       oracle.sameRows(prior, physicalAfter);
       assert.deepEqual(physicalAfter['lifecycle.tenant_lifecycle_requests'].constraints, prior['lifecycle.tenant_lifecycle_requests'].constraints, 'WHOLE_C_MIGRATION_CONSTRAINT_ATOMICITY');
     },
     async C4 () {
       if (!upgradeState) await cases.C3();
-      const { old, target, before, result } = upgradeState;
+      const { old, result } = upgradeState;
       // eslint-disable-next-line security/detect-non-literal-require -- Parent-extracted exact immutable OLDsource archive.
       const oldOperations = require(path.join(config.oldRoot, 'lib/tenant-operations'));
       // eslint-disable-next-line security/detect-non-literal-require -- Parent-extracted exact immutable OLDsource archive.
@@ -364,15 +243,6 @@ async function run (config, selected = 'all') {
       assert.ok(['OPERATIONS_BINARY_CATALOGUE_NEWER', 'OPERATIONS_BINARY_CATALOGUE_UNKNOWN'].includes(refusal));
       const oldMigrate = (action, input) => oldMigrations.run(action, { ...input, connectionString: config.connectionString, direct: true });
       await expectedFailure(() => oldMigrate('check', old.admission.catalogues.find(e => e.kind === 'lifecycle')), 'MIG_UNKNOWN', 'actual-OLD-lifecycle-readiness');
-      await admin.query('UPDATE ' + q(target.ns.clock) + '.tenant_write_clock SET last_stamp=last_stamp+37 WHERE tenant_id=$1', [A]);
-      const forensic = await physical('C4-NEW-forensic-before-rollback', target.admission);
-      const fresh = await make({ old: true, prepare: false });
-      const rollback = oldOperations.createDeploymentOperations({ root: config.oldRoot, namespaces: fresh.ns, selection: old.selection, directory: fresh.directory });
-      const report = await rollback.rollback(admin, result.artifact, { migrate: oldMigrate, upgraded: target.ns, upgradeRecord: result.record, acl: fresh.acl });
-      emit('C4-rollback-record', report);
-      oracle.sameRows(before, await physical('C4-fresh-OLD-before-verdict', fresh.admission));
-      oracle.sameRows(forensic, await physical('C4-NEW-retained-before-verdict', target.admission));
-      for (const entry of fresh.admission.catalogues) await oldMigrate('check', entry);
       for (const family of ['profile', 'heads', 'requests']) for (const populated of [true, false]) {
         const kind = family === 'profile' ? 'profile' : 'notification_outbox';
         const candidate = kind === 'profile' ? (config.guardCandidatePath ? JSON.parse(fs.readFileSync(config.guardCandidatePath, 'utf8')) : require('../../../migrations/candidates/postgres-profile-socket-order-v1.json')) : require('../../../lib/tenant-notifications/postgres-candidate.json');
@@ -516,7 +386,7 @@ async function run (config, selected = 'all') {
         const inheritedA = { tenant_id: A, id_kind: 'string', doc: { _id: 'whole_c_inherited_a', type: 'sgv', sgv: 123, date: state.cohort.epoch }, insertion_ordinal: '991' };
         const inheritedB = { ...inheritedA, tenant_id: B, doc: { ...inheritedA.doc, _id: 'whole_c_inherited_b' }, insertion_ordinal: '992' };
         for (const row of [inheritedA, inheritedB]) await admin.query('INSERT INTO ' + descendant + '(tenant_id,id_kind,doc,insertion_ordinal,descendant_only) VALUES($1,$2,$3::jsonb,$4,$5)', [row.tenant_id, row.id_kind, JSON.stringify(row.doc), row.insertion_ordinal, 'synthetic descendant-only ' + (row.tenant_id === A ? 'a' : 'b')]);
-        const inheritedArtifact = require('../../../lib/tenant-lifecycle/artifact').buildArtifact({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
+        const inheritedArtifact = require('../../../tests/fixtures/tenant-copy').build({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
           catalogues: state.args.artifact.manifest.catalogues.map(entry => ({ ...entry, tables: entry.tables.map(table => ({ ...table,
             rows: state.args.artifact.tables[entry.kind + '.' + table.table].concat(entry.kind === 'entries' && table.table === 'entries' ? [inheritedA] : []), secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) })) });
         await lifecycle.saveTenantArtifact(inheritedArtifact, { directory: state.artifactDirectory });
@@ -525,16 +395,14 @@ async function run (config, selected = 'all') {
         await state.operator.confirmDeletion(state.ports.operator, inheritedArgs);
         const inheritanceBefore = await physical('C5-inheritance-before', state.cohort.admission);
         const childBefore = (await observer.query('SELECT * FROM ONLY ' + descendant + ' ORDER BY tenant_id')).rows;
-        let inheritanceExport, inheritanceErase, inheritanceBackup, acceptedInheritedExport;
+        let inheritanceExport, inheritanceErase, acceptedInheritedExport;
         try { acceptedInheritedExport = await state.cohort.admission.lifecycle.exportTenant(state.ports.operator, { tenant: A, namespaces: state.cohort.ns, sourceCommit: config.sourceHead }); } catch (error) { inheritanceExport = error; }
-        try { await state.cohort.deployment.backup(admin, { sourceCommit: config.sourceHead }); } catch (error) { inheritanceBackup = error; }
         try { await state.operator.executeDeletion(state.ports.operator, inheritedArgs); } catch (error) { inheritanceErase = error; }
         const inheritanceAfter = await physical('C5-inheritance-after-before-verdict', state.cohort.admission);
         const childAfter = (await observer.query('SELECT * FROM ONLY ' + descendant + ' ORDER BY tenant_id')).rows;
-        emit('C5-inheritance-effects-before-verdict', { exportCodes: codes(inheritanceExport), backupCodes: codes(inheritanceBackup), eraseCodes: codes(inheritanceErase), childBefore, childAfter,
+        emit('C5-inheritance-effects-before-verdict', { exportCodes: codes(inheritanceExport), eraseCodes: codes(inheritanceErase), childBefore, childAfter,
           exportAccepted: Boolean(acceptedInheritedExport), extraOmitted: acceptedInheritedExport ? acceptedInheritedExport.tables['entries.entries'].every(row => !Object.hasOwn(row, 'descendant_only')) : null });
         assert.ok(codes(inheritanceExport).includes('LIFECYCLE_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_EXPORT_REFUSED');
-        assert.ok(codes(inheritanceBackup).includes('OPERATIONS_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_BACKUP_REFUSED');
         assert.ok(codes(inheritanceErase).includes('LIFECYCLE_RELATION_UNSUPPORTED'), 'WHOLE_C_INHERITANCE_ERASE_REFUSED');
         oracle.sameRows(inheritanceBefore, inheritanceAfter); assert.deepEqual(childAfter, childBefore);
         await admin.query('DROP TABLE ' + descendant); await admin.query('DROP SCHEMA ' + q(external));
@@ -551,14 +419,12 @@ async function run (config, selected = 'all') {
         const driftArgs = { ...state.args, requestId: driftRequest.requestId };
         await state.operator.confirmDeletion(state.ports.operator, driftArgs);
         const driftBefore = await physical('C5-known-ledger-drift-before', state.cohort.admission);
-        let driftExport, driftErase, driftBackup, acceptedBackup;
+        let driftExport, driftErase;
         try { await state.cohort.admission.lifecycle.exportTenant(state.ports.operator, { tenant: A, namespaces: state.cohort.ns, sourceCommit: config.sourceHead }); } catch (error) { driftExport = error; }
-        try { acceptedBackup = await state.cohort.deployment.backup(admin, { sourceCommit: config.sourceHead }); } catch (error) { driftBackup = error; }
         try { await state.operator.executeDeletion(state.ports.operator, driftArgs); } catch (error) { driftErase = error; }
         const driftAfter = await physical('C5-known-ledger-drift-after-before-verdict', state.cohort.admission);
-        emit('C5-known-ledger-drift-effects-before-verdict', { exportCodes: codes(driftExport), backupCodes: codes(driftBackup), eraseCodes: codes(driftErase), backupAccepted: Boolean(acceptedBackup), hiddenRows: (await observer.query('SELECT * FROM ' + hidden + ' ORDER BY tenant_id')).rows });
+        emit('C5-known-ledger-drift-effects-before-verdict', { exportCodes: codes(driftExport), eraseCodes: codes(driftErase), hiddenRows: (await observer.query('SELECT * FROM ' + hidden + ' ORDER BY tenant_id')).rows });
         assert.ok(codes(driftExport).includes('LIFECYCLE_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_EXPORT_REFUSED');
-        assert.ok(codes(driftBackup).includes('OPERATIONS_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_BACKUP_REFUSED');
         assert.ok(codes(driftErase).includes('LIFECYCLE_RELATION_UNADMITTED'), 'WHOLE_C_PHYSICAL_DRIFT_ERASE_REFUSED');
         oracle.sameRows(driftBefore, driftAfter);
         await admin.query('DROP TABLE ' + hidden); // Exact owned fixture fault only.
@@ -566,7 +432,7 @@ async function run (config, selected = 'all') {
         // the ledger guard to calibrate that causal boundary independently.
         await admin.query('INSERT INTO ' + q(state.cohort.ns.entries) + '.schema_migrations(name,checksum) VALUES($1,$2)', [unknownName, unknownChecksum]);
         const build = require('../../../lib/tenant-lifecycle/artifact');
-        const poisoned = build.buildArtifact({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
+        const poisoned = require('../../../tests/fixtures/tenant-copy').build({ tenant: A, sourceCommit: config.sourceHead, exportedAt: state.args.artifact.manifest.exportedAt,
           catalogues: state.args.artifact.manifest.catalogues.map(entry => ({ ...entry,
             ledger: entry.kind === 'entries' ? [...entry.ledger, { name: unknownName, checksum: unknownChecksum }] : entry.ledger,
             tables: entry.tables.map(table => ({ ...table, rows: state.args.artifact.tables[entry.kind + '.' + table.table], secrets: table.keyReferences !== undefined, keyReferences: table.keyReferences })) })) });

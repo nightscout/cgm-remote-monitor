@@ -108,21 +108,6 @@ def inventory():
 def physical_control(control, events):
     by_phase = lambda phase: [event['value'] for event in events if event['phase'] == phase]
     cid = control['id']
-    if cid == 'second-checkpoint-loss':
-        before = by_phase('C1-source-before-verdict')[-1]['evaluator_checkpoint.tenant_consumer_checkpoint']['rows']
-        after = by_phase('C1-independent-artifact-before-verdict')[-1]['files']['evaluator_checkpoint.tenant_consumer_checkpoint']['rows']
-        return len(before) > 0 and len(after) == 0
-    if cid == 'skip-identity-sequence':
-        return any(int(row['next']) <= int(row['max']) for row in by_phase('actual-writer-next-identity'))
-    if cid == 'realtime-write-broadening':
-        return any(row['roleClass'] == 'realtime' and row['code'] is None and row['count'] > 0 for row in by_phase('actual-role-statement'))
-    if cid == 'tampered-digest-bypass':
-        categories = by_phase('C2-tamper-actual-statements-before-verdict')[-1]
-        physical = by_phase('C2-tamper-physical-before-verdict')[-1]
-        completed = by_phase('C2-tamper-completed-SQL-before-verdict')[-1]
-        return 'INSERT' in categories and any(row['command'] == 'INSERT' and row['rowCount'] > 0 for row in completed) and not any(table['rows'] for table in physical.values())
-    if cid == 'commit-interrupted-restore':
-        return any(table['rows'] for table in by_phase('C2-interrupted-before-verdict')[-1].values())
     if cid == 'profile-populated-guard':
         value = by_phase('C4-guard-after-before-verdict-profile-true')[-1]['profile.profile']
         return len(value['ledger']) == 2 and any(col['attname'] == 'insertion_ordinal' for col in value['columns']) and len(value['rows']) > 0
@@ -137,7 +122,7 @@ def physical_control(control, events):
         after = by_phase('C5-known-ledger-drift-after-before-verdict')[-1]['entries.entries']['rows']
         effects = by_phase('C5-known-ledger-drift-effects-before-verdict')[-1]
         tenant = '11111111-1111-4111-8111-111111111111'
-        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['backupAccepted'] and effects['eraseCodes'] == []
+        return any(row['tenant_id'] == tenant for row in before) and not any(row['tenant_id'] == tenant for row in after) and any(row['tenant_id'] == tenant for row in effects['hiddenRows']) and effects['eraseCodes'] == []
     if cid == 'ordinary-inheritance':
         effect = by_phase('C5-inheritance-effects-before-verdict')[-1]
         tenant = '11111111-1111-4111-8111-111111111111'
@@ -177,7 +162,9 @@ def campaign(args):
         archives[name] = {'head': commit, 'sha256': digest(archive.read_bytes())}
     extract(out / 'old.tar', out / 'old-source')
     write(out / 'old-source' / 'whole-c-source.json', {'head': OLD})
-    assert (out / 'old-source' / 'package-lock.json').read_bytes() == (deps / '.codex-source-package-lock.json').read_bytes()
+    old_deps = args.old_deps.resolve() if args.old_deps else deps
+    assert (out / 'old-source' / 'package-lock.json').read_bytes() == (old_deps / '.codex-source-package-lock.json').read_bytes()
+    (out / 'old-source' / 'node_modules').symlink_to(old_deps, target_is_directory=True)
     write(out / 'source-index.json', archives)
     controls = json.loads((HERE / 'controls.json').read_text())
     sequence = []
@@ -266,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--worktree', type=Path, default=ROOT)
     parser.add_argument('--out', type=Path)
     parser.add_argument('--deps', type=Path)
+    parser.add_argument('--old-deps', type=Path, help='dependency tree matching the immutable OLD source lock')
     parser.add_argument('--config', type=Path)
     parser.add_argument('--grant')
     parser.add_argument('--timeout', type=int, default=600)

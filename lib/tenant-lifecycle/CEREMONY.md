@@ -82,7 +82,7 @@ explicit operator confirmation and full current-artifact checks. A legacy artifa
 that omits newly admitted domains refuses; use an explicitly reviewed new request/
 artifact rather than silently upgrading its meaning. Historical executed rows
 remain executed. The original request/ceremony ledgers are retained independently
-of deleted tenant rows and are included in whole-deployment backup/restore.
+of deleted tenant rows and are preserved by platform database backups.
 
 ## Privilege and secret boundary
 
@@ -155,8 +155,8 @@ contract proposal and compatibility implications. No allocator workaround is ena
 
 
 Physical relation admission: within every explicitly selected owned namespace,
-lifecycle export/import/destructive preflight and deployment backup/restore/summary
-now compare live `pg_class` metadata against the exact reviewed ordinary tables plus
+lifecycle export, import and destructive preflight
+compare live `pg_class` metadata against the exact reviewed ordinary tables plus
 the ordinary `schema_migrations` ledger. Agreement of ledgers alone is insufficient.
 Unlisted ordinary/partitioned/foreign/materialized/view relations refuse; listed
 partition parents/children or nonordinary relation kinds are unsupported. No unknown

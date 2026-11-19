@@ -1,7 +1,7 @@
 # Tenant lifecycle: export, logical restore and confirmed deletion
 
 Explicit private-plane library. Serving roles do not expose a restore endpoint or
-CLI through this module. Its typed artifact remains a research format. The caller
+CLI through this module. The caller
 supplies a lower-port PostgreSQL connection for a `NOSUPERUSER NOBYPASSRLS`
 private role; tenant binding and forced row-level security bound data access.
 Vault provider keys are never exported. They are deleted only by the explicit
@@ -12,7 +12,12 @@ window ([key retention](#post-deletion-key-retention)).
 
 `exportTenant(connection,{tenant,namespaces,sourceCommit,keyNames})` captures one
 `REPEATABLE READ` snapshot of the complete selected reviewed catalogue. It preserves
-typed `id_kind`, public documents, private insertion ordinals and tenant counter
+PostgreSQL CSV bytes for each admitted table in `<kind>.<table>.csv`. The
+`manifest.json` records column types, table counts, SHA-256 file digests, the
+original tenant and retained ciphertext key references. Publication verifies
+every file before exposing the digest-named directory. Previously retained v1
+tenant artifacts can still be read by digest. This inventory preserves typed
+`id_kind`, public documents, private insertion ordinals and tenant counter
 floors. Secret records remain ciphertext with recovery references, never plaintext
 or provider keys. Export requires current exact migration ledgers and physical
 relation inventory; agreement between unknown artifact/database schemas is insufficient.
@@ -96,11 +101,9 @@ notification replay promise.
 
 ## Physical backup and deletion
 
-Logical reconciliation deliberately changes public history metadata. Raw physical
-backup fidelity and whole-deployment rollback belong to
-[tenant operations](../tenant-operations/README.md); they preserve a separate exact
-snapshot contract, including forensic control state. A whole-deployment rollback
-can affect B and is not tenant-local logical restore.
+Logical reconciliation advances public history metadata. The platform operator
+owns whole-database backup and recovery, including private control state and the
+corresponding Vault keys. A database-wide recovery point covers all tenants.
 
 Deletion retains its distinct current-authorized request/confirm/cancel/claim/execute
 ceremony. The complete capability and recoverable-key contract is in
