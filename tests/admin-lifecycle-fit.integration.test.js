@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/operation-cohort.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, tests/fixtures/canonical-admin-restore.js
+// covers: lib/server/serve/role-topology.js, lib/tenant-lifecycle/clinical-catalogue.js, lib/tenant-lifecycle/tenant-phase.js, lib/tenant-lifecycle/maintenance-window.js, lib/tenant-ownership/postgres.js, lib/server/serve/listeners.js, lib/server/serve/admin-preview.js, tests/fixtures/canonical-admin-restore.js
 
 // The admin role beside a tenant restore (16.0.0 decisions
 // restore-census-and-ownership-phase and admin-plane-same-address-different-port),
@@ -9,7 +9,7 @@
 // Vault). A real `nightscout multitenant admin` process is connected as the
 // ownership_operator identity while the real maintenance controller
 // (maintenance-window.js) suspends, holds and reactivates tenant A under the real
-// remote cohort census (operation-cohort.js createRemote/assertComplete) as the
+// remote cohort census (operation-cohort createRemote (removed)/assertComplete) as the
 // plan's maintenance operator identity. The four participants are synthetic
 // lifecycle-participant peers on real Unix sockets, each reporting one real
 // backend opened as that role's database identity; the census itself reads the
@@ -32,7 +32,7 @@ const clients = require('../lib/server/internal-api/clients');
 const ipc = require('../lib/server/internal-api/transport');
 const contracts = require('../lib/server/internal-api/contracts');
 const manifest = require('../lib/server/serve/operation-cohort-manifest');
-const cohorts = require('../lib/server/serve/operation-cohort');
+const cohorts = require('../lib/server/serve/role-topology');
 const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
 const datastore = require('../lib/storage/postgres-datastore');
 const { catalogueDigest } = require('../lib/subject-admin/owner-policy');

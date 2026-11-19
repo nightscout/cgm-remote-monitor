@@ -1,7 +1,7 @@
 'use strict';
 // Actual pg.Pool constructor/checkout with a synthetic driver and an actual
 // source operation window. Native backend visibility is a separate instrument.
-// covers: lib/storage/postgres-connection.js, lib/server/serve/operation-cohort.js
+// covers: lib/storage/postgres-connection.js, lib/server/serve/role-topology.js
 const assert=require('node:assert/strict'),{EventEmitter}=require('node:events');
 const connect=require('../lib/storage/postgres-connection');
 const windowFixture=require('./fixtures/operation-window-runtime-protocol');
