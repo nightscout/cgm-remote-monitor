@@ -19,7 +19,12 @@ module.exports = function entriesIdentifierRace (lab, backend, mode) {
       const step = makeStep();
       return { ...step, async match (intent) {
         const result = await step.match(intent);
-        if (intent.op === 'create') state.matches.push(result);
+        if (intent.op === 'create') {
+          const index = state.matches.push(result) - 1;
+          // Both HTTP attempts must observe absence before either proceeds. PostgreSQL's
+          // tenant write clock serializes the ensuing writes before their INSERTs.
+          if (index < 2) await new Promise(resolve => { releases[index] = resolve; });
+        }
         return result;
       } };
     };
@@ -41,8 +46,7 @@ module.exports = function entriesIdentifierRace (lab, backend, mode) {
   }
 
   async function insert (go) {
-    const index = state.inserts++;
-    if (index < 2) await new Promise(resolve => { releases[index] = resolve; });
+    state.inserts++;
     try { return await go(); } catch (error) {
       state.duplicateCodes.push(error.code);
       throw error;
@@ -66,13 +70,13 @@ module.exports = function entriesIdentifierRace (lab, backend, mode) {
   }
   state.arrived = async count => {
     const deadline = Date.now() + 5000;
-    while (state.inserts < count && Date.now() < deadline) await delay(5);
-    assert.equal(state.inserts, count, 'both requests must reach real INSERTs before release');
+    while (state.matches.length < count && Date.now() < deadline) await delay(5);
     assert.equal(state.matches.length, count, 'each route must finish its actual identifying read');
+    assert.equal(state.inserts, 0, 'no INSERT before both identifying reads miss');
     assert.ok(state.matches.every(result => result === null), 'both actual identifier matches must miss');
   };
   state.release = index => {
-    assert.equal(typeof releases[index], 'function', 'the requested INSERT reached the barrier');
+    assert.equal(typeof releases[index], 'function', 'the identifying read reached the barrier');
     releases[index]();
   };
   state.restore = () => {

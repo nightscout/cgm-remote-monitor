@@ -13,6 +13,7 @@ const scope = require('../lib/storage/tenant-scope');
 const createResolver = require('../lib/tenant-resolution');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const entriesLab = require('./fixtures/tenant-entries-lab');
+const writeClock = require('./fixtures/native-write-clock');
 const { run } = require('../lib/migrations/postgres');
 const catalogue = require('../migrations/candidates/postgres-entries-v1.json');
 const { optInSuite } = require('./support/opt-in');
@@ -129,11 +130,12 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       await admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + appPassword + '\'');
       await admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + role + '"');
       await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace, domain: 'entries', role, catalogue });
+      await writeClock.provision(admin, { connectionString, namespace: namespace + '_clock', role, tenants });
       const url = new URL(connectionString);
       url.username = role;
       url.password = appPassword;
       appURL = url.toString();
-      connection = await connect({ connectionString: appURL, max: 1 });
+      connection = writeClock.clocked(await connect({ connectionString: appURL, max: 1 }), namespace + '_clock');
       await startHTTP();
       // Verify the exact test listener is responsive, not merely allocated.
       await http(A, 'get', '/api/v3/entries/not-present').expect(404);
@@ -266,7 +268,7 @@ optInSuite(process.env.NS_TENANT_HTTP_DOCKER_TEST === '1', 'NS_TENANT_HTTP_DOCKE
       assert.notEqual(uploads[0].doc._id, uploads[1].doc._id);
       await stopHTTP();
       await connection.end();
-      connection = await connect({ connectionString: appURL, max: 1 });
+      connection = writeClock.clocked(await connect({ connectionString: appURL, max: 1 }), namespace + '_clock');
       await startHTTP();
       for (const [tenant, sgv] of [[B, 234], [A, 123]]) {
         assert.equal((await http(tenant, 'get', '/api/v3/entries/same-upload').expect(200)).body.result.sgv, sgv);

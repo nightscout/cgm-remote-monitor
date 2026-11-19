@@ -56,7 +56,7 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
             await gate.arrived(2);
             gate.release(0);
             const created = await pendingFirst;
-            assert.equal(created.status, 201, 'first upload must commit before releasing the competing INSERT');
+            assert.equal(created.status, 201, 'first upload must commit before releasing the competing write');
             const firstRows = backend === 'mongo'
               ? (await lab.mongoCollection.find({}).toArray()).map(encodeDocument)
               : (await lab.admin.query(`SELECT id_kind,doc FROM ${lab.table} WHERE tenant_id=$1`, [lab.A])).rows;
