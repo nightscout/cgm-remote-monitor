@@ -48,8 +48,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await admin.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC');
     await admin.query('REVOKE CREATE ON DATABASE ' + quote((await admin.query('SELECT current_database() AS name')).rows[0].name) + ' FROM PUBLIC');
     await admin.query('CREATE ROLE ' + quote(owner) + ' NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION'); createdRoles.push(owner);
-    const source = (await admin.query('SELECT s.system_identifier::text AS system_id,c.timeline_id::integer AS timeline,current_database() AS database FROM pg_catalog.pg_control_system() s CROSS JOIN pg_catalog.pg_control_checkpoint() c')).rows[0];
-    selected = native.create({namespace: ns.source, lifecycleNamespace: ns.control, consumer: 'evaluator-native-scope', source: {...source, slot: 'native_scope_fixture'}, generation: 'native-scope-v1'});
+    selected = native.create({namespace: ns.source, lifecycleNamespace: ns.control, consumer: 'evaluator-native-scope'});
     await own(ns.clock, require('../migrations/candidates/postgres-write-clock-v1.json'));
     await own(ns.rt, require('../migrations/candidates/postgres-realtime-output-v2.json'));
     await own(ns.source, require('../migrations/candidates/postgres-evaluator-work-v2.json'));
@@ -66,7 +65,6 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     for (const sql of require('../lib/server/ordinary-deployment-grants').lifetimeGrants({namespaces: {control: ns.control}, roles: {reader: role, lifetime_reader: lifetime}}, ['reader', 'lifetime_reader'])) await admin.query(sql);
     for (const name of [role, lifetime]) {
       for (const sql of native.servingGrants({namespace: ns.control, role: name})) await admin.query(sql);
-      for (const sql of native.grants({namespace: ns.control, role: name})) await admin.query(sql);
     }
     await admin.query('GRANT SELECT ON ' + [table('clock', 'schema_migrations'), table('clock', 'tenant_write_clock'), table('rt', 'schema_migrations'), table('rt', 'tenant_consumer_checkpoint'), table('source', 'tenant_consumer_checkpoint')].join(',') + ' TO ' + quote(role));
     await admin.query('GRANT UPDATE(' + columns.map(quote).join(',') + ') ON ' + table('rt', 'tenant_consumer_checkpoint') + ' TO ' + quote(role));
