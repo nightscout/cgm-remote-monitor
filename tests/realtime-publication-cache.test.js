@@ -219,7 +219,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],
         read: async tenant => { assert.equal(tenant, A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
       '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
-      './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness': async () => {},
+      './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness': async () => {},
       './registry-tenant-set': { openDemand: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
       '../../pgstream/evaluator': { open: async ({ config: current }) => {
         testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;

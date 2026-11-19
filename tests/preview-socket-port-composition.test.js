@@ -43,9 +43,9 @@ async function withOrderPort (fn) {
   finally { migration.run = old; delete require.cache[require.resolve('../lib/server/tenant-socket-order-port')]; }
 }
 const env = () => ({ extendedSettings: {}, enable: [], settings: {}, serverSettings: {} });
-async function preview (conn, socketForwarding = true, verified = false) {
+async function preview (conn, socketForwarding = true) {
   return require('../lib/server/serve/preview-domains')({ connection: conn, config: {
-    ...(verified ? {platformVerification:{namespace:'synthetic_verification',role:'api'}} : {}), domains: names, bindings: new Map([[A, {}]]), environments: new Map([[A, env()]]),
+    domains: names, bindings: new Map([[A, {}]]), environments: new Map([[A, env()]]),
     namespaces: Object.fromEntries(names.map(name => [name, 'source_' + name])),
     readinessConnectionString: 'postgres://synthetic-source-only', socketForwarding,
     legacyEnabled: false, contextEnabled: false
@@ -121,7 +121,7 @@ describe('actual preview six-domain trusted socket port composition', function (
   it('selected socket context uses the existing async executor boundary and constructs only its addressed domain', async function () {
     const old=scope.getTenancyMode();scope.setTenancyMode('multi');
     try { await withOrderPort(async (ordered, checks) => {
-      const conn=connection(),graph=await preview(conn,true,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
+      const conn=connection(),graph=await preview(conn,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
       assert.equal(checks.length,0,'PRIMER_MUST_NOT_CONSTRUCT_UNUSED_SOCKET_PORTS');
       await assert.rejects(graph.socketContextFor({...operation('entries'),actor:{tenant:'foreign'}}),/Socket context refused/);assert.equal(checks.length,0);
       for(const logical of names){const before=conn.events.length,reply=await execute(operation(logical));assert.equal(reply[0][0]._id,'synthetic-'+logical);assert(conn.events.slice(before).includes('INSERT'));assert.equal(conn.events.at(-1),'COMMIT');}
@@ -131,7 +131,7 @@ describe('actual preview six-domain trusted socket port composition', function (
   it('refuses a foreign actor before mutation and constructs the restored authorized port without a platform check', async function () {
     const old=scope.getTenancyMode();scope.setTenancyMode('multi');
     try { await withOrderPort(async (ordered, checks) => {
-      const conn=connection(),graph=await preview(conn,true,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
+      const conn=connection(),graph=await preview(conn,true),execute=require('../lib/server/tenant-socket-write-executor').createExecutor({contextForOperation:graph.socketContextFor});
       await assert.rejects(execute({...operation('treatments'),actor:{tenant:'foreign'}}), /SOCKET_FORWARD_MESSAGE_REFUSED/);
       assert.equal(conn.events.includes('INSERT'),false,'FOREIGN_SOCKET_CONTEXT_MUST_NOT_WRITE');
       checks.refuse='source_treatments';

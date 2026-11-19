@@ -29,19 +29,18 @@ async function withReadiness (value, fn) {
   if (value === undefined) delete process.env.NS_TENANT_READINESS; else process.env.NS_TENANT_READINESS = value;
   try { return await fn(); } finally { if (previous === undefined) delete process.env.NS_TENANT_READINESS; else process.env.NS_TENANT_READINESS = previous; }
 }
-// Actual API boot with recorded dependencies. BROKEN has a failed admin floor
-// result; the other tenants build inline without a roster warm-up.
+// Actual API boot with recorded dependencies. Every tenant builds inline on
+// demand, without a roster warm-up and without a per-tenant platform gate.
 function apiBoot ({ display, proof = true, transform } = {}) {
   const admitted = [];
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
-    './platform-verification': { ...require('../lib/server/serve/platform-verification'), admit: async (_config, role) => {
+    './role-readiness': { ...require('../lib/server/serve/role-readiness'), admit: async (_config, role) => {
       admitted.push(role);
-      if (!proof) throw Object.assign(new Error('PLATFORM_VERIFICATION_REQUIRED'), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-      return { role };
+      if (!proof) throw Object.assign(new Error('PLATFORM_SERVING_IDENTITY_UNSAFE'), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
     } },
     ...(display ? { '../../tenant-settings/presentation-reader': (_config, options) => {
-      assert.deepEqual(admitted, ['api'], 'display trust follows platform admission');
+      assert.deepEqual(admitted, ['api'], 'display trust follows role admission');
       calls.settingsOptions = options; return display;
     } } : {}),
     '../../storage/postgres-connection': async () => resource(),
@@ -49,12 +48,11 @@ function apiBoot ({ display, proof = true, transform } = {}) {
     '../../tenant-authorization/postgres': async () => resource({ authorize: async () => {} }),
     '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
     '../../secrets/component': { createSecrets: () => ({}) },
-    './tenant-floor-verification': { createReader: () => async tenant => { if (tenant === BROKEN) throw Object.assign(new Error('TENANT_FLOOR_UNVERIFIED'), { code: 'TENANT_FLOOR_UNVERIFIED' }); } },
     './preview-domains': async () => ({ prepareTenant: async tenant => { await new Promise(resolve => setImmediate(resolve)); initialized.add(tenant); }, invalidateTenant () {}, invalidateAll () {}, data: () => {}, safeRoutes: {} }),
     '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
     '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } }
   }, transform);
-  const config = { platformVerification: { namespace: 'synthetic_verification', role: 'api' }, bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: { clock: 'synthetic_clock' }, ...(display ? { tenantSettings: {} } : {}) };
+  const config = { bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: { clock: 'synthetic_clock' }, ...(display ? { tenantSettings: {} } : {}) };
   return { boot: () => boot.boot(config), initialized, calls, admitted, setProof: value => { proof = value; } };
 }
 
@@ -63,64 +61,60 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
 
-  it('boots without scanning tenants and refuses only a tenant whose recorded floor failed', async function () {
+  it('boots without scanning tenants and builds each tenant on demand with no per-tenant platform gate', async function () {
     const lab = apiBoot(), role = await withReadiness(undefined, lab.boot);
     try {
       assert.equal(role.health().ready, true);
       assert.equal(lab.initialized.size, 0, 'API_BOOT_MUST_NOT_TOUCH_ROSTER');
-      for (const tenant of TENANTS) {
-        if (tenant === BROKEN) await assert.rejects(lab.calls.http(tenant), { code: 'TENANT_FLOOR_UNVERIFIED' });
-        else await lab.calls.http(tenant);
-      }
-      assert.equal(lab.initialized.size, 99);
+      for (const tenant of TENANTS) await lab.calls.http(tenant);
+      assert.equal(lab.initialized.size, TENANTS.length);
       assert.equal(role.health().ready, true, 'ONE_TENANT_FAILURE_MUST_NOT_WITHDRAW_ROLE');
     } finally { await role.close(); }
   });
 
-  it('verified API checks the platform proof once at start, starts cold and admits one tenant on demand', async function () {
+  it('API runs its start check once, starts cold and admits one tenant on demand', async function () {
     const lab = apiBoot(), role = await withReadiness('serve', lab.boot);
     try {
-      assert.deepEqual(lab.admitted, ['api'], 'ONE_PLATFORM_CHECK_AT_START');
+      assert.deepEqual(lab.admitted, ['api'], 'ONE_START_CHECK');
       await role.warmed(); assert.equal(lab.initialized.size, 0, 'VERIFIED_API_MUST_NOT_WARM_IDLE_ROSTER');
       await lab.calls.http(TENANTS[0]);
       assert.equal(lab.initialized.size, 1);
-      assert.equal(Object.hasOwn(role.health(), 'platformVerification'), false, 'NO_SERVING_PROOF_LEASE');
-      // A proof revoked or past the retired lease after start does not refuse
-      // requests: drift is detected at the next start (C-01).
+      // A start check that would now refuse does not refuse requests already
+      // admitted: it runs at the next start.
       lab.setProof(false);
       await lab.calls.http(TENANTS[0]); await request(role.app).get('/api/v1/entries').expect(res => assert.notEqual(res.status, 503));
       assert.equal(role.health().ready, true, 'REQUESTS_CONTINUE_WITHOUT_LEASE');
-      assert.deepEqual(lab.admitted, ['api'], 'NO_PLATFORM_RECHECK_WHILE_SERVING');
+      assert.deepEqual(lab.admitted, ['api'], 'NO_RECHECK_WHILE_SERVING');
     } finally { await role.close(); }
   });
 
-  it('refuses to start without the platform proof, with its typed code and no listener', async function () {
+  it('refuses to start when its login can bypass row-level security, with its typed code and no listener', async function () {
     const lab = apiBoot({ proof: false });
-    await assert.rejects(withReadiness('serve', lab.boot), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-    assert.deepEqual(lab.admitted, ['api']); assert.equal(lab.calls.http, undefined, 'NO_APP_WITHOUT_PROOF');
+    await assert.rejects(withReadiness('serve', lab.boot), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
+    assert.deepEqual(lab.admitted, ['api']); assert.equal(lab.calls.http, undefined, 'NO_APP_WITH_UNSAFE_IDENTITY');
   });
 
-  it('control: removing the start check lets an unproven API start (red); restored source refuses', async function () {
+  it('control: removing the start check lets an unsafe API start (red); restored source refuses', async function () {
     const omitCheck = source => {
-      const needle = "await platform.admit(config, 'api', platform.operationProfileDigest(operationWindow));";
-      assert.equal(source.split(needle).length, 2, 'PLATFORM_CHECK_CONTROL_SEAM_REQUIRED');
+      const needle = "await roleReadiness.admit(config, 'api');";
+      assert.equal(source.split(needle).length, 2, 'START_CHECK_CONTROL_SEAM_REQUIRED');
       return source.replace(needle, '');
     };
     const criterion = async transform => {
       const lab = apiBoot({ proof: false, transform });
       let role;
-      try { role = await withReadiness('serve', lab.boot); } catch (error) { assert.equal(error.code, 'PLATFORM_VERIFICATION_REQUIRED'); return; }
-      await role.close(); assert.fail('UNPROVEN_API_MUST_NOT_START');
+      try { role = await withReadiness('serve', lab.boot); } catch (error) { assert.equal(error.code, 'PLATFORM_SERVING_IDENTITY_UNSAFE'); return; }
+      await role.close(); assert.fail('UNSAFE_API_MUST_NOT_START');
     };
     await criterion();
-    await assert.rejects(criterion(omitCheck), /UNPROVEN_API_MUST_NOT_START/);
-    console.log('    CONTROL RED: UNPROVEN_API_MUST_NOT_START');
+    await assert.rejects(criterion(omitCheck), /UNSAFE_API_MUST_NOT_START/);
+    console.log('    CONTROL RED: UNSAFE_API_MUST_NOT_START');
     await criterion();
-    console.log('    CONTROL RESTORED: PLATFORM_VERIFICATION_REQUIRED');
+    console.log('    CONTROL RESTORED: PLATFORM_SERVING_IDENTITY_UNSAFE');
   });
 
   // Actual API composition with recorded dependencies. Storage health depends
-  // only on this process's own state; the platform proof is not a lease.
+  // only on this process's own state.
   for (const displayState of [undefined, { ready: true, state: 'ready' }, { ready: false, state: 'pending' },
     { ready: false, state: 'unavailable', code: 'SETTINGS_STORE_UNSAFE' }]) {
     it('reports storage health without a platform lease with display ' + (displayState?.state || 'absent'), async function () {
@@ -236,7 +230,7 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
     try {
       await turn();
       assert.equal(checks, 0, 'no display store probe precedes the DATA listener');
-      assert.equal(lab.calls.settingsOptions.platformVerified, true, 'API conveys its admitted proof internally');
+      assert.equal(lab.calls.settingsOptions.platformVerified, true, 'API skips the display store screen');
       assert.equal(role.health().ready, true, 'pending presentation reads do not withdraw DATA readiness');
       assert.equal(role.health().displaySettings.state, 'pending');
       await role.attach({}); await turn();
@@ -248,7 +242,7 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
       assert.equal(reads, 0, 'no screen is driven through a tenant read');
     } finally { await role.close(); }
     const refused = apiBoot({ display, proof: false });
-    await assert.rejects(refused.boot(), { code: 'PLATFORM_VERIFICATION_REQUIRED' });
-    assert.equal(refused.calls.settingsOptions, undefined, 'no display trust is constructed without a proof');
+    await assert.rejects(refused.boot(), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
+    assert.equal(refused.calls.settingsOptions, undefined, 'no display trust is constructed after a refused start check');
   });
 });

@@ -40,7 +40,7 @@ describe('per-tenant domain construction is clinically equivalent (decision read
   it('selected demand ports and request frames preserve the complete clinical construction fingerprint', async function () {
     const create = require('../lib/server/serve/preview-domains');
     const actual = await quiet(() => fingerprints(options => create({ ...options,
-      config: { ...options.config, platformVerification: { namespace: 'source_verification', role: 'api' } } })));
+      config: options.config })));
     assert.deepEqual(actual, golden);
   });
   it('control: a construction that gives every tenant the first tenant\'s environment is caught', async function () {

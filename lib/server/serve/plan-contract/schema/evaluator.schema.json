@@ -600,24 +600,6 @@
           "transactionRows"
         ]
       }
-    },
-    "platformVerification": {
-      "type": "object",
-      "required": [
-        "namespace",
-        "role"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "namespace": {
-          "type": "string",
-          "pattern": "^(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
-        },
-        "role": {
-          "const": "evaluator"
-        }
-      },
-      "description": "Explicit internal-admin verified platform state. Serving boot requires a current matching generation; tenant readiness remains separate."
     }
   }
 }

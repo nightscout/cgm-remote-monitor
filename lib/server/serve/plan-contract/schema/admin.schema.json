@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "admin role configuration (MULTITENANT_ADMIN_CONFIG)",
-  "description": "The platform operator plane. At least one of ownership, pools, provisioning, ensure, connectorSources, managementSessions and platformVerification. Loader: lib/server/serve/admin-config.js.",
+  "description": "The platform operator plane. At least one of ownership, pools, provisioning, ensure, connectorSources and managementSessions. Loader: lib/server/serve/admin-config.js.",
   "type": "object",
   "required": [
     "version",
@@ -1266,65 +1266,6 @@
         }
       },
       "description": "Explicit unselected-only audited ensure. Separate narrow proof/repair identity and read-only Vault metadata; optional ordinary provisioning supplies fresh creation. Selected runtime composition refuses."
-    },
-    "platformVerification": {
-      "type": "object",
-      "required": [
-        "connectionEnv",
-        "namespace",
-        "targets"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "connectionEnv": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
-        },
-        "namespace": {
-          "type": "string",
-          "pattern": "^(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
-        },
-        "targets": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 4,
-          "uniqueItems": true,
-          "items": {
-            "type": "object",
-            "required": [
-              "role",
-              "configFile"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "role": {
-                "enum": [
-                  "api",
-                  "evaluator",
-                  "realtime",
-                  "vcpool"
-                ]
-              },
-              "configFile": {
-                "type": "string",
-                "pattern": "^/",
-                "minLength": 1
-              },
-              "operationConfigFile": {
-                "type": "string",
-                "pattern": "^/",
-                "minLength": 1
-              },
-              "environmentFile": {
-                "type": "string",
-                "pattern": "^/",
-                "minLength": 1
-              }
-            }
-          }
-        }
-      },
-      "description": "Admin-owned verification writer and exact configured role targets. Paths are normalized absolute files; role uniqueness is enforced by the runtime loader. The issued proof has no lease; serving roles check it once at start."
     }
   }
 }

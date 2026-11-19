@@ -104,7 +104,7 @@ describe('actual static realtime boot observations', function () {
     async function boot (transform = value => value) {
       const noop = async () => {};
       const overrides = {
-        './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness': noop,
+        './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness': noop,
         '../../storage/postgres-connection': async () => ({end: noop}),
         '../../realtime-ownership/owner': {acquire: async ({shape}) => {
           assert.equal(shape.count, 2); assert.equal(shape.ordinal, 0);

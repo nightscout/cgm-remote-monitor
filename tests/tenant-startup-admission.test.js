@@ -138,8 +138,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../../tenant-authorization/postgres': async () => resource({ authorize: async () => { throw Error('NO_WARM_AUTHORITY_PROBE'); } }),
       '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
       '../../secrets/component': { createSecrets: () => ({}) },
-      './platform-verification': require('./fixtures/platform-proof')(),
-      './tenant-floor-verification': { createReader: () => async tenant => { reads.push(['verified-floor', tenant]); } },
+      './role-readiness': require('./fixtures/role-readiness')(),
       './preview-domains': async () => ({ prepareTenant: async tenant => reads.push(['build', tenant]), invalidateTenant: tenant => reads.push(['invalidate', tenant]), invalidateAll () {}, data: () => {}, safeRoutes: {} }),
       '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
       '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } },
@@ -153,11 +152,11 @@ describe('independent tenant startup admission (source protocol)', function () {
       assert.deepEqual(reads, [], 'SUSPENDED_TENANT_MUST_NOT_BUILD');
       options.phases[A] = 'active';
       await f.window.run(A, () => calls.http(A));
-      await f.window.run(A, () => calls.socket(A));
-      assert.deepEqual(reads.map(row => row[0]), ['verified-floor', 'build', 'verified-floor']);
+      assert.deepEqual(reads.map(row => row[0]), ['build']);
+      // No per-tenant platform gate (decision platform-verification-removal).
+      assert.equal(calls.socket, undefined, 'SOCKET_PATH_HAS_NO_TENANT_FLOOR_GATE');
       await role.invalidateTenant(A);
-      await f.window.run(A, () => calls.socket(A));
-      assert.deepEqual(reads.slice(-2).map(row => row[0]), ['invalidate', 'verified-floor']);
+      assert.deepEqual(reads.slice(-1).map(row => row[0]), ['invalidate']);
     } finally { if (role) await role.close(); await f.window.close(); }
   }
   it('evaluator ignores all-tenant warmup and admits only addressed work within its tenant window', async function () {
@@ -176,7 +175,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     const store={admit:async()=>{},observeMany:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
     const boot=load('lib/server/serve/evaluator-preview.js',{
       ...nativeBoot.mocks({events:nativeEvents}),
-      '../../storage/postgres-connection':async()=>({end:async()=>{}}), './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':readiness,
+      '../../storage/postgres-connection':async()=>({end:async()=>{}}), './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness':readiness,
       '../../storage/postgres-durable-replay':()=>nativeBoot.replay({events:nativeEvents}), '../../data/tenant-projection-evaluator':evaluator,
       './registry-tenant-set':{openDemand:async()=>registry},
       './evaluator-config':{registryEntry:tenant=>entries.get(tenant),withSettings:async(base,entry,tenant)=>{reads.push(tenant);return entries.get(tenant);}},
@@ -205,7 +204,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       await role.close();role=null;
       for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,2,'BOTH_BOOT_GENERATIONS_CLOSE_NATIVE_PORTS:'+event);
     }finally{if(role)await role.close();await f.window.close();}
-    const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{openDemand:async()=>registry},'./platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
+    const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{openDemand:async()=>registry},'./role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     const shared=fixture({phase:'suspended'});
     try{await assert.rejects(failed.boot(config,{operationWindow:shared.window}),/readiness or initialization refused/);}
     finally{await shared.window.close();}
