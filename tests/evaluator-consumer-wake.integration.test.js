@@ -29,6 +29,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      // Fixture provisioning predates the slot. Establish the initial snapshot before live input.
+      await worker.call('acquire', lab.A); await worker.call('acquire', lab.B);
       await reading(120, lab.A, 'normal-a'); await reading(120, lab.B, 'normal-b');
       const passes = async () => Object.fromEntries((await worker.call('health')).consumers.tenants.map(row => [row.tenant, row.passes]));
       await lab.wait(async () => Object.hasOwn(await passes(), lab.B));
@@ -48,6 +50,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, retryDelayMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      // Fixture provisioning predates the slot. Establish the initial snapshot before live input.
+      await worker.call('acquire', lab.A);
       await reading(45, lab.A, 'urgent-low-a');
       await lab.wait(async () => lab.sinkEffects.some(row => row.tenant === lab.A));
       const first = lab.sinkEffects.find(row => row.tenant === lab.A);

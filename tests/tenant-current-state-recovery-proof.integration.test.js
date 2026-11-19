@@ -264,6 +264,13 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
         return last?.eligible && value(last) === expected && last;
       });
     }
+    // These tenants were provisioned before the test slot. Open their initial
+    // snapshots before measuring live receipts, deletion and timing.
+    async function startExisting (tenants, config) {
+      const worker = await start(config);
+      for (const tenant of tenants) await worker.call('acquire', tenant);
+      return worker;
+    }
     const cyclesOf = health => health.tenants.find(row => row.tenant === lab.A).cycles;
     const version = value => BigInt(value || '0');
     // Activity is outside clinical membership but stays in the independent raw
@@ -335,7 +342,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
     });
     lifecycle('finds committed canonical absence and activity through maintained stream receipts', async function () {
-      const worker = await start(lab.configure(d => { d.timeIntervalMs = 60000; }));
+      const worker = await startExisting([lab.A], lab.configure(d => { d.timeIntervalMs = 60000; }));
       await seed();
       const first = await waitForReading(worker), foreignBefore = (await lab.previewPhysical()).B;
       const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
@@ -356,7 +363,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert(version(recovered.done.bootstrap)>=version(recovered.input.checkpoint),'M5_EVAL_BACKSTOP_NATIVE_INPUT_COMPLETED');
     });
     lifecycle('keeps unchanged timer input and acquires complete committed writes from maintained CDC', async function () {
-      const worker = await start(); await seed();
+      const worker = await startExisting([lab.A]); await seed();
       // Sample the live seed after durable completion. Retained output content may carry an
       // older result checkpoint, so read current coverage from the typed row.
       const { first, before } = await lab.wait(async () => {
@@ -402,7 +409,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       for (const scenario of ['row', 'byte']) {
         if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
         const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
-        const worker = await start(config);
+        const worker = await startExisting([lab.A, lab.B], config);
         await seed(); await seed(lab.B, 'preview-reading', 333);
         // Establish the actual last-good model before testing its retention.
         // A concurrent durable receipt can refuse a bootstrap snapshot; the
@@ -444,7 +451,7 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       }
     });
     lifecycle('drains and fences a real in-flight clinical read before role shutdown', async function () {
-      const worker = await start(); await seed();
+      const worker = await startExisting([lab.A]); await seed();
       const first = await waitForReading(worker), completed = await lab.previewCompleted(lab.A);
       // Arm before the write: maintained CDC may start its actual cycle as soon
       // as COMMIT arrives, before a later explicit acquire call.
