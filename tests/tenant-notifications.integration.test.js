@@ -159,6 +159,7 @@ it('native stream ACK reads persisted producer state without a live evaluator or
       namespace: ns, catalogue: require('../migrations/candidates/postgres-alarm-suppression-v1.json') });
     await lab.admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD \'' + password + '\'');
     for (const namespace of [ns, lab.name]) await lab.admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + role + '"');
+    await lab.admin.query('GRANT EXECUTE ON FUNCTION "' + lab.name + '".tenant_notification_mark_ack(uuid,text) TO "' + role + '"');
     for (const table of ['schema_migrations', 'tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state']) {
       await lab.admin.query('GRANT SELECT ON "' + lab.name + '".' + table + ' TO "' + role + '"');
     }

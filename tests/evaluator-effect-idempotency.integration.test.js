@@ -39,6 +39,11 @@ optInSuite(process.env.NS_EVALUATOR_EFFECT_DOCKER_TEST==='1','NS_EVALUATOR_EFFEC
    for(const row of(await admin.query('SELECT p.oid::regprocedure::text AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1',[namespace])).rows)await admin.query('ALTER FUNCTION '+row.signature+' OWNER TO effect_owner');
    await admin.query('ALTER SCHEMA '+q(namespace)+' OWNER TO effect_owner');
   }
+  // The outbox writer receives the production scheduling privilege. The fixture
+  // has no ACK service, so its marking function stays with the catalogue owner.
+  for (const sql of require('../lib/server/ordinary-deployment-grants').notificationScheduleGrants({
+   namespace:outbox, owner:'effect_owner', outboxRole:'effect_worker', ackRole:'effect_owner'
+  })) await admin.query(sql);
   for(const role of ['effect_lifetime','effect_worker']){
    await admin.query('GRANT USAGE ON SCHEMA '+q(control)+' TO '+q(role));
    for(const table of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])await admin.query('GRANT SELECT ON '+q(control)+'.'+q(table)+' TO '+q(role));
