@@ -59,7 +59,7 @@ describe('native complete-cohort receiver composition',function(){
   return {receive,hints};
  }
  it('keeps the eligibility of the largest native lifecycle receipt within each cohort',async()=>{
-  const selection=require('../lib/tenant-lifecycle/native-selection').create({namespace:'synthetic_checkpoint',lifecycleNamespace:'synthetic',consumer:'evaluator-receipt',source:native.source,generation:'fixture'});
+  const selection=require('../lib/tenant-lifecycle/native-selection').create({namespace:'synthetic_checkpoint',lifecycleNamespace:'synthetic',consumer:'evaluator-receipt'});
   const route={schema:'synthetic',table:'tenant_lifecycle_windows',kind:'lifecycle'};
   let observation;
   const options={routes:[route],store:{nativeLifecycle:selection,consumer:'evaluator-receipt-completed',digest:selection.contractDigest},onInput(){},onSchema(){},
