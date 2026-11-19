@@ -2,7 +2,7 @@
 
 // Synthetic native witness. Disabled discovery starts no actors. Enabled runs
 // require the coordinator's exact joined SOURCE commit before Docker starts.
-// Participant peers report real database backends and actual catalogue OIDs;
+// Real database backends and actual catalogue OIDs;
 // the production census, maintenance controller and branded claim are unchanged.
 // covers: lib/tenant-lifecycle/recommission.js, lib/tenant-lifecycle/deletion-maintenance.js, lib/tenant-lifecycle/recommission-grants.js
 const assert = require('node:assert/strict');
@@ -16,11 +16,6 @@ const scope = require('../../lib/storage/tenant-scope');
 const artifacts = require('../../lib/tenant-lifecycle/artifact');
 const lifecycle = require('../../lib/tenant-lifecycle');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
-const cohorts = require('../../lib/server/serve/operation-cohort');
-const manifests = require('../../lib/server/serve/operation-cohort-manifest');
-const transport = require('../../lib/server/internal-api/transport');
-const contracts = require('../../lib/server/internal-api/contracts');
-const datastore = require('../../lib/storage/postgres-datastore');
 const rules = require('../../lib/tenant-registry/rules');
 const clinical = require('../../lib/tenant-lifecycle/clinical-catalogue').CLINICAL;
 const ordered = ['entries', 'treatments', 'devicestatus', 'profile', 'food'];
@@ -51,9 +46,9 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
     const selectionOptions = () => native ? {nativeSelection:profile} : {intakeProfile:profile};
     const owner = prefix + '_owner', role = prefix + '_maintenance';
     const peerRole = prefix + '_peer', assignmentRole = prefix + '_assignment', intakeRole = prefix + '_intake';
-    let previousMode, sourceCommit, adminURI, roleURI, pool, controller, cohort, life, admission, profile, bindings, ns, registryNamespace;
-    let artifactDirectory, socketDirectory, vault, runtimeToken, custodianToken, ownerURI, participantEntries, configMissing = false, foreignStatus = false;
-    const containers = [], peers = [], backends = [], roots = new Map();
+    let previousMode, sourceCommit, adminURI, roleURI, pool, controller, life, admission, profile, bindings, ns, registryNamespace;
+    let artifactDirectory, socketDirectory, vault, runtimeToken, custodianToken, ownerURI, configMissing = false;
+    const containers = [], roots = new Map();
     const table = (kind, name) => q(ns[kind]) + '.' + q(name);
     const keysOf = tenant => Object.keys(rules.PURPOSES).map(purpose => ({ mount: 'transit', name: rules.vaultKey(tenant, purpose) }));
     const locks = [A, B].map(tenant => ({ tenant, key: rules.lockKey(tenant) }));
@@ -139,11 +134,11 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         await client.query('INSERT INTO '+table('lifecycle','tenant_lifecycle_restore_authority')+' (tenant_id,role_oid,active) VALUES($1,$2::regrole::oid,true)',[tenant,logicalRole]);
       });
       const url=new URL(adminURI);url.username=logicalRole;url.password=password;
-      const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,drainTimeoutMs:10000,nativeSelection:profile});
+      const logicalPool=new Pool({connectionString:url.toString(),max:1}),logicalController=maintenance.create({namespace:ns.lifecycle,locks,pool:logicalPool,drainTimeoutMs:10000,nativeSelection:profile});
       return {logicalPool,logicalController};
     }
     async function resumeFailedClaim () {
-      const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: ns.lifecycle, locks, pool, cohort, ...selectionOptions() });
+      const recovery = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace: ns.lifecycle, locks, pool, ...selectionOptions() });
       try {
         const inspection = await recovery.inspect(A);
         assert.equal(inspection.phase, 'suspended'); assert.equal(inspection.resumable, true);
@@ -232,7 +227,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       if(native)assert.throws(()=>require('../../lib/tenant-operations/catalogues').deploymentAdmission({...admissionOptions,selection:{...admissionOptions.selection,evaluator_checkpoint:'migrations/candidates/postgres-realtime-output-v2.json'}}),{message:'LIFECYCLE_NATIVE_SELECTION_INVALID'});
       const rolePassword = crypto.randomBytes(24).toString('hex'), peerPassword = crypto.randomBytes(24).toString('hex');
       const url = new URL(adminURI); url.username = role; url.password = rolePassword; roleURI = url.toString();
-      let peerURI, identity;
+      let peerURI;
       await admin(async client => {
         await client.query('REVOKE CREATE ON SCHEMA public FROM PUBLIC'); await client.query('REVOKE CREATE ON DATABASE nightscout_recommission_test FROM PUBLIC');
         await client.query('CREATE ROLE ' + q(owner) + ' NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION');
@@ -315,25 +310,12 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       await vaultRequest('sys/policies/acl/native-recommission-custodian', { policy: keysOf(A).map(key => 'path "transit/keys/' + key.name + '" { capabilities=["read","delete"] }\npath "transit/keys/' + key.name + '/config" { capabilities=["update"] }').join('\n') });
       custodianToken = (await vaultRequest('auth/token/create', { policies: ['native-recommission-custodian'], no_default_policy: true, ttl: '1h' })).auth.client_token;
       const setup = new Client({ connectionString: roleURI }); await setup.connect();
-      try { identity = await require('../../lib/tenant-lifecycle/operation-window-readiness').admit(setup, ns.lifecycle, {maintenance:true,intakeProfile:profile}); }
+      try { await require('../../lib/tenant-lifecycle/operation-window-readiness').admit(setup, ns.lifecycle, {maintenance:true,intakeProfile:profile}); }
       finally { await setup.end(); }
-      const entries = manifests.validate(['api', 'realtime', 'evaluator', 'tenant-admin'].map(name => ({ id: name, roles: [name],
-        namespaces: admission.catalogues.filter(entry => entry.kind !== 'lifecycle').map(entry => entry.namespace),
-        endpoint: { socketPath: path.join(socketDirectory, name + '.sock'), maxBytes: 1048576, timeoutMs: 5000 } })));
-      participantEntries = entries;
-      for (const entry of entries) {
-        const client = new Client({ connectionString: peerURI }); await client.connect(); backends.push(client);
-        const row = (await client.query('SELECT pg_backend_pid() AS pid,current_user AS role,extract(epoch from backend_start)::text AS birth,' + datastore.SQL + ' FROM pg_stat_activity WHERE pid=pg_backend_pid()')).rows[0];
-        const incarnation = crypto.randomUUID();
-        const status = request => ({ version: 4, ownership: entry.roles.includes('realtime') ? { ...entry.slice, rule: require('../../lib/pool-membership/slice').RULE } : null, participant: entry.id, incarnation, namespace: foreignStatus&&entry.id==='api'?'foreign_control':ns.lifecycle, roles: [...entry.roles], tenants: [A, B],
-          namespaces: [...entry.namespaces], identity, intakeProfileDigest:profile.digest, datastore: datastore.identity(row), backends: [{ pid: row.pid, role: row.role, birth: row.birth }], request });
-        peers.push(await transport.open(entry.endpoint, contracts.lifecycleParticipant, () => ({ getStatus: async (_ctx, body) => status(body.request),
-          invalidateTenant: async (_ctx, body) => ({ ...status(body.request), tenant: body.tenant }),
-          getApiHealth: async (ctx, body) => ({request:body.request,ready:true,storageReady:true}), getOperations: async (_ctx, body) => ({ request: body.request, tenant: body.tenant, participant: entry.id, incarnation, operations: [] }) })));
-      }
-      cohort = await cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: entries, intakeProfile:profile });
+      // No lifecycle-participant peers or remote cohort census: restore is suspend,
+      // drain in-flight transactions, replace, activate (decision restore-suspend-drain-replace).
       pool = new Pool({ connectionString: roleURI, max: 1 });
-      controller = maintenance.create({ namespace: ns.lifecycle, locks, pool, cohort, drainTimeoutMs: 10000, ...selectionOptions() });
+      controller = maintenance.create({ namespace: ns.lifecycle, locks, pool, drainTimeoutMs: 10000, ...selectionOptions() });
       life = admission.lifecycle.withCapabilities({
         authorize: async ({ connection, tenant }) => {
           const rows = (await connection.query('SELECT active FROM ' + table('lifecycle', 'tenant_lifecycle_restore_authority') + ' WHERE tenant_id=$1 AND role_oid=CURRENT_USER::regrole::oid', [tenant])).rows;
@@ -366,8 +348,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
 
     after(async function () {
       try {
-        if (controller) await controller.close(); if (cohort) await cohort.close();
-        for (const peer of peers) await peer.close(); for (const backend of backends) await backend.end();
+        if (controller) await controller.close();
         if (pool) await pool.end();
       } finally {
         if (previousMode !== undefined) scope.setTenancyMode(previousMode);
@@ -556,28 +537,21 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       assert.deepEqual(await snapshot(A), beforeA); assert.deepEqual(await snapshot(B), beforeB);
     });
 
-    it('refuses a different current selected profile before draining or changing tenant rows', async function () {
+    // The non-native branch checked only the retired remote cohort's profile
+    // match (decision restore-suspend-drain-replace); the native source checks remain.
+    if(native)it('refuses a different current selected profile before draining or changing tenant rows', async function () {
       const beforeA = await snapshot(A), beforeB = await snapshot(B);
       if(native){
         const connection={query:(sql,values)=>admin(client=>client.query(sql,values))};
         const configuration=await currentConfiguration({tenant:A,connection});
         const selected=require('../../lib/tenant-lifecycle/native-selection');
         assert.throws(()=>selected.validate({...profile}),{code:'LIFECYCLE_NATIVE_SELECTION_REQUIRED'});
-        const changed=selected.create({...profile.binding,generation:'foreign-generation'});
-        await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:changed}),{code:'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH'});
-        await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries.filter(entry=>entry.id!=='evaluator'),intakeProfile:profile}),/Fixed participant manifest must cover every role/);
-        foreignStatus=true;
-        try{await assert.rejects(cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:profile}),{code:'RESTORE_COHORT_PROTOCOL'});}finally{foreignStatus=false;}
-        const restored=await cohorts.createRemote({namespace:ns.lifecycle,tenants:[A,B],participants:participantEntries,intakeProfile:profile});await restored.close();
         const foreign=selected.create({...profile.binding,source:{...profile.binding.source,system_id:profile.binding.source.system_id+'1'}});
         await assert.rejects(selected.assertCurrent(connection,foreign,{nativeSource:{source:foreign.binding.source,generation:foreign.binding.generation}}),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
         configuration.nativeSource.generation='foreign-generation';
         await assert.rejects(require('../../lib/tenant-lifecycle/native-selection').assertCurrent(connection,profile,configuration),{code:'LIFECYCLE_NATIVE_SOURCE_CHANGED'});
         assert.deepEqual(await snapshot(A),beforeA);assert.deepEqual(await snapshot(B),beforeB);return;
       }
-      const fields = ['namespace', 'membershipNamespace', 'lifecycleNamespace', 'role', 'operatorRole', 'consumer', 'codec', 'generationDomain', 'sliceRule'];
-      const changed = require('../../lib/pgstream/pool-intake-profile').create({ ...Object.fromEntries(fields.map(key => [key, profile.binding[key]])), consumer: 'evaluator-different-current-profile' });
-      await assert.rejects(cohorts.createRemote({ namespace: ns.lifecycle, tenants: [A, B], participants: participantEntries, intakeProfile: changed }), { code: 'RESTORE_COHORT_INTAKE_PROFILE_MISMATCH' });
       assert.deepEqual(await snapshot(A), beforeA); assert.deepEqual(await snapshot(B), beforeB);
     });
 
@@ -615,7 +589,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const restore=()=>logicalController.withRestore(B,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:B,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim,now:()=>at+1000}));
         await assert.rejects(restore(),{code:'LIFECYCLE_LOGICAL_LIVE_FLOOR_REQUIRED'});
         const recover=async expected=>{
-          const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,cohort,nativeSelection:profile});
+          const recovery=require('../../lib/tenant-lifecycle/restore-resume').create({namespace:ns.lifecycle,locks,pool:logicalPool,nativeSelection:profile});
           try{const inspection=await recovery.inspect(B);assert.equal(inspection.interrupted,expected);await recovery.resume(B,{claimId:inspection.claimId});}finally{await recovery.close();}
         };
         await recover('before-data');

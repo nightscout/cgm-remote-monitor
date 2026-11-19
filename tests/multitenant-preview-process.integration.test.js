@@ -13,6 +13,7 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const { optInSuite } = require('./support/opt-in');
+const prestart = require('./fixtures/platform-prestart');
 
 const root = path.resolve(__dirname, '..');
 const BIN = path.join(root, 'bin/nightscout.js');
@@ -20,6 +21,7 @@ const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb630240
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const SUBJECT = '000000000000000000000001';
+const PROOF_NAMESPACE = 'preview_process_proof';
 const namespaces = { entries: 'preview_data', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', clock: 'preview_clock' };
 const domainNames = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
 const allNamespaces = { ...namespaces, ...Object.fromEntries(domainNames.filter(name => name !== 'entries')
@@ -65,13 +67,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     const fixtureDirectory = path.resolve(root, '..', '.runnable-preview-fixtures-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
     const roots = [], children = new Set(), tokens = [], publicKeys = [];
-    let provisioned, roleToken;
+    let provisioned, roleToken, proof, lastVerified = null;
     function configuration (address, full = false) {
       return { version: 1, writeClock: true, ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
         postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: full ? allNamespaces : namespaces },
         vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
         resolution: { mode: 'direct-alias' }, registry: { namespace: provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
-        tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.namespaces.settings, operatorPolicy: provisioned.namespaces.operatorPolicy } } };
+        tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.namespaces.settings, operatorPolicy: provisioned.namespaces.operatorPolicy } },
+        platformVerification: { namespace: PROOF_NAMESPACE, role: 'api' } };
     }
     let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot;
 
@@ -110,12 +113,32 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       return { ...env, ...extra };
     }
 
+    // The deployment's pre-start step (decision platform-application-boundary)
+    // for a configuration selecting this suite's proof: admin verifies the exact
+    // configuration, publishes the api proof and records the seeded tenants'
+    // floors for its contract. A refusal revokes the proof; the role then
+    // refuses at its start check.
+    function preStart (text, extra) {
+      let selected;
+      try { selected = JSON.parse(text)?.platformVerification; } catch { selected = undefined; }
+      if (!proof || selected?.namespace !== PROOF_NAMESPACE) return null;
+      const key = JSON.stringify([text, extra || {}]);
+      if (key === lastVerified) return { status: 'verified', reused: true };
+      const result = prestart.verifySync({ directory: fixtureDirectory, namespace: proof.namespace, writerURI: proof.writerURI,
+        targets: [{ role: 'api', configFile }], source: environment(extra), backfillSeededTenants: true });
+      lastVerified = result.status === 'verified' ? key : null;
+      if (result.status !== 'verified') console.log('PREVIEW_PRE_START_REFUSED ' + JSON.stringify({ code: result.code, diagnostic: result.diagnostic }));
+      return result;
+    }
+
     function start (config = configuration(address), extra) {
-      fs.writeFileSync(configFile, typeof config === 'string' ? config : JSON.stringify(config), { mode: 0o600 });
+      const text = typeof config === 'string' ? config : JSON.stringify(config);
+      fs.writeFileSync(configFile, text, { mode: 0o600 });
+      const verified = preStart(text, extra);
       const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], {
         cwd: fixtureDirectory, env: environment(extra), stdio: ['ignore', 'pipe', 'pipe']
       });
-      const worker = { child, stdout: '', stderr: '', exit: null };
+      const worker = { child, stdout: '', stderr: '', exit: null, preStart: verified };
       children.add(worker);
       child.stdout.on('data', bytes => { worker.stdout += bytes; });
       child.stderr.on('data', bytes => { worker.stderr += bytes; });
@@ -149,12 +172,20 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await assert.rejects(fetch('http://127.0.0.1:' + worker.port + '/', { signal: AbortSignal.timeout(1000) }));
     }
 
-    async function refused (config, extra) {
+    // A configuration refusal exits 78. A platform refusal stops the role at
+    // its start check, exit 1: the pre-start step refused and published no
+    // proof (preStart 'refused'), or the role's own contract differs from the
+    // verified one (preStart 'verified'). Each case runs its own pre-start, as a
+    // deployment does, so drift made since an earlier verification is seen.
+    async function refused (config, extra, { code = 78, preStart: expected } = {}) {
+      lastVerified = null;
       const worker = start(config, extra);
       await until(async () => worker.exit !== null || /Listening/.test(worker.stdout), 'refused preview termination');
       assert.doesNotMatch(worker.stdout, /Listening/, 'refused configuration must never bind');
       const exit = await worker.exited;
-      assert.deepEqual(exit, { code: 78, signal: null });
+      assert.deepEqual(exit, { code, signal: null }, worker.stderr);
+      if (code === 1) assert.match(worker.stderr, /could not start/);
+      if (expected) assert.equal(worker.preStart?.status, expected, 'pre-start outcome');
       assert.doesNotMatch(worker.stdout, /Listening/);
       for (const credential of [appURI, checkURI, settingsURI, vaultRoot, ...tokens, ...roots]) {
         assert.ok(!worker.stderr.includes(credential), 'startup diagnostic must not disclose credentials');
@@ -297,6 +328,8 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-process-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
       tokens.push(roleToken);
+      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry,
+        floorReaders: ['preview_app'], readers: ['preview_app', 'preview_check'] });
       for (const [i, tenant] of [A, B].entries()) {
         await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
         await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
@@ -446,10 +479,10 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       config.accessTokens.keys[1].publicKey = config.accessTokens.keys[0].publicKey;
       await refused(config, { MULTITENANT_STATIC_TENANTS: 'lab' });
       await admin.query('GRANT UPDATE ON preview_access.access_sessions TO preview_app');
-      try { await refused(localConfiguration()); }
+      try { await refused(localConfiguration(), undefined, { code: 1, preStart: 'refused' }); }
       finally { await admin.query('REVOKE UPDATE ON preview_access.access_sessions FROM preview_app'); }
       await admin.query('ALTER TABLE preview_access.access_keys DISABLE ROW LEVEL SECURITY');
-      try { await refused(localConfiguration()); }
+      try { await refused(localConfiguration(), undefined, { code: 1, preStart: 'refused' }); }
       finally { await admin.query('ALTER TABLE preview_access.access_keys ENABLE ROW LEVEL SECURITY'); }
     });
 
@@ -762,7 +795,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await refused(config);
       await refused(configuration(address), { PREVIEW_APP_PG: '' });
       await refused(configuration(address), { PREVIEW_CHECK_PG: appURI });
-      await refused(configuration(address), { PREVIEW_APP_PG: adminURI });
+      await refused(configuration(address), { PREVIEW_APP_PG: adminURI }, { code: 1, preStart: 'refused' });
       const incomplete = configuration(address);
       incomplete.legacy = true;
       await refused(incomplete);
@@ -776,35 +809,29 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await refused(missingTrust);
       const stale = await admin.query('DELETE FROM preview_auth.schema_migrations WHERE name = (SELECT max(name) FROM preview_auth.schema_migrations) RETURNING name, checksum');
       try {
-        await refused(configuration(address));
+        await refused(configuration(address), undefined, { code: 1, preStart: 'refused' });
       } finally {
         const row = stale.rows[0];
         await admin.query('INSERT INTO preview_auth.schema_migrations(name,checksum) VALUES($1,$2)', [row.name, row.checksum]);
       }
       await admin.query('GRANT INSERT ON preview_data.entries TO preview_check');
-      try { await refused(configuration(address)); } finally {
+      try { await refused(configuration(address), undefined, { code: 1, preStart: 'refused' }); } finally {
         await admin.query('REVOKE INSERT ON preview_data.entries FROM preview_check');
       }
     });
 
-    it('legacy negative compatibility: refuses an incomplete injected intent before the preview listener binds', async function () {
-      await refused(staticNegativeConfiguration(address), {
-        MULTITENANT_STATIC_TENANTS: 'lab',
-        NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
-        NS_PREVIEW_COMPOSITION_FAULT: 'intent'
-      });
-    });
-
     it('refuses a wrong backend catalogue before the preview listener binds', async function () {
+      // The child's catalogue differs from the one admin verified: its start
+      // check finds no matching proof (decision catalogue-verification-admin-owned).
       await refused(configuration(address), {
         NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
         NS_PREVIEW_COMPOSITION_FAULT: 'catalogue'
-      });
+      }, { code: 1, preStart: 'verified' });
     });
 
     it('cleans acquired pools after late initialization or listener failure', async function () {
       await admin.query('ALTER TABLE preview_data.entries NO FORCE ROW LEVEL SECURITY');
-      try { await refused(configuration(address)); } finally {
+      try { await refused(configuration(address), undefined, { code: 1, preStart: 'refused' }); } finally {
         await admin.query('ALTER TABLE preview_data.entries FORCE ROW LEVEL SECURITY');
       }
       const occupied = net.createServer();

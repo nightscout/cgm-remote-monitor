@@ -86,6 +86,9 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
         await admin.query('GRANT SELECT,INSERT,UPDATE(revision,config_identity,producer) ON ' + quote(namespace) + '.tenant_notification_state TO ' + quote(name));
       } else await admin.query('GRANT SELECT ON ' + quote(namespace) + '.tenant_alarm_suppression,' + quote(namespace) + '.schema_migrations TO ' + quote(name));
     }
+    // The deployment's due-discovery grants on the outbox (lib/server/ordinary-deployment-grants.js).
+    for (const sql of require('../lib/server/ordinary-deployment-grants').notificationScheduleGrants({
+      namespace: consumerNamespaces.outbox, owner, outboxRole: consumerRoles.outbox, ackRole: consumerRoles.alarm })) await admin.query(sql);
     operationConfig = {namespace: ns.control, poolOptions: {connectionString: urls[lifetime]}, nativeSelection: selected};
     lifecycle = await lifecycleCheck.inspect(operationConfig);
     reader = new Client({connectionString: urls[role]});
