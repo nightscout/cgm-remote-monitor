@@ -96,7 +96,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   // The participant manifest: each role's protected namespaces as the role
   // process computes them (the api also protects the notification outbox it
   // reads through the evaluator's metadata), the control namespace excluded.
-  const protectedNamespaces = require('../../lib/server/serve/operation-cohort').protectedNamespaces;
+  const protectedNamespaces = require('../../lib/server/serve/role-topology').protectedNamespaces;
   const protects = role => [...new Set([...protectedNamespaces(configs[role]), ...(role === 'api' ? [ns.outbox] : [])])].filter(name => name !== ns.control).sort();
   const participants = serviceRoles.map(role => ({ id: role, roles: [role], namespaces: protects(role), maxMessageBytes: 1048576, timeoutMs: 5000 }));
   const operations = {};

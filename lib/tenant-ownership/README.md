@@ -153,7 +153,7 @@ ownership-operations overlay. Core tests use `tests/fixtures/multitenant-plan.js
 
 The admin role is not a lifecycle operation-cohort participant: serve refuses it
 together with `MULTITENANT_OPERATION_CONFIG`. A restore proceeds while it is
-connected: the restore census in `lib/server/serve/operation-cohort.js` accepts a
+connected: the restore census in `lib/server/serve/role-topology.js` accepts a
 non-participant backend whose database identity, checked in the catalogue at
 census time, holds no privilege on any clinical table
 (`lib/tenant-lifecycle/clinical-catalogue.js`) in the protected namespaces. The

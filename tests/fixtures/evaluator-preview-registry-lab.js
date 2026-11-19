@@ -122,7 +122,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
         if (document.tenantSettings) document.tenantSettings = structuredClone(config.document.tenantSettings);
       }
       documents.configs.evaluator = config.document;
-      const protects = require('../../lib/server/serve/operation-cohort').protectedNamespaces;
+      const protects = require('../../lib/server/serve/role-topology').protectedNamespaces;
       const participants = documents.operations.evaluator.participants.map(row => ({ ...row,
         namespaces: protects(documents.configs[row.id]).filter(namespace => namespace !== registry.control) }));
       fs.writeFileSync(operationFile, JSON.stringify({ ...documents.operations.evaluator,

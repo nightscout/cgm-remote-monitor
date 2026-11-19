@@ -1,5 +1,5 @@
 'use strict';
-// covers: lib/storage/postgres-connection.js, lib/server/serve/operation-cohort.js
+// covers: lib/storage/postgres-connection.js, lib/server/serve/role-topology.js
 // Actual disposable PostgreSQL backends. No serving stack, clinical mutation or
 // retained deployment state is used by this constructor/admission instrument.
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
