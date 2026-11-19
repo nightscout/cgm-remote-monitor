@@ -6,8 +6,6 @@
 // covers: lib/server/serve/preview-config.js, lib/server/serve/registry-config.js, lib/server/serve/operation-cohort-config.js, lib/tenant-lifecycle/operation-window.js
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const previewConfig = require('../lib/server/serve/preview-config');
 const operationConfig = require('../lib/server/serve/operation-cohort-config');
@@ -30,14 +28,8 @@ function apiConfig (extra = {}) {
 }
 
 describe('registry-mode role configuration', function () {
-  let dir;
-  before(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-registry-config-')); });
-  after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const load = (config, loader = previewConfig.load, name = 'MULTITENANT_PREVIEW_CONFIG') => {
-    const file = path.join(dir, randomUUID() + '.json');
-    fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600 });
-    return loader({ ...(name === 'MULTITENANT_EVALUATOR_CONFIG' ? evaluatorPlan.environments.evaluator : {}), ...SOURCE, [name]: file });
-  };
+  // The api's own validator (lib/server/serve/preview-config.js parse) on a configuration value.
+  const load = (config, parse = previewConfig.parse) => parse(config, SOURCE);
 
   it('RC_REGISTRY: the api loads with a registry and no tenant list', function () {
     const config = load(apiConfig());
@@ -47,9 +39,9 @@ describe('registry-mode role configuration', function () {
     assert.equal(config.registryVault.mount, 'transit');
   });
 
-  function requiresWriteClock (loader = previewConfig.load) {
+  function requiresWriteClock (parse = previewConfig.parse) {
     for (const writeClock of [undefined, false, 'true']) {
-      assert.throws(() => load(apiConfig({ writeClock }), loader),
+      assert.throws(() => load(apiConfig({ writeClock }), parse),
         error => error.code === 'API_WRITE_CLOCK_REQUIRED', 'API_WITHOUT_HISTORY_CLOCK_MUST_REFUSE');
     }
   }
@@ -66,7 +58,7 @@ describe('registry-mode role configuration', function () {
     assert(source.includes(needle), 'CONFIG_CONTROL_MUST_REMOVE_ACTUAL_REFUSAL');
     const modified = source.replace(needle, 'if (false) throw'), result = { exports: {} };
     vm.runInThisContext('(function(require,module,exports){' + modified + '\n})', { filename: file })(createRequire(file), result, result.exports);
-    assert.throws(() => requiresWriteClock(result.exports.load), /API_WITHOUT_HISTORY_CLOCK_MUST_REFUSE/);
+    assert.throws(() => requiresWriteClock(result.exports.parse), /API_WITHOUT_HISTORY_CLOCK_MUST_REFUSE/);
     requiresWriteClock();
   });
 
@@ -99,12 +91,12 @@ describe('registry-mode role configuration', function () {
     assert.throws(() => load(apiConfig({ localDataAuthentication: 'cache' })), /localDataAuthentication requires/);
   });
 
-  it('RC_LOCK_RULE: the operation configuration names the registry instead of a lock list; the window derives keys by the tenant-id rule', function () {
-    const parsed = load({ version: 1, namespace: 'ns_control', connectionEnv: 'LIFE_PG', registry: { namespace: 'ns_registry' } }, operationConfig.load, 'MULTITENANT_OPERATION_CONFIG');
+  it('RC_LOCK_RULE: the operation lease names the registry instead of a lock list; the window derives keys by the tenant-id rule', function () {
+    const parsed = operationConfig.load({ NS_PG_PREFIX: 'ns', NS_LIFETIME_PG: SOURCE.LIFE_PG });
+    assert.equal(parsed.namespace, 'ns_control');
     assert.equal(parsed.locks, null); assert.equal(parsed.lockRule, 'tenant-id-sha256-v1');
     assert.deepEqual([...parsed.tenantIds], ['registry:ns_registry']);
-    assert.equal(load({ version: 1, namespace: 'ns_control', connectionEnv: 'LIFE_PG', registry: { namespace: 'ns_registry' }, locks: [] },
-      config => { try { return operationConfig.load(config); } catch { return 'refused'; } }, 'MULTITENANT_OPERATION_CONFIG'), 'refused');
+    assert.equal(operationConfig.load({ NS_PG_PREFIX: 'ns' }), null, 'no lifetime identity, no lease');
     const window = operationWindow.create({ namespace: 'ns_control', lockRule: parsed.lockRule, pool: { options: { max: 1 }, connect () { throw new Error('unused'); } } });
     assert.ok(window);
     assert.throws(() => operationWindow.create({ namespace: 'ns_control', lockRule: 'other', pool: { connect () {} } }));
@@ -153,30 +145,4 @@ describe('registry-mode role configuration', function () {
     assert.equal(entry.revision, 'registry'); assert.match(entry.identity, /^[0-9a-f]{64}$/);
   });
 
-  it('RC_LOAD_PATH: through the bounded reader, each loader keeps the registry refusal and the reader keeps its cause code', function () {
-    // Joins MT-CAPACITY-FIXES (lib/server/serve/config-file.js) with registry mode: the
-    // registry refusal must not collapse into the generic refusal, and an oversized file
-    // must still name CONFIG_FILE_TOO_LARGE.
-    const adminConfig = require('../lib/server/serve/admin-config');
-    const ownerConfig = require('../lib/server/serve/owner-preview-config');
-    const evaluatorConfig = require('../lib/server/serve/evaluator-config');
-    const ownership = { connectionEnv: 'APP_PG', namespace: 'ns_auth', lifecycleNamespace: 'ns_control', operator: { principal: 'op', consumer: 'admin' }, registry: { namespace: 'ns_registry' } };
-    const owner = { version: 1, postgres: { writerConnectionEnv: 'APP_PG', accessConnectionEnv: 'CHECK_PG', namespaces: { authorization: 'ns_auth', credentials: 'ns_legacy', access: 'ns_access' } },
-      resolution: { mode: 'direct-alias' }, registry: { namespace: 'ns_registry' }, ownerPolicy: { catalogue: ['*'] },
-      management: { issuer: 'i', audience: 'a', purpose: 'management', consumer: 'owner' } };
-    const evaluator = evaluatorDocument();
-    const cases = [
-      ['api', previewConfig.load, 'MULTITENANT_PREVIEW_CONFIG', apiConfig(), { tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }],
-      ['admin', adminConfig.load, 'MULTITENANT_ADMIN_CONFIG', { version: 1, maxBytes: 65536, timeoutMs: 10000, ownership }, null],
-      ['tenant-admin', ownerConfig.load, 'MULTITENANT_OWNER_PREVIEW_CONFIG', owner, { tenants: [{ id: randomUUID(), aliases: ['one.example.test'] }] }],
-      ['evaluator', evaluatorConfig.load, 'MULTITENANT_EVALUATOR_CONFIG', evaluator, { tenants: [{ id: randomUUID(), revision: 'r', settings: {} }] }]
-    ];
-    for (const [role, loader, name, base, extra] of cases) {
-      const listed = extra ? { ...base, ...extra } : { ...base, ownership: { ...ownership, tenants: [randomUUID()] } };
-      assert.throws(() => load(listed, loader, name), /registry configuration refuses a tenants list/, role + ' keeps the registry refusal through load');
-      const big = { ...base, padding: 'x'.repeat(70000) };
-      assert.throws(() => load(big, source => loader({ ...source, MULTITENANT_CONFIG_MAX_BYTES: '65536' }), name),
-        error => error.code === 'CONFIG_FILE_TOO_LARGE', role + ' keeps the bounded reader cause code');
-    }
-  });
 });

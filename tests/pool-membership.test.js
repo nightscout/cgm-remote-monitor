@@ -1,13 +1,12 @@
 'use strict';
 
-// Pool membership primitive: slice function, configuration and the agreement
+// Pool membership primitive: slice function and the agreement
 // rule, without a database. Synthetic tenant ids only.
-// covers: lib/pool-membership/slice.js, lib/pool-membership/config.js, lib/pool-membership/assess.js, lib/pool-membership/index.js, lib/server/serve/evaluator-config.js
+// covers: lib/pool-membership/slice.js, lib/pool-membership/assess.js, lib/pool-membership/index.js, lib/server/serve/evaluator-config.js
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const membership = require('../lib/pool-membership');
 const { RULE, bucket, predicate } = membership.slice;
-const { fromEnvironment } = membership.config;
 
 const tenants = Array.from({ length: 2000 }, () => randomUUID());
 const row = (ordinal, memberId, extra = {}) => ({ ordinal, memberId, rule: RULE, live: true, ...extra });
@@ -40,39 +39,6 @@ describe('pool membership primitive', function () {
       assert.throws(() => bucket('11111111-1111-4111-8111-11111111111A', 2), /Canonical tenant/);
       assert.throws(() => bucket('not-a-tenant', 2), /Canonical tenant/);
       for (const [members, ordinal] of [[0, 0], [2, 2], [2, -1], [1.5, 0], [1025, 0]]) assert.throws(() => predicate(members, ordinal), /Pool slice/);
-    });
-  });
-
-  describe('configuration', function () {
-    const on = (extra = {}) => ({ MULTITENANT_POOL_VCPOOL_PARTITION: 'on',
-      MULTITENANT_POOL_VCPOOL_ORDINAL: '2', MULTITENANT_POOL_VCPOOL_DATABASE_URL: 'postgres://synthetic:synthetic@127.0.0.1/disposable_test',
-      MULTITENANT_POOL_VCPOOL_NAMESPACE: 'pool_ops', ...extra });
-    it('flag off (unset or off) is one owner of every tenant', function () {
-      assert.deepEqual(fromEnvironment('evaluator', {}), { kind: 'evaluator', partitioned: false });
-      assert.deepEqual(fromEnvironment('evaluator', { MULTITENANT_POOL_EVALUATOR_PARTITION: 'off' }), { kind: 'evaluator', partitioned: false });
-    });
-    it('reads the ordinal, lease and identity per kind; another kind\'s variables are not read', function () {
-      const selected = fromEnvironment('vcpool', on());
-      assert.deepEqual({ ...selected, connectionString: undefined }, { kind: 'vcpool', partitioned: true, ordinal: 2,
-        leaseMs: 30000, connectionString: undefined, namespace: 'pool_ops' });
-      assert.deepEqual(fromEnvironment('evaluator', on()), { kind: 'evaluator', partitioned: false });
-    });
-    it('refuses a member count in the environment and names the operator command', function () {
-      for (const env of [on({ MULTITENANT_POOL_VCPOOL_MEMBERS: '3' }), { MULTITENANT_POOL_VCPOOL_MEMBERS: '2' }]) {
-        assert.throws(() => fromEnvironment('vcpool', env), error => error.code === 'POOL_CONFIG_INVALID' &&
-          /MULTITENANT_POOL_VCPOOL_MEMBERS is not read/.test(error.message) && /setPoolMembers \(POST \/pool\/members\)/.test(error.message));
-      }
-    });
-    it('refuses malformed or stray values rather than ignoring them', function () {
-      for (const env of [on({ MULTITENANT_POOL_VCPOOL_PARTITION: 'yes' }), on({ MULTITENANT_POOL_VCPOOL_ORDINAL: '1024' }),
-        on({ MULTITENANT_POOL_VCPOOL_ORDINAL: '02' }), on({ MULTITENANT_POOL_VCPOOL_ORDINAL: '-1' }), on({ MULTITENANT_POOL_VCPOOL_ORDINAL: undefined }),
-        on({ MULTITENANT_POOL_VCPOOL_LEASE_MS: '50' }), on({ MULTITENANT_POOL_VCPOOL_NAMESPACE: 'public' }),
-        on({ MULTITENANT_POOL_VCPOOL_DATABASE_URL: undefined }),
-        { MULTITENANT_POOL_VCPOOL_PARTITION: 'off', MULTITENANT_POOL_VCPOOL_ORDINAL: '0' }]) {
-        assert.throws(() => fromEnvironment('vcpool', env), { code: 'POOL_CONFIG_INVALID' }, JSON.stringify(env));
-      }
-      assert.throws(() => fromEnvironment('VCPOOL', {}), TypeError);
-      assert.throws(() => fromEnvironment('vc_pool', {}), TypeError);
     });
   });
 
@@ -137,7 +103,7 @@ describe('pool membership primitive', function () {
 
   describe('standalone (flag off)', function () {
     it('selects every tenant and inspects without a lease', async function () {
-      const member = await membership.member(fromEnvironment('evaluator', {}));
+      const member = await membership.member({ kind: 'evaluator', partitioned: false });
       await member.register();
       assert.deepEqual(await member.heartbeat(), { renewed: true });
       const slice = await member.slice();

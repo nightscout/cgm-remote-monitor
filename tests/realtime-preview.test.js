@@ -11,7 +11,6 @@ const scope = require('../lib/storage/tenant-scope');
 const authorityFactory = require('../lib/server/realtime/authority');
 const protocolFactory = require('../lib/server/realtime/protocol');
 const runtimeFactory = require('../lib/server/realtime/runtime');
-const admissionFactory = require('../lib/server/realtime/admission');
 const ipc = require('../lib/server/internal-api/transport');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -75,19 +74,6 @@ describe('explicit realtime preview source contracts', function () {
       const bad = structuredClone(value); mutate(bad); assert.throws(() => parse(bad, source));
     }
     assert.throws(() => require('../lib/server/realtime/config').load({}), /REFUSED|configuration/);
-  });
-  it('fresh preview admission covers all credentials and rejects unknown/path/header selectors without D15 claims', async function () {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rt-admission-')), file = path.join(dir, 'allow.json');
-    const doc = { version: 1, mode: 'preview-socket-allowlist', tenants: [{ id: A, aliases: ['a.test'], enabled: true }] };
-    try {
-      fs.writeFileSync(file, JSON.stringify(doc)); const admission = admissionFactory.load({ file, maxTenants: 2 });
-      assert.equal(await admission.resolveHost('a.test'), A);
-      await assert.rejects(admission.resolve({ rawHeaders: ['Host','b.test'], url: '/a/socket.io', socket: {} }));
-      await assert.rejects(admission.resolve({ rawHeaders: ['Host','a.test','X-Resolved-Tenant',A], socket: {} }));
-      doc.tenants[0].enabled = false; fs.writeFileSync(file, JSON.stringify(doc));
-      assert.equal(await admission.allows(A), false, 'RT_CURRENT_ADMISSION no retained tenant enablement');
-      await assert.rejects(admission.resolveHost('a.test'));
-    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
   it('requires same origin for browsers and allows native absent Origin without trusting engine path', function () {
     assert.equal(protocolFactory.origin({ headers: { host: 'a.test:123' }, socket: {} }), true);

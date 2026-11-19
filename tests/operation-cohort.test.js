@@ -3,11 +3,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
 const vm = require('node:vm');
 const fixture = require('./fixtures/operation-window-runtime-protocol');
 const A = '11111111-1111-4111-8111-111111111111';
-const B = '22222222-2222-4222-8222-222222222222';
 const roles = ['api', 'evaluator', 'realtime', 'tenant-admin'];
 function load (relative, overrides, mutate = s => s) {
   const file = path.resolve(__dirname, relative), output = {exports:{}};
@@ -17,19 +15,14 @@ function load (relative, overrides, mutate = s => s) {
   return output.exports;
 }
 describe('Explicit operation cohort configuration', function () {
-  it('defaults off and rejects duplicate locks, unsafe namespaces and absent environment references', function () {
+  it('defaults off without the lifetime identity and refuses an unsafe prefix or connection', function () {
     const config = require('../lib/server/serve/operation-cohort-config');
     assert.equal(config.load({}),null);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(),'cohort-config-')), file = path.join(dir,'config.json');
-    const original = {version:1,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',locks:[{tenant:A,key:'17'},{tenant:B,key:'19'}]};
-    const source = {MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test'};
-    try {
-      fs.writeFileSync(file,JSON.stringify(original)); const selected = config.load(source);
-      assert.equal(Object.isFrozen(selected.locks[0]),true); assert.equal(selected.poolOptions.max,8);
-      for (const change of [v => { v.locks[1].key='17'; },v => { v.namespace='public'; },v => { v.namespace='pg_shadow'; },v => { v.connectionEnv='ABSENT'; },v => { v.extra=true; }]) {
-        const value = structuredClone(original); change(value); fs.writeFileSync(file,JSON.stringify(value)); assert.throws(() => config.load(source), /invalid explicit/);
-      }
-    } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+    const url = 'postgresql://synthetic:synthetic@127.0.0.1/disposable_test', selected = config.load({NS_PG_PREFIX:'synthetic',NS_LIFETIME_PG:url});
+    assert.equal(selected.namespace,'synthetic_control'); assert.equal(selected.locks,null); assert.equal(selected.poolOptions.max,8);
+    for (const change of [{NS_PG_PREFIX:'pg_shadow'},{NS_PG_PREFIX:'Public'},{NS_LIFETIME_PG:'mysql://synthetic:synthetic@127.0.0.1/disposable_test'},{NS_LIFETIME_PG:'postgresql://synthetic@127.0.0.1/disposable_test'}]) {
+      assert.throws(() => config.load({NS_PG_PREFIX:'synthetic',NS_LIFETIME_PG:url,...change}), /invalid explicit|NS_PG_PREFIX/, JSON.stringify(change));
+    }
   });
 });
 

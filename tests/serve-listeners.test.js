@@ -58,7 +58,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   });
 
   it('refuses the retired capture CLI role before reading even an invalid configuration path', function () {
-    const stopped = cli(['multitenant', 'feed-reader'], cleanEnv({ MULTITENANT_FEED_CONFIG: '/absent/retired-feed.json', MULTITENANT_OPERATION_CONFIG: '/absent/operation.json' }));
+    const stopped = cli(['multitenant', 'feed-reader'], cleanEnv({ MULTITENANT_FEED_CONFIG: '/absent/retired-feed.json' }));
     assert.equal(stopped.status, 64);assert.equal(stopped.stdout, '');assert.match(stopped.stderr, /feed-reader is retired/);assert.doesNotMatch(stopped.stderr, /ENOENT|could not start/);
   });
 
@@ -79,7 +79,7 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
     for (const name of ['vcpool', 'api,vcpool']) {
       const result = cli(['multitenant', name]);
       assert.equal(result.status, 78, name);
-      assert.match(result.stderr, /requires MULTITENANT_/, name);
+      assert.match(result.stderr, /deployment settings: NS_[A-Z_]+ is required/, name);
     }
     assert.equal(cli(['multitenant']).status, 64);
   });
@@ -99,14 +99,14 @@ describe('nightscout multitenant: roles (PLAT-SERVE)', function () {
   it('refuses headless tenant-admin without explicit preview configuration before any storage boot', function () {
     const result = cli(['multitenant', 'tenant-admin']);
     assert.equal(result.status, 78);
-    assert.match(result.stderr, /MULTITENANT_OWNER_PREVIEW_CONFIG/);
+    assert.match(result.stderr, /NS_VAULT_ADDR is required/);
     assert.doesNotMatch(result.stdout + result.stderr, /Listening|postgres:|API_SECRET|Mongo/);
   });
 
   it('refuses api without explicit preview configuration before single-tenant bootstrap', function () {
     const result = cli(['multitenant', 'api']);
     assert.equal(result.status, 78);
-    assert.match(result.stderr, /MULTITENANT_PREVIEW_CONFIG/);
+    assert.match(result.stderr, /NS_VAULT_ADDR is required/);
     assert.doesNotMatch(result.stdout + result.stderr, /API_SECRET|Mongo|Listening/);
   });
 

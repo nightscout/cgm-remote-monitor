@@ -8,9 +8,6 @@
 // tests/admin-role-ownership.integration.test.js. Synthetic identifiers only.
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 
 const serve = require('../lib/server/serve');
 const { ROLES, describeComposition } = require('../lib/server/serve/roles');
@@ -27,23 +24,16 @@ const B = '22222222-2222-4222-8222-222222222222';
 const SOURCE = { NS_OWNERSHIP_PG: 'postgres://synthetic_ownership:synthetic-only@127.0.0.1:5432/nightscout_test' };
 const valid = () => ({ version: 1, maxBytes: 65536, timeoutMs: 10000,
   ownership: { connectionEnv: 'NS_OWNERSHIP_PG', namespace: 'nsadm_authorization', lifecycleNamespace: 'nsadm_control',
-    operator: { principal: 'synthetic_operator', consumer: 'operator_plane' }, tenants: [A, B] } });
+    operator: { principal: 'synthetic_operator', consumer: 'operator_plane' }, registry: { namespace: 'nsadm_registry' } } });
 
 describe('admin role: operator configuration', function () {
   it('parses the explicit ownership composition and keeps the connection in the environment reference', function () {
     const parsed = adminConfig.parse(valid(), SOURCE);
     assert.equal(parsed.ownership.connectionString, SOURCE.NS_OWNERSHIP_PG);
-    assert.deepEqual(parsed.ownership.tenants, [A, B]);
+    assert.equal(parsed.ownership.registry.namespace, 'nsadm_registry');
     assert.equal(parsed.ownership.lifecycleNamespace, 'nsadm_control');
     assert.deepEqual(parsed.ownership.operator, { principal: 'synthetic_operator', consumer: 'operator_plane' });
     assert.equal(parsed.maxBytes, 65536);
-  });
-
-  it('accepts an explicit ownership roster above 10,000 tenants', function () {
-    const hex = i => require('node:crypto').createHash('sha256').update('owner-' + i).digest('hex');
-    const tenants = Array.from({ length: 10001 }, (_, i) => { const h = hex(i); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-8' + h.slice(17, 20) + '-' + h.slice(20, 32); });
-    const config = valid(); config.ownership.tenants = tenants;
-    assert.equal(adminConfig.parse(config, SOURCE).ownership.tenants.length, 10001);
   });
 
   it('refuses every malformed or widened configuration', function () {
@@ -62,10 +52,8 @@ describe('admin role: operator configuration', function () {
       'lifecycle namespace equal to the authorization namespace': config => { config.ownership.lifecycleNamespace = 'nsadm_authorization'; },
       'operator with an extra field': config => { config.ownership.operator.tenant = A; },
       'operator principal with punctuation': config => { config.ownership.operator.principal = 'a b'; },
-      'empty tenant list': config => { config.ownership.tenants = []; },
-      'duplicate tenant': config => { config.ownership.tenants = [A, A]; },
-      'nil tenant': config => { config.ownership.tenants = ['00000000-0000-0000-0000-000000000000']; },
-      'uppercase tenant': config => { config.ownership.tenants = ['ABCDEF01-1111-4111-8111-111111111111']; },
+      'a tenant list': config => { config.ownership.tenants = [A, B]; },
+      'no registry': config => { delete config.ownership.registry; },
       'extra ownership key': config => { config.ownership.credential = 'synthetic'; }
     };
     for (const [name, mutate] of Object.entries(cases)) {
@@ -77,32 +65,17 @@ describe('admin role: operator configuration', function () {
     }
   });
 
-  it('composes pool-operations on its own or beside ownership, for the listed kinds, and needs at least one service', function () {
-    const POOLS = { ...SOURCE, NS_POOL_OPERATOR_PG: 'postgres://synthetic_pool_operator:synthetic-only@127.0.0.1:5432/nightscout_test' };
-    const pools = { connectionEnv: 'NS_POOL_OPERATOR_PG', namespace: 'nsadm_pool', kinds: ['evaluator', 'vcpool'] };
-    const only = adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, pools }, POOLS);
-    assert.equal(only.ownership, undefined); assert.deepEqual(only.pools.kinds, ['evaluator', 'vcpool']);
-    assert.ok(adminConfig.parse({ ...valid(), pools }, POOLS).ownership);
-    for (const bad of [{ version: 1, maxBytes: 65536, timeoutMs: 10000 }, { ...valid(), pools: { ...pools, kinds: [] } },
-      { ...valid(), pools: { ...pools, kinds: ['Evaluator'] } }, { ...valid(), pools: { ...pools, kinds: ['evaluator', 'evaluator'] } },
-      { ...valid(), pools: { ...pools, namespace: 'public' } }, { ...valid(), pools: { ...pools, members: 3 } }]) {
-      assert.throws(() => adminConfig.parse(bad, POOLS), PreviewConfigError, JSON.stringify(bad.pools || 'no service'));
-    }
-  });
-  it('requires MULTITENANT_ADMIN_CONFIG and refuses an unreadable or invalid file', function () {
-    assert.throws(() => adminConfig.load({}), /admin requires MULTITENANT_ADMIN_CONFIG/);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-admin-config-'));
-    try {
-      const file = path.join(dir, 'config.json');
-      fs.writeFileSync(file, '{"version":1');
-      // The bounded reader names the cause (lib/server/serve/config-file.js).
-      assert.throws(() => adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }),
-        error => error instanceof PreviewConfigError && error.code === 'CONFIG_FILE_INVALID_JSON' && /MULTITENANT_ADMIN_CONFIG is not valid JSON/.test(error.message));
-      fs.writeFileSync(file, JSON.stringify({ version: 1 }));
-      assert.throws(() => adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }), /invalid explicit admin operator configuration/);
-      fs.writeFileSync(file, JSON.stringify(valid()));
-      assert.equal(adminConfig.load({ MULTITENANT_ADMIN_CONFIG: file, ...SOURCE }).ownership.namespace, 'nsadm_authorization');
-    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  it('builds its configuration from the environment: the prefix names every namespace and NS_VAULT_ADDR is required', function () {
+    const url = name => 'postgres://nsadm_' + name + ':synthetic-only@127.0.0.1:5432/nightscout_test';
+    const env = { NS_PG_PREFIX: 'nsadm', NS_VAULT_ADDR: 'https://vault.example.test:8200', NS_SECRETS_DIR: '/run/ns-config',
+      NS_OWNERSHIP_PG: url('ownership_operator'), NS_PROVISIONER_PG: url('provisioner'), NS_CONNECTOR_SOURCES_PG: url('connector_writer'),
+      NS_MANAGEMENT_SESSIONS_PG: url('management_issuer') };
+    assert.throws(() => adminConfig.load({ ...env, NS_VAULT_ADDR: '' }), /NS_VAULT_ADDR is required/);
+    const loaded = adminConfig.load(env);
+    assert.equal(loaded.ownership.namespace, 'nsadm_authorization');
+    assert.equal(loaded.ownership.lifecycleNamespace, 'nsadm_control');
+    assert.equal(loaded.provisioning.namespaces.registry, 'nsadm_registry');
+    assert.equal(loaded.ownership.connectionString, env.NS_OWNERSHIP_PG);
   });
 });
 

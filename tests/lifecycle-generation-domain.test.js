@@ -1,7 +1,7 @@
 'use strict';
 // Source/catalogue protocol only. Native CHECK/deparser/atomic DDL remain unmeasured.
 // covers: lib/tenant-lifecycle/generation-domain.js
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),Module=require('node:module');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
 const domain=require('../lib/tenant-lifecycle/generation-domain'),profiles=require('../lib/pgstream/intake-profile'),readiness=require('../lib/tenant-lifecycle/operation-window-readiness'),legacy=require('../lib/tenant-lifecycle/postgres-candidate.json'),protocol=require('./fixtures/operation-window-admission-protocol'),helper=require('./fixtures/lifecycle-domain-profile');
 const {A,B}=helper,copy=x=>JSON.parse(JSON.stringify(x)),bad='LIFECYCLE_WINDOW_SCHEMA_UNSAFE',C='33333333-3333-4333-8333-333333333333';
 function client(selected,mutate){const respond=protocol(helper.metadata(selected,mutate));return{query:async(sql,values)=>respond(sql,values)};}
@@ -38,6 +38,5 @@ describe('selected lifecycle generation domain source capability',function(){
    assert.deepEqual(admissions.map(([,values])=>values),[[C,rule.lockKey(C)]]);
   } finally {await f.window.close();}
  });
- it('actual operation config loader preserves registry manifest and returns regenerated profile',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'lifecycle-domain-config-')),file=path.join(dir,'config.json'),config=require('../lib/server/serve/operation-cohort-config'),p=helper.profile(),value={version:1,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',registry:{namespace:'synthetic_registry'},intakeProfile:copy(p)};try{fs.writeFileSync(file,JSON.stringify(value));const selected=config.load({MULTITENANT_OPERATION_CONFIG:file,SYNTHETIC_PG:'postgresql://synthetic:synthetic@127.0.0.1/disposable_test'});assert.equal(selected.lockRule,'tenant-id-sha256-v1');assert.deepEqual(selected.tenantIds,['registry:synthetic_registry']);assert.equal(selected.intakeProfile.digest,p.digest);assert.throws(()=>selected.intakeProfile.assignment.owner(C));assert(Object.isFrozen(selected.intakeProfile));}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 
 });

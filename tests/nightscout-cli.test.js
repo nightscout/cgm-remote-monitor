@@ -69,13 +69,13 @@ describe('nightscout executable (D21)', function () {
   it('exits 78 for `multitenant vcpool` without its explicit connector configuration', function () {
     const result = cli(['multitenant', 'vcpool']);
     assert.equal(result.status, 78);
-    assert.match(result.stderr, /vcpool: requires MULTITENANT_VCPOOL_CONFIG/);
+    assert.match(result.stderr, /vcpool: deployment settings: NS_VCPOOL_API_URL is required/);
   });
 
   it('exits 78 for `multitenant admin` without its explicit operator configuration', function () {
     const result = cli(['multitenant', 'admin']);
     assert.equal(result.status, 78);
-    assert.match(result.stderr, /admin requires MULTITENANT_ADMIN_CONFIG/);
+    assert.match(result.stderr, /admin requires at least one service identity/);
   });
 
   it('does not retain `serve` as an alias for the tenancy command', function () {

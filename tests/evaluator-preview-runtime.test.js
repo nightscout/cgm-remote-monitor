@@ -2,9 +2,6 @@
 
 // Source/lifecycle protocols only; no services or listeners.
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 const runtime = require('../lib/server/serve/evaluator-runtime');
 const config = require('../lib/server/serve/evaluator-config');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
@@ -31,14 +28,9 @@ describe('evaluator preview trusted configuration', function () {
     const overlap=document();overlap.tenants=[{id:A,revision:'same',settings:{}}];assert.throws(()=>config.parse(overlap,source),error=>error.message===require('../lib/server/serve/registry-config').REFUSAL);
     assert.throws(()=>effective({API_SECRET:'x'}),/SETTINGS_UNSUPPORTED/);assert.throws(()=>effective({enable:['INVALID!']}),/SETTINGS_VALUE/);assert.throws(()=>config.load({}),/explicit evaluator/);
   });
-  it('reads current committed settings through admitted registry metadata, refuses infrastructure drift and removed tenants', async function () {
-    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-config-')),file=path.join(dir,'config.json');
-    try{const d=document(),access=metadataAccess(d);fs.writeFileSync(file,JSON.stringify(d));const loaded=config.loadMetadata({...source,MULTITENANT_EVALUATOR_CONFIG:file});const read=tenant=>loaded.readCurrent(tenant,access.reader,access.admission);const first=await read(A);access.states.set(A,effective({enable:['delta']},2));assert.notEqual((await read(A)).identity,first.identity);access.active.delete(A);assert.equal(await read(A),null);d.maxRows++;fs.writeFileSync(file,JSON.stringify(d));await assert.rejects(read(B),/requires restart/);}finally{fs.rmSync(dir,{recursive:true,force:true});}
-  });
-  it('bounds explicit metadata reads and reuses parsed infrastructure until a same-size edit is refused', async function () {
-    const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-config-')),file=path.join(dir,'config.json'),open=fs.openSync,parse=JSON.parse;let reads=0,parses=0,contents;
-    fs.openSync=function(name,...rest){if(name===file)reads++;return open.call(this,name,...rest);};JSON.parse=function(text,...rest){if(text===contents)parses++;return parse.call(this,text,...rest);};
-    try{const d=document(),access=metadataAccess(d);contents=JSON.stringify(d);fs.writeFileSync(file,contents);const loaded=config.loadMetadata({...source,MULTITENANT_EVALUATOR_CONFIG:file}),read=()=>loaded.readCurrent(A,access.reader,access.admission),before=reads;const first=await read();for(let i=0;i<20;i++)await read();assert.equal(reads-before,21,'EV_CONFIG_BOUNDED_READ_EACH_EXPLICIT_CALL');assert.equal(parses,1,'EV_CONFIG_PARSED_ONCE_WHILE_UNCHANGED');access.states.set(A,effective({enable:['delta']},2));assert.notEqual((await read()).identity,first.identity,'committed settings are independent of unchanged worker infrastructure bytes');const size=fs.statSync(file).size;d.pgstream.slot=d.pgstream.slot.slice(0,-1)+(d.pgstream.slot.endsWith('x')?'y':'x');contents=JSON.stringify(d);fs.writeFileSync(file,contents);assert.equal(fs.statSync(file).size,size);await assert.rejects(read(),/requires restart/);assert.equal(parses,2,'EV_CONFIG_CHANGED_BYTES_PARSED');}finally{fs.openSync=open;JSON.parse=parse;fs.rmSync(dir,{recursive:true,force:true});}
+  it('reads current committed settings through admitted registry metadata and refuses removed tenants', async function () {
+    const d=document(),access=metadataAccess(d),loaded=config.loadMetadata(source),read=tenant=>loaded.readCurrent(tenant,access.reader,access.admission);
+    const first=await read(A);access.states.set(A,effective({enable:['delta']},2));assert.notEqual((await read(A)).identity,first.identity);access.active.delete(A);assert.equal(await read(A),null);
   });
 });
 

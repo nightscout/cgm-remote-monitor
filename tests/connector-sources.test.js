@@ -34,7 +34,6 @@ describe('durable connector source configuration', function () {
       vault: { address: 'https://vault.example.test/', mount: 'transit', tokenEnv: 'VAULT_TOKEN' } };
     const source = { SECRET_DB: 'postgres://synthetic:synthetic@127.0.0.1/connector_test', ACTIVITY_DB: 'postgres://activity:synthetic@127.0.0.1/connector_test', DEFINITION_DB: 'postgres://definitions:synthetic@127.0.0.1/connector_test', VAULT_TOKEN: 'synthetic' };
     const parsed = configuration.parse(raw, source); assert.equal(parsed.tenants.size, 0); assert.equal(parsed.registry.namespace, 'cs_registry');
-    assert.equal(require('../lib/server/serve/static-tenants').check({}, { vcpoolPreview: parsed }), null);
     assert.throws(() => configuration.parse({ ...raw, tenants: [] }, source), /registry mode refuses/);
   });
   it('CS_DYNAMIC: sources add/update/delete without restart; all sources of a tenant share one pool slice; credentials are re-read per poll', async function () {

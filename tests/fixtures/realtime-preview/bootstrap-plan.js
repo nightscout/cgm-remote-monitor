@@ -153,9 +153,8 @@ function documents ({selected,layout: l,paths}) {
     vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
     registry,tenantSettings,activity:{namespace:ns.control},
     accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},
-    socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm},
-      consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
-  const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin}).configs['tenant-admin'];
+    socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm}}};
+  const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin,settings:{NS_VAULT_ALLOW_INSECURE_LOOPBACK:'true'}}).configs['tenant-admin'];
   const configs={api,evaluator,realtime,'tenant-admin':owner};
   const protectedNamespaces=require('../../../lib/server/serve/role-topology').protectedNamespaces;
   const participants=Object.entries(configs).map(([role,config])=>({id:role,roles:[role],namespaces:[...new Set([...protectedNamespaces(config),...(role==='api'?[ns.outbox]:[])])].filter(name=>name!==ns.control).sort(),maxMessageBytes:o.maxMessageBytes,timeoutMs:o.timeoutMs}));
