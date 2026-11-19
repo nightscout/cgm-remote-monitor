@@ -39,6 +39,9 @@ optInSuite(process.env.NS_EVALUATOR_JOB_DOCKER_TEST==='1','NS_EVALUATOR_JOB_DOCK
    for(const row of(await admin.query('SELECT p.oid::regprocedure::text AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1',[namespace])).rows)await admin.query('ALTER FUNCTION '+row.signature+' OWNER TO job_owner');
    await admin.query('ALTER SCHEMA '+q(namespace)+' OWNER TO job_owner');
   }
+  for (const sql of require('../lib/server/ordinary-deployment-grants').notificationScheduleGrants({
+   namespace:outbox, owner:'job_owner', outboxRole:'job_worker', ackRole:'job_owner'
+  })) await admin.query(sql);
   for(const role of ['job_lifetime','job_worker']){
    await admin.query('GRANT USAGE ON SCHEMA '+q(control)+' TO '+q(role));
    for(const table of ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'])await admin.query('GRANT SELECT ON '+q(control)+'.'+q(table)+' TO '+q(role));
