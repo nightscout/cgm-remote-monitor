@@ -49,8 +49,9 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
       await admin.query(`GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON "${namespaces.clock}".tenant_write_clock TO "${role}"`);
       url.username = role;
       url.password = password;
+      lab.appURI = url.toString();
       for (let i = 0; i < replicas; i++) {
-        const connection = await connect({ connectionString: url.toString(), max: 4,
+        const connection = await connect({ connectionString: lab.appURI, max: 4,
           application_name: name + '_' + i, statement_timeout: 10000, connectionTimeoutMillis: 5000 });
         raw.push(connection);
         clocks.push(decorate(connection, namespaces.clock));

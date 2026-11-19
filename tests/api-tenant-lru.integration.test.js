@@ -13,9 +13,8 @@ const strip = value => {
     .map(([key, item]) => [key, strip(item)]));
 };
 function worker (lab, capacity, control) {
-  const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); uri.username = lab.role; uri.password = '';
   const child = fork(path.join(__dirname, 'fixtures/api-tenant-lru-worker.js'), [], {
-    env: { ...process.env, NS_LRU_APP_URI: uri.toString(), NODE_ENV: 'test' }, execArgv: [], silent: true
+    env: { ...process.env, NS_TEST_POSTGRES_ADMIN_URI: undefined, NS_LRU_APP_URI: lab.appURI, NODE_ENV: 'test' }, execArgv: [], silent: true
   });
   let sequence = 0, port;
   const waiting = new Map();

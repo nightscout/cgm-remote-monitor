@@ -56,6 +56,8 @@ const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
   { file: 'tests/platform-verification.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'strict admin verification, source/catalogue selection binding, serving expiry/revocation and actual failure controls' },
+  { file: 'tests/tenant-floor-verification.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
+  { file: 'tests/api-tenant-lru.integration.test.js', flags: { NS_API_TENANT_LRU_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/vcpool-platform-proof.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'vcpool start check and admin pool privilege screen with red controls (decision vcpool-proof-role)' },
   { file: 'tests/connection-pool-bound.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
