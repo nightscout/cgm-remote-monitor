@@ -21,7 +21,29 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
  const reader={scan,current:t=>metadata.get(t),state:scan.state,async close(){},health:()=>({available:true})};
  const startup={addTenant(tenant){trace.push('startup-add:'+tenant);},async warm(){},isReady:()=>true,async ensure(){trace.push('tenant-admitted');},async close(){},health:()=>({})};
  const readiness=async()=>{checks++;if(holdAdmission)await admission.promise;};readiness.provisionTenant=async()=>{};
- let store={begin:async()=>({clock:'1'}),complete:async(tenant,value)=>{assert(checks>0);revision++;output={tenant,identity,inputCheckpoint:value.result.checkpoint,contentDigest:notificationStartup?require('../lib/server/serve/evaluator-runtime').contentDigest(value.result):'digest'+revision,outputRevision:revision,result:value.result};trace.push('completed');commitWake?.({tenant,kind:'complete'});return {output,changed:true};},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]};
+ let acknowledgedRevision = 0;
+ let store = {
+  available: true,
+  admit: async () => {}, observeMany: async () => [],
+  begin: async () => ({clock:'1'}),
+  async complete (tenant, value) {
+   assert(checks > 0);
+   revision++;
+   output = { tenant, identity, inputCheckpoint: value.result.checkpoint, restoreGeneration: value.restoreGeneration,
+    contentDigest: notificationStartup ? require('../lib/server/serve/evaluator-runtime').contentDigest(value.result) : 'digest' + revision,
+    outputRevision: revision, result: value.result };
+   trace.push('completed'); commitWake?.({tenant, kind:'complete'});
+   return { output, changed:true };
+  },
+  work: async () => quietStart || output ? [] : [{tenant:A, pendingAt:Date.now()}],
+  nextDue: async () => null, deliveries: async () => [],
+  notificationPending: async exclude => revision > acknowledgedRevision && !exclude.includes(A) ? [{tenant:A}] : [],
+  async acknowledgeNotification (tenant, consumed) {
+   if (tenant === A && consumed.contentDigest === output.contentDigest && consumed.restoreGeneration === output.restoreGeneration) {
+    acknowledgedRevision = consumed.outputRevision;
+   }
+  }
+ };
  if(pendingRace){
   // Actual receipt/completion modules; the SQL/backend port alone is synthetic.
   const work=require('../lib/pgstream/work-state');
@@ -65,6 +87,7 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
     if (sourceBlocked) blockSource();
     return {store,async ready(){streamStep('ready');if(!schemaAvailable)throw Error('PGSTREAM_NOT_READY');},assertAvailable(){if(!schemaAvailable)throw Error('EVALUATOR_FEED_UNAVAILABLE');},health:()=>({}),close:async()=>{}};}},
   './registry-tenant-set':{openDemand:async()=>{
+    if (registryError) throw registryError;
     const tenants=new Map(), provisioned=new Set([A,...Array.from({length:clinicalTenants-1},(_,i)=>'22222222-2222-4222-8222-'+String(i).padStart(12,'0'))]);
     return {tenants,async lookup(tenant){trace.push(['lookup',tenant]);if(!provisioned.has(tenant))return null;tenants.set(tenant,current);return current;},isActive:tenant=>tenants.has(tenant),onRemove(){},stats:()=>({}),revision:()=>1,async close(){}};
   },open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
@@ -77,15 +100,19 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
   const file=require.resolve('../lib/server/serve/evaluator-consumers'),consumerModule=new Module(file,module);consumerModule.filename=file;consumerModule.paths=module.paths;
   let firstSelection=true;
   const notificationStore={...notificationFiles.store,
-   own:async()=>{trace.push('notification-owner-initializing');await prepare.promise;trace.push('notification-owner-ready');},
    consume:async input=>{if(firstSelection){firstSelection=false;producerEntered.resolve();await producerRelease.promise;}return notificationFiles.store.consume(input);}
   };
   const overrides={
-   '../../storage/postgres-connection':async()=>({end:async()=>{}}),
+   '../../storage/postgres-connection':async()=>{
+    trace.push('delivery-connection-opening');
+    await prepare.promise;
+    trace.push('delivery-connection-open');
+    return { end:async()=>{}, readOnly:async()=>({rows:[]}) };
+   },
    '../../tenant-notifications/postgres':()=>notificationStore,
    '../../tenant-alarms/postgres':{createReader:()=>require('./fixtures/tenant-alarm-protocol')().reader},
    './evaluator-consumer-readiness':{sameDatastore:async()=>{},suppression:async()=>{},operational:async()=>{}},
-   '../realtime/alarm-transport':{createSliceAdapter:()=>({send:(request,callback)=>{assert(trace.includes('notification-owner-ready'),'NOTIFICATION_OWNER_MUST_BE_READY_BEFORE_SEND');notificationFiles.hooks.adapter.send(request,callback);}})}
+   '../realtime/alarm-transport':{createSliceAdapter:()=>({send:(request,callback)=>{assert(trace.includes('delivery-connection-open'),'DELIVERY_CONNECTION_MUST_BE_OPEN_BEFORE_SEND');notificationFiles.hooks.adapter.send(request,callback);}})}
   };
   consumerModule.require=name=>Object.hasOwn(overrides,name)?overrides[name]:Module.prototype.require.call(consumerModule,name);
   // Existing cadences may be installed; none is fired by this startup witness.
@@ -114,7 +141,7 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
   timeIntervalMs:60000,readCurrent:async()=>current};
  if (registryRace) { config.tenantSettings = {}; delete config.consumers; }
  if(clinicalTenants)delete config.consumers;
- return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});if(!quietStart)(async()=>{for(let n=0;n<200&&!runtime;n++)await new Promise(resolve=>setImmediate(resolve));runtime?.acquire(A).catch(()=>{});})();return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health().tenants.find(row=>row.tenant===A),closed,started,delivered,componentClosed,checks,peerClosed})};
+ return {blockSource:()=>blockSource(),prepare,admission,trace,streamTrace,window,evaluating,finishCycle,completions,producerEntered,producerRelease,consumerTimers,notificationFiles,consumer:()=>notificationConsumer,acquire:()=>runtime.acquire(A),snapshot:()=>store.snapshot?.(),async hint(version='1'){await receive(require('./lib/clinical-stream-native').envelope([{action:'U',xid:42,lsn:'0/20',schema:'synthetic_settings',table:'tenant_settings',columns:[{name:'tenant_id',value:A},{name:'version',value:version}]}]));},async boot(){await window.ready();const booting=loaded.exports.boot(config,{operationWindow:window,assignedTenants});return booting;},state:()=>({selectedAssignment,registryFollowed,output,evaluatingEntered,clinical:runtime?.health().tenants.find(row=>row.tenant===A),closed,started,delivered,componentClosed,checks,peerClosed})};
 }
 function delayScheduler(source){const a=source.indexOf('    {\n      workScheduler=require('),b=source.indexOf("    startupPhase = 'DELIVERY_STARTUP';\n    {\n      consumers = await",a),c=source.indexOf('    if (consumers) {',b);assert(a>=0&&b>a&&c>b);return source.slice(0,a)+source.slice(b,c)+source.slice(a,b)+source.slice(c);}
 // Every evaluator starts lazily. Fixtures without quietStart model tenant A's
@@ -247,17 +274,17 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
    const sent=f.state().delivered;await service.acquire(A);assert(f.state().delivered>sent,'LATER_REVISIONS_MUST_REACH_CURRENT_CONSUMERS');
   }finally{f.prepare.resolve();service=service||await boot.catch(()=>null);await service?.close();await f.window.close();}
  });
- it('reconciles alarming revisions before and during producer startup exactly once without firing a cadence',async function(){
+ it('reconciles alarming revisions from durable recovery and during producer startup exactly once before a scheduled retry',async function(){
   this.timeout(5000);
   async function criterion(consumerTransform=text=>text){
    const f=fixture({notificationStartup:true,consumerTransform}),boot=f.boot();boot.catch(()=>{});let service;
    try{
     for(let n=0;n<60&&!f.state().clinical?.ready;n++)await settle();
-    assert(f.trace.includes('notification-owner-initializing'));assert(f.state().clinical?.ready);
-    await f.acquire(); // A revised alarming output commits while ownership initializes.
+    assert(f.trace.includes('delivery-connection-opening'));assert(f.state().clinical?.ready);
+    await f.acquire(); // A revised alarming output commits while the delivery store connection opens.
     assert.equal(f.notificationFiles.effects.length,0);
     f.prepare.resolve();service=await boot;
-    // Mutation lacks the startup sweep, so it never enters a producer selection.
+    // Suppressing initial durable recovery must leave the first output undiscovered.
     for(let n=0;n<60&&!f.consumer().health().tenants[0].passes;n++)await settle();
     assert(f.consumer().health().tenants[0].passes>0,'STARTUP_MUST_RECONCILE_UNOBSERVED_ALARM_REVISION');
     await f.producerEntered.promise;
@@ -269,11 +296,11 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
     const requests=f.notificationFiles.snapshot().requests;assert.equal(requests.length,1);assert.equal(requests[0].state,'accepted');
     const persisted=f.notificationFiles.producerStates()[0];
     assert.deepEqual(persisted.producer.output,[identity,f.state().output.contentDigest,1],'PRODUCER_MUST_RECONCILE_CURRENT_CONTENT');
-    assert.deepEqual(f.consumerTimers.map(timer=>timer.ms),[100,200],'NO_NEW_BACKSTOP_OR_STARTUP_TIMER');
+    assert.deepEqual(f.consumerTimers,[],'DEMAND_RECOVERY_NEEDS_NO_PERIODIC_SWEEPS');
     await f.consumer().recover();await f.consumer().flush(A);assert.equal(f.notificationFiles.effects.length,1,'RECONCILED_ALARM_MUST_NOT_DUPLICATE');
    }finally{f.producerRelease.resolve();f.prepare.resolve();service=service||await boot.catch(()=>null);await service?.close();await f.window.close();}
   }
-  await assert.rejects(criterion(source=>{const needle="      sweep('start', 'run', tenants);";assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/STARTUP_MUST_RECONCILE_UNOBSERVED_ALARM_REVISION/);
+  await assert.rejects(criterion(source=>{const needle='        value.recover().catch(() => {});';assert.equal(source.split(needle).length,2);return source.replace(needle,'');}),/STARTUP_MUST_RECONCILE_UNOBSERVED_ALARM_REVISION/);
   await criterion();
  });
  it('keeps input arriving during computation pending, with a completion-time recapture control',async()=>{
