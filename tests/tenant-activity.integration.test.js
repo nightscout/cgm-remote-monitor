@@ -106,6 +106,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       provisioned = true; await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(change));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      // The two test tenants and their readings predate this producer slot.
+      await worker.call('acquire', lab.A); await worker.call('acquire', lab.B);
       await worker.call('flush', lab.A); await worker.call('flush', lab.B); return worker;
     }
     const effects = tenant => lab.sinkEffects.filter(row => row.tenant === tenant);
@@ -308,7 +310,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       }
     });
 
-    it('a shared activity policy SQL failure refuses role startup before either tenant output', async function () {
+    it('an unreadable tenant activity row prevents its clinical result and delivery', async function () {
       // This is shared schema mutation, not a poison tenant input. The lower
       // tenant-bound reader still demonstrates the A error and independent B.
       await lab.admin.query(`CREATE POLICY synthetic_unreadable_a ON "${namespace}".tenant_activity AS RESTRICTIVE FOR SELECT
@@ -319,9 +321,11 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.provisionPreview(); provisioned = true; await lab.openSink();
       const before = [await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)];
       const worker = await lab.workerConsumers(lab.configureConsumers());
-      assert.equal(worker.startup.ready, undefined, 'SHARED_ACTIVITY_SCHEMA_NO_READY_ROLE');
-      assert.equal(worker.startup.bootError?.message, 'evaluator preview readiness or initialization refused');
+      assert.equal(worker.startup.ready, true, 'the shared role starts before tenant admission');
+      await assert.rejects(worker.call('acquire', lab.A), /TRUSTED_WORKER_UNAVAILABLE/);
       await lab.stopConsumers();
+      assert.equal(effects(lab.A).length, 0);
+      assert.deepEqual(await lab.requests(lab.A), []);
       const after = [await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)];
       lab.traceConsumer('activity-shared-schema-completion-before-verdict', { before, after });
       // Cold typed admission may initialize an empty envelope and NULL-filled
