@@ -76,10 +76,10 @@ rows proportional to its selected roster; batching alone does not make this
 constant database work. Normal dirty-feed work and recovery scans must be
 measured separately.
 
-The restore/ensure policy checks retain the exact canonical PUBLIC tenant ALL
+The restore policy checks retain the exact canonical PUBLIC tenant ALL
 policy. They also admit explicit nonPUBLIC-role permissive SELECT USING(true)
 policies with no WITH CHECK only when they cannot apply directly or through
-membership to the restricted restore/provisioning caller. This validates that
+membership to the restricted restore caller. This validates that
 caller's isolation, not a universal whitelist for every database login. Generated
 grants select evaluator/realtime roles only. Worker availability and generation
 also fence in-flight computation, cached model eligibility and staged realtime

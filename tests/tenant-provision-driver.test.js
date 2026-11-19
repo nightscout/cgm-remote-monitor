@@ -1,10 +1,9 @@
 'use strict';
-// covers: lib/tenant-registry/held-client.js, lib/tenant-registry/provision.js, lib/tenant-registry/ensure.js
+// covers: lib/tenant-registry/held-client.js, lib/tenant-registry/provision.js, lib/tenant-registry/vault-keys.js
 // Actual pinned pg.Client/pg.Pool protocol recording, no listener or database.
 const assert=require('node:assert/strict'),{EventEmitter}=require('node:events');
 const {Client,Pool}=require('pg');
 const {checkout}=require('../lib/tenant-registry/held-client');
-const fixture=require('./fixtures/tenant-ensure-recording');
 const turn=()=>new Promise(r=>setImmediate(r));
 class Stream extends EventEmitter {
   constructor(){super();this.writable=true;}
@@ -32,23 +31,46 @@ describe('operator checked-out lifetime: actual pg driver and Vault-await record
     // Model only an actual subsequent peer EOF, not local end() as retirement.
     client.connection.stream.emit('close');await turn();await pool.end();
   });
-  it('prevents another key request or COMMIT when the held provision client fails during Vault',async function(){
-    let finish;const barrier=new Promise(r=>{finish=r;});const f=fixture({fresh:true,vaultBarrier:barrier}),p=f.fresh();
-    const pending=p.provision({id:f.A,hosts:f.input.hosts});while(!f.vaultCalls.length)await turn();
-    const client=f.clients.at(-1),error=Error('SYNTHETIC_VAULT_AWAIT_TRANSPORT'),commits=f.log.filter(r=>r.text==='COMMIT').length;
-    assert.doesNotThrow(()=>client.emit('error',error));finish();const result=await pending;
-    assert.equal(result.outcome,'refused');assert.equal(f.vaultCalls.length,1);assert.equal(client.released,error);
-    assert.equal(f.log.filter(r=>r.text==='COMMIT').length,commits,'no commit after the held first failure');
-    assert.equal(f.log.filter(r=>r.text?.startsWith('INSERT')).length,0);await p.close();
+  for (const phase of ['postgres', 'vault']) it('stops provisioning on the held client failure during ' + phase, async function () {
+    const id = '11111111-1111-4111-8111-111111111111';
+    const tenant = { id, hosts: ['one.example.test'] };
+    const error = Error('synthetic held client failure');
+    const client = new EventEmitter();
+    const queries = [], requests = [];
+    let released, checkouts = 0;
+    client.release = failure => { released = failure; };
+    client.query = async sql => {
+      queries.push(sql);
+      if (sql.includes('pg_try_advisory_lock')) return { rows: [{ held: true }] };
+      if (sql.includes(' AS a0,')) {
+        if (phase === 'postgres') throw error;
+        return { rows: [{}] };
+      }
+      if (sql.includes(' AS retained_residue')) return { rows: [{ retained_residue: false }] };
+      return { rows: [] };
+    };
+    const namespaces = Object.fromEntries(['registry','legacy','secrets','authorization','access','clock','control','settings','operatorPolicy']
+      .map(kind => [kind, 'recording_' + kind.toLowerCase()]));
+    const connect = require('node:test').mock.method(Pool.prototype, 'connect', callback => { checkouts++; callback(null, client); });
+    const provisioning = require('../lib/tenant-registry/provision').createProvisioning({
+      namespaces, actor: { principal: 'operator', consumer: 'test' },
+      vault: { address: 'http://127.0.0.1/', mount: 'transit', getToken: async () => 'synthetic', allowInsecureLoopback: true },
+      fetchImpl: async (_url, options) => {
+        requests.push(options.method);
+        client.emit('error', error);
+        return { status: 404, body: { cancel: async () => {} } };
+      }
+    });
+    try {
+      assert.equal((await provisioning.provision(tenant)).outcome, 'refused');
+      assert.equal(checkouts, 1);
+      assert.equal(released, error);
+      assert.deepEqual(requests, phase === 'vault' ? ['GET'] : []);
+      assert.equal(queries.filter(query => query === 'COMMIT').length, phase === 'vault' ? 1 : 0);
+      assert(!queries.some(query => query === 'ROLLBACK' || query.includes('pg_advisory_unlock') || query.startsWith('INSERT')));
+    } finally { connect.mock.restore(); await provisioning.close(); }
   });
-  it('prevents a second ensure metadata read and SQL repair after transport failure',async function(){
-    let finish;const barrier=new Promise(r=>{finish=r;});const f=fixture({missingSettings:true,vaultBarrier:barrier}),s=await f.create();
-    const pending=s.ensure(f.input);let settled=false;pending.then(()=>{settled=true;},()=>{settled=true;});
-    while(!f.vaultCalls.length){await turn();assert(!settled,'ensure must reach the provider barrier before the transport failure');}
-    const client=f.clients.at(-1),error=Error('SYNTHETIC_ENSURE_TRANSPORT');
-    client.emit('error',error);finish();assert.equal((await pending).outcome,'unknown');
-    assert.equal(f.vaultCalls.length,1);assert.equal(f.data.settings,false);assert.equal(client.released,error);await s.close();
-  });
+
 });
 
 describe('bounded Vault metadata and nested lifetime awaits',function(){
@@ -60,7 +82,7 @@ describe('bounded Vault metadata and nested lifetime awaits',function(){
   const original=Buffer.from;let emptyCopies=0;
   const service=createVaultKeys({...base,fetchImpl:async()=>({status:200,ok:true,body:(async function*(){for(let i=0;i<10000;i++)yield new Uint8Array(0);yield good;})()})});
   Buffer.from=function(value,...args){if(value instanceof Uint8Array && value.byteLength===0)emptyCopies++;return original.call(this,value,...args);};
-  try {assert.equal((await service.observe(key,'ed25519')).version,1);assert.equal(emptyCopies,0);}
+  try {assert.equal(await service.status(key,'ed25519'),'present');assert.equal(emptyCopies,0);}
   finally {Buffer.from=original;}
  });
  it('stops chunk overflow before parsing or key creation and closes the iterator',async function(){
@@ -98,6 +120,6 @@ describe('bounded Vault metadata and nested lifetime awaits',function(){
  });
  it('accepts a bounded chunked valid reply without writing',async function(){
   const calls=[];const service=createVaultKeys({...base,fetchImpl:async(_url,init)=>{calls.push(init.method);return{status:200,ok:true,body:(async function*(){yield good.subarray(0,30);yield good.subarray(30);})()};}});
-  assert.equal((await service.observe(key,'ed25519')).version,1);assert.deepEqual(calls,['GET']);
+  assert.equal(await service.status(key,'ed25519'),'present');assert.deepEqual(calls,['GET']);
  });
 });

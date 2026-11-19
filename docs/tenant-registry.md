@@ -108,6 +108,10 @@ checkpoint or other required structural record returns `TENANT_PROVISION_INCOMPL
 allows settings, permissions and activity state to change after provisioning and
 does not require retained audit history.
 
+The provisioning identity can insert and read public-key registrations. Reapplying
+the registry or provisioning grants removes the older direct DELETE privilege on
+those registrations. Tenant removal still deletes host aliases and retains keys.
+
 ### Operator inspection, refusal and retry
 
 `GET /v1/tenants/{id}/provisioning` (`nightscout admin inspect --id <uuid> [--json]`)
@@ -125,9 +129,17 @@ invalid nested values refuse with exit 69; their values are never printed.
 | `absent` | no registry entry, no record, no Vault key | `provision` |
 | `residue` | Vault keys of an interrupted run; no registry entry and no record | `provision`: the same request adopts the keys and completes |
 | `complete` | registry entry, every record, six keys of the expected type | `none` |
-| `incomplete` | a record or key is missing or has the wrong shape, or tenant rows exist with no registry entry; `findings` names each (`record:<name>:missing`, `record:<name>:unregistered`, `vault:<purpose>:mismatch`, ...) | `operator`: provisioning refuses the id and repairs nothing |
+| `incomplete` | a record or key is missing or has the wrong shape, or tenant rows exist with no registry entry; `findings` names each (`record:<name>:missing`, `record:<name>:unregistered`, `vault:<purpose>:mismatch`, ...) | `operator`: preserve state and investigate the named findings |
 | `removed` | removed from the registry | `none` |
-| `unverified` | Vault could not be read (`vault.status` `unavailable` or `refused`) | `inspect-again` |
+| `unverified` | Vault could not be read (`vault.status` `unavailable` or `refused`) | `inspect-again` once Vault is reachable, or `operator` if PostgreSQL findings also require investigation |
+
+For a registered tenant with an `operator` finding, preserve its current state and
+inspect the deployment’s matching PostgreSQL and Vault backups in isolation.
+A missing private key needs the original key that protects the tenant’s data.
+Tenant-local clinical restore preserves the live registry and owner configuration.
+Restoring the whole deployment also returns every other tenant to the backup time.
+A registered provisioning retry checks PostgreSQL only and can return `existing`
+when Vault has lost a key. Use `inspect` to check Vault. [Lifecycle restore guide](../lib/tenant-lifecycle/README.md)
 
 Provisioning admits a tenant in one commit or not at all. A refused request carries
 one of these codes; the tenant's id is the idempotency key, so the retry is the same

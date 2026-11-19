@@ -108,7 +108,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames
     const password = randomBytes(18).toString('hex');
     await q(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '${password}'`);
     // registry.grants also pins the search_path of the registry's definer and
-    // trigger functions; provisionerGrants carries only its GRANT statements.
+    // trigger functions; provisionerGrants carries the role privileges.
     for (const sql of registry.grants({ namespace: all.registry, provisioner: role })) await q(sql);
     for (const sql of provisionerGrants({ namespaces: all, role, checkpoints })) await q(sql);
     const url = new URL(adminURI); url.username = role; url.password = password;

@@ -11,7 +11,7 @@ const scope = require('../lib/storage/tenant-scope');
 const connect = require('../lib/storage/postgres-connection');
 const registry = require('../lib/tenant-registry/postgres');
 const rules = require('../lib/tenant-registry/rules');
-const { createProvisioning, MAX_BATCH, preKeyEnsureRefusal } = require('../lib/tenant-registry/provision');
+const { createProvisioning, provisionerGrants, MAX_BATCH } = require('../lib/tenant-registry/provision');
 const { createLab, enabled } = require('./fixtures/tenant-registry-lab');
 const { optInSuite } = require('./support/opt-in');
 
@@ -58,6 +58,24 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       assert.deepEqual(entry.keys.map(key => key.purpose + ':' + key.kid), ['access:key1', 'human-data:human-data-1', 'human-management:human-management-1', 'management:management1']);
     } finally { await connection.end(); }
     assert.deepEqual({ ...await provisioning.get(request.id) }, { id: request.id, state: 'active', signingVersion: 1, hosts: ['t1-alt.example.test', 't1.example.test'] });
+  });
+
+  it('reapplying registry or provisioning grants retires the old direct DELETE on registered keys', async function () {
+    const { namespaces, roles, consumers, admin } = lab;
+    const keys = '"' + namespaces.registry + '".tenant_registry_keys';
+    const hosts = '"' + namespaces.registry + '".tenant_registry_hosts';
+    const role = roles.provisioner;
+    const privileges = async () => (await admin.query(
+      "SELECT has_table_privilege($1,$2,'DELETE') AS key_delete, has_table_privilege($1,$2,'SELECT') AS key_read," +
+      " has_table_privilege($1,$2,'INSERT') AS key_insert, has_table_privilege($1,$3,'DELETE') AS host_delete",
+      [role, keys, hosts])).rows[0];
+    for (const statements of [registry.grants({ namespace: namespaces.registry, provisioner: role }),
+      provisionerGrants({ namespaces, role, checkpoints: consumers })]) {
+      await admin.query('GRANT DELETE ON ' + keys + ' TO "' + role + '"');
+      assert.equal((await privileges()).key_delete, true);
+      for (const sql of statements) await admin.query(sql);
+      assert.deepEqual(await privileges(), { key_delete: false, key_read: true, key_insert: true, host_delete: true });
+    }
   });
 
   it('PV_LOCAL_AUTH: prepared Node keys and verifiers survive reader restart, enforce RLS and observe current revocations', async function () {
@@ -110,10 +128,44 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.equal((await provisioning.provision(request)).outcome, 'created');
     const first = await lab.rowsFor(request.id);
     const revision = (await lab.admin.query(`SELECT revision::text FROM "${lab.namespaces.registry}".tenant_registry_clock`)).rows[0].revision;
-    const again = await provisioning.provision({ ...request, hosts: request.hosts.slice().reverse() });
+    let vaultCalls = 0;
+    const retry = createProvisioning(lab.provisioningOptions({ fetchImpl: async () => { vaultCalls++; throw Error('unexpected Vault call'); } }));
+    let again;
+    try { again = await retry.provision({ ...request, hosts: request.hosts.slice().reverse() }); }
+    finally { await retry.close(); }
+    assert.equal(vaultCalls, 0, 'a registered retry reads PostgreSQL only');
     assert.deepEqual(again, { id: request.id, outcome: 'existing' });
     assert.deepEqual(await lab.rowsFor(request.id), first);
     assert.equal((await lab.admin.query(`SELECT revision::text FROM "${lab.namespaces.registry}".tenant_registry_clock`)).rows[0].revision, revision, 'nothing written');
+  });
+
+  it('refuses key birth while another operation holds the tenant lifecycle lock', async function () {
+    const request = spec('held');
+    const key = rules.lockKey(request.id);
+    let calls = 0;
+    const retry = createProvisioning(lab.provisioningOptions({ fetchImpl: async () => { calls++; throw Error('unexpected Vault call'); } }));
+    await lab.admin.query('SELECT pg_advisory_lock_shared($1::bigint)', [key]);
+    try {
+      assert.deepEqual(await retry.provision(request), { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_BUSY' });
+      assert.equal(calls, 0);
+      assert.deepEqual(await lab.rowsFor(request.id), {});
+    } finally {
+      await lab.admin.query('SELECT pg_advisory_unlock_shared($1::bigint)', [key]);
+      await retry.close();
+    }
+  });
+
+  it('refuses an unregistered tenant with retained settings history before creating any key', async function () {
+    const request = spec('history');
+    await lab.admin.query('INSERT INTO "' + lab.namespaces.settings + '".tenant_settings_history' +
+      " (tenant_id,version,values,principal,consumer,operation,event_time) VALUES ($1,1,'{}','operator','lab','replace',1)", [request.id]);
+    let calls = 0;
+    const retry = createProvisioning(lab.provisioningOptions({ fetchImpl: async () => { calls++; throw Error('unexpected Vault call'); } }));
+    try {
+      assert.deepEqual(await retry.provision(request), { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_INCOMPLETE' });
+      assert.equal(calls, 0);
+      assert.deepEqual(await lab.rowsFor(request.id), { 'settings.tenant_settings_history': 1 });
+    } finally { await retry.close(); }
   });
 
   it('PV_CONFLICT: same id with other hosts, or a host bound to another tenant, is refused and writes nothing', async function () {
@@ -164,7 +216,6 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       const refused = await Promise.all([concurrent.provision(request), concurrent.provision(request)]);
       for (const result of refused) {
         assert.deepEqual(result, { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_BUSY' });
-        assert.equal(preKeyEnsureRefusal(concurrent, result), true, 'exact result proves no external key work started');
       }
       assert.equal(vaultSteps, 1, 'only the fence owner reaches Vault');
       assert.deepEqual(await lab.rowsFor(request.id), {}, 'no database rows before the owner continues');
