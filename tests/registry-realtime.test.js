@@ -1,10 +1,10 @@
 'use strict';
 
 // Registry mode for realtime, the api's socket forwarding, tenant removal on the
-// admin REST API and the static-tenants lab gate, without a database. The
+// admin REST API, without a database. The
 // PostgreSQL halves are tests/tenant-registry-provision.integration.test.js
 // (PV_REMOVE, PV_SETTINGS). Synthetic tenants and hosts only.
-// covers: lib/server/realtime/config.js, lib/server/realtime/registry-admission.js, lib/server/realtime/private-api.js, lib/server/realtime/private-config.js, lib/tenant-registry/rest.js, lib/cli/commands/admin.js, lib/server/serve/static-tenants.js
+// covers: lib/server/realtime/config.js, lib/server/realtime/registry-admission.js, lib/server/realtime/private-api.js, lib/server/realtime/private-config.js, lib/tenant-registry/rest.js, lib/cli/commands/admin.js
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { randomUUID } = require('node:crypto');

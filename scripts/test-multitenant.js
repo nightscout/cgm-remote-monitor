@@ -54,6 +54,7 @@ const IMAGES = {
 const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
+  { file: 'tests/role-readiness.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/api-tenant-lru.integration.test.js', flags: { NS_API_TENANT_LRU_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/connection-pool-bound.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'configured pool size bounds serving backends after connection admission retired (census C-06)' },

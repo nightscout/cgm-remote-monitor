@@ -85,6 +85,13 @@ describe('deployment settings: the environment builds the deployment\'s document
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir, NS_API_PG_FILE: path.join(dir, 'other') }).NS_API_PG, url('other'));
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir, NS_API_PG: url('inline') }).NS_API_PG, url('inline'));
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir }).NS_REALTIME_PG, undefined);
+      const stream = { ...env, NS_SECRETS_DIR: dir };
+      delete stream.NS_PGSTREAM_GENERATION;
+      const generationFile = path.join(dir, 'ns_pgstream_generation');
+      fs.writeFileSync(generationFile, env.NS_PGSTREAM_GENERATION + '\n');
+      assert.strictEqual(settings.configuration('evaluator', stream).pgstream.generation, env.NS_PGSTREAM_GENERATION);
+      fs.writeFileSync(generationFile, 'f'.repeat(32));
+      assert.strictEqual(settings.configuration('evaluator', stream).pgstream.generation, 'f'.repeat(32));
       assert.strictEqual(settings.configuration('api', { ...env, NS_SECRETS_DIR: dir }).vault.tokenFile, path.join(dir, 'vault-token'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

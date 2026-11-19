@@ -85,6 +85,10 @@ when set. A Vault Agent deployment can set `NS_VAULT_TOKEN_FILE` to its sink.
 The role reads that file on each provider call so Agent token rotation takes effect
 without a process restart. Admin's elevated identities belong in admin's mount only.
 
+The evaluator accepts `NS_PGSTREAM_GENERATION` inline or in a mounted file
+selected by `NS_PGSTREAM_GENERATION_FILE` or `<NS_SECRETS_DIR>/ns_pgstream_generation`.
+The deployment seeds this value once and rotates it on destructive stream replacement.
+
 ## Stream source identity
 
 The roles do not pin the database's identity (system identifier, timeline,

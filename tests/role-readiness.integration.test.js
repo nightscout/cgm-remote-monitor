@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/role-readiness.js (isolation, admit), lib/server/serve/role-health.js (/healthz/isolation), lib/cli/commands/healthcheck.js (--endpoint isolation)
+// covers: lib/server/serve/role-readiness.js, lib/server/serve/role-health.js, lib/cli/commands/healthcheck.js
 
 // The forced row-level-security screen as a serving-role health check
 // (decision platform-verification-removal, 2026-11-19 follow-up). The expected
