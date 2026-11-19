@@ -153,7 +153,14 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     await producer?.close();
     // An active slot proves an independently managed producer is still live. Never
     // terminate or adopt a backend to make cleanup look green.
-    const slot = (await admin.query('SELECT active FROM pg_replication_slots WHERE slot_name=$1', [pgstream.slot])).rows[0];
+    const readSlot = async () => (await admin.query('SELECT active FROM pg_replication_slots WHERE slot_name=$1', [pgstream.slot])).rows[0];
+    let slot = await readSlot();
+    // The OS child can exit before PostgreSQL releases its replication connection.
+    const deadline = Date.now() + 2000;
+    while (slot?.active && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+      slot = await readSlot();
+    }
     if (slot?.active) fail('PGSTREAM_NATIVE_CHILD_STILL_ACTIVE');
     if (slot) await admin.query('SELECT pg_drop_replication_slot($1)', [pgstream.slot]);
     // Initial absence reserves only these declared canonical policy resources.

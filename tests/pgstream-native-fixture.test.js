@@ -78,7 +78,7 @@ describe('native fixture exact policy resource custody (inert SQL)',function(){
   let directory;
   beforeEach(()=>{directory=fs.mkdtempSync(path.join(os.tmpdir(),'native-policy-custody-'));});
   afterEach(()=>fs.rmSync(directory,{recursive:true,force:true}));
-  function subject({realtime=false,partial=false,existing=false,change=source=>source}={}){
+  function subject({realtime=false,partial=false,existing=false,releasing=false,change=source=>source}={}){
     const Module=require('node:module'),filename=require.resolve('./fixtures/pgstream-native'),source=fs.readFileSync(filename,'utf8');
     const loaded=new Module(filename,module);loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
     // Isolate byte-pin/binding selection only; execute the actual setup/close
@@ -102,7 +102,7 @@ describe('native fixture exact policy resource custody (inert SQL)',function(){
       if(sql.includes('native-fixture-policy-resources'))return{rows:JSON.parse(values[0]).filter(row=>policies.has(key(row)))};
       if(sql.startsWith('CREATE ROLE ')){role=true;return{rows:[]};}
       if(sql.includes('AS schema_owned'))return{rows:[{schema_owned:schema}]};
-      if(sql.startsWith('SELECT active FROM pg_replication_slots'))return{rows:slot?[{active:false}]:[]};
+      if(sql.startsWith('SELECT active FROM pg_replication_slots')){const active=releasing;releasing=false;return{rows:slot?[{active}]:[]};}
       if(sql.startsWith('SELECT pg_drop_replication_slot')){slot=false;return{rows:[]};}
       if(sql.startsWith('DROP POLICY ')){
         const m=/^DROP POLICY "([^"]+)" ON "([^"]+)"\."([^"]+)"$/.exec(sql);assert(m,'EXACT_POLICY_DROP');
@@ -131,6 +131,11 @@ describe('native fixture exact policy resource custody (inert SQL)',function(){
     const f=subject({existing:true});await assert.rejects(f.setup(),/POLICY_ALREADY_EXISTS/);
     assert.equal(f.calls.filter(row=>row.init).length,0);assert(!f.calls.some(row=>row.sql?.startsWith('CREATE ROLE ')||row.sql?.startsWith('DROP ')));
     assert(f.policies.has(f.key(f.resources[0])));assert(f.policies.has(f.key(f.unrelated)));
+  });
+  it('waits for an exited producer backend to release its slot before dropping it',async()=>{
+    const f=subject({releasing:true}),owned=await f.setup();await owned.close();
+    assert.equal(f.calls.filter(row=>row.sql?.startsWith('SELECT active FROM pg_replication_slots')).length,2);
+    assert.deepEqual(f.state(),{schema:false,role:false,slot:false});
   });
   it('cleans only policies created by a partial owned initialization',async()=>{
     const f=subject({realtime:true,partial:true});await assert.rejects(f.setup(),/SYNTHETIC_PARTIAL_INIT/);
