@@ -111,9 +111,8 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       // the shipping resend policy may stamp/announce a replacement on retry.
     });
 
-    it('characterizes a history-cursor gap from process-local clocks under controlled time', async function () {
-      // Characterization of an unresolved limit, not a statelessness acceptance:
-      // freeze only srv-dates.js Date.now calls, retaining its actual allocator.
+    it('advances the durable history cursor across independent API processes and restart', async function () {
+      // Freeze the wall-clock input in both children; PostgreSQL allocates each committed stamp.
       const clock = String(Date.now() + 3600000);
       const options = { NS_PREVIEW_REPLICA_CONTROL: 'history-clock', NS_PREVIEW_REPLICA_CLOCK_MS: clock };
       const first = fixture.start(undefined, options), second = fixture.start(undefined, options);
@@ -130,34 +129,32 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       assert.equal((await call(second, A, 'POST', '/api/v3/entries', token, entry(two, 152))).status, 201);
       const secondStored = (await rows(A, two))[0];
       assert.equal(firstStored.srvModified, Number(clock), 'scoped fixture clock reached the actual first allocator');
-      assert.equal(secondStored.srvModified, firstStored.srvModified, 'already-running replica allocators can stamp equal cursors');
-      const missedByProcesses = [];
+      assert.equal(secondStored.srvModified, firstStored.srvModified + 1, 'both processes advance one durable cursor');
       for (const worker of [first, second]) {
         const history = await call(worker, A, 'GET', '/api/v3/entries/history/' + firstStored.srvModified, token);
         assert.equal(history.status, 200);
-        missedByProcesses.push(!history.body.result.some(doc => doc.identifier === two));
-        assert.equal(history.body.result.some(doc => doc.identifier === two), false,
-          'strict greater-than history misses the later committed second record at the same stamp');
+        assert.ok(history.body.result.some(doc => doc.identifier === two),
+          'exclusive history returns the later commit on both replicas');
         assert.equal((await call(worker, A, 'GET', '/api/v3/entries/' + two, token)).body.result.sgv, 152,
-          'record persists and is addressable despite history gap');
+          'both replicas can address the committed record');
       }
       assert.equal((await call(first, A, 'POST', '/api/v3/entries', token, entry('replica-clock-single-next', 153))).status, 201);
       const sameProcess = (await rows(A, 'replica-clock-single-next'))[0];
-      assert.equal(sameProcess.srvModified, firstStored.srvModified + 1, 'same process advances the actual allocator');
+      assert.equal(sameProcess.srvModified, secondStored.srvModified + 1, 'the first replica observes the second replica’s commit');
       const sameHistory = await call(second, A, 'GET', '/api/v3/entries/history/' + firstStored.srvModified, token);
       assert.ok(sameHistory.body.result.some(doc => doc.identifier === 'replica-clock-single-next'));
       await fixture.stop(second);
       const replacement = fixture.start(undefined, options); await fixture.ready(replacement);
       assert.equal((await call(replacement, A, 'POST', '/api/v3/entries', token, entry('replica-clock-restart-next', 154))).status, 201);
       assert.equal((await rows(A, 'replica-clock-restart-next'))[0].srvModified, sameProcess.srvModified + 1,
-        'restarted process hydrates persisted latest timestamp before allocating');
+        'restarted process advances the durable cursor');
       assert.deepEqual((await fixture.admin.query('SELECT doc FROM preview_data.entries WHERE tenant_id=$1 ORDER BY doc::text', [B])).rows,
         foreignBefore, 'other tenant state is unchanged by the clock characterization');
       console.log('REPLICA_HISTORY_OBSERVATION ' + JSON.stringify({
         first: firstStored.srvModified, second: secondStored.srvModified,
         sameProcessNext: sameProcess.srvModified,
         restartNext: (await rows(A, 'replica-clock-restart-next'))[0].srvModified,
-        missedByProcesses, addressedReadPassed: true, foreignTenantUnchanged: true
+        historyOnBothProcesses: true, addressedReadPassed: true, foreignTenantUnchanged: true
       }));
     });
 
