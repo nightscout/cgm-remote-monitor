@@ -220,7 +220,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
         read: async tenant => { assert.equal(tenant, A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
       '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
       './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness': async () => {},
-      './registry-tenant-set': { open: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
+      './registry-tenant-set': { openDemand: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
       '../../pgstream/evaluator': { open: async ({ config: current }) => {
         testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;
         for (let i = 0; i < 200; i++) {
@@ -254,10 +254,13 @@ describe('bounded read-through and pinned atomic publication cache', function ()
   });
 
   it('EVALUATOR_REGISTRY_CURRENT_CONTROLS: removing the owned reader or registry override is red, and restoration reaches every assertion', async function () {
-    const owned = 'settingsOf.withSettings(base, registrySet.tenants.get(tenant), tenant, settingsReader)';
-    const override = 'async readCurrent (tenant) { return registrySet.isActive(tenant) ? ' + owned + ' : null; }';
+    const owned = 'settingsOf.withSettings(base, entry, tenant, settingsReader)';
+    const override = 'async readCurrent (tenant) {';
     const source = fs.readFileSync(require.resolve('../lib/server/serve/evaluator-preview'), 'utf8');
-    for (const [needle, replacement, expected] of [[owned, 'settingsOf.withSettings(base, registrySet.tenants.get(tenant), tenant)', { finite: 1, legacy: 0 }], [override, 'readCurrent: base.readCurrent', { finite: 0, legacy: 1 }]]) {
+    for (const [needle, replacement, expected] of [
+      [owned, 'settingsOf.withSettings(base, entry, tenant)', { finite: 1, legacy: 0 }],
+      [override, 'async unusedRegistryReader (tenant) {', { finite: 0, legacy: 1 }]
+    ]) {
       assert.equal(source.split(needle).length, 2, 'control must land on actual source'); let observed;
       await assert.rejects(registryCurrent(value => value.replace(needle, replacement), value => { observed = value; }),
         error => error.code === 'ERR_ASSERTION' && error.actual === 0 && error.expected === 200);
