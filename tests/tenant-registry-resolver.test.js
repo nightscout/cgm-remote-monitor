@@ -193,3 +193,135 @@ describe('tenant registry resolver', function () {
     assert.throws(() => createRegistryResolver({ store, mode: 'canonical-internal' }), /trusted-proxy/);
   });
 });
+
+describe('revision-first registry polling', function () {
+  const A = randomUUID(), B = randomUUID(), C = randomUUID(), resident = randomUUID();
+  const a = request('one.example.test'), b = request('two.example.test'), c = request('three.example.test');
+  let store, resolver, clock, candidateReads;
+
+  beforeEach(function () {
+    store = fakeStore();
+    store.add(A, 'one.example.test');
+    store.add(B, 'two.example.test');
+    store.add(C, 'three.example.test');
+    clock = 0;
+    candidateReads = 0;
+    resolver = createRegistryResolver({ store, refreshMs: 1000, now: () => clock, schedule: () => null,
+      candidates () { candidateReads++; return [resident]; } });
+  });
+  afterEach(() => resolver.close());
+
+  it('refreshes unchanged residents with one scalar read per poll', async function () {
+    let addressed = 0;
+    store.changed = async () => { addressed++; return { revision: '4', changed: [] }; };
+    await resolver.start();
+    await resolver.resolve(a);
+    await resolver.entry(B);
+    for (let i = 0; i < 5; i++) {
+      clock += 1000;
+      assert.equal(await resolver.poll(), '4');
+    }
+    assert.equal(store.calls.revision, 6);
+    assert.equal(candidateReads, 0);
+    assert.equal(addressed, 0);
+    assert.equal(await resolver.resolve(a), A);
+    assert.equal((await resolver.entry(B)).tenant, B);
+    assert.equal(store.calls.lookup, 1);
+    assert.equal(store.calls.entry, 1);
+  });
+
+  it('coalesces both reads and carries only fills covered by the addressed snapshot', async function () {
+    const newHost = request('new.example.test');
+    await resolver.start();
+    await resolver.resolve(a);
+    await assert.rejects(resolver.resolve(newHost), { code: 'TENANT_HOST_UNKNOWN' });
+
+    store.add(C, 'new.example.test');
+    const scalar = Promise.withResolvers(), addressed = Promise.withResolvers();
+    const addressedStarted = Promise.withResolvers();
+    const reads = [], heard = [];
+    resolver.onRevision((revision, { previous, unchanged }) => heard.push({
+      revision, previous, carried: [A, B, C, resident].filter(unchanged)
+    }));
+    store.revision = () => { reads.push('scalar'); return scalar.promise; };
+    store.changed = (after, ids) => {
+      reads.push({ after, ids: new Set(ids) });
+      addressedStarted.resolve();
+      return addressed.promise;
+    };
+
+    const first = resolver.poll(), duringScalar = resolver.poll();
+    await resolver.entry(B);
+    store.remove(A); // Commit after the scalar snapshot.
+    scalar.resolve('5');
+    await addressedStarted.promise;
+    const duringAddressed = resolver.poll();
+    await resolver.resolve(c);
+    await resolver.entry(C);
+    addressed.resolve({ revision: '6', changed: [A] });
+    assert.deepEqual(await Promise.all([first, duringScalar, duringAddressed]), ['6', '6', '6']);
+    assert.deepEqual(reads, ['scalar', { after: '4', ids: new Set([A, B, resident]) }]);
+    assert.deepEqual(heard, [{ revision: '6', previous: '4', carried: [B, resident] }]);
+
+    await assert.rejects(resolver.resolve(a), { code: 'TENANT_HOST_UNKNOWN' });
+    assert.equal(await resolver.resolve(newHost), C);
+    const before = { ...store.calls };
+    await resolver.entry(B);
+    assert.equal(store.calls.entry, before.entry);
+    await resolver.resolve(c);
+    await resolver.entry(C);
+    assert.equal(store.calls.lookup - before.lookup, 1);
+    assert.equal(store.calls.entry - before.entry, 1);
+  });
+
+  it('retries a failed addressed read from the last success and applies global invalidation', async function () {
+    await resolver.start();
+    await resolver.resolve(b);
+    await resolver.entry(B);
+    store.remove(A);
+    const after = [], pending = Promise.withResolvers(), addressedStarted = Promise.withResolvers();
+    store.changed = async previous => {
+      after.push(previous);
+      if (after.length === 1) {
+        addressedStarted.resolve();
+        return pending.promise;
+      }
+      return { revision: '5', changed: null };
+    };
+    clock = 2900;
+    const failed = resolver.poll();
+    await addressedStarted.promise;
+    clock = 3100;
+    await resolver.resolve(b);
+    await resolver.entry(B);
+    assert.equal(store.calls.lookup, 2);
+    assert.equal(store.calls.entry, 2);
+
+    pending.reject(new Error('unavailable'));
+    assert.equal(await failed, '4');
+    assert.equal(resolver.stats().pollErrors, 1);
+    await resolver.resolve(b);
+    assert.equal(store.calls.lookup, 3);
+
+    const heard = [];
+    resolver.onRevision((revision, { unchanged }) => heard.push([revision, unchanged(B), unchanged(resident)]));
+    assert.equal(await resolver.poll(), '5');
+    assert.deepEqual(after, ['4', '4']);
+    assert.deepEqual(heard, [['5', false, false]]);
+    await resolver.resolve(b);
+    await resolver.entry(B);
+    assert.equal(store.calls.lookup, 4);
+    assert.equal(store.calls.entry, 3);
+  });
+
+  it('releases the shared poll when the scalar store call throws', async function () {
+    await resolver.start();
+    const revision = store.revision;
+    store.revision = () => { throw new Error('unavailable'); };
+    assert.equal(await resolver.poll(), '4');
+    assert.equal(resolver.stats().pollErrors, 1);
+    store.revision = revision;
+    store.remove(B);
+    assert.equal(await resolver.poll(), '5');
+  });
+});
