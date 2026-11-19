@@ -2,42 +2,33 @@
 
 // Two API CLI replicas with shared durable write clock and generation-fenced restore.
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto'), fs = require('node:fs'), path = require('node:path'), http = require('node:http');
+const path = require('node:path'), http = require('node:http');
 const { Client, Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
-const { run } = require('../../lib/migrations/postgres');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
-const namespace = 'preview_control', q = name => '"' + name + '"';
-const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
-module.exports = function create ({ environment = {}, leaseSessions, drainTimeoutMs = 10000 } = {}) {
-  const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), calls = new Map();
+const namespace = 'preview_control';
+module.exports = function create ({ environment = {}, drainTimeoutMs = 10000 } = {}) {
+  const base = require('./multitenant-preview-replicas')(), current = new Map(), environments = new Map(), calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode;
-  const url = host => 'http://' + host + ':' + port + '/';
-  const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
+  let publicProxy, operatorPool, controller, resume, lifetimeURI, config, previousMode;
   async function withAdmin (fn) {
     const client = new Client({ connectionString: base.adminConnectionString }); await client.connect();
     try { return await fn(client); } finally { await client.end(); }
   }
-  function serviceProxy (privateRoute) {
+  function serviceProxy () {
     let next = 0;
     return http.createServer((req, res) => {
       const id = next++ % 2 ? 'api-2' : 'api-1', worker = current.get(id);
       calls.set(id, (calls.get(id) || 0) + 1);
       if (!worker) { res.writeHead(503); res.end(); return; }
-      const target = privateRoute ? new URL(url(id === 'api-1' ? '127.0.0.2' : '127.0.0.3')) : { hostname: '127.0.0.1', port: worker.port };
-      const upstream = http.request({ hostname: target.hostname, port: target.port, path: req.url, method: req.method, headers: req.headers, agent: false },
+      const upstream = http.request({ hostname: '127.0.0.1', port: worker.port, path: req.url, method: req.method, headers: req.headers, agent: false },
         reply => { res.writeHead(reply.statusCode, reply.headers); reply.pipe(res); });
       upstream.on('error', () => res.destroy()); req.pipe(upstream);
     });
   }
   async function start (id, { readinessTenant } = {}) {
-    const file = path.join(base.directory, id + '-operation.json');
-    fs.writeFileSync(file, JSON.stringify({ version: 1, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
-    const extra = { NS_ROSTER_LIFETIME_PG: lifetimeURI, MULTITENANT_OPERATION_CONFIG: file,
-      NS_SERVE_INTERNAL_HOST: id === 'api-1' ? '127.0.0.2' : '127.0.0.3', NS_SERVE_INTERNAL_PORT: String(port), NS_API_INTERNAL_URL: url('127.0.0.4'),
-      NS_EVALUATOR_INTERNAL_URL: url('127.0.0.5'), NS_REALTIME_INTERNAL_URL: url('127.0.0.6'), NS_TENANT_ADMIN_INTERNAL_URL: url('127.0.0.7'),
+    const extra = { NS_LIFETIME_PG: lifetimeURI,
       NODE_OPTIONS: '--require ' + path.join(__dirname, 'api-fixed-roster-controls.js'),
       NS_API_ROSTER_CONTROL_DIR: base.directory, NS_API_ROSTER_ID: id,
       NS_PREVIEW_REPLICA_CONTROL: 'history-clock', NS_PREVIEW_REPLICA_CLOCK_MS: controlledClock, NS_POOL_OPERATION_MAX: '2', NS_POOL_API_MAX: '2', ...environment };
@@ -47,67 +38,35 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   }
   async function setup () {
     await base.setup(); config = base.configuration(); previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi');
-    await run('up', { direct: true, connectionString: base.adminConnectionString, namespace, catalogue: require('../../lib/tenant-lifecycle/postgres-candidate.json') });
     const admin = base.admin;
-    await admin.query('CREATE ROLE preview_control_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
-    for (const table of (await admin.query('SELECT tablename FROM pg_tables WHERE schemaname=$1', [namespace])).rows) await admin.query('ALTER TABLE ' + q(namespace) + '.' + q(table.tablename) + ' OWNER TO preview_control_owner');
-    await admin.query('ALTER FUNCTION preview_control.tenant_lifecycle_backend_birth() OWNER TO preview_control_owner');
-    await admin.query('ALTER SCHEMA preview_control OWNER TO preview_control_owner');
-    const roleURI = async role => {
-      const password = crypto.randomBytes(24).toString('hex');
-      await admin.query('CREATE ROLE ' + q(role) + " LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '" + password + "'");
-      const selected = new URL(base.adminConnectionString); selected.username = role; selected.password = password; return selected.toString();
-    };
-    lifetimeURI = await roleURI('preview_lifetime_api');
-    const operatorURI = await roleURI('preview_restore_operator');
-    for (const role of ['preview_app', 'preview_check', 'preview_settings', 'preview_lifetime_api']) {
-      await admin.query('GRANT USAGE ON SCHEMA preview_control TO ' + q(role));
-      await admin.query('GRANT SELECT ON preview_control.schema_migrations,preview_control.tenant_lifecycle_windows,preview_control.tenant_lifecycle_operations TO ' + q(role));
-    }
-    await admin.query('GRANT INSERT(tenant_id,operation_id,generation),UPDATE(finished) ON preview_control.tenant_lifecycle_operations TO preview_lifetime_api');
-    await admin.query('GRANT EXECUTE ON FUNCTION preview_control.tenant_lifecycle_backend_birth() TO preview_lifetime_api');
-    // Registry provisioning adds a settings CHECK validator. It is not an
-    // operation-lifetime capability: PostgreSQL's default PUBLIC EXECUTE must
-    // not leak that unrelated function to the deliberately narrow lease role.
-    const settingsValidator = '"' + base.provisioned.namespaces.settings + '".tenant_settings_values_valid(jsonb)';
-    await admin.query('REVOKE EXECUTE ON FUNCTION ' + settingsValidator + ' FROM PUBLIC');
-    assert.equal((await admin.query("SELECT has_function_privilege($1,$2,'EXECUTE') AS executes",
-      ['preview_lifetime_api', settingsValidator])).rows[0].executes, false);
-    for (const sql of maintenance.operatorGrants({ namespace, role: 'preview_restore_operator' })) await admin.query(sql);
-    await admin.query('GRANT pg_read_all_stats TO preview_restore_operator');
+    lifetimeURI = base.platform.urls.lifetime_api;
+    const operatorURI = base.platform.urls.operator;
     for (const lock of locks) {
       const existing = (await admin.query('SELECT lock_key::text AS key FROM preview_control.tenant_lifecycle_windows WHERE tenant_id=$1', [lock.tenant])).rows;
       assert.equal(existing.length, 1, 'actual provisioning created the window');
       assert.equal(existing[0].key, lock.key, 'registry lock rule matches actual provisioned window');
-      await admin.query("INSERT INTO preview_control.tenant_lifecycle_restore_authority VALUES($1,'preview_restore_operator'::regrole::oid,true)", [lock.tenant]);
+      await admin.query("INSERT INTO preview_control.tenant_lifecycle_restore_authority VALUES($1,$2::regrole::oid,true)", [lock.tenant, base.platform.roles.operator]);
     }
-    port = await freePort();
-    const protectedNames = require('../../lib/server/serve/role-topology').protectedNamespaces(config).filter(name => name !== namespace).sort();
-    // Instance addresses of the two api replicas and the other roles (no manifest).
-    participants = Object.freeze([
-      ...['api-1', 'api-2'].map((id, i) => ({ id, roles: ['api'], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 2)) })),
-      ...['evaluator', 'realtime', 'tenant-admin'].map((role, i) => ({ id: role, roles: [role], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 5)) }))]);
-    await base.provisioned.release();
     await start('api-1'); await start('api-2');
-    privateProxy = serviceProxy(true); await new Promise(resolve => privateProxy.listen(port, '127.0.0.4', resolve));
-    publicProxy = serviceProxy(false); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));
+    publicProxy = serviceProxy(); await new Promise(resolve => publicProxy.listen(0, '127.0.0.1', resolve));
     operatorPool = new Pool({ connectionString: operatorURI, max: 1 });
-    controller = maintenance.create({ namespace, locks, pool: operatorPool, drainTimeoutMs });
-    resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, pool: operatorPool });
+    controller = maintenance.create({ namespace, locks, nativeSelection: base.platform.layout.native, pool: operatorPool, drainTimeoutMs });
+    resume = require('../../lib/tenant-lifecycle/restore-resume').create({ namespace, locks, nativeSelection: base.platform.layout.native, pool: operatorPool });
   }
   async function cleanup () {
     for (const worker of current.values()) if (!worker.exit) worker.child.kill('SIGUSR2');
     if (controller) await controller.close(); if (resume) await resume.close();
-    for (const proxy of [privateProxy, publicProxy].filter(Boolean)) await new Promise(resolve => proxy.close(resolve));
+    if (publicProxy) await new Promise(resolve => publicProxy.close(resolve));
     if (operatorPool) await operatorPool.end(); await base.cleanup(); if (previousMode) scope.setTenancyMode(previousMode);
   }
   return { setup, cleanup, start, withAdmin, base, current, calls, locks, namespace,
-    refusedWithoutClock: async id => {
-      const disabled = { ...config, postgres: { ...config.postgres, namespaces: { ...config.postgres.namespaces } } };
-      delete disabled.writeClock; delete disabled.postgres.namespaces.clock;
-      return base.refused(disabled, environments.get(id));
+    async refusedWithoutClock (id) {
+      const role = base.platform.roles.readiness;
+      await base.admin.query('REVOKE SELECT ON preview_clock.schema_migrations FROM "' + role + '"');
+      try { return await base.refused(config, environments.get(id), { code: 1 }); }
+      finally { await base.admin.query('GRANT SELECT ON preview_clock.schema_migrations TO "' + role + '"'); }
     },
-    get lifetimeConnectionString () { return lifetimeURI; }, get participants () { return participants; }, get operatorPool () { return operatorPool; },
+    get lifetimeConnectionString () { return lifetimeURI; }, get operatorPool () { return operatorPool; },
     get serviceWorker () { return { port: publicProxy.address().port }; },
     restoreState: (tenant = base.tenants[0]) => withAdmin(async client => (await client.query(
       'SELECT phase,generation::text,claim_id,artifact_digest,' +

@@ -33,10 +33,10 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     // The operator uses its own backend for each operation.
     async function operator (fn, { controller = maintenance, drainTimeoutMs = 300 } = {}) {
       const pool = operatorPool();
-      const restore = controller.create({ namespace: f.namespace, locks: f.locks, pool, drainTimeoutMs });
+      const restore = controller.create({ namespace: f.namespace, locks: f.locks, nativeSelection: f.base.platform.layout.native, pool, drainTimeoutMs });
       // Floors are postconditions of the restore transaction itself (decision
       // platform-verification-removal); nothing is certified before activation.
-      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool });
+      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, nativeSelection: f.base.platform.layout.native, pool });
       try { return await fn({ restore, resume }); }
       finally { await restore.close(); await resume.close(); await pool.end(); }
     }
@@ -64,8 +64,8 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       await f.withAdmin(async client => {
         await client.query('CREATE SCHEMA restore_probe');
         await client.query('CREATE TABLE restore_probe.rows(tenant_id uuid NOT NULL, value text NOT NULL)');
-        await client.query('GRANT USAGE ON SCHEMA restore_probe TO preview_restore_operator');
-        await client.query('GRANT SELECT,INSERT ON restore_probe.rows TO preview_restore_operator');
+        await client.query('GRANT USAGE ON SCHEMA restore_probe TO preview_operator');
+        await client.query('GRANT SELECT,INSERT ON restore_probe.rows TO preview_operator');
       });
       observer = operatorPool();
       assert.equal((await call('api-1', A, 'POST', '/api/v3/entries', a, entry('resume-a-before'))).status, 201);
@@ -118,12 +118,12 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     it('refuses a resume while the restore that holds A is still running, and a mislabelled resume record', async function () {
       let release; const gate = new Promise(resolve => { release = resolve; });
       let entered; const inside = new Promise(resolve => { entered = resolve; });
-      const pool = operatorPool(), restore = maintenance.create({ namespace: f.namespace, locks: f.locks, pool, drainTimeoutMs: 300 });
+      const pool = operatorPool(), restore = maintenance.create({ namespace: f.namespace, locks: f.locks, nativeSelection: f.base.platform.layout.native, pool, drainTimeoutMs: 300 });
       const running = restore.withRestore(A, { artifactDigest: DIGEST }, async context => { await restored('running')(context); entered(); await gate; });
       try {
-        await inside;
+        await Promise.race([inside, running]);
         const claim = (await state()).window.claim_id;
-        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool: other });
+        const other = operatorPool(), resume = recovery.create({ namespace: f.namespace, locks: f.locks, nativeSelection: f.base.platform.layout.native, pool: other });
         assert.deepEqual((await resume.inspect(A)).reasons, ['LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT']);
         // The original restore backend is still alive.
         await assert.rejects(resume.resume(A, { claimId: claim }), { code: 'LIFECYCLE_RESUME_RESTORE_OWNER_PRESENT' });
@@ -175,7 +175,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     });
 
     it('no write of the other tenant was lost, and A kept its own', async function () {
-      const stored = await admin(async client => (await client.query("SELECT tenant_id::text AS tenant,doc->>'identifier' AS identifier FROM preview_data.entries WHERE doc->>'identifier' LIKE 'resume-%'")).rows);
+      const stored = await admin(async client => (await client.query("SELECT tenant_id::text AS tenant,doc->>'identifier' AS identifier FROM preview_entries.entries WHERE doc->>'identifier' LIKE 'resume-%'")).rows);
       const mine = stored.filter(row => row.tenant === B).map(row => row.identifier).sort();
       assert.deepEqual(mine, [...written].sort(), 'OTHER_TENANT_WRITES every B write made before, during and after each closure is stored');
       assert(stored.some(row => row.tenant === A && row.identifier === 'resume-a-before'));

@@ -5,11 +5,9 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { Client } = require('pg');
-const { run } = require('../../lib/migrations/postgres');
 const { setTimeout: delay } = require('node:timers/promises');
 const createReplicaFixture = require('./multitenant-preview-replicas');
 
-const CLOCK = 'preview_clock';
 const MAX_STAMP = 8640000000000000;
 const BLOCK_DEADLINE_MS = 2000; // shorter than the actual API statement timeout
 
@@ -31,22 +29,12 @@ function requestSummary (request) {
   return request.error ? 'transport failure' : 'HTTP ' + request.response?.status;
 }
 
-module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) {
-  assert.equal(typeof clockEnabled, 'boolean');
-  // This fixture installs and seeds its own history clock before any API starts.
-  const base = createReplicaFixture({ writeClock: false });
+module.exports = function createClockHttpFixture () {
+  const base = createReplicaFixture();
   const clients = new Set();
   const locked = new Set();
   const backendFaultTargets = new WeakSet();
-
-  function configuration () {
-    const config = base.configuration();
-    if (clockEnabled) {
-      config.writeClock = true;
-      config.postgres.namespaces.clock = CLOCK;
-    }
-    return config;
-  }
+  const configuration = base.configuration;
 
   async function client () {
     // The operator connection is fixture-owned, generated at runtime. Do not log
@@ -80,31 +68,6 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     if (errors.length) throw new globalThis.AggregateError(errors, 'Clock HTTP control cleanup failed');
   }
 
-  async function setup () {
-    await base.setup();
-    const catalogue = require('../../migrations/candidates/postgres-write-clock-v1.json');
-    const params = base.admin.connectionParameters;
-    // Build the URI privately for the existing operator migration runner only.
-    const uri = new URL('postgres://127.0.0.1/');
-    uri.hostname = params.host; uri.port = String(params.port);
-    uri.username = params.user; uri.password = params.password;
-    uri.pathname = '/' + params.database;
-    await run('up', { direct: true, connectionString: uri.toString(), namespace: CLOCK, catalogue });
-    for (const tenant of base.tenants) {
-      const config = base.configuration();
-      const pieces = config.domains.map(name => `SELECT doc FROM "${config.postgres.namespaces[name]}"."${name}" WHERE tenant_id=$1`);
-      const highest = await base.admin.query(`SELECT COALESCE(ceil(max((doc->>'srvModified')::numeric)),0)::text AS stamp
-        FROM (${pieces.join(' UNION ALL ')}) admitted
-        WHERE jsonb_typeof(doc->'srvModified')='number'
-          AND (doc->>'srvModified')::numeric>=0 AND (doc->>'srvModified')::numeric<$2`, [tenant, MAX_STAMP]);
-      await base.admin.query('INSERT INTO preview_clock.tenant_write_clock (tenant_id,last_stamp) VALUES ($1,$2)',
-        [tenant, highest.rows[0].stamp]);
-    }
-    await base.admin.query('GRANT USAGE ON SCHEMA preview_clock TO preview_app, preview_check');
-    await base.admin.query('GRANT SELECT, UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
-    await base.admin.query('GRANT SELECT ON preview_clock.schema_migrations TO preview_check');
-  }
-
   async function cleanup () {
     const errors = [];
     try { await releaseControls(); } catch (error) { errors.push(error); }
@@ -119,21 +82,21 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     return [first, second];
   }
   const rows = async (tenant, identifier) => (await base.admin.query(
-    "SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [tenant, identifier])).rows.map(row => row.doc);
-  const floor = async tenant => clockEnabled ? Number((await base.admin.query(
-    'SELECT last_stamp FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [tenant])).rows[0].last_stamp) : null;
+    "SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [tenant, identifier])).rows.map(row => row.doc);
+  const floor = async tenant => Number((await base.admin.query(
+    'SELECT last_stamp FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [tenant])).rows[0].last_stamp);
   const storedEntriesWatermark = async tenant => Number((await base.admin.query(
-    "SELECT COALESCE(max((doc->>'srvModified')::numeric),0)::text AS stamp FROM preview_data.entries WHERE tenant_id=$1 AND jsonb_typeof(doc->'srvModified')='number'",
+    "SELECT COALESCE(max((doc->>'srvModified')::numeric),0)::text AS stamp FROM preview_entries.entries WHERE tenant_id=$1 AND jsonb_typeof(doc->'srvModified')='number'",
     [tenant])).rows[0].stamp);
   const foreignRows = async tenant => (await base.admin.query(
-    'SELECT doc FROM preview_data.entries WHERE tenant_id=$1 ORDER BY doc::text', [tenant])).rows;
+    'SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 ORDER BY doc::text', [tenant])).rows;
 
   async function lockEntry (tenant, identifier) {
     const connection = await client();
     await connection.query('BEGIN');
     locked.add(connection);
     const found = await connection.query(
-      "SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2 FOR UPDATE", [tenant, identifier]);
+      "SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2 FOR UPDATE", [tenant, identifier]);
     assert.equal(found.rows.length, 1, 'barrier requires one existing actual data row');
     const pid = Number((await connection.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
     let released = false;
@@ -157,7 +120,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     assert.ok(base.workers.has(worker), 'fault target must be an owned API child');
     const backend = await backendState(pid);
     assert.ok(backend, 'exact previously observed writer backend must still exist');
-    assert.equal(backend.usename, 'preview_app', 'operator termination targets only the owned API writer');
+    assert.equal(backend.usename, 'preview_api', 'operator termination targets only the owned API writer');
     assert.equal(backend.application_name, 'nightscout-preview-data');
     const terminated = (await base.admin.query('SELECT pg_terminate_backend($1::int) AS terminated', [pid])).rows[0].terminated;
     if (terminated) backendFaultTargets.add(worker);
@@ -238,10 +201,10 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
       const state = await base.admin.query(`SELECT pid, query, wait_event_type,
           pg_blocking_pids(pid) AS blockers,
           extract(epoch FROM (clock_timestamp()-query_start))*1000 AS waiting_ms FROM pg_stat_activity
-        WHERE usename='preview_app' AND state='active' AND wait_event_type='Lock'
+        WHERE usename='preview_api' AND state='active' AND wait_event_type='Lock'
           AND $1::int=ANY(pg_blocking_pids(pid))`, [blockerPid]);
       for (const row of state.rows) {
-        const isData = /\bUPDATE\b/i.test(row.query) && /preview_data/.test(row.query) && /entries/.test(row.query);
+        const isData = /\bUPDATE\b/i.test(row.query) && /preview_entries/.test(row.query) && /entries/.test(row.query);
         const isClock = /tenant_write_clock/.test(row.query) &&
           (/^SELECT last_stamp .*FOR UPDATE/i.test(row.query) || /^UPDATE .*SET last_stamp = GREATEST/i.test(row.query));
         if ((kind === 'data-update' && isData) || (kind === 'clock-row' && isClock)) {
@@ -274,7 +237,7 @@ module.exports = function createClockHttpFixture ({ clockEnabled = true } = {}) 
     return request.response;
   }
 
-  return { ...base, setup, cleanup, configuration, start, pair, rows, floor,
+  return { ...base, cleanup, configuration, start, pair, rows, floor,
     foreignRows, storedEntriesWatermark, lockEntry, waitForBlocked, assertClockHeld, completed,
     backendState, terminateBackend, connectionSettings, workerDiagnostic, disposeBackendFaultTarget,
     tracked, releaseControls,

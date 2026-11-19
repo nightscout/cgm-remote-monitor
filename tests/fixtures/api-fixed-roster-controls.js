@@ -23,7 +23,7 @@ let resumeWrite;
 Client.prototype.query = function (...args) {
   const result = query.apply(this, args);
   const sql = typeof args[0] === 'string' ? args[0] : args[0]?.text;
-  if (!sql || !/^INSERT INTO "?preview_data"?\."?entries"?\s/i.test(sql) || !fs.existsSync(arm)) return result;
+  if (!sql || !/^INSERT INTO "?preview_entries"?\."?entries"?\s/i.test(sql) || !fs.existsSync(arm)) return result;
   fs.unlinkSync(arm);
   return result.then(async value => {
     if (value.rowCount !== 1) throw new Error('Expected one uncommitted synthetic entry');

@@ -27,7 +27,7 @@ const entry = (identifier, sgv = 145) => ({ identifier, type: 'sgv', date: 17936
   utcOffset: 0, app: 'synthetic-commit-clock', sgv });
 
 optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
-  'opt-in tenant commit clock through actual REST CLI processes', function () {
+  'tenant commit clock through actual REST CLI processes', function () {
     this.timeout(120000);
     const f = createFixture(), [A, B] = f.tenants;
     const clockOptions = () => ({ NS_PREVIEW_REPLICA_CONTROL: 'history-clock',
@@ -67,15 +67,10 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       if (errors.length) throw new globalThis.AggregateError(errors, 'Clock HTTP case cleanup failed');
     });
 
-    it('refuses an API configuration without the shared clock before opening a listener', async function () {
-      for (const value of [undefined, false]) {
-        const config = f.configuration();
-        if (value === undefined) delete config.writeClock;
-        else config.writeClock = value;
-        const worker = await f.refused(config);
-        assert.match(worker.stderr, /API_WRITE_CLOCK_REQUIRED/);
-        assert.doesNotMatch(worker.stdout, /Listening/);
-      }
+    it('always selects the shared clock for the deployed API', function () {
+      const config = f.configuration();
+      assert.equal(config.writeClock, true);
+      assert.equal(config.postgres.namespaces.clock, 'preview_clock');
     });
 
     it('orders equal-clock writes across API processes and returns the later exclusive-history record', async function () {
@@ -248,14 +243,14 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       const token = await f.localToken(A);
       await seed(first, token, 'commit-clock-before-constraint');
       const before = await f.floor(A), foreign = await f.foreignRows(B);
-      await f.admin.query("ALTER TABLE preview_data.entries ADD CONSTRAINT clock_http_reject CHECK (doc->>'identifier'<>'commit-clock-constraint-fail')");
+      await f.admin.query("ALTER TABLE preview_entries.entries ADD CONSTRAINT clock_http_reject CHECK (doc->>'identifier'<>'commit-clock-constraint-fail')");
       try {
         const rejected = await call(first, A, 'POST', '/api/v3/entries', token, entry('commit-clock-constraint-fail'));
         assert.ok(rejected.status >= 400 && rejected.status < 600, 'actual constraint failure must refuse HTTP success');
         assert.equal((await f.rows(A, 'commit-clock-constraint-fail')).length, 0);
         assert.equal(await f.floor(A), before, 'failed data insert must not commit a clock allocation');
         console.log('TENANT_COMMIT_CLOCK_CONSTRAINT ' + JSON.stringify({ status: rejected.status, floorUnchanged: true }));
-      } finally { await f.admin.query('ALTER TABLE preview_data.entries DROP CONSTRAINT clock_http_reject'); }
+      } finally { await f.admin.query('ALTER TABLE preview_entries.entries DROP CONSTRAINT clock_http_reject'); }
       const next = await seed(first, token, 'commit-clock-after-constraint');
       assert.equal(next.srvModified, before + 1);
       assert.deepEqual(await f.foreignRows(B), foreign);
@@ -282,42 +277,32 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
       assert.deepEqual(seen, expected.map(doc => doc.identifier));
     });
 
-    // Decision tenant-defect-tenant-scoped: a defect in one tenant's own clock
-    // state refuses that tenant only; a deployment-level defect (grants,
-    // row-level security) still refuses startup.
-    it('refuses only the tenant whose own clock state is missing or stale, and refuses unsafe deployment clock state before binding', async function () {
+    it('refuses timestamped writes with a missing tenant clock while the other tenant keeps serving', async function () {
       const [first] = await f.pair(clockOptions()), token = await f.localToken(A), other = await f.localToken(B);
       await seed(first, token, 'commit-clock-startup-baseline');
       for (const worker of [...f.workers]) await f.stop(worker);
       const before = await f.floor(A);
-      // The role binds; tenant A is refused on every request with no write; tenant B is served.
-      async function tenantScoped (label) {
-        const worker = f.start(clockOptions()); await f.ready(worker, B);
-        assert.equal((await call(worker, A, 'GET', '/api/v3/entries')).status, 503, label + ': anonymous request for the defective tenant');
-        const read = await call(worker, A, 'GET', '/api/v3/entries', token);
-        assert.deepEqual([read.status, read.body], [503, { error: 'AUTHORITY_UNAVAILABLE' }], label + ': read for the defective tenant');
-        const write = await call(worker, A, 'POST', '/api/v3/entries', token, entry('commit-clock-defect-' + label));
-        assert.deepEqual([write.status, write.body], [503, { error: 'AUTHORITY_UNAVAILABLE' }], label + ': write for the defective tenant');
-        assert.equal((await f.rows(A, 'commit-clock-defect-' + label)).length, 0, label + ': nothing written for the defective tenant');
-        assert.equal((await call(worker, B, 'GET', '/api/v3/entries', other)).status, 200, label + ': the healthy tenant reads');
-        assert.equal((await call(worker, B, 'POST', '/api/v3/entries', other, entry('commit-clock-healthy-' + label))).status, 201, label + ': the healthy tenant writes');
-        assert.equal(worker.exit, null, label + ': the role keeps running');
-        await f.stop(worker);
-      }
       await f.admin.query('DELETE FROM preview_clock.tenant_write_clock WHERE tenant_id=$1', [A]);
-      try { await tenantScoped('missing'); }
-      finally { await f.admin.query('INSERT INTO preview_clock.tenant_write_clock VALUES ($1,$2)', [A, before]); }
-      await f.admin.query('UPDATE preview_clock.tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [A]);
-      try { await tenantScoped('stale'); }
-      finally { await f.admin.query('UPDATE preview_clock.tenant_write_clock SET last_stamp=$1 WHERE tenant_id=$2', [before, A]); }
-      await f.admin.query('GRANT INSERT ON preview_clock.tenant_write_clock TO preview_app');
-      try { await f.refused(f.configuration()); }
-      finally { await f.admin.query('REVOKE INSERT ON preview_clock.tenant_write_clock FROM preview_app'); }
+      try {
+        const worker = f.start(clockOptions()); await f.ready(worker, B);
+        // Provisioning and restore establish the floor. A read does not scan it.
+        assert.equal((await call(worker, A, 'GET', '/api/v3/entries')).status, 403);
+        assert.equal((await call(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
+        const write = await call(worker, A, 'POST', '/api/v3/entries', token, entry('commit-clock-defect-missing'));
+        assert.ok(write.status >= 500 && write.status < 600, 'storage failure refuses the write');
+        assert.equal((await f.rows(A, 'commit-clock-defect-missing')).length, 0);
+        assert.equal((await call(worker, B, 'GET', '/api/v3/entries', other)).status, 200);
+        assert.equal((await call(worker, B, 'POST', '/api/v3/entries', other, entry('commit-clock-healthy'))).status, 201);
+        await f.stop(worker);
+      } finally { await f.admin.query('INSERT INTO preview_clock.tenant_write_clock VALUES ($1,$2)', [A, before]); }
+      assert.equal(await f.floor(A), before);
+    });
+
+    it('refuses unsafe deployment clock isolation before binding', async function () {
       await f.admin.query('ALTER TABLE preview_clock.tenant_write_clock NO FORCE ROW LEVEL SECURITY');
-      try { await f.refused(f.configuration()); }
+      try { await f.refused(f.configuration(), {}, {code: 1}); }
       finally { await f.admin.query('ALTER TABLE preview_clock.tenant_write_clock FORCE ROW LEVEL SECURITY'); }
-      assert.equal(await f.floor(A), before, 'admission checks must not change the stored clock');
-      const [restored] = await f.pair(clockOptions());
+      const [restored] = await f.pair(clockOptions()), token = await f.localToken(A);
       assert.equal((await call(restored, A, 'GET', '/api/v3/entries', token)).status, 200);
     });
 
@@ -329,18 +314,15 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
           assert.ok(Number.isSafeInteger(sampleCount) && sampleCount >= 1 && sampleCount <= 1000);
           assert.ok(Number.isSafeInteger(concurrency) && concurrency >= 1 && concurrency <= 16);
           const warmupRequests = 8;
-          // Every serving API uses the shared history allocator. Missing-clock
-          // configurations are exercised by the startup-refusal case above.
-          const cohorts = ['single-hot-tenant', 'balanced-two-tenants'].map(cohort => ({ clockEnabled: true, cohort }));
-          for (const { clockEnabled, cohort } of cohorts) {
+          for (const cohort of ['single-hot-tenant', 'balanced-two-tenants']) {
             // Fresh services/data for EACH cohort: no +1h allocator fixtures,
             // and no hot-first/balanced-second shared cache/data history.
-            const bench = createFixture({ clockEnabled });
+            const bench = createFixture();
             try {
               await bench.setup();
               const config = bench.configuration();
-              assert.equal(Object.hasOwn(config, 'writeClock'), clockEnabled);
-              assert.equal(Object.hasOwn(config.postgres.namespaces, 'clock'), clockEnabled);
+              assert.equal(config.writeClock, true);
+              assert.ok(config.postgres.namespaces.clock);
               const initialClockFloors = await Promise.all(bench.tenants.map(tenant => bench.floor(tenant)));
               const workers = await bench.pair();
               const credentials = await Promise.all(bench.tenants.map(tenant => bench.localToken(tenant)));
@@ -384,12 +366,12 @@ optInSuite(enabled, 'NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1')(
               }
               await Promise.all(Array.from({ length: concurrency }, work));
               const result = createFixture.metrics(samples, performance.now() - started, {
-                cohort, clockEnabled, sampleCount, concurrency, configuredTenants: bench.tenants.length, processes: workers.length,
+                cohort, clockEnabled: true, sampleCount, concurrency, configuredTenants: bench.tenants.length, processes: workers.length,
                 configuration: { role: 'api', writeClock: config.writeClock ?? 'omitted',
                   namespaces: config.postgres.namespaces, domains: config.domains,
                   legacy: config.legacy, context: config.context, resolution: config.resolution.mode,
                   accessTokenIssuer: config.accessTokens.issuer, accessTokenAudience: config.accessTokens.audience,
-                  unusedClockSchemaProvisioned: !clockEnabled },
+                  unusedClockSchemaProvisioned: false },
                 nodeVersion: process.version, postgresVersion, freshFixturePerCohort: true,
                 initialClockFloors, floorToWallClock, warmupRequests,
                 warmupPurpose: 'exercise each process/tenant pairing; not a steady-state proof', retryPolicy: 'none', credentialKind: 'tenant data token with current persisted authority',

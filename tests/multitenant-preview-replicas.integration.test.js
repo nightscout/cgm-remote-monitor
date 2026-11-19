@@ -18,9 +18,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
     const [A, B] = fixture.tenants;
     const call = (...args) => fixture.http(...args);
     const changeGrants = permissions => fixture.admin.query(
-      "UPDATE preview_auth.tenant_authorization_roles SET permissions=$1 WHERE tenant_id=$2 AND name='viewer'", [permissions, A]);
+      "UPDATE preview_authorization.tenant_authorization_roles SET permissions=$1 WHERE tenant_id=$2 AND name='viewer'", [permissions, A]);
     const rows = async (tenant, identifier) => (await fixture.admin.query(
-      "SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [tenant, identifier])).rows.map(row => row.doc);
+      "SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [tenant, identifier])).rows.map(row => row.doc);
     async function pair () {
       const first = fixture.start(), second = fixture.start();
       await fixture.ready(first); await fixture.ready(second);
@@ -118,7 +118,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       const first = fixture.start(undefined, options), second = fixture.start(undefined, options);
       await fixture.ready(first); await fixture.ready(second);
       const token = await fixture.localToken(A);
-      const foreignBefore = (await fixture.admin.query('SELECT doc FROM preview_data.entries WHERE tenant_id=$1 ORDER BY doc::text', [B])).rows;
+      const foreignBefore = (await fixture.admin.query('SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 ORDER BY doc::text', [B])).rows;
       const one = 'replica-clock-one', two = 'replica-clock-two';
       assert.equal((await call(first, A, 'POST', '/api/v3/entries', token, entry(one, 151))).status, 201);
       const firstStored = (await rows(A, one))[0];
@@ -148,7 +148,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       assert.equal((await call(replacement, A, 'POST', '/api/v3/entries', token, entry('replica-clock-restart-next', 154))).status, 201);
       assert.equal((await rows(A, 'replica-clock-restart-next'))[0].srvModified, sameProcess.srvModified + 1,
         'restarted process advances the durable cursor');
-      assert.deepEqual((await fixture.admin.query('SELECT doc FROM preview_data.entries WHERE tenant_id=$1 ORDER BY doc::text', [B])).rows,
+      assert.deepEqual((await fixture.admin.query('SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 ORDER BY doc::text', [B])).rows,
         foreignBefore, 'other tenant state is unchanged by the clock characterization');
       console.log('REPLICA_HISTORY_OBSERVATION ' + JSON.stringify({
         first: firstStored.srvModified, second: secondStored.srvModified,
@@ -159,9 +159,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
     });
 
     it('refuses schema-ledger drift before either process binds', async function () {
-      const ledger = (await fixture.admin.query('SELECT name, checksum FROM preview_data.schema_migrations ORDER BY name LIMIT 1')).rows[0];
+      const ledger = (await fixture.admin.query('SELECT name, checksum FROM preview_entries.schema_migrations ORDER BY name LIMIT 1')).rows[0];
       assert.ok(ledger);
-      await fixture.admin.query("UPDATE preview_data.schema_migrations SET checksum='replica-test-drift' WHERE name=$1", [ledger.name]);
+      await fixture.admin.query("UPDATE preview_entries.schema_migrations SET checksum='replica-test-drift' WHERE name=$1", [ledger.name]);
       // Each serving process checks its own ledgers at start (decision
       // platform-verification-removal) and refuses with the typed code.
       try {
@@ -170,7 +170,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
           assert.match(worker.stderr, /could not start/);
         }
       } finally {
-        await fixture.admin.query('UPDATE preview_data.schema_migrations SET checksum=$1 WHERE name=$2', [ledger.checksum, ledger.name]);
+        await fixture.admin.query('UPDATE preview_entries.schema_migrations SET checksum=$1 WHERE name=$2', [ledger.checksum, ledger.name]);
       }
       const [first, second] = await pair();
       const token = await fixture.localToken(A);
