@@ -11,6 +11,21 @@ require.cache[receiverPath].exports={...receiver,create(options){
   const receive=receiver.create(options);
   return async event=>{try{return await receive(event);}catch(error){if(process.connected)process.send({nativeFailure:failure(error)});throw error;}};
 }};
+// Count refusals at the real notification producer even when a later delivery
+// succeeds before health is sampled.
+let scopeRefusals = 0;
+const producerPath = require.resolve('../../lib/tenant-notifications/producer');
+const makeProducer = require(producerPath);
+require.cache[producerPath].exports = Object.assign(options => {
+  const producer = makeProducer(options);
+  return { ...producer, async select(tenant) {
+    try { return await producer.select(tenant); }
+    catch (error) {
+      if (error.code === 'LIFECYCLE_WINDOW_SCOPE_INVALID') scopeRefusals++;
+      throw error;
+    }
+  } };
+}, makeProducer);
 const currentOutput = tenant => context.health().closed || running.generationScope.closed ? null
   : running.generationScope.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
@@ -21,6 +36,7 @@ process.on('message', async request => {
     else if (request.action === 'wake') { await context.consumerWake(request.tenant); value = context.health(); }
     else if (request.action === 'retry') { await context.consumerRetry(request.tenant); value = context.health(); }
     else if (request.action === 'flush') { await context.consumerFlush(request.tenant); value = context.health(); }
+    else if (request.action === 'selectionScopeRefusals') value = scopeRefusals;
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'invalidate') { await context.invalidateTenant(request.tenant); value = context.health(); }
     else if (request.action === 'last') value = await currentOutput(request.tenant);

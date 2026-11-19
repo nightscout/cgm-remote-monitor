@@ -85,6 +85,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
             'ALARM_REPEAT_ON_HEARTBEAT ' + tenant.slice(0, 1) + ' delivered ' + delivered + ', expected about ' + expected.toFixed(1) + ' ' + JSON.stringify(trace));
         }
         assert.ok(latencyMs !== null && latencyMs <= EVALUATOR_MS + 2000, 'CHANGED_READING_LATENCY ' + JSON.stringify(trace));
+        assert.equal(await worker.call('selectionScopeRefusals'), 0, 'NO_EXPIRED_SCOPE_IN_NOTIFICATION_SELECTION');
         assert.equal(trace.refused, 0, 'NO_CONSUMER_REFUSAL'); assert.equal(trace.stuckAttempting, 0, 'NO_STUCK_ATTEMPTING');
       }
       await lab.stopConsumer(worker);
