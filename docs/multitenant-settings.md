@@ -74,7 +74,7 @@ the process environment.
 | api | `NS_API_PG`, `NS_READINESS_PG`, `NS_API_ROOT_WRITER_PG`, `NS_ALARM_PG`, `NS_DISPLAY_PG` |
 | realtime | `NS_REALTIME_PG`, `NS_DISPLAY_PG` |
 | evaluator | `NS_EVALUATOR_PG`, `NS_OUTBOX_PG`, `NS_SUPPRESSION_PG`, `NS_DISPLAY_PG`, `NS_ACTIVITY_PG`, `NS_STREAM_RECOVERY_PG` |
-| tenant-admin | `NS_OWNER_WRITER_PG`, `NS_OWNER_READER_PG`, `NS_OWNER_CREDENTIALS_PG` |
+| tenant-admin | `NS_OWNER_WRITER_PG`, `NS_OWNER_READER_PG`, `NS_OWNER_CREDENTIALS_PG`, `NS_OWNER_SETTINGS_PG` |
 | admin | `NS_PROVISIONER_PG`, `NS_OWNERSHIP_PG`, `NS_CONNECTOR_SOURCES_PG`, `NS_MANAGEMENT_SESSIONS_PG` |
 | vcpool | `NS_VCPOOL_SECRETS_PG`, `NS_VCPOOL_ACTIVITY_PG`, `NS_VCPOOL_DEFINITIONS_PG` |
 | api, realtime, evaluator, tenant-admin | `NS_LIFETIME_PG` (the operation lease; a role without it runs no lease) |

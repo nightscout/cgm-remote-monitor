@@ -42,7 +42,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
       NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_ACTIVITY_PG: urls.activity_reader, NS_STREAM_RECOVERY_PG: urls.pgstream,
       NS_PGSTREAM_RECEIVER_URL: 'http://127.0.0.1:19042/', NS_PGSTREAM_RECEIVER_BIND_HOST: '127.0.0.1', NS_PGSTREAM_GENERATION: 'a'.repeat(32), ...readers, ...lifetime('evaluator') }),
     'tenant-admin': present({ ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('tenant-admin'), TENANT_ADMIN_HOSTNAME: '0.0.0.0', TENANT_ADMIN_PORT: '1341',
-      NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, ...lifetime('tenant-admin') }) };
+      NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_OWNER_SETTINGS_PG: urls.owner_settings, ...lifetime('tenant-admin') }) };
   const configs = Object.fromEntries(serviceRoles.map(role => [role, settings.configuration(role, environments[role])]));
   const adminEnvironment = present({ NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...extra,
     ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1342', NS_PROVISIONER_PG: urls.provisioner,

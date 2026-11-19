@@ -133,6 +133,11 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
       await admin.query(`ALTER TABLE "${NS}"."${row.tablename}" OWNER TO "${layout.owner}"`);
     }
     await admin.query(`ALTER SCHEMA "${NS}" OWNER TO "${layout.owner}"`);
+    const configuration = layout.prefix + '_owner_configuration';
+    await run('up', { direct: true, connectionString: adminURI, namespace: configuration, catalogue: require('../lib/tenant-settings/owner-authority-candidate.json') });
+    await admin.query(`ALTER TABLE "${configuration}".tenant_owner_configuration_authority OWNER TO "${layout.owner}"`);
+    await admin.query(`GRANT USAGE ON SCHEMA "${configuration}" TO "${IDENTITY}"`);
+    await admin.query(`GRANT SELECT,INSERT,UPDATE(active) ON "${configuration}".tenant_owner_configuration_authority TO "${IDENTITY}"`);
     // The lifecycle control catalogue: the identity reads the tenant phase there.
     await admin.query(`CREATE SCHEMA "${CONTROL}"`);
     await run('up', { direct: true, connectionString: adminURI, namespace: CONTROL, catalogue: lifecycleCatalogue });
@@ -156,6 +161,7 @@ optInSuite(process.env.NS_ADMIN_ROLE_DOCKER_TEST === '1',
   });
 
   beforeEach(async function () {
+    await admin.query('DELETE FROM "' + layout.prefix + '_owner_configuration".tenant_owner_configuration_authority');
     for (const table of ['tenant_subject_admin_audit', 'tenant_owner_actors', 'tenant_owner_policy', 'tenant_authorization_subjects', 'tenant_authorization_config']) {
       await admin.query('DELETE FROM ' + t(table));
     }

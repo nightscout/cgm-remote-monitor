@@ -106,7 +106,7 @@ const INVENTORY = [
     note: 'populated immutable-prefix upgrades through actual runner, per-tenant floors, old catalogue refusal and transaction rollback' },
   { file: 'tests/tenant-insertion-readiness.integration.test.js', flags: { NS_TENANT_INSERTION_READINESS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'actual typed tenant-local allocator schemas, exact function/trigger/RLS/ACL/floor admission with physical red/restored controls' },
-  { file: 'tests/owner-configuration.integration.test.js', flags: { NS_OWNER_CONFIGURATION_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
+  { file: 'tests/owner-configuration.integration.test.js', flags: { NS_OWNER_CONFIGURATION_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'explicit configure authority, actual owner settings CAS/history and DATA presentation-only reads; separate from original owner9' },
   { file: 'tests/owner-preview.integration.test.js', flags: { NS_OWNER_PREVIEW_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
     note: 'actual headless tenant-admin CLI workers; operator-provisioned synthetic management credentials, no human issuer' },

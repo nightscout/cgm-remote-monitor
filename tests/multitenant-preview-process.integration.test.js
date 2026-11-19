@@ -2,339 +2,44 @@
 
 // covers: lib/server/serve/preview-api.js, lib/server/serve/preview-config.js, lib/cli/commands/multitenant.js, lib/server/serve/index.js, lib/tenant-authorization/access-token.js, lib/tenant-authorization/access-postgres.js
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const fs = require('node:fs');
-const path = require('node:path');
 const net = require('node:net');
-const httpRequest = require('node:http').request;
-const { spawn, execFileSync } = require('node:child_process');
+const path = require('node:path');
 const { once } = require('node:events');
-const { setTimeout: delay } = require('node:timers/promises');
-const { Client } = require('pg');
-const { run } = require('../lib/migrations/postgres');
+const createFixture = require('./fixtures/multitenant-preview-replicas');
 const { optInSuite } = require('./support/opt-in');
-
-const root = path.resolve(__dirname, '..');
-const BIN = path.join(root, 'bin/nightscout.js');
-const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2';
-const A = '11111111-1111-4111-8111-111111111111';
-const B = '22222222-2222-4222-8222-222222222222';
-const SUBJECT = '000000000000000000000001';
-const namespaces = { entries: 'preview_data', authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', clock: 'preview_clock' };
-const domainNames = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'settings'];
-const allNamespaces = { ...namespaces, ...Object.fromEntries(domainNames.filter(name => name !== 'entries')
-  .map(name => [name, 'preview_' + name])) };
-const catalogues = {
-  entries: require('../migrations/candidates/postgres-entries-v1.json'),
-  authorization: require('../lib/tenant-authorization/postgres-candidate.json'),
-  secrets: require('../lib/secrets/postgres-candidate.json'),
-  legacy: require('../lib/secrets/legacy-credentials-candidate.json'),
-  clock: require('../migrations/candidates/postgres-write-clock-v1.json')
-};
-for (const logical of domainNames) catalogues[logical] =
-  require('../lib/server/serve/postgres-domains').get(logical).catalogue;
-const random = () => crypto.randomBytes(24).toString('hex');
-const hash = value => crypto.createHash('sha1').update(value).digest('hex');
-const docker = args => execFileSync('docker', args, {
-  encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000
-}).trim();
-
-function staticNegativeConfiguration (address, full = false) {
-  return {
-    version: 1, writeClock: true,
-    ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
-    postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG',
-      namespaces: full ? allNamespaces : namespaces },
-    vault: { address, mount: 'transit', allowInsecureLoopback: true, timeoutMs: 1000 },
-    resolution: { mode: 'direct-alias' },
-    tenants: [A, B].map((id, i) => ({
-      id, aliases: [(i ? 'two' : 'one') + '.example.test'],
-      vault: { tokenEnv: 'PREVIEW_VAULT_' + i, encryptionKey: require('../lib/tenant-registry/rules').vaultKey(id, 'data'),
-        signingKey: require('../lib/tenant-registry/rules').vaultKey(id, 'signing'), signingVersion: 1 }
-    }))
-  };
-}
 
 optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
   'NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST=1')(
   'executable nightscout multitenant api preview (owned PostgreSQL/Vault)', function () {
     this.timeout(120000);
-    const suffix = crypto.randomBytes(8).toString('hex');
-    const pgName = 'ns-preview-process-pg-' + suffix, vaultName = 'ns-preview-process-vault-' + suffix;
-    // Outside the package: no cwd-relative implicit config or secrets file.
-    const fixtureDirectory = path.resolve(root, '..', '.runnable-preview-fixtures-' + suffix);
-    const configFile = path.join(fixtureDirectory, 'preview.json');
-    const roots = [], children = new Set(), tokens = [], publicKeys = [];
-    let provisioned, roleToken;
-    function configuration (address, full = false) {
-      return { version: 1, writeClock: true, ...(full ? { domains: domainNames, legacy: true, context: true } : {}),
-        postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG', namespaces: full ? allNamespaces : namespaces },
-        vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
-        resolution: { mode: 'direct-alias' }, registry: { namespace: provisioned.namespaces.registry, maxTenants: 100, refreshMs: 500 },
-        tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.namespaces.settings, operatorPolicy: provisioned.namespaces.operatorPolicy } } };
-    }
-    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot;
-
-    async function until (probe, label) {
-      const deadline = Date.now() + 20000;
-      while (Date.now() < deadline) {
-        if (await probe()) return;
-        await delay(100);
-      }
-      throw new Error(label + ' did not become ready');
-    }
-
-    async function vault (resource, body, credential = vaultRoot) {
-      const response = await fetch(address + '/v1/' + resource, {
-        method: body === undefined ? 'GET' : 'POST', headers: { 'X-Vault-Token': credential, 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(5000)
-      });
-      assert.ok(response.ok, 'operator Vault preparation HTTP ' + response.status);
-      return response.status === 204 ? {} : response.json();
-    }
-
-    function environment (extra = {}) {
-      const env = {
-        PATH: process.env.PATH, HOME: process.env.HOME, TZ: 'UTC', NODE_ENV: 'test',
-        // Acceptance runs with every tenant initialized before the listener
-        // opens (decision readiness-serve-then-warm); extra may override.
-        NS_TENANT_READINESS: 'all',
-        MULTITENANT_PREVIEW_CONFIG: configFile,
-        API_HOSTNAME: '127.0.0.1', API_PORT: '0',
-        PREVIEW_APP_PG: appURI, PREVIEW_CHECK_PG: checkURI, PREVIEW_SETTINGS_PG: settingsURI,
-        PREVIEW_VAULT_TOKEN: roleToken, PREVIEW_VAULT_0: roleToken, PREVIEW_VAULT_1: roleToken
-      };
-      for (const key of ['NODE_OPTIONS', 'NS_PREVIEW_PROCESS_CONTROL']) {
-        if (process.env[key] !== undefined) env[key] = process.env[key];
-      }
-      return { ...env, ...extra };
-    }
-
-    function start (config = configuration(address), extra) {
-      const text = typeof config === 'string' ? config : JSON.stringify(config);
-      fs.writeFileSync(configFile, text, { mode: 0o600 });
-      const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], {
-        cwd: fixtureDirectory, env: environment(extra), stdio: ['ignore', 'pipe', 'pipe']
-      });
-      const worker = { child, stdout: '', stderr: '', exit: null };
-      children.add(worker);
-      child.stdout.on('data', bytes => { worker.stdout += bytes; });
-      child.stderr.on('data', bytes => { worker.stderr += bytes; });
-      worker.exited = new Promise((resolve, reject) => {
-        child.once('error', reject);
-        child.once('exit', (code, signal) => {
-          worker.exit = { code, signal };
-          resolve(worker.exit);
-        });
-      });
-      return worker;
-    }
-
-    async function ready (worker) {
-      await until(async () => {
-        assert.equal(worker.exit, null, 'preview exited before readiness: ' + worker.stderr);
-        const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
-        if (!found) return false;
-        worker.port = Number(found[1]);
-        const result = await http(worker, A, 'GET', '/api/v3/entries', undefined);
-        assert.equal(result.status, 403, 'listener must answer through current anonymous authority');
-        return true;
-      }, 'preview child listener');
-    }
-
-    async function stop (worker) {
-      if (!worker.exit) worker.child.kill('SIGTERM');
-      const result = await Promise.race([worker.exited, delay(12000).then(() => { throw new Error('preview child did not close'); })]);
-      assert.deepEqual(result, { code: 0, signal: null }, worker.stderr);
-      children.delete(worker);
-      await assert.rejects(fetch('http://127.0.0.1:' + worker.port + '/', { signal: AbortSignal.timeout(1000) }));
-    }
-
-    // A configuration refusal exits 78. The role's own start check (a login
-    // that can bypass row-level security, a ledger that is not current) keeps
-    // its typed code, exit 1 (decision platform-verification-removal).
-    async function refused (config, extra, { code = 78 } = {}) {
-      const worker = start(config, extra);
-      await until(async () => worker.exit !== null || /Listening/.test(worker.stdout), 'refused preview termination');
-      assert.doesNotMatch(worker.stdout, /Listening/, 'refused configuration must never bind');
-      const exit = await worker.exited;
-      assert.deepEqual(exit, { code, signal: null }, worker.stderr);
-      if (code === 1) assert.match(worker.stderr, /could not start/);
-      assert.doesNotMatch(worker.stdout, /Listening/);
-      for (const credential of [appURI, checkURI, settingsURI, vaultRoot, ...tokens, ...roots]) {
-        assert.ok(!worker.stderr.includes(credential), 'startup diagnostic must not disclose credentials');
-      }
-      children.delete(worker);
-      return worker;
-    }
-
-    async function http (worker, tenant, method, resource, credential, body, selectors = {}) {
-      // node:http preserves an explicit Host on the actual wire; fetch may
-      // replace it with its URL authority.
-      return new Promise((resolve, reject) => {
-        const request = httpRequest({
-          hostname: '127.0.0.1', port: worker.port, path: resource, method,
-          headers: {
-            Host: tenant === A ? 'one.example.test' : 'two.example.test',
-            Accept: 'application/json',
-            ...(credential ? { Authorization: 'Bearer ' + credential } : {}),
-            ...(body ? { 'Content-Type': 'application/json' } : {}),
-            ...selectors
-          }, signal: AbortSignal.timeout(5000), agent: false
-        }, response => {
-          let bytes = '';
-          response.setEncoding('utf8');
-          response.on('data', chunk => { bytes += chunk; });
-          response.on('end', () => {
-            try { resolve({ status: response.statusCode, body: bytes &&
-              (response.headers['content-type'] || '').includes('json') ? JSON.parse(bytes) : bytes,
-            headers: response.headers }); } catch (error) { reject(error); }
-          });
-          response.on('error', reject);
-        });
-        request.on('error', reject);
-        request.end(body ? JSON.stringify(body) : undefined);
-      });
-    }
-
-    async function exchange (worker, tenant) {
-      const i = tenant === A ? 0 : 1;
-      const credential = 'sameviewer-' + hash(hash(roots[i]) + SUBJECT).slice(0, 16);
-      return http(worker, tenant, 'GET', '/api/v2/authorization/request/' + credential);
-    }
-
-    function localConfiguration () {
-      const config = configuration(address, true);
-      config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
-      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data' };
-      return config;
-    }
-
-    async function localToken (tenant, overrides = {}, headerOverrides = {}) {
-      const now = Math.floor(Date.now() / 1000);
-      const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides })).toString('base64url');
-      const body = Buffer.from(JSON.stringify({ iss: 'nightscout-test', aud: 'nightscout-data', tid: tenant,
-        purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1, iat: now, nbf: now, exp: now + 28800,
-        ...overrides })).toString('base64url');
-      const input = header + '.' + body;
-      const signed = await vault('transit/sign/' + require('../lib/tenant-registry/rules').vaultKey(tenant, 'access'), {
-        input: Buffer.from(input).toString('base64'), key_version: 1
-      });
-      return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
-    }
-
+    const fixture = createFixture();
+    const [A, B] = fixture.tenants;
+    const SUBJECT = '000000000000000000000001';
+    const { stop, ready, http, exchange, localToken } = fixture;
+    const controls = { NODE_OPTIONS: process.env.NODE_OPTIONS, NS_PREVIEW_PROCESS_CONTROL: process.env.NS_PREVIEW_PROCESS_CONTROL };
+    const start = settings => fixture.start(undefined, { ...controls, ...settings });
+    const refused = (settings, options) => fixture.refused(undefined, { ...controls, ...settings }, options);
+    let admin;
     before(async function () {
-      fs.mkdirSync(fixtureDirectory, { mode: 0o700 });
-      const pgPassword = random();
-      execFileSync('docker', ['run', '--rm', '--name', pgName, '-d', '-p', '127.0.0.1::5432',
-        '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=preview', 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97'],
-      { env: { ...process.env, POSTGRES_PASSWORD: pgPassword }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
-      pgOwned = true;
-      const pgPort = docker(['port', pgName, '5432/tcp']).split(':').pop();
-      adminURI = 'postgres://operator:' + pgPassword + '@127.0.0.1:' + pgPort + '/preview';
-      await until(async () => {
-        try {
-          docker(['exec', pgName, 'pg_isready', '-h', '127.0.0.1', '-U', 'operator', '-d', 'preview']);
-          return true;
-        } catch { return false; }
-      }, 'owned PostgreSQL');
-      for (const [kind, catalogue] of Object.entries(catalogues)) {
-        await run('up', { direct: true, connectionString: adminURI, namespace: allNamespaces[kind], catalogue });
-      }
-      await run('up', { direct: true, connectionString: adminURI, namespace: 'preview_access',
-        catalogue: require('../lib/tenant-authorization/access-candidate.json') });
-      admin = new Client({ connectionString: adminURI });
-      await admin.connect();
-      for (const name of ['preview_app', 'preview_check', 'preview_settings']) {
-        const password = random();
-        await admin.query(`CREATE ROLE ${name} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-        if (name !== 'preview_settings') await admin.query(`GRANT USAGE ON SCHEMA ${Object.values(allNamespaces).concat(['preview_access']).join(', ')} TO ${name}`);
-        const url = new URL(adminURI);
-        url.username = name;
-        url.password = password;
-        if (name === 'preview_app') appURI = url.toString(); else if (name === 'preview_check') checkURI = url.toString(); else settingsURI = url.toString();
-      }
-      for (const namespace of Object.values(allNamespaces)) {
-        await admin.query(`GRANT SELECT ON ${namespace}.schema_migrations TO preview_check`);
-      }
-      for (const logical of domainNames) {
-        await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace: allNamespaces[logical], domain: logical,
-          role: 'preview_app', catalogue: catalogues[logical] });
-      }
-      await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_auth, preview_legacy TO preview_app');
-      await admin.query('GRANT SELECT ON ALL TABLES IN SCHEMA preview_access TO preview_app');
-      await admin.query('GRANT SELECT ON preview_access.schema_migrations TO preview_check');
-      await admin.query('GRANT SELECT, INSERT ON preview_secrets.secret_records TO preview_app');
-      await admin.query('GRANT INSERT ON preview_secrets.secret_audit TO preview_app');
-      await admin.query('GRANT SELECT,UPDATE(last_stamp,last_delete_stamp) ON preview_clock.tenant_write_clock TO preview_app');
-      vaultRoot = random();
-      execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
-        '-e', 'VAULT_DEV_ROOT_TOKEN_ID', image, 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
-      { env: { ...process.env, VAULT_DEV_ROOT_TOKEN_ID: vaultRoot }, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
-      vaultOwned = true;
-      address = 'http://127.0.0.1:' + docker(['port', vaultName, '8200/tcp']).split(':').pop();
-      await until(async () => {
-        try {
-          const response = await fetch(address + '/v1/sys/health', { signal: AbortSignal.timeout(1000) });
-          await response.body.cancel();
-          return response.ok;
-        } catch { return false; }
-      }, 'owned Vault');
-      await admin.query('CREATE ROLE preview_registry_owner NOLOGIN NOSUPERUSER NOBYPASSRLS');
-      provisioned = await require('./fixtures/provisioned-tenants').create({ admin, adminURI, owner: 'preview_registry_owner',
-        namespaces: { authorization: 'preview_auth', secrets: 'preview_secrets', legacy: 'preview_legacy', access: 'preview_access', clock: 'preview_clock' },
-        vault: { address: address + '/', token: vaultRoot } });
-      for (const [i, tenant] of [A, B].entries()) {
-        roots[i] = (await provisioned.provision({ id: tenant, hosts: [(i ? 'two' : 'one') + '.example.test'], issueRootSecret: true })).rootSecret;
-        publicKeys[i] = { tenant, kid: 'key1', publicKey: (await vault('transit/keys/' + require('../lib/tenant-registry/rules').vaultKey(tenant, 'access'))).data.keys['1'].public_key };
-        await admin.query('INSERT INTO preview_access.access_credentials VALUES ($1,$2,$2,1,true)', [tenant, SUBJECT]);
-        await admin.query(`INSERT INTO preview_access.access_sessions VALUES ($1,'local-session',$2,$2,1,$3,true,'data')`,
-          [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 86400]);
-      }
-      for (const sql of provisioned.registryGrants({ resolvers: ['preview_app'], readers: ['preview_app'] })) await admin.query(sql);
-      for (const namespace of [provisioned.namespaces.settings, provisioned.namespaces.operatorPolicy]) {
-        await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO preview_settings`);
-        await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${namespace}" TO preview_settings`);
-      }
-      await vault('sys/policies/acl/preview-process-api', { policy: [
-        'path "transit/decrypt/tenant-data-*" { capabilities = ["update"] }',
-        'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
-        'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
-      roleToken = (await vault('auth/token/create', { policies: ['preview-process-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      tokens.push(roleToken);
-      for (const [i, tenant] of [A, B].entries()) {
-        await admin.query('INSERT INTO preview_legacy.legacy_credential_subjects VALUES ($1, $2, $3)', [tenant, SUBJECT, 'sameviewer']);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_subjects
-          (tenant_id, subject_id, display_name) VALUES ($1, $2, $3)`, [tenant, SUBJECT, 'Synthetic Viewer ' + i]);
-        await admin.query(`INSERT INTO preview_auth.tenant_authorization_roles VALUES
-          ($1, 'viewer', ARRAY['api:entries:read','api:entries:create','api:entries:update'])`, [tenant]);
-        await admin.query("INSERT INTO preview_auth.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
-      }
-
+      await fixture.setup();
+      admin = fixture.admin;
     });
-
-    after(async function () {
-      for (const worker of children) {
-        if (!worker.exit) worker.child.kill('SIGKILL');
-        await worker.exited;
-      }
-      if (provisioned) await provisioned.close();
-      if (admin) await admin.end();
-      if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
-      if (pgOwned) docker(['rm', '-f', '-v', pgName]);
-      fs.rmSync(fixtureDirectory, { recursive: true, force: true });
-    });
-
+    after(() => fixture.cleanup());
     afterEach(async function () {
-      for (const worker of children) {
+      for (const worker of fixture.workers) {
         if (!worker.exit) worker.child.kill('SIGTERM');
         await worker.exited;
-        children.delete(worker);
+        fixture.workers.delete(worker);
       }
     });
 
+    async function assertPoolsClosed () {
+      const sessions = await admin.query('SELECT usename FROM pg_stat_activity WHERE usename = ANY($1)', [Object.values(fixture.platform.roles)]);
+      assert.deepEqual(sessions.rows, [], 'role shutdown releases every application pool');
+    }
+
     it('new-format actual API reads and writes use local keys and current PostgreSQL across processes', async function () {
-      const first = start(localConfiguration()), second = start(localConfiguration());
+      const first = start(), second = start();
       await ready(first); await ready(second);
       const a = await localToken(A), b = await localToken(B);
       const auditBefore = Number((await admin.query('SELECT count(*) FROM preview_secrets.secret_audit')).rows[0].count);
@@ -355,14 +60,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       }
       assert.equal(Number((await admin.query('SELECT count(*) FROM preview_secrets.secret_audit')).rows[0].count), auditBefore,
         'new-format requests must never call the audited secrets component');
-      const old = await exchange(first, A);
-      assert.equal(old.status, 200); assert.equal(old.body.exp - old.body.iat, 28800);
-      assert.equal((await http(first, A, 'GET', '/api/v3/entries', old.body.token)).status, 200);
+      const exchanged = await exchange(first, A);
+      assert.equal(exchanged.status, 200); assert.equal(exchanged.body.exp - exchanged.body.iat, 28800);
+      assert.equal((await http(first, A, 'GET', '/api/v3/entries', exchanged.body.token)).status, 200);
       await stop(first); await stop(second);
     });
 
     it('new-format signature and audience controls refuse before any handler effect', async function () {
-      const worker = start(localConfiguration()); await ready(worker);
+      const worker = start(); await ready(worker);
       const token = await localToken(A), parts = token.split('.');
       const signature = Buffer.from(parts[2], 'base64url'); signature[0] ^= 1;
       parts[2] = signature.toString('base64url');
@@ -375,23 +80,23 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         });
         assert.equal(result.status, 401, 'invalid new token must refuse: ' + JSON.stringify(result.body));
       }
-      assert.equal((await admin.query("SELECT count(*)::int n FROM preview_data.entries WHERE doc->>'identifier'='must-not-write-local'")).rows[0].n, 0);
+      assert.equal((await admin.query("SELECT count(*)::int n FROM preview_entries.entries WHERE doc->>'identifier'='must-not-write-local'")).rows[0].n, 0);
       await stop(worker);
     });
 
     it('new-format same-token grant and session revocation are current across independent API processes', async function () {
-      const first = start(localConfiguration()), second = start(localConfiguration());
+      const first = start(), second = start();
       await ready(first); await ready(second);
       const token = await localToken(A);
       for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
       await admin.query('BEGIN');
-      await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1", [A]);
+      await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1", [A]);
       assert.equal((await http(second, A, 'GET', '/api/v3/entries', token)).status, 200);
       await admin.query('COMMIT');
       try {
         for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403);
       } finally {
-        await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1", [A]);
+        await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1", [A]);
       }
       for (const [table, change, restore] of [
         ['access_sessions', 'active=false', 'active=true'],
@@ -408,75 +113,77 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
               identifier: 'local-revoked-' + table, date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
             })).status, 403, table + ' write');
           }
-          assert.equal((await admin.query("SELECT count(*)::int n FROM preview_data.entries WHERE doc->>'identifier'=$1", ['local-revoked-' + table])).rows[0].n, 0);
+          assert.equal((await admin.query("SELECT count(*)::int n FROM preview_entries.entries WHERE doc->>'identifier'=$1", ['local-revoked-' + table])).rows[0].n, 0);
         } finally { await admin.query('UPDATE preview_access.' + table + ' SET ' + restore + ' WHERE tenant_id=$1', [A]); }
       }
       await stop(first); await stop(second);
     });
 
     it('new-format preserves default-role validation from the current authority', async function () {
-      const worker = start(localConfiguration()); await ready(worker);
-      const local = await localToken(A), old = (await exchange(worker, A)).body.token;
-      await admin.query("UPDATE preview_auth.tenant_authorization_config SET anonymous_roles=ARRAY['readable','readable'] WHERE tenant_id=$1", [A]);
+      const worker = start(); await ready(worker);
+      const local = await localToken(A), exchanged = (await exchange(worker, A)).body.token;
+      await admin.query("UPDATE preview_authorization.tenant_authorization_config SET anonymous_roles=ARRAY['readable','readable'] WHERE tenant_id=$1", [A]);
       try {
-        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', old)).status, 503, 'existing authority rejects malformed defaults');
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', exchanged)).status, 503, 'existing authority rejects malformed defaults');
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries', local)).status, 503, 'new snapshot must reject malformed defaults too');
-      } finally { await admin.query("UPDATE preview_auth.tenant_authorization_config SET anonymous_roles=ARRAY['denied'] WHERE tenant_id=$1", [A]); }
+      } finally { await admin.query("UPDATE preview_authorization.tenant_authorization_config SET anonymous_roles=ARRAY['denied'] WHERE tenant_id=$1", [A]); }
       await stop(worker);
     });
 
     it('new-format preserves incomplete-name reads and refuses unattributed writes', async function () {
-      const worker = start(localConfiguration()); await ready(worker);
-      const local = await localToken(A), old = (await exchange(worker, A)).body.token;
+      const worker = start(); await ready(worker);
+      const local = await localToken(A), exchanged = (await exchange(worker, A)).body.token;
       assert.equal((await http(worker, A, 'POST', '/api/v3/entries', local, {
         identifier: 'local-null-name', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 145, app: 'synthetic-local'
       })).status, 201);
-      await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name=NULL WHERE tenant_id=$1', [A]);
+      await admin.query('UPDATE preview_authorization.tenant_authorization_subjects SET display_name=NULL WHERE tenant_id=$1', [A]);
       try {
-        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-null-name', old)).status, 200, 'existing read allows incomplete name metadata');
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-null-name', exchanged)).status, 200, 'existing read allows incomplete name metadata');
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-null-name', local)).status, 200, 'new read preserves this metadata behavior');
-        for (const credential of [old, local]) assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/local-null-name', credential, { sgv: 999 })).status, 401);
-        const stored = await admin.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'='local-null-name'", [A]);
+        for (const credential of [exchanged, local]) assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/local-null-name', credential, { sgv: 999 })).status, 401);
+        const stored = await admin.query("SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'='local-null-name'", [A]);
         assert.equal(stored.rows[0].doc.sgv, 145);
-      } finally { await admin.query("UPDATE preview_auth.tenant_authorization_subjects SET display_name='Synthetic Viewer 0' WHERE tenant_id=$1", [A]); }
+      } finally { await admin.query("UPDATE preview_authorization.tenant_authorization_subjects SET display_name='Synthetic Viewer 0' WHERE tenant_id=$1", [A]); }
       await stop(worker);
     });
 
-    it('new-format startup refuses shared tenant keys and unsafe access-state privileges before binding', async function () {
-      // Legacy negative-only parser compatibility: no static role supplies
-      // the registry clinical/read/write evidence in this suite.
-      const config = staticNegativeConfiguration(address, true);
-      config.postgres.namespaces = { ...config.postgres.namespaces, access: 'preview_access' };
-      config.accessTokens = { issuer: 'nightscout-test', audience: 'nightscout-data', keys: publicKeys.map(key => ({ ...key })) };
-      config.accessTokens.keys[1].publicKey = config.accessTokens.keys[0].publicKey;
-      await refused(config, { MULTITENANT_STATIC_TENANTS: 'lab' });
+    it('the registry rejects sharing a tenant access key at the PostgreSQL write boundary', async function () {
+      const keys = 'preview_registry.tenant_registry_keys';
+      await assert.rejects(admin.query(`UPDATE ${keys} SET public_key =
+        (SELECT public_key FROM ${keys} WHERE tenant_id=$1 AND purpose='access')
+        WHERE tenant_id=$2 AND purpose='access'`, [A, B]), { code: '23505' });
+      const worker = start(); await ready(worker);
+      for (const tenant of [A, B]) {
+        assert.equal((await http(worker, tenant, 'GET', '/api/v3/entries', await localToken(tenant))).status, 200);
+      }
+      await stop(worker);
     });
 
-    it('new-format API continues through Vault outage but refuses an unavailable PostgreSQL authority', async function () {
-      const worker = start(localConfiguration()); await ready(worker);
-      const token = await localToken(A), old = await exchange(worker, A);
-      docker(['pause', vaultName]);
-      try {
+    it('serves headless and exchanged DATA tokens during Vault outage and refuses an unavailable PostgreSQL authority', async function () {
+      const worker = start(); await ready(worker);
+      const token = await localToken(A), exchanged = await exchange(worker, A);
+      assert.equal(exchanged.status, 200);
+      await fixture.whilePaused('vault', async () => {
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
         assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
           identifier: 'local-vault-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 142, app: 'synthetic-local'
         })).status, 201);
-        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', old.body.token)).status, 503);
+        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', exchanged.body.token)).status, 200);
         await admin.query('UPDATE preview_access.access_sessions SET active=false WHERE tenant_id=$1', [A]);
         try { assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403); }
         finally { await admin.query('UPDATE preview_access.access_sessions SET active=true WHERE tenant_id=$1', [A]); }
-      } finally { docker(['unpause', vaultName]); }
+      });
       assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200, 'established registry tenant is admitted immediately before PostgreSQL outage');
       process.stdout.write('PREVIEW_OUTAGE_STAGE PG_PREWARM_CONFIRMED\n');
-      docker(['pause', pgName]);
-      try {
+      await fixture.whilePaused('postgres', async () => {
         process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_STARTED\n');
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 503);
         process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_REFUSED_POST_STARTED\n');
         assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
           identifier: 'local-pg-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
         })).status, 503);
-      } finally { docker(['unpause', pgName]); process.stdout.write('PREVIEW_OUTAGE_STAGE PG_RESTORED\n'); }
+      });
+      process.stdout.write('PREVIEW_OUTAGE_STAGE PG_RESTORED\n');
       assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-pg-down', token)).status, 404);
       await stop(worker);
     });
@@ -515,21 +222,19 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       for (const management of ['/api/v1/tenant/settings', '/api/v1/operator/tenants/' + A + '/policy']) {
         assert.equal((await http(second, A, 'GET', management, credentials[0])).status, 404);
       }
-      await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions = ARRAY['denied'] WHERE tenant_id = $1", [A]);
+      await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions = ARRAY['denied'] WHERE tenant_id = $1", [A]);
       try {
         assert.equal((await http(second, A, 'GET', '/api/v3/entries', credentials[0])).status, 403);
       } finally {
-        await admin.query(`UPDATE preview_auth.tenant_authorization_roles SET permissions =
+        await admin.query(`UPDATE preview_authorization.tenant_authorization_roles SET permissions =
           ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id = $1`, [A]);
       }
-      docker(['pause', vaultName]);
-      try {
-        assert.equal((await http(second, B, 'GET', '/api/v3/entries', credentials[1])).status, 503);
-      } finally { docker(['unpause', vaultName]); }
+      await fixture.whilePaused('vault', async () => {
+        assert.equal((await http(second, B, 'GET', '/api/v3/entries', credentials[1])).status, 200);
+      });
       assert.equal((await http(second, B, 'GET', '/api/v3/entries', credentials[1])).status, 200);
       await stop(second);
-      const active = await admin.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename IN ('preview_app','preview_check')");
-      assert.equal(active.rows[0].count, 0, 'signal shutdown must release all PG pools');
+      await assertPoolsClosed();
     });
 
     it('runs entries replace, PATCH, logical delete, history and permanent delete through the executable', async function () {
@@ -549,10 +254,10 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       }
 
       const rows = async tenant => (await admin.query(
-        `SELECT doc FROM preview_data.entries WHERE tenant_id = $1 AND doc->>'identifier' = $2`,
+        `SELECT doc FROM preview_entries.entries WHERE tenant_id = $1 AND doc->>'identifier' = $2`,
         [tenant, 'crud-overlap'])).rows.map(row => row.doc);
       const changeGrants = permissions => admin.query(
-        'UPDATE preview_auth.tenant_authorization_roles SET permissions = $1 WHERE tenant_id = $2 AND name = $3',
+        'UPDATE preview_authorization.tenant_authorization_roles SET permissions = $1 WHERE tenant_id = $2 AND name = $3',
         [permissions, A, 'viewer']);
       const originalA = await rows(A);
       const originalB = await rows(B);
@@ -593,14 +298,14 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         assert.equal(afterPatch.modifiedBy, 'Synthetic Viewer 0');
         assert.deepEqual(await rows(B), originalB);
 
-        await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = NULL WHERE tenant_id = $1 AND subject_id = $2',
+        await admin.query('UPDATE preview_authorization.tenant_authorization_subjects SET display_name = NULL WHERE tenant_id = $1 AND subject_id = $2',
           [A, SUBJECT]);
         try {
           const missingName = await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap', credentials[0], { sgv: 123 });
           assert.equal(missingName.status, 401);
           assert.deepEqual(await rows(A), [afterPatch]);
         } finally {
-          await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
+          await admin.query('UPDATE preview_authorization.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
             ['Synthetic Viewer 0', A, SUBJECT]);
         }
         assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/crud-overlap', undefined, { sgv: 123 })).status, 403);
@@ -632,7 +337,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         assert.deepEqual(await rows(B), originalB);
       } finally {
         await changeGrants(baseGrants);
-        await admin.query('UPDATE preview_auth.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
+        await admin.query('UPDATE preview_authorization.tenant_authorization_subjects SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3',
           ['Synthetic Viewer 0', A, SUBJECT]);
       }
 
@@ -648,9 +353,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(restarted);
     });
 
-    it('composes explicitly prepared legacy and API3 domains with real snapshots and tenant-local authority', async function () {
-      await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions = ARRAY['*']");
-      const worker = start(configuration(address, true));
+    it('serves legacy and API3 domains with real snapshots and tenant-local authority', async function () {
+      await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions = ARRAY['*']");
+      const worker = start();
       try {
         await ready(worker);
         const credentials = [];
@@ -705,138 +410,129 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           assert.equal((await http(worker, tenant, 'POST', '/api/v2/summary', credentials[i], {})).status, 405);
         }
         // Raw entry frames read the entries backend, independently of activity.
-        const entryCount = async () => (await admin.query('SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1', [A])).rows[0].n;
+        const entryCount = async () => (await admin.query('SELECT count(*)::int AS n FROM preview_entries.entries WHERE tenant_id=$1', [A])).rows[0].n;
         const entriesBeforeFault = await entryCount();
-        await admin.query('REVOKE SELECT ON preview_data.entries FROM preview_app');
+        await admin.query(`REVOKE SELECT ON preview_entries.entries FROM ${fixture.platform.roles.api}`);
         try {
           const unavailable = await http(worker, A, 'GET', '/api/v1/entries', credentials[0]);
           assert.equal(unavailable.status, 503);
           assert.deepEqual(unavailable.body, { error: 'TENANT_SNAPSHOT_UNAVAILABLE' });
-        } finally { await admin.query('GRANT SELECT ON preview_data.entries TO preview_app'); }
-        await admin.query('ALTER TABLE preview_data.entries RENAME TO entries_fault_fixture');
+        } finally { await admin.query(`GRANT SELECT ON preview_entries.entries TO ${fixture.platform.roles.api}`); }
+        await admin.query('ALTER TABLE preview_entries.entries RENAME TO entries_fault_fixture');
         try {
           const failed = await http(worker, A, 'GET', '/api/v2/entries', credentials[0]);
           assert.equal(failed.status, 500);
           assert.deepEqual(failed.body, { error: 'TENANT_SNAPSHOT_INTERNAL' });
-        } finally { await admin.query('ALTER TABLE preview_data.entries_fault_fixture RENAME TO entries'); }
+        } finally { await admin.query('ALTER TABLE preview_entries.entries_fault_fixture RENAME TO entries'); }
         assert.equal(await entryCount(), entriesBeforeFault, 'read backend faults have no clinical write effect');
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries/' + id, credentials[0])).status, 200, 'restored entry backend serves addressed reads');
         assert.equal((await http(worker, B, 'GET', '/api/v2/entries', credentials[0])).status, 401);
-        await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions = ARRAY['denied'] WHERE tenant_id=$1", [A]);
+        await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions = ARRAY['denied'] WHERE tenant_id=$1", [A]);
         assert.equal((await http(worker, A, 'POST', '/api/v1/entries', credentials[0], bodies.entries)).status, 401);
       } finally {
         if (worker.port) await stop(worker);
-        await admin.query(`UPDATE preview_auth.tenant_authorization_roles SET permissions =
+        await admin.query(`UPDATE preview_authorization.tenant_authorization_roles SET permissions =
           ARRAY['api:entries:read','api:entries:create','api:entries:update']`);
       }
     });
 
-    it('uses the actual common legacy parent even when only safe context routes are selected', async function () {
-      await admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions = ARRAY['*']");
-      const config = configuration(address);
-      config.context = true;
-      const worker = start(config);
+    it('reads tenant-specific display units through the common legacy status parent', async function () {
+      await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions = ARRAY['*']");
+      const worker = start();
       try {
         await ready(worker);
         const credential = (await exchange(worker, A)).body.token;
         const status = await http(worker, A, 'GET', '/api/v2/status.json', credential);
         assert.equal(status.status, 200);
         assert.equal((await http(worker, A, 'GET', '/api/v1/status?count=invalid', credential)).status, 400);
-        assert.equal((await http(worker, A, 'GET', '/api/v1/entries', credential)).status, 405);
-        const raw = 'sameviewer-' + hash(hash(roots[0]) + SUBJECT).slice(0, 16);
+        assert.equal(status.body.settings.units, 'mg/dl');
+        await admin.query('UPDATE preview_display_settings.tenant_settings SET version=version+1, values=$2 WHERE tenant_id=$1',
+          [A, { DISPLAY_UNITS: 'mmol' }]);
+        const changed = await http(worker, A, 'GET', '/api/v2/status.json', credential);
+        assert.equal(changed.status, 200);
+        assert.equal(changed.body.settings.units, 'mmol');
+        const other = await http(worker, B, 'GET', '/api/v2/status.json', (await exchange(worker, B)).body.token);
+        assert.equal(other.status, 200);
+        assert.equal(other.body.settings.units, 'mg/dl');
+        const raw = fixture.subjectCredential(A);
         const issued = await http(worker, A, 'GET', '/api/v2/status.json?token=' + raw);
         assert.equal(issued.status, 200);
         assert.equal(issued.body.authorized.sub, 'Synthetic Viewer 0');
       } finally {
+        await admin.query("UPDATE preview_display_settings.tenant_settings SET version=version+1, values='{}' WHERE tenant_id=$1", [A]);
         if (worker.port) await stop(worker);
-        await admin.query(`UPDATE preview_auth.tenant_authorization_roles SET permissions =
+        await admin.query(`UPDATE preview_authorization.tenant_authorization_roles SET permissions =
           ARRAY['api:entries:read','api:entries:create','api:entries:update']`);
       }
     });
 
-    it('refuses invalid config, missing environment references and unsafe/read-write readiness before binding', async function () {
-      await refused('{invalid');
-      const config = configuration(address);
-      config.postgres.password = random();
-      await refused(config);
-      await refused(configuration(address), { PREVIEW_APP_PG: '' });
-      await refused(configuration(address), { PREVIEW_CHECK_PG: appURI });
-      await refused(configuration(address), { PREVIEW_APP_PG: adminURI }, { code: 1 });
-      const incomplete = configuration(address);
-      incomplete.legacy = true;
-      await refused(incomplete);
-      const remoteHTTP = configuration('http://192.0.2.1:8200');
-      await refused(remoteHTTP);
-      const ambiguous = staticNegativeConfiguration(address);
-      ambiguous.tenants[1].aliases = ambiguous.tenants[0].aliases;
-      await refused(ambiguous, { MULTITENANT_STATIC_TENANTS: 'lab' });
-      const missingTrust = configuration(address);
-      missingTrust.resolution = { mode: 'canonical-internal' };
-      await refused(missingTrust);
-      const stale = await admin.query('DELETE FROM preview_auth.schema_migrations WHERE name = (SELECT max(name) FROM preview_auth.schema_migrations) RETURNING name, checksum');
-      try {
-        await refused(configuration(address), undefined, { code: 1 });
-      } finally {
-        const row = stale.rows[0];
-        await admin.query('INSERT INTO preview_auth.schema_migrations(name,checksum) VALUES($1,$2)', [row.name, row.checksum]);
+    it('refuses invalid deployment settings and unsafe database logins before binding', async function () {
+      for (const [settings, expected] of [
+        [{ NS_VAULT_ADDR: '' }, /NS_VAULT_ADDR/],
+        [{ NS_PG_PREFIX: 'invalid-prefix' }, /NS_PG_PREFIX/],
+        [{ NS_API_PG: '' }, /credential environment reference is missing/],
+        [{ NS_READINESS_PG: fixture.platform.urls.api }, /separate serving/],
+        [{ NS_TENANT_RESOLUTION: 'canonical-internal' }, /allowlist/],
+        [{ NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'false' }, /provider or ingress configuration/]
+      ]) {
+        const worker = await refused(settings);
+        assert.match(worker.stderr, expected);
       }
+      await refused({ NS_API_PG: fixture.adminConnectionString }, { code: 1 });
     });
 
     it('refuses a wrong backend catalogue before the preview listener binds', async function () {
       // The child's catalogue differs from the applied ledger: its own start
       // check finds the ledger not current for that catalogue.
-      await refused(configuration(address), {
+      await refused({
         NODE_OPTIONS: '--require=' + path.join(__dirname, 'fixtures/preview-composition-control.cjs'),
         NS_PREVIEW_COMPOSITION_FAULT: 'catalogue'
       }, { code: 1 });
     });
 
     it('cleans acquired pools after late initialization or listener failure', async function () {
-      const stale = await admin.query('DELETE FROM preview_auth.schema_migrations WHERE name = (SELECT max(name) FROM preview_auth.schema_migrations) RETURNING name, checksum');
-      try { await refused(configuration(address), undefined, { code: 1 }); } finally {
-        await admin.query('INSERT INTO preview_auth.schema_migrations(name,checksum) VALUES($1,$2)', [stale.rows[0].name, stale.rows[0].checksum]);
+      const stale = await admin.query('DELETE FROM preview_authorization.schema_migrations WHERE name = (SELECT max(name) FROM preview_authorization.schema_migrations) RETURNING name, checksum');
+      try { await refused({}, { code: 1 }); } finally {
+        await admin.query('INSERT INTO preview_authorization.schema_migrations(name,checksum) VALUES($1,$2)', [stale.rows[0].name, stale.rows[0].checksum]);
       }
       const occupied = net.createServer();
       occupied.listen(0, '127.0.0.1');
       await once(occupied, 'listening');
       try {
-        const worker = start(configuration(address), { API_PORT: String(occupied.address().port) });
+        const worker = start({ API_PORT: String(occupied.address().port) });
         assert.deepEqual(await worker.exited, { code: 1, signal: null });
         assert.doesNotMatch(worker.stderr, /postgres:|password|vault:/i);
-        children.delete(worker);
+        fixture.workers.delete(worker);
       } finally { await new Promise(resolve => occupied.close(resolve)); }
-      const active = await admin.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename IN ('preview_app','preview_check')");
-      assert.equal(active.rows[0].count, 0);
+      await assertPoolsClosed();
     });
 
     it('requires an explicitly allowlisted immediate peer even for Host-only canonical requests', async function () {
-      const config = configuration(address);
-      config.resolution = { mode: 'canonical-internal', trustedPeers: ['127.0.0.1'] };
       for (const [i, tenant] of [A, B].entries()) await admin.query(
-        'INSERT INTO "' + provisioned.namespaces.registry + '".tenant_registry_hosts(host,tenant_id,kind) VALUES($1,$2, $3)',
+        'INSERT INTO preview_registry.tenant_registry_hosts(host,tenant_id,kind) VALUES($1,$2,$3)',
         ['tenant-' + i + '.internal.test', tenant, 'internal']);
-      const worker = start(config);
-      await until(async () => {
-        assert.equal(worker.exit, null, worker.stderr);
-        const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
-        if (!found) return false;
-        worker.port = Number(found[1]);
-        return true;
-      }, 'canonical preview listener');
-      const credential = 'sameviewer-' + hash(hash(roots[0]) + SUBJECT).slice(0, 16);
+      async function listen (trustedPeer) {
+        const worker = start({ NS_TENANT_RESOLUTION: 'canonical-internal', NS_TRUSTED_PEERS: trustedPeer });
+        await fixture.until(async () => {
+          assert.equal(worker.exit, null, worker.stderr);
+          const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(worker.stdout);
+          if (!found) return false;
+          worker.port = Number(found[1]);
+          return true;
+        }, 'canonical preview listener');
+        return worker;
+      }
+      const worker = await listen('127.0.0.1');
+      const credential = fixture.subjectCredential(A);
+      assert.equal((await http(worker, A, 'GET', '/api/v3/entries', undefined, undefined,
+        { Host: 'tenant-0.internal.test' })).status, 403);
       const response = await http(worker, A, 'GET', '/api/v2/authorization/request/' + credential, undefined, undefined,
         { Host: 'tenant-0.internal.test', 'X-Forwarded-Host': 'disposable.example.test' });
       assert.equal(response.status, 200);
       await stop(worker);
-      config.resolution.trustedPeers = ['127.0.0.2'];
-      const untrusted = start(config);
-      await until(async () => {
-        assert.equal(untrusted.exit, null, untrusted.stderr);
-        const found = /Listening for role api on 127\.0\.0\.1:(\d+)/.exec(untrusted.stdout);
-        if (!found) return false;
-        untrusted.port = Number(found[1]);
-        return true;
-      }, 'untrusted preview listener');
+      const untrusted = await listen('127.0.0.2');
+      assert.equal((await http(untrusted, A, 'GET', '/api/v3/entries', undefined, undefined,
+        { Host: 'tenant-0.internal.test' })).status, 400);
       assert.equal((await http(untrusted, A, 'GET', '/api/v3/entries', response.body.token, undefined,
         { Host: 'tenant-0.internal.test', 'X-Forwarded-For': '127.0.0.2' })).status, 400);
       await stop(untrusted);
