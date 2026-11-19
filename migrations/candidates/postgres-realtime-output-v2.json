@@ -25,6 +25,16 @@
         "CREATE INDEX pgstream_realtime_pending ON tenant_consumer_checkpoint (consumer, output_owner, output_retry_at, tenant_id) WHERE output_received > output_completed"
       ],
       "checksum": "41d1a91f67b6f5b037ef96d4eb8178a006cbec5fdddd7384f5c1e48cc7da0167"
+    },
+    {
+      "name": "0003_realtime_output_obligation",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_target bigint NOT NULL DEFAULT 0 CHECK (output_target >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_pending_tenant uuid GENERATED ALWAYS AS (CASE WHEN output_target > output_completed THEN tenant_id END) STORED",
+        "CREATE INDEX pgstream_realtime_owed ON tenant_consumer_checkpoint (consumer, output_pending_tenant) WHERE output_pending_tenant IS NOT NULL",
+        "DROP INDEX pgstream_realtime_pending"
+      ],
+      "checksum": "1fd98d666023b426e9942b51fc8ec0f8a257d49297947288de8ba748c08d475b"
     }
   ]
 }

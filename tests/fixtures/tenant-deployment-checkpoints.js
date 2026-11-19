@@ -36,7 +36,7 @@ function checkpointInputs ({ namespaces, tenants, realtime, evaluator, realtimeR
         delivery_revision: '9007199254740993', delivery_ack_revision: '9007199254740992',
         output_identity: 'c'.repeat(64), output_digest: 'd'.repeat(64), output_revision: '1', output_restore_generation: '9223372036854775807',
         projection: [{ kind: 'evaluator-work-v2', output: { tenant: row.tenant_id, frame: { values: [false, 0, null, '9007199254740993'] }, rows: [] } }]
-      } : { output_received: '9007199254740993', output_completed: '9007199254740992', output_owner: tenants[0], output_retry_at: null, output_delivery_version: 1 }) }));
+      } : { output_target: '9007199254740994', output_received: '9007199254740993', output_completed: '9007199254740992', output_owner: tenants[0], output_retry_at: null, output_delivery_version: 1 }) }));
     }
     grants.push({ role: roles[index], kind, table: 'schema_migrations', privileges: ['SELECT'] },
       { role: roles[index], kind, table: 'tenant_consumer_checkpoint', privileges: ['SELECT'],

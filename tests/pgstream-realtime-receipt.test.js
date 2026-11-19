@@ -55,7 +55,7 @@ describe('durable realtime output delivery ownership',function(){
     for(const value of ['1','9007199254740993','9223372036854775807'])assert.equal(receipts.revision(value),value);
     for(const value of [1,9007199254740992,'0','01','9223372036854775808'])assert.throws(()=>receipts.revision(value),/Exact positive/);
   });
-  it('reads the obligation in one read-only join and records a whole page in one fenced UPDATE',async function(){
+  it('reads its indexed obligation in one statement and records a whole page in one fenced UPDATE',async function(){
     const reads=[],queries=[],released=[];let owned=true;
     const pool={connect:async()=>({query:async(statement,values)=>{const sql=typeof statement==='string'?statement:statement.text;queries.push(sql);if(!values)return {rows:[],command:sql};
       assert.match(statement.name,/^realtime-receipt-v3:rt_checkpoint:(claim|finish)$/);const rows=JSON.parse(values[2]);return {rows:rows.map(row=>({tenant:row.tenant,completed:row.revision||'0'}))};},release:error=>released.push(error)})};
@@ -63,9 +63,9 @@ describe('durable realtime output delivery ownership',function(){
     const store=receipts.create({config,worker:W,assertOwner:tenant=>{if(!owned||tenant===C)throw Error('REALTIME_OWNER_UNAVAILABLE');},connection:sql()});
     assert.deepEqual(await store.work([A,B]),[{tenant:A,received:'9007199254740993'}]);
     assert.equal(reads.length,1,'ONE_READ_PER_PAGE');
-    assert.match(reads[0].sql,/JOIN "eval_checkpoint"\.tenant_consumer_checkpoint e ON e\.tenant_id=r\.tenant_id AND e\.consumer=\$2/);
-    assert.match(reads[0].sql,/e\.delivery_revision>r\.output_completed/);assert.match(reads[0].sql,/r\.output_owner IS NULL OR r\.output_owner=\$3::uuid/);
-    assert.deepEqual(reads[0].values.slice(0,4),['realtime-test','evaluator-test-completed',W,[A,B]]);
+    assert.match(reads[0].sql,/r\.output_target>r\.output_completed/);
+    assert.match(reads[0].sql,/r\.output_owner IS NULL OR r\.output_owner=\$2::uuid/);
+    assert.deepEqual(reads[0].values.slice(0,3),['realtime-test',W,[A,B]]);
     assert.deepEqual(await store.pending(),[A]);
     await store.finish([{tenant:A,received:'9007199254740993'},{tenant:B,received:'2'}],new Map([[A,true],[B,false]]),5000);
     const statements=queries.filter(text=>text.startsWith('WITH work'));

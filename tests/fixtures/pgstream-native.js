@@ -140,7 +140,12 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
   const objects = (await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_exists,EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1) AS role_exists,EXISTS(SELECT 1 FROM pg_replication_slots WHERE slot_name=$2) AS slot_exists,current_setting('wal_level') AS wal_level", [pgstream.streamRole, pgstream.slot])).rows[0];
   if (!objects || objects.schema_exists || objects.role_exists || objects.slot_exists || objects.wal_level !== 'logical') fail('PGSTREAM_NATIVE_OWNED_EMPTY_DATABASE_REQUIRED');
   if((await readPolicies()).length)fail('PGSTREAM_NATIVE_POLICY_ALREADY_EXISTS');
-  let ownedPolicies=[];
+  const delivery = realtimeRole && require('../../lib/pgstream/realtime-obligation').binding(ns.checkpoint,
+    realtimeConfig.namespaces.checkpoint, config.consumer, realtimeConfig.consumer);
+  const hasDelivery = async () => delivery && (await admin.query(
+    'SELECT 1 WHERE to_regprocedure($1) IS NOT NULL', [delivery.functionName + '()'])).rows.length > 0;
+  if (await hasDelivery()) fail('PGSTREAM_NATIVE_OBLIGATION_ALREADY_EXISTS');
+  let ownedDelivery = false, ownedPolicies=[];
   let schemaOwned = false, roleOwned = false, closed = false, producer;
   const own = fs.mkdtempSync(path.join(directory, 'pgstream-')); fs.chmodSync(own, 0o700);
   async function close() {
@@ -156,6 +161,17 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
     for(const policy of [...ownedPolicies]){
       await admin.query('DROP POLICY ' + q(policy.name) + ' ON ' + q(policy.namespace) + '.' + q(policy.relation));
       ownedPolicies=ownedPolicies.filter(value=>value!==policy);
+    }
+    if (ownedDelivery) {
+      await admin.query('BEGIN');
+      try {
+        await admin.query('DROP TRIGGER ' + q(delivery.name) + ' ON ' + delivery.output);
+        await admin.query('DROP TRIGGER ' + q(delivery.lifetimeTrigger) + ' ON ' + delivery.output);
+        await admin.query('DROP TRIGGER ' + q(delivery.receiptTrigger) + ' ON ' + delivery.receipt);
+        await admin.query('DROP FUNCTION ' + delivery.functionName + '()');
+        await admin.query('COMMIT');
+        ownedDelivery = false;
+      } catch (error) { await admin.query('ROLLBACK'); throw error; }
     }
     if (schemaOwned) await admin.query('DROP SCHEMA pgstream CASCADE');
     if (roleOwned) { await admin.query('DROP OWNED BY ' + q(pgstream.streamRole)); await admin.query('DROP ROLE ' + q(pgstream.streamRole)); }
@@ -178,6 +194,7 @@ async function setup({ admin, adminURI, directory, config, evaluatorRole, realti
       const owned=(await admin.query("SELECT to_regnamespace('pgstream') IS NOT NULL AS schema_owned")).rows[0];
       schemaOwned=owned?.schema_owned===true;
       ownedPolicies=await readPolicies();
+      ownedDelivery=await hasDelivery();
     }
     const configFile = path.join(own, 'wire.yaml'); fs.writeFileSync(configFile, JSON.stringify(wire(config, streamURL.href, selected.subscriptionsPort, canonical)), { flag: 'wx', mode: 0o600 });
     binary(selected.binary, selected.sha256, selected.sha256);

@@ -13,6 +13,11 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
     const oracle=require('./fixtures/realtime-preview/storage-oracle');
     try {
       const {ns}=await f.setup(),[A,B]=f.tenants,admin=f.lab.admin;
+      // setup registers port-qualified aliases after the workers start. Wait for
+      // each addressed owner to admit its alias before opening non-reconnecting clients.
+      for (const tenant of [A,B]) {
+        await f.until(async()=>(await f.request(tenant,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.edgePort)).status===200,'raw storage host admission');
+      }
       async function client(tenant,transport){
         const agent=new http.Agent({lookup:(host,options,done)=>options.all?done(null,[{address:'127.0.0.1',family:4}]):done(null,'127.0.0.1',4)});agents.push(agent);
         const socket=io('http://'+f.hosts.get(tenant)+'/storage',{forceNew:true,transports:[transport],agent,reconnection:false}),events=[],disconnects=[];sockets.push(socket);socket.on('disconnect',reason=>disconnects.push(reason));
@@ -145,7 +150,7 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       const bSession=b.socket.id,bPid=f.workers.get('b').child.pid;
       assert.equal((await f.request(A,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.workers.get('b').port)).status,403,'SHARD_NATIVE_WRONG_OWNER_REFUSED');
       const adapter=require('../lib/server/realtime/alarm-transport').createSliceAdapter({peers:f.peers});assert.equal((await alarm(adapter,A,'synthetic before replacement')).accepted,true);await f.until(()=>alarmA.alarms.length===1,'initial transport handoff');assert.equal(alarmB.alarms.length,0);assert.equal(alarmA.alarms[0].originGeneration,'7');
-      const checkpoints=async()=>(await f.lab.admin.query('SELECT consumer,output_completed::text AS checkpoint,contract_digest FROM "'+ns.checkpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows;
+      const checkpoints=async()=>(await f.lab.admin.query('SELECT consumer,output_completed::text AS checkpoint,output_target::text AS target,contract_digest FROM "'+ns.checkpoint+'".tenant_consumer_checkpoint WHERE tenant_id=$1',[A])).rows;
       await f.until(async()=>BigInt((await checkpoints())[0]?.checkpoint||'0')>0n,'durable output acknowledgement');const before=await checkpoints();assert.equal(before.length,1);
       const baseline=await f.request(A,'GET','/api/v3/entries');assert.equal(baseline.status,200);const removed=baseline.body.result[0].identifier;
       const old=f.workers.get('a'),oldFrameCount=a.frames.length,oldStorageAcks=storage.acks.length,oldAlarmAcks=alarmA.acks.length,stoppedAt=Date.now();
@@ -162,10 +167,16 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       assert.equal((await f.request(B,'POST','/api/v3/entries',{identifier:'during-a-replacement',type:'sgv',date:Date.now(),utcOffset:0,app:'synthetic-sharding',sgv:155})).status,201);
       await f.until(()=>b.frames.some(frame=>frame.sgvs.some(row=>row.mgdl===155)),'healthy B during A absence');assert.equal(b.socket.id,bSession);assert.equal(f.workers.get('b').child.pid,bPid);
       assert.equal((await alarm(adapter,B,'synthetic B during neighbour absence')).accepted,true);await f.until(()=>alarmB.alarms.length===1,'healthy B handoff');assert.equal(a.frames.length,oldFrameCount,'terminated owner cannot publish');
+      const outstanding=await f.until(async()=>{
+        const [receipt]=await checkpoints();
+        return BigInt(receipt.target)>BigInt(receipt.checkpoint)?receipt:null;
+      },'producer committed the addressed obligation while its owner was absent');
       const replacement=await f.startRealtime('a');assert.notEqual(replacement.child.pid,old.child.pid);
       await f.until(()=>a.frames.length>oldFrameCount&&storage.acks.length>oldStorageAcks&&alarmA.acks.length>oldAlarmAcks,'same ordinal reconnect/current frame without another input');
       assert.equal(a.frames.at(-1).delta,false);assert.deepEqual(a.frames.at(-1).sgvs,[]);const reloaded=await f.request(A,'GET','/api/v3/entries');assert.equal(reloaded.status,200);assert.deepEqual(reloaded.body.result,[]);
       assert.equal(alarmA.alarms.length,1,'transport acceptance is not replayed by reconnect');assert.equal((await alarm(adapter,A,'synthetic after replacement')).accepted,true);await f.until(()=>alarmA.alarms.length===2,'replacement exact ordinal alarm');
+      await f.until(async()=>BigInt((await checkpoints())[0].checkpoint)>=BigInt(outstanding.target),
+        'replacement durably completed the revision that missed its wake');
       const after=await checkpoints();assert.equal(after.length,1);assert.equal(after[0].consumer,before[0].consumer);assert.equal(after[0].contract_digest,before[0].contract_digest);assert(BigInt(after[0].checkpoint)>=BigInt(before[0].checkpoint));assert.equal(b.socket.id,bSession);assert.equal(b.connections,1);
       const backends=(await f.lab.admin.query("SELECT application_name,count(*)::int AS count FROM pg_stat_activity WHERE usename=$1 GROUP BY application_name",[f.lab.roles.realtime])).rows;assert.equal(backends.find(row=>row.application_name==='nightscout-realtime-owner')?.count,2);assert((backends.find(row=>row.application_name==='nightscout-realtime-preview')?.count||0)<=8);
       // Revoking an alias closes admission at the actual registry resolver; no
@@ -173,7 +184,7 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       const canonicalHost=require('../lib/tenant-resolution').hostname(f.hosts.get(A));
       const revoked=await f.lab.admin.query('DELETE FROM "'+f.lab.namespaces.registry+'".tenant_registry_hosts WHERE host=$1 RETURNING host',[canonicalHost]);assert.equal(revoked.rowCount,1,'STATIC_REVOKES_ACTUAL_CANONICAL_ALIAS');
       await f.until(async()=>(await f.request(A,'GET','/socket.io/?EIO=4&transport=polling',undefined,replacement.port)).status===403,'revoked alias refused by actual owner');assert.equal(b.socket.id,bSession);
-      console.log('STATIC_REALTIME_REPLACEMENT '+JSON.stringify({sameOrdinal:0,count:2,recoveryMs:Date.now()-stoppedAt,oldTerminated:true,withoutNewInputAfterRestart:true,healthyNeighbourUnchanged:true}));
+      console.log('STATIC_REALTIME_REPLACEMENT '+JSON.stringify({sameOrdinal:0,count:2,recoveryMs:Date.now()-stoppedAt,oldTerminated:true,owedBeforeRestart:outstanding.target,completedAfterRestart:after[0].checkpoint,withoutNewInputAfterRestart:true,healthyNeighbourUnchanged:true}));
     }finally{for(const socket of sockets)socket.close();for(const value of agents)value.destroy();await f.cleanup();}
   });
 });
