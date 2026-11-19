@@ -180,8 +180,8 @@ describe('addressed realtime output demand',function(){
    const timers=[];let rows=[{tenant,received:'2'}],completed=0;
    f.states.get(tenant).revision=2;
    // Startup reconciliation reads the committed obligation; no hint is needed.
-   const drain=require('../lib/pgstream/realtime-receipt').start({jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),roster:()=>[tenant],
-     store:{work:async ids=>{assert.deepEqual(ids,[tenant]);return rows;},finish:async(page,outcomes)=>{assert.deepEqual(page,[{tenant,received:'2'}]);assert.equal(outcomes.get(tenant),true,'RECOVERED_OUTPUT_MUST_NOT_RETRY');completed++;rows=[];}},
+   const drain=require('../lib/pgstream/realtime-receipt').start({jobContext:require('../lib/server/serve/evaluator-job-context').create('delivery'),
+     store:{pending:async()=>rows.map(row=>row.tenant),work:async ids=>{assert.deepEqual(ids,[tenant]);return rows;},finish:async(page,outcomes)=>{assert.deepEqual(page,[{tenant,received:'2'}]);assert.equal(outcomes.get(tenant),true,'RECOVERED_OUTPUT_MUST_NOT_RETRY');completed++;rows=[];}},
      check:tenants=>service.check(tenants),setTimer:(fn,ms)=>{timers.push({fn,ms});return 1;},clearTimer(){}});
    try{
      assert.deepEqual(timers.map(timer=>timer.ms),[0,30000],'STARTUP_RECONCILIATION_AND_BOUNDED_RECOVERY');await timers.shift().fn();await new Promise(resolve=>setImmediate(resolve));

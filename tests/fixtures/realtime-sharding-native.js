@@ -207,8 +207,10 @@ module.exports = function fixture () {
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'api.sock'), API_HOSTNAME: '127.0.0.1', API_PORT: '0', NS_TENANT_READINESS: 'all' };
     await preStart('api', apiEnvironment.MULTITENANT_PREVIEW_CONFIG, apiEnvironment);
     api = await ready(start('api', 'api', apiEnvironment), 'api');
-    for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
-    if (apiOnly) return { ns };
+    async function seedEntries () {
+      for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
+    }
+    if (apiOnly) { await seedEntries(); return { ns }; }
     if(!map){map = {count:2,workers:[]};
       for (const [ordinal,id] of ['a','b'].entries()) map.workers.push({ id, ordinal, address: { socket: path.join(directory, id + '.sock') }, consumerOrigin: 'http://127.0.0.1:' + await freePort() });}
     fs.writeFileSync(path.join(directory, 'realtime.json'), JSON.stringify(realtimeConfig), {mode:0o600});
@@ -220,12 +222,15 @@ module.exports = function fixture () {
       await new Promise(resolve=>apiService.listen(path.join(directory,'api-service.sock'),resolve));
       fs.chmodSync(path.join(directory,'api-service.sock'),0o600);
     }
-    if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
+    for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: lab.namespaces.registry, resolvers: [lab.roles.realtime] })) await q(sql);
     // Evaluator private clients address the exact realtime ordinal directly.
     // No fixture proxy reports success or manufactures a durable receipt.
     producer=await require('./pgstream-native').setup({admin:lab.admin,adminURI:process.env.NS_TEST_POSTGRES_ADMIN_URI,directory,
       config:{...evaluatorConfig,namespaces:evaluatorConfig.postgres.namespaces},evaluatorRole:evaluator.name,realtimeRole:lab.roles.realtime,
       realtimeConfig:{...realtimeConfig,namespaces:realtimeConfig.postgres.namespaces},source:process.env});
+    // Existing data at role boot must be inside the capture interval.
+    await seedEntries();
+    if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
     fs.writeFileSync(path.join(directory,'evaluator.json'),JSON.stringify(evaluatorConfig),{mode:0o600});
     const evaluatorOperation=path.join(directory,'operation-evaluator.json');
     fs.writeFileSync(evaluatorOperation,JSON.stringify({...operationState.base,participantId:'evaluator'}));
@@ -239,7 +244,6 @@ module.exports = function fixture () {
     await producer.start();
     await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').roleHealth({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
 
-    for (const sql of require('../../lib/tenant-registry/postgres').grants({ namespace: lab.namespaces.registry, resolvers: [lab.roles.realtime] })) await q(sql);
     await startRealtime('a'); await startRealtime('b');
     edge = http.createServer((req, res) => {
       let target; try { const tenant = tenants.find(tenant => hosts.get(tenant) === req.headers.host); target = new URL(routeReader.route(tenant).consumerOrigin); } catch { res.writeHead(503); res.end(); return; }

@@ -19,9 +19,17 @@ function ablate(file,needle,replacement){
 // evaluator's committed delivery_revision and this realtime role's progress
 // row. It mirrors the SQL predicates; the native suite proves the SQL itself.
 function lab({start=receipts.start,roster=[A,B,C],retryMs=1000,recoveryMs=30000,flushMs=100,deliver=async()=>true,admits}={}){
-  let now=1000,id=0;const timers=new Map(),evaluator=new Map(),rows=new Map(),calls={work:[],finish:[],check:[]};
+  let now=1000,id=0;const timers=new Map(),evaluator=new Map(),rows=new Map(),calls={pending:[],work:[],finish:[],check:[]};
   for(const tenant of roster)rows.set(tenant,{received:0,completed:0,retry:null,owner:null});
   const store={
+    async pending(after){
+      calls.pending.push(after);
+      return [...evaluator.keys()].sort().filter(tenant => {
+        const row = rows.get(tenant);
+        return (!admits || admits(tenant)) && (!after || tenant > after) && row && evaluator.get(tenant) > row.completed &&
+          (row.retry === null || row.retry <= now || evaluator.get(tenant) > row.received);
+      }).slice(0,64);
+    },
     async work(ids){calls.work.push([...ids]);return ids.filter(tenant=>{const e=evaluator.get(tenant),r=rows.get(tenant);return e!==undefined&&r&&(r.owner===null||r.owner===W)&&e>r.completed&&(r.retry===null||r.retry<=now||e>r.received);}).sort().map(tenant=>({tenant,received:String(evaluator.get(tenant))}));},
     async finish(list,outcomes,due){calls.finish.push(list.map(row=>[row.tenant,row.received,outcomes.get(row.tenant)===true]));
       if(list.some(row=>rows.get(row.tenant).owner!==null&&rows.get(row.tenant).owner!==W))throw Error('REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED');
@@ -29,7 +37,7 @@ function lab({start=receipts.start,roster=[A,B,C],retryMs=1000,recoveryMs=30000,
         const received=Math.max(r.received,revision),completed=ok?Math.max(r.completed,revision):r.completed;
         r.retry=received<=completed?null:ok?r.retry:due;r.received=received;r.completed=completed;r.owner=W;}}
   };
-  const value=start({store,jobContext:contexts.create('delivery'),roster:()=>roster,...(admits?{admits}:{}),flushMs,retryMs,recoveryMs,now:()=>now,
+  const value=start({store,jobContext:contexts.create('delivery'),...(admits?{admits}:{}),flushMs,retryMs,recoveryMs,now:()=>now,
     check:async tenants=>{calls.check.push([...tenants]);const out=new Map();for(const tenant of tenants)out.set(tenant,await deliver(tenant));return out;},
     setTimer:(fn,ms)=>{const key=++id;timers.set(key,{fn,at:now+ms});return key;},clearTimer:key=>timers.delete(key)});
   return {value,calls,timers,evaluator,rows,commit(tenant){evaluator.set(tenant,(evaluator.get(tenant)??0)+1);return evaluator.get(tenant);},
@@ -51,14 +59,14 @@ describe('durable realtime output delivery ownership',function(){
     const reads=[],queries=[],released=[];let owned=true;
     const pool={connect:async()=>({query:async(statement,values)=>{const sql=typeof statement==='string'?statement:statement.text;queries.push(sql);if(!values)return {rows:[],command:sql};
       assert.match(statement.name,/^realtime-receipt-v3:rt_checkpoint:(claim|finish)$/);const rows=JSON.parse(values[2]);return {rows:rows.map(row=>({tenant:row.tenant,completed:row.revision||'0'}))};},release:error=>released.push(error)})};
-    const sql=extra=>({readOnly:async(text,values)=>{reads.push({sql:text,values});return {rows:[{tenant:A,received:'9007199254740993'}]};},updateRealtimeReceipts:options=>require('../lib/pgstream/realtime-receipt-sql').update({pool,observeBackend:async()=>{},...options,...extra?.(options)})});
+    const sql=extra=>({readOnly:async(text,values)=>{reads.push({sql:text,values});return {rows:text.includes('AS owner')?[{tenant:A,owner:OTHER}]:[{tenant:A,received:'9007199254740993'}]};},updateRealtimeReceipts:options=>require('../lib/pgstream/realtime-receipt-sql').update({pool,observeBackend:async()=>{},...options,...extra?.(options)})});
     const store=receipts.create({config,worker:W,assertOwner:tenant=>{if(!owned||tenant===C)throw Error('REALTIME_OWNER_UNAVAILABLE');},connection:sql()});
     assert.deepEqual(await store.work([A,B]),[{tenant:A,received:'9007199254740993'}]);
     assert.equal(reads.length,1,'ONE_READ_PER_PAGE');
     assert.match(reads[0].sql,/JOIN "eval_checkpoint"\.tenant_consumer_checkpoint e ON e\.tenant_id=r\.tenant_id AND e\.consumer=\$2/);
     assert.match(reads[0].sql,/e\.delivery_revision>r\.output_completed/);assert.match(reads[0].sql,/r\.output_owner IS NULL OR r\.output_owner=\$3::uuid/);
     assert.deepEqual(reads[0].values.slice(0,4),['realtime-test','evaluator-test-completed',W,[A,B]]);
-    await store.recover([A,B]);
+    assert.deepEqual(await store.pending(),[A]);
     await store.finish([{tenant:A,received:'9007199254740993'},{tenant:B,received:'2'}],new Map([[A,true],[B,false]]),5000);
     const statements=queries.filter(text=>text.startsWith('WITH work'));
     assert.equal(statements.length,2,'ONE_CLAIM_AND_ONE_FINISH');assert.match(statements[1],/output_completed=CASE WHEN w\.ok THEN GREATEST/);
@@ -68,7 +76,7 @@ describe('durable realtime output delivery ownership',function(){
     const contract=require('../lib/server/internal-api/contracts').realtimeInspection;
     const schema=contract.operations.inspectRealtime.response.properties.stats.properties.delivery.anyOf[0];
     assert.deepEqual(Object.keys(store.stats()).sort(),[...schema.required].sort(),'INSPECTION_DELIVERY_STATS_CONTRACT');
-    await assert.rejects(store.work([C]),/REALTIME_OWNER_UNAVAILABLE/);assert.equal(reads.length,1,'NON_OWNER_PAGE_REFUSED_BEFORE_SQL');
+    await assert.rejects(store.work([C]),/REALTIME_OWNER_UNAVAILABLE/);assert.equal(reads.length,2,'NON_OWNER_PAGE_REFUSED_BEFORE_SQL');
     for(const bad of [[],[A,A],Array.from({length:65},(_,i)=>'00000000-0000-4000-8000-'+String(i).padStart(12,'0')),['invalid']])await assert.rejects(store.work(bad),/Bounded realtime delivery page|Canonical/);
     // Ownership is confirmed under the row locks: a loss before COMMIT commits nothing.
     const before=queries.filter(text=>text==='COMMIT').length;
@@ -88,10 +96,10 @@ describe('durable realtime output delivery ownership',function(){
   });
   it('coalesces the raw-tail and output wakes of one cycle into one delivery and leaves only the bounded recovery timer when idle',async function(){
     const f=lab();try{
-      await f.flush();assert.deepEqual(f.calls.work,[[A,B,C]],'STARTUP_RECONCILIATION_ONE_PAGE');assert.equal(f.calls.check.length,0);
+      await f.flush();assert.deepEqual(f.calls.pending,[null]);assert.deepEqual(f.calls.work,[],'idle rows require no delivery work');assert.equal(f.calls.check.length,0);
       f.commit(A);f.value.wake({tenants:[A]});await f.flush(40);f.commit(A);f.value.wake({tenants:[A]});
-      assert.equal(f.calls.work.length,1,'DEBOUNCE_HOLDS_FIRST_WAKE');await f.flush(60);
-      assert.deepEqual(f.calls.work.slice(1),[[A]]);assert.deepEqual(f.calls.check,[[A]]);assert.deepEqual(f.calls.finish,[[[A,'2',true]]]);
+      assert.equal(f.calls.work.length,0,'DEBOUNCE_HOLDS_FIRST_WAKE');await f.flush(60);
+      assert.deepEqual(f.calls.work,[[A]]);assert.deepEqual(f.calls.check,[[A]]);assert.deepEqual(f.calls.finish,[[[A,'2',true]]]);
       assert.equal(f.rows.get(A).completed,2);assert.equal(f.timers.size,1,'IDLE_ONLY_RECOVERY_TIMER');
       assert.equal([...f.timers.values()][0].at,1000+30000);
     }finally{await f.value.close();}assert.equal(f.timers.size,0);
@@ -146,7 +154,7 @@ describe('durable realtime output delivery ownership',function(){
   });
   it('(d) never selects or completes a tenant this realtime does not own',async function(){
     const owned=new Set([A]);const f=lab({admits:tenant=>owned.has(tenant)});try{
-      await f.flush();assert.deepEqual(f.calls.work,[[A]]);f.commit(B);f.value.wake({tenants:[B]});await f.flush(30000);
+      await f.flush();assert.deepEqual(f.calls.work,[]);f.commit(B);f.value.wake({tenants:[B]});await f.flush(30000);
       assert.equal(f.rows.get(B).completed,0);assert(f.calls.work.every(page=>!page.includes(B)),'NON_OWNER_MUST_NOT_BE_SELECTED');
       f.rows.get(A).owner=OTHER;f.commit(A);f.value.wake({tenants:[A]});await f.flush(100);assert.equal(f.rows.get(A).completed,0,'ANOTHER_OWNERS_ROW_NOT_SELECTED');
     }finally{await f.value.close();}

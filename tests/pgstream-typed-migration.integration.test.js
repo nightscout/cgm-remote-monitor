@@ -93,6 +93,35 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  });
  beforeEach(async()=>{at=100;failCommit=false;rollbackCommit=false;commitGate=null;commitEntered=null;await admin.query(`DELETE FROM ${table}`);await admin.query(`DELETE FROM ${obligations}`);await provision(tenant);});
  after(async()=>{await protocol?.window.close();await nativePool?.end();if(observerConnected)await observer.end();if(admin){try{if(connected){await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');await admin.query('DROP SCHEMA IF EXISTS "'+source+'" CASCADE');if(metadataRole){await admin.query('DROP OWNED BY "'+metadataRole+'"');await admin.query('DROP ROLE "'+metadataRole+'"');}}}finally{await admin.end();}}});
+ it('recovers a first lost wake and only adopts a due row when the replacement still holds its slice',async()=>{
+  await commit('1');
+  const oldIndex = await nativePool.query(`SELECT tenant_id FROM ${table} WHERE consumer=$1 AND output_received>output_completed`,[consumer]);
+  assert.equal(oldIndex.rowCount,0,'unattempted delivery is absent from the realtime retry index');
+  assert.deepEqual(await store.pending(),[tenant]);
+  const work=await store.work([tenant]);await store.finish(work,ok(work),1100);
+  assert.deepEqual(await store.pending(),[]);
+  await commit('2');
+  const lost=create({config,connection:port,worker:nextWorker,confirmOwner:async()=>{throw Error('SYNTHETIC_OWNER_LOST');},now:()=>at});
+  await assert.rejects(lost.pending(),/SYNTHETIC_OWNER_LOST/);
+  assert.equal((await row()).owner,worker);
+  const replacement=make(nextWorker);
+  assert.deepEqual(await replacement.pending(),[tenant]);
+  assert.deepEqual(await store.work([tenant]),[]);
+  const owed=await replacement.work([tenant]);await replacement.finish(owed,ok(owed),1100);
+  assert.deepEqual(await replacement.pending(),[]);
+ });
+ it('bounds keyset pages to actual owed tenants in the configured static slice',async()=>{
+  const count=3,ordinal=1,ids=Array.from({length:320},(_,i)=>'44444444-4444-4444-8444-'+String(i+1).padStart(12,'0'));
+  await admin.query(`INSERT INTO ${table}(tenant_id,consumer,contract_digest,checkpoint) SELECT t,$2,$3,0 FROM unnest($1::uuid[]) t`,[ids,consumer,'a'.repeat(64)]);
+  await admin.query(`INSERT INTO ${obligations}(tenant_id,consumer,contract_digest,checkpoint,work_version,work_observed,work_completed,work_observed_at,delivery_revision)
+    SELECT t,$2,$3,0,2,$4::bigint[],$4::bigint[],$4::bigint[],1 FROM unnest($1::uuid[]) t`,[ids,evaluatorConsumer+'-completed','b'.repeat(64),Array(6).fill(null)]);
+  const slice=require('../lib/pool-membership/slice'), owned=ids.filter(id=>slice.bucket(id,count)===ordinal);
+  const selected=create({config:{...config,ownership:{count,ordinal}},connection:port,worker,now:()=>at});
+  const first=await selected.pending(),second=await selected.pending(first.at(-1));
+  assert.equal(first.length,64);assert.deepEqual(first.concat(second),owned);
+  const busy=await selected.work(first);await selected.finish(busy,ok(busy,false),at+1000);
+  assert.deepEqual(await selected.pending(),second,'backoff on a full page cannot hide its neighbours');
+ });
  it('selects only owed revisions in one read and records nothing until physical COMMIT',async()=>{
   assert.deepEqual(await store.work([tenant]),[],'NO_COMMITTED_REVISION_NO_WORK');
   await commit('1');statements.length=0;const rows=await store.work([tenant]);assert.deepEqual(rows,[{tenant,received:'1'}]);
@@ -141,7 +170,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
    assert.deepEqual(await other.work([tenant]),[],'NON_OWNER_MUST_NOT_SELECT');
    await other.finish([{tenant,received:'2'}],ok([{tenant}]),1100).catch(()=>{});
    assert.deepEqual(await row(),{received:'1',completed:'1',retry:null,owner:worker},'NON_OWNER_MUST_NOT_COMPLETE');
-   await other.recover([tenant]);assert.equal((await row()).owner,nextWorker);
+   await other.pending();assert.equal((await row()).owner,nextWorker);
    await assert.rejects(store.finish([{tenant,received:'2'}],ok([{tenant}]),1100),/REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED/);
    const owned=await other.work([tenant]);await other.finish(owned,ok(owned),1100);assert.deepEqual(await row(),{received:'2',completed:'2',retry:null,owner:nextWorker});
   }
@@ -153,18 +182,18 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  });
  it('claims owned rows for a replacement worker and makes a known retry due at once',async()=>{
   await commit('9007199254740993');const rows=await store.work([tenant]);await store.finish(rows,ok(rows,false),1100);
-  const replacement=make(nextWorker);await replacement.recover([tenant]);
+  const replacement=make(nextWorker);await replacement.pending();
   assert.deepEqual(await row(),{received:'9007199254740993',completed:'0',retry:null,owner:nextWorker});
   assert.deepEqual(await replacement.work([tenant]),[{tenant,received:'9007199254740993'}]);
   const tuple=async()=>(await observer.query(`SELECT ctid::text AS tuple FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer])).rows[0].tuple;
-  const before=await tuple();await replacement.recover([tenant]);assert.equal(await tuple(),before,'REPEATED_CLAIM_MUST_NOT_REWRITE');
+  const before=await tuple();await replacement.pending();assert.equal(await tuple(),before,'REPEATED_CLAIM_MUST_NOT_REWRITE');
  });
  it('progresses suspended control through metadata SQL while serving admission is closed',async()=>{
   const suspended=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true,phases:{[tenant]:'suspended'}});await suspended.window.ready();
   const paused=make(worker);
   try{
    await assert.rejects(suspended.window.run(tenant,()=>{}),/LIFECYCLE_WINDOW_SUSPENDED/,'control proves serving admission is closed');
-   await commit('1');await paused.recover([tenant]);const rows=await paused.work([tenant]);await paused.finish(rows,ok(rows),1100);assert.equal((await row()).completed,'1');
+   await commit('1');assert.deepEqual(await paused.pending(),[tenant]);const rows=await paused.work([tenant]);await paused.finish(rows,ok(rows),1100);assert.equal((await row()).completed,'1');
   }finally{await suspended.window.close();}
  });
  it('executes one read and one set-oriented metadata UPDATE for a realized multi-tenant page',async()=>{

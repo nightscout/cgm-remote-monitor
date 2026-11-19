@@ -77,7 +77,13 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
     const f=require('./fixtures/realtime-sharding-native')();let socket,agent;
     try {
       const {ns}=await f.setup({paused:true}),[A,B]=f.tenants;
-      for(const id of ['a','b']){const health=await f.request(A,'GET','/health',undefined,f.workers.get(id).port);assert.equal(health.status,200);assert.equal(health.body.healthy,0);assert.equal(health.body.deferred,1);assert.equal(health.body.tenants[0].ready,false);}
+      for (const [ordinal, id] of ['a','b'].entries()) {
+        const health = await f.request(A, 'GET', '/health', undefined, f.workers.get(id).port);
+        assert.equal(health.status,200);assert.equal('tenants' in health.body,false);
+        const observer = require('../lib/server/internal-api/clients').realtimeInspection(f.peers.endpoints[ordinal]);
+        const inspection = await observer.inspectRealtimeTenants({tenants:[f.tenants[ordinal]]});
+        assert.equal(inspection.tenants[0].ready,false);
+      }
       const completedConsumer='evaluator-sharding-native-completed';
       // Pause/control receipts may be acknowledged without clinical computation.
       const rows=(await f.lab.admin.query('SELECT consumer,output_revision::text AS checkpoint FROM "'+ns.evaluatorCheckpoint+'".tenant_consumer_checkpoint WHERE consumer=$1 ORDER BY tenant_id',[completedConsumer])).rows;
@@ -108,14 +114,16 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       const failure=require('node:path').join(f.directory,'fail-'+tenant);require('node:fs').writeFileSync(failure,'');
       await f.provisionTenant(tenant,'shard-live.example.test');
       await f.until(async()=>{const result=await f.request(tenant,'POST','/api/v3/entries',{identifier:'live-shard',type:'sgv',date:Date.now(),utcOffset:0,app:'synthetic-sharding',sgv:149});return result.status===201;},'new tenant real API write');
-      await f.until(async()=>{const status=await f.request(tenant,'GET','/health',undefined,f.workers.get('a').port);return status.body.registry.admissionRefused>0;},'real failed target preparation refuses publication');
-      assert.equal((await f.request(tenant,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.workers.get('a').port)).status,403,'failed target is not socket-admitted');
-      const healthy=await f.request(f.tenants[1],'GET','/health',undefined,f.workers.get('b').port);assert.equal(healthy.status,200);assert.equal(healthy.body.ready,true);
+      const handshake = id => f.request(tenant,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.workers.get(id).port);
+      assert.equal((await handshake('a')).status,403,'held first projection is not admitted');
+      const observer = id => require('../lib/server/internal-api/clients').realtimeInspection(f.peers.endpoints[id]);
+      assert.equal((await observer(0).inspectRealtimeTenants({tenants:[tenant]})).tenants[0].ready,false);
+      assert.equal((await f.request(tenant,'GET','/health',undefined,f.workers.get('b').port)).status,200);
       require('node:fs').unlinkSync(failure);
-      await f.until(async()=>{const status=await f.request(tenant,'GET','/health',undefined,f.workers.get('a').port);return status.body.tenants.some(row=>row.tenant===tenant&&row.ready);},'assigned live tenant warm');
-      const other=await f.request(tenant,'GET','/health',undefined,f.workers.get('b').port);
-      assert.ok(!other.body.tenants.some(row=>row.tenant===tenant),'unowned live tenant never enters B runtime');
-      assert.equal((await f.request(tenant,'GET','/socket.io/?EIO=4&transport=polling',undefined,f.workers.get('b').port)).status,403);
+      await f.until(async()=> (await handshake('a')).status === 200,'first contact warms assigned live tenant');
+      assert.equal((await observer(0).inspectRealtimeTenants({tenants:[tenant]})).tenants[0].ready,true);
+      assert.equal((await observer(1).inspectRealtimeTenants({tenants:[tenant]})).tenants[0].owned,false);
+      assert.equal((await handshake('b')).status,403);
       agent=new http.Agent({lookup:(host,options,callback)=>options.all?callback(null,[{address:'127.0.0.1',family:4}]):callback(null,'127.0.0.1',4)});
       let frame; socket=io('http://'+f.hosts.get(tenant),{transports:['polling'],upgrade:false,agent,reconnection:false});
       socket.on('connect',()=>socket.emit('authorize',{secret:hash(f.roots.get(tenant))}));socket.on('dataUpdate',value=>{frame=value;});

@@ -26,21 +26,18 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     const fs = require('node:fs'), vm = require('node:vm');
     const filename = require.resolve('../lib/server/serve/preview-realtime');
     const original = require('node:module').createRequire(filename), output = { exports: {} };
-    const counts = { opened: 0, registryClosed: 0, lookupClosed: 0, resolverClosed: 0, displayClosed: 0, reads: 0 };
+    const counts = { opened: 0, registryClosed: 0, displayClosed: 0, reads: 0 };
     const registrySet = { tenants: new Map([[A, { tenant: A }]]), isActive: tenant => tenant === A,
-      close: async () => { counts.registryClosed++; } };
+      lookup: async tenant => registrySet.tenants.get(tenant), onRemove () {}, close: async () => { counts.registryClosed++; } };
     const dependencies = {
-      './registry-tenant-set': { open: async () => { counts.opened++; return registrySet; } },
+      './registry-tenant-set': { openDemand: async () => { counts.opened++; if(failLookup) throw new Error('synthetic lookup refusal'); return registrySet; } },
       './evaluator-config': { registryEntry: tenant => ({ tenant }), applySettings: (base, settings) => ({ ...base, settings }) },
-      '../../storage/postgres-connection': async () => { if (failLookup) throw new Error('synthetic lookup refusal'); return { end: async () => { counts.lookupClosed++; } }; },
-      '../../tenant-registry/postgres': { create: () => ({}) },
-      '../../tenant-registry/resolver': { createRegistryResolver: () => ({ start: async () => {}, close: () => { counts.resolverClosed++; } }) },
       '../realtime/registry-admission': { create: () => ({}) }
     };
     vm.runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
       id => Object.hasOwn(dependencies, id) ? dependencies[id] : original(id), output, output.exports);
     const display = { read: async () => ({ version: ++counts.reads }), close: async () => { counts.displayClosed++; } };
-    return { counts, display, open: provider => output.exports.registryMode({ registry: {}, maxTenants: 10 }, provider) };
+    return { counts, display, registrySet, open: provider => output.exports.registryMode({ registry: {}, maxTenants: 10 }, provider) };
   }
 
   async function refusedReader (provider, mutate) {
@@ -61,7 +58,7 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     await refusedReader(undefined);
     await assert.rejects(refusedReader(undefined, source => {
       assert.equal(source.split(guard).length, 2, 'control must land on actual reader validation');
-      return source.replace(guard + '\n', '').replace('  let lookup;', guard + '\n  let lookup;');
+      return source.replace(guard + '\n', '').replace('  const admission =', guard + '\n  const admission =');
     }), error => error.code === 'ERR_ASSERTION' && error.actual === 1 && error.expected === 0);
     await refusedReader(undefined);
   });
@@ -72,16 +69,41 @@ describe('registry mode: realtime, socket forwarding, removal and the static lab
     assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings: { version: 1 } });
     assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings: { version: 2 } });
     await runtime.close();
-    assert.deepEqual(fixture.counts, { opened: 1, registryClosed: 1, lookupClosed: 1, resolverClosed: 1, displayClosed: 1, reads: 2 });
+    assert.deepEqual(fixture.counts, { opened: 1, registryClosed: 1, displayClosed: 1, reads: 2 });
     const failed = readerRuntime(value => value, true);
     await assert.rejects(failed.open(failed.display), /synthetic lookup refusal/);
-    assert.deepEqual(failed.counts, { opened: 1, registryClosed: 1, lookupClosed: 0, resolverClosed: 0, displayClosed: 1, reads: 0 });
+    assert.deepEqual(failed.counts, { opened: 1, registryClosed: 0, displayClosed: 1, reads: 0 });
+  });
+
+  it('refuses a cached presentation when an in-flight settings read crosses membership invalidation or re-admission', async function () {
+    for (const change of ['stale', 'replacement']) {
+      const { registrySet, open } = readerRuntime();
+      const settings = { version: 1 }, waiting = Promise.withResolvers(), resume = Promise.withResolvers();
+      let paused = false;
+      const runtime = await open({ read: async () => {
+        if (paused) { waiting.resolve(); await resume.promise; }
+        return settings;
+      }, close: async () => {} });
+      try {
+        assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings });
+        paused = true;
+        const pending = runtime.config.readCurrent(A);
+        await waiting.promise;
+        if (change === 'stale') registrySet.isActive = () => false;
+        else registrySet.tenants.set(A, { tenant: A, generation: 2 });
+        resume.resolve();
+        assert.equal(await pending, null);
+        if (change === 'replacement') assert.equal((await runtime.config.readCurrent(A)).generation, 2);
+      } finally { resume.resolve(); await runtime.close(); }
+    }
   });
 
   it('RR_CONFIG: realtime takes `registry` in place of `tenants` and the admission file, and refuses both together', function () {
     const { parse } = require('../lib/server/realtime/config');
     const parsed = parse(realtimeConfig(), SOURCE);
     assert.equal(parsed.registry.namespace, 'rr_registry'); assert.equal(parsed.registry.refreshMs, 500);
+    const implicit = realtimeConfig(); delete implicit.maxTenants;
+    assert.equal(parse(implicit, SOURCE).maxTenants, parsed.registry.maxTenants);
     assert.equal(parsed.tenants.size, 0); assert.equal(Object.hasOwn(parsed,'admissionFile'),false);
     for (const extra of [{ tenants: [{ id: A, revision: 'v1', settings: {} }] }, { admissionFileEnv: 'RT_ADMISSION' }]) {
       assert.throws(() => parse(realtimeConfig(extra), SOURCE), {code:'REALTIME_REGISTRY_REQUIRED'});

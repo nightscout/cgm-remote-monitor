@@ -114,7 +114,7 @@ describe('actual static realtime boot observations', function () {
         '../realtime/api-client': {create: () => ({})},
         './tenant-startup': {notReadyRetry: () => ({}), create: () => ({warm: noop, close: noop, isReady: tenant => tenant === A})},
         '../realtime/protocol': {create: () => ({close () {}, stats: () => ({}), fanout () {}, watchedTenants: () => [], watchedCount: () => 0})},
-        './registry-tenant-set': {open: async () => ({tenants: new Map(), isActive: () => false, follow: noop, close: noop, stats: () => ({})})},
+        './registry-tenant-set': {openDemand: async () => ({tenants: new Map(), resolver:{resolve: noop}, onRemove () {}, isActive: () => false, close: noop, stats: () => ({})})},
         '../../tenant-registry/resolver': {createRegistryResolver: () => ({start: noop, resolve: noop, close () {}})},
         '../../tenant-registry/postgres': {create: () => ({})},
         '../../trusted-worker/postgres': {create: () => ({scan: async () => new Map(), read: noop, current: () => null,
@@ -126,7 +126,7 @@ describe('actual static realtime boot observations', function () {
             workQueries: 7, metadataUpdates: 0, metadataRows: 0, maxMetadataBatch: 0})}),
           start: () => ({close: noop, wake () {}, reconcile () {}, stats: () => ({reconciliationPages: 5})})
         },
-        '../realtime/runtime': async () => ({health () { throw Error('WHOLE_TENANT_HEALTH_SCAN'); },
+        '../realtime/runtime': async () => ({probe: () => ({live:true, readiness:'serve', ready:true, configured:2}), health () { throw Error('WHOLE_TENANT_HEALTH_SCAN'); },
           stats: () => ({ticks: 0, refreshes: 0, detected: 0, detectFailures: 0}), warm: tenant => tenant === A, close: noop})
       };
       const sandbox = {module: {exports: {}}, process, console, setInterval: () => ({unref () {}}), clearInterval () {},
@@ -151,6 +151,7 @@ describe('actual static realtime boot observations', function () {
     }
     try {
       const one = await boot(), two = await boot(), normal = await views(one), replacement = await views(two);
+      const health = one.health(); assert.equal(health.ready, true); assert.equal(health.configured, 2); assert.equal('tenants' in health, false);
       assert.notEqual(normal.process.processIncarnation, replacement.process.processIncarnation);
       assert.equal(normal.process.ownerAvailable, true);
       assert.equal(normal.tenants.tenants[0].ready, true); assert.equal(normal.tenants.tenants[1].owned, false);
@@ -170,70 +171,44 @@ describe('actual static realtime boot observations', function () {
   });
 });
 
-describe('realtime staged warm metadata boundary', function () {
- const scope=require('../lib/storage/tenant-scope');let previous;
- beforeEach(()=>{previous=scope.getTenancyMode();});afterEach(()=>scope.setTenancyMode(previous));
- async function staged(change,transform=value=>value,expected='TENANT_ACTIVITY_DEFERRED',{duringWarm,afterWarm}={}){
-  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
-  const filename=require.resolve('../lib/server/serve/preview-realtime'),local=createRequire(filename),noop=async()=>{};
-  let enter,release,follow,cached,scans=0,activated=0,removed=0,generation=1;
-  const entered=new Promise(resolve=>{enter=resolve;}),held=new Promise(resolve=>{release=resolve;});
-  const live={paused:false,settings:1,policy:1};const entry={tenant:B};
-  const worker={scan:async()=>{scans++;cached={...live};return new Map();},read:async()=>({...cached}),remove(){},
-   current:()=>cached?{activity:{state:cached.paused?'paused':'active'}}:null,state:()=>({available:true,generation}),close:noop};
-  const registrySet={tenants:new Map(),isActive:()=>true,follow:async value=>{follow=value;},drained:()=>held,close:noop,stats:()=>({})};
-  const overrides={
-   './evaluator-config':{registryEntry:tenant=>({tenant}),applySettings:(base,settings)=>({...base,identity:settings.settings+':'+settings.policy})},
-   './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness':noop,
-   '../../storage/postgres-connection':async()=>({end:noop}),
-   '../internal-api/clients':{socketAuthority:()=>({})},'../realtime/api-client':{create:()=>({})},
-   './tenant-startup':{attempt:async(window,tenant,fn)=>{await fn();return true;},notReadyRetry:()=>({}),create:()=>({warm:noop,close:noop,addTenant(){},ensure:noop,removeTenant:noop,isReady:()=>true})},
-   '../realtime/protocol':{create:()=>({close(){},invalidateTenant(){},stats:()=>({}),fanout(){},watchedTenants:()=>[],watchedCount:()=>0})},
-   './registry-tenant-set':{open:async()=>registrySet},
-   '../../tenant-registry/resolver':{createRegistryResolver:()=>({start:noop,resolve:noop,close(){}})},'../../tenant-registry/postgres':{create:()=>({})},
-   '../../trusted-worker/postgres':{create:()=>worker},'../../trusted-worker/lifecycle':async()=>({close:noop,verify:noop}),
-   '../../realtime-ownership/owner':{acquire:async()=>({available:true,check:noop,close:noop})},
-   '../../pgstream/realtime-output':{detector:()=>Object.assign(noop,{stats:()=>({})}),projection:()=>({acquire:async()=>{enter();await held;return {rows:[],frame:{sgvs:[]}};}})},
-   '../../pgstream/realtime-receipt':{create:()=>({verify:noop,recover:noop,stats:()=>({})}),start:()=>({close:noop,wake(){},reconcile(){}})},
-   '../realtime/runtime':async()=>({health:()=>({}),stats:()=>({}),warm:()=>true,check:noop,close:noop,wake(){},removeTenant:async()=>{removed++;},addTenant:()=>{activated++;}})
-  };
-  const sandbox={module:{exports:{}},process,console,setInterval:()=>({unref(){}}),clearInterval(){},require:name=>Object.hasOwn(overrides,name)?overrides[name]:local(name)};
-  vm.runInNewContext(transform(fs.readFileSync(filename,'utf8')),sandbox,{filename});
-  const selected=ownership.create({count:1,ordinal:0});
-  const role=await sandbox.module.exports.boot({registry:{namespace:'rt_registry',maxTenants:10,refreshMs:500},completedOutput:{namespace:'ev_checkpoint',consumer:'evaluator-test'},trustedWorker:{},
-   tenants:new Map(),operationTimeoutMs:100,ownership:selected,consumer:'realtime-test',api:{},admission:{},namespaces:{}});
-  try{
-   const preparing=follow.prepare(B,entry);preparing.catch(()=>{});
-   await entered;const before=scans;await duringWarm?.(role);await change?.(live,()=>{generation++;},role);release();
-   if(change){await assert.rejects(preparing,{code:expected});assert.equal(activated,0);assert.equal(removed,1);}
-   else{
-    await preparing;assert.equal(scans,before+1,'one fresh metadata scan after awaited staged acquisition');
-    if(afterWarm){await afterWarm(role);assert.throws(()=>follow.activate(B),{code:'REALTIME_STAGED_TENANT_MISSING'});assert.equal(activated,0);}
-    else{await follow.activate(B);assert.equal(activated,1);}
-   }
-  }finally{release();await role.close();}
- }
- it('refuses a pause committed during held acquisition and retains the active staging path',async function(){
-  await staged(live=>{live.paused=true;});await staged();
- });
- it('acknowledges restore during a staged warm and revokes only the affected projection',async function(){
-  async function invalidateWhileHeld(role,tenant){
-   let ack=false;const invalidated=role.invalidateTenant(tenant).then(()=>{ack=true;});
-   await new Promise(setImmediate);
-   assert.equal(ack,true,'RESTORE_MUST_NOT_DRAIN_REGISTRY_WARM');
-   await invalidated;
-  }
-  await staged(undefined,undefined,undefined,{duringWarm:role=>invalidateWhileHeld(role,A)});
-  await staged((live,bump,role)=>invalidateWhileHeld(role,B),undefined,'REALTIME_CYCLE_CHANGED');
-  await staged(undefined,undefined,undefined,{afterWarm:role=>role.invalidateTenant(B)});
- });
- it('refuses changed settings, policy and worker generation before publishing staged state',async function(){
-  for(const change of [live=>{live.settings++;},live=>{live.policy++;}])await staged(change,undefined,'REALTIME_STAGED_CONFIG_CHANGED');
-  await staged((live,invalidate)=>invalidate(),undefined,'TRUSTED_WORKER_UNAVAILABLE');
- });
- it('omitting post-warm refresh is red for pause during held acquisition, then restored source is green',async function(){
-  const needle='            await trusted.scan([tenant],{recovery:true});';
-  await assert.rejects(staged(live=>{live.paused=true;},source=>{assert.equal(source.split(needle).length,2,'control must remove actual post-warm scan');return source.replace(needle,'');}),error=>error.code==='ERR_ASSERTION');
-  await staged(live=>{live.paused=true;});await staged();
- });
+describe('realtime demand warm metadata boundary', function () {
+  it('keeps an in-flight output check from invalidating a replacement tenant cell', async function () {
+    const entered = Promise.withResolvers(), release = Promise.withResolvers();
+    const runtime = await require('../lib/server/realtime/runtime')({ tenants: [], dynamic: true, durableOutput: true,
+      readiness: 'serve', readCurrent: async () => ({ tenant: B, identity: 'current' }),
+      create: () => ({ acquire: async () => ({ tenant: B, frame: {} }) }), fanout: async () => {},
+      detect: async () => { entered.resolve(); await release.promise; return new Map([[B, { identity: null }]]); } });
+    try {
+      runtime.addTenant(B);
+      const oldCheck = runtime.check([B]);
+      await entered.promise;
+      await runtime.removeTenant(B);
+      runtime.addTenant(B);
+      await runtime.refresh(B);
+      release.resolve();
+      assert.equal((await oldCheck).get(B), false);
+      assert.equal(runtime.warm(B), true);
+    } finally { release.resolve(); await runtime.close(); }
+  });
+
+  it('rechecks committed presentation and worker authority after a held first projection', async function () {
+    for (const change of ['pause', 'settings', 'worker', 'unchanged']) {
+      let enter, release, committed = {tenant:B,identity:'initial'}, observed = committed, generation=1, frames=0;
+      const started = new Promise(resolve => { enter=resolve; }), held = new Promise(resolve => {release=resolve;});
+      const runtime = await require('../lib/server/realtime/runtime')({tenants:[], dynamic:true, durableOutput:true,
+        readiness:'serve', readCurrent:async()=>observed, confirmCold:async()=>{observed=committed;return observed;},
+        workerState:()=>({available:true,generation}), create:()=>({async acquire(){enter();await held;return {tenant:B,frame:{}};}}),
+        fanout:async()=>{frames++;}});
+      try {
+        runtime.addTenant(B);
+        const warm=runtime.refresh(B);await started;
+        if(change==='pause')committed=null;
+        if(change==='settings')committed={tenant:B,identity:'changed'};
+        if(change==='worker')generation++;
+        release();
+        if(change==='unchanged'){await warm;assert.equal(frames,1);assert.equal(runtime.warm(B),true);}
+        else{await assert.rejects(warm,/REALTIME_CYCLE_CHANGED|TRUSTED_WORKER_UNAVAILABLE/);assert.equal(frames,0);assert.equal(runtime.warm(B),false);}
+      } finally {release(); await runtime.close();}
+    }
+  });
 });
