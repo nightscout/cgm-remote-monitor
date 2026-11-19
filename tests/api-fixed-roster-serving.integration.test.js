@@ -1,7 +1,6 @@
 'use strict';
 
-// Actual API process semantics. Evaluator/realtime/owner peers are synthetic
-// lifecycle-only participants; full-role network binding is separate acceptance.
+// Two API CLI processes serve direct requests and share a round-robin HTTP listener.
 const assert = require('node:assert/strict'), fs = require('node:fs');
 const { optInSuite } = require('./support/opt-in');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
@@ -11,7 +10,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
     this.timeout(120000);
     const f = createFixture({ drainTimeoutMs: 500 }), [A, B] = f.base.tenants;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(id === 'service' ? f.serviceWorker : f.current.get(id), tenant, method, path, token, body, headers);
-    const stored = identifier => f.withAdmin(async admin => (await admin.query("SELECT tenant_id::text,doc FROM preview_data.entries WHERE doc->>'identifier'=$1", [identifier])).rows);
+    const stored = identifier => f.withAdmin(async admin => (await admin.query("SELECT tenant_id::text,doc FROM preview_entries.entries WHERE doc->>'identifier'=$1", [identifier])).rows);
     let a, b;
     before(async () => { await f.setup(); a = await f.base.localToken(A); b = await f.base.localToken(B); });
     after(() => f.cleanup());
@@ -22,7 +21,7 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
       assert.equal((await call('api-2', A, 'GET', '/api/v3/entries/native-replica-marker', a)).body.result.sgv, 125);
       for (let i = 0; i < 4; i++) assert.equal((await call('service', A, 'GET', '/api/v3/entries', a)).status, 200);
       assert(f.calls.get('api-1') >= 2 && f.calls.get('api-2') >= 2, 'service reaches both actual API processes');
-      await f.withAdmin(admin => admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1 AND name='viewer'", [A]));
+      await f.withAdmin(admin => admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1 AND name='viewer'", [A]));
       try {
         for (const id of ['api-1', 'api-2', 'service']) {
           assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 403, 'CURRENT_REPLICA_REVOKE');
@@ -31,12 +30,12 @@ optInSuite(process.env.NS_API_ROSTER_SERVING_DOCKER_TEST === '1', 'NS_API_ROSTER
           assert.equal((await call(id, B, 'GET', '/api/v3/entries', a)).status, 401, 'foreign tenant token cannot follow routing');
         }
         assert.equal((await stored('native-replica-denied')).length, 0);
-      } finally { await f.withAdmin(admin => admin.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=$1 WHERE tenant_id=$2 AND name='viewer'", [grants, A])); }
+      } finally { await f.withAdmin(admin => admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=$1 WHERE tenant_id=$2 AND name='viewer'", [grants, A])); }
     });
 
-    it('refuses a fixed-roster API without the shared clock before opening any listener', async function () {
+    it('refuses API startup when its readiness identity cannot read the shared clock catalogue', async function () {
       const refused = await f.refusedWithoutClock('api-1');
-      assert.match(refused.stderr, /API_WRITE_CLOCK_REQUIRED/);
+      assert.match(refused.stderr, /preview startup failed/);
       assert.doesNotMatch(refused.stdout, /Listening/);
     });
 

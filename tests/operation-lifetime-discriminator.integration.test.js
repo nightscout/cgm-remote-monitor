@@ -13,13 +13,13 @@ optInSuite(process.env.NS_OPERATION_LIFETIME_DOCKER_TEST === '1', 'NS_OPERATION_
     before(async () => { await f.setup(); a = await f.base.localToken(A); b = await f.base.localToken(B); });
     after(() => f.cleanup());
     it('preserves fresh current authorization and cross-tenant denial', async () => {
-      await f.withAdmin(client => client.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1 AND name='viewer'", [A]));
+      await f.withAdmin(client => client.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['denied'] WHERE tenant_id=$1 AND name='viewer'", [A]));
       try {
         for (const id of ['api-1', 'api-2']) {
           assert.equal((await call(id, A, 'GET', '/api/v3/entries', a)).status, 403);
           assert.equal((await call(id, B, 'GET', '/api/v3/entries', a)).status, 401);
           assert.equal((await call(id, B, 'GET', '/api/v3/entries', b)).status, 200);
         }
-      } finally { await f.withAdmin(client => client.query("UPDATE preview_auth.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1 AND name='viewer'", [A])); }
+      } finally { await f.withAdmin(client => client.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1 AND name='viewer'", [A])); }
     });
   });

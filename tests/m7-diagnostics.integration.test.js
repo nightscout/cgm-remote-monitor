@@ -10,7 +10,7 @@ const outcomes = [];
 for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DOCKER_TEST === '1', 'NS_M7_DIAGNOSTICS_DOCKER_TEST=1')(
   'M7 diagnostics actual CLI ' + (enabled ? 'enabled' : 'default off'), function () {
     this.timeout(120000);
-    const f = createFixture({ leaseSessions: 1, drainTimeoutMs: 500, environment: enabled ? { NS_M7_DIAGNOSTICS: '1', NS_M7_DIAGNOSTICS_INTERVAL_MS: '1000',
+    const f = createFixture({ drainTimeoutMs: 500, environment: enabled ? { NS_M7_DIAGNOSTICS: '1', NS_M7_DIAGNOSTICS_INTERVAL_MS: '1000',
       ...(process.env.NS_M7_DIAGNOSTICS_TEST_PRELOAD ? { NODE_OPTIONS: '--require ' + process.env.NS_M7_DIAGNOSTICS_TEST_PRELOAD + ' --require ' + path.join(__dirname, 'fixtures/api-fixed-roster-controls.js') } : {}) } : {} });
     const [A, B] = f.base.tenants; let a, b;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(f.current.get(id), tenant, method, path, token, body, headers);
@@ -44,8 +44,8 @@ for (const enabled of [false, true]) optInSuite(process.env.NS_M7_DIAGNOSTICS_DO
         .then(value => { responseFinished = true; return { value }; }, error => ({ error }));
       let Bstatus, stored, held, restored;
       try {
-        await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'actual stored write before wire completion');
-        stored = await f.withAdmin(async client => (await client.query("SELECT doc FROM preview_data.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].doc);
+        await f.base.until(async () => f.withAdmin(async client => (await client.query("SELECT count(*)::int AS n FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].n === 1), 'actual stored write before wire completion');
+        stored = await f.withAdmin(async client => (await client.query("SELECT doc FROM preview_entries.entries WHERE tenant_id=$1 AND doc->>'identifier'=$2", [A, identifier])).rows[0].doc);
         assert.equal(stored.sgv, 125);
         // Snapshot cadence is not request duration: hold the exact same
         // controlled lifetime ON/OFF rather than inferring elapsed time from it.

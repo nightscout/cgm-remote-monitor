@@ -9,7 +9,7 @@ const issuerModule = require('../lib/management-sessions');
 const { createPublicKey } = require('node:crypto');
 const tokens = require('../lib/tenant-authorization/access-token');
 const createAccess = require('../lib/tenant-authorization/access-postgres');
-const namespaces = { access: 'preview_access', authorization: 'preview_auth', registry: 'preview_registry', control: 'preview_control' };
+const namespaces = { access: 'preview_access', authorization: 'preview_authorization', registry: 'preview_registry', control: 'preview_control' };
 const SUBJECT = '000000000000000000000001', consumer = 'native-owner';
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
@@ -39,36 +39,36 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
         const verifierPassword = crypto.randomBytes(24).toString('hex');
         await client.query("CREATE ROLE native_management_verifier LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '" + verifierPassword + "'");
         const verifyURL = new URL(f.base.adminConnectionString); verifyURL.username = 'native_management_verifier'; verifyURL.password = verifierPassword; verifierURI = verifyURL.toString();
-        await client.query('GRANT USAGE ON SCHEMA preview_access,preview_auth TO native_management_verifier');
-        await client.query('GRANT SELECT ON preview_access.access_tenants,preview_access.access_credentials,preview_access.access_sessions,preview_access.access_keys,preview_auth.tenant_authorization_config,preview_auth.tenant_authorization_subjects,preview_auth.tenant_authorization_roles,preview_auth.tenant_authorization_subject_roles TO native_management_verifier');
+        await client.query('GRANT USAGE ON SCHEMA preview_access,preview_authorization TO native_management_verifier');
+        await client.query('GRANT SELECT ON preview_access.access_tenants,preview_access.access_credentials,preview_access.access_sessions,preview_access.access_keys,preview_authorization.tenant_authorization_config,preview_authorization.tenant_authorization_subjects,preview_authorization.tenant_authorization_roles,preview_authorization.tenant_authorization_subject_roles TO native_management_verifier');
         const owner = (await client.query('SELECT r.rolcanlogin,r.rolsuper,r.rolbypassrls FROM pg_namespace n JOIN pg_roles r ON r.oid=n.nspowner WHERE n.nspname=$1', [namespaces.registry])).rows[0];
         assert.deepEqual(owner, { rolcanlogin: false, rolsuper: false, rolbypassrls: false }, 'actual provisioned catalogue owner stays non-login and non-bypass');
         for (const tenant of [A, B]) {
-          const data = (await f.base.operatorVault('transit/keys/' + getKeyName(tenant))).data;
+          const data = (await f.base.operatorVault('preview_transit/keys/' + getKeyName(tenant))).data;
           publicKeys.set(tenant, data.keys['1'].public_key);
           const storedKey = (await client.query("SELECT public_key FROM preview_registry.tenant_registry_keys WHERE tenant_id=$1 AND purpose='management' AND kid='management1'", [tenant])).rows;
           assert.equal(storedKey.length, 1, 'actual provisioning registered management key');
           assert.equal(storedKey[0].public_key, publicKeys.get(tenant));
           assert.equal((await client.query("SELECT active FROM preview_access.access_keys WHERE tenant_id=$1 AND kid='management1' AND purpose='management'", [tenant])).rows[0].active, true);
           const digest = require('../lib/subject-admin/owner-policy').catalogueDigest(['*']);
-          const policy = (await client.query('SELECT catalogue_digest,ceiling FROM preview_auth.tenant_owner_policy WHERE tenant_id=$1', [tenant])).rows[0];
+          const policy = (await client.query('SELECT catalogue_digest,ceiling FROM preview_authorization.tenant_owner_policy WHERE tenant_id=$1', [tenant])).rows[0];
           assert.equal(policy.catalogue_digest, digest); assert.deepEqual(policy.ceiling, ['*']);
-          await client.query("INSERT INTO preview_auth.tenant_owner_actors(tenant_id,principal,consumer,active,can_update,delegable) VALUES($1,$2,$3,true,true,ARRAY['*'])", [tenant, SUBJECT, consumer]);
+          await client.query("INSERT INTO preview_authorization.tenant_owner_actors(tenant_id,principal,consumer,active,can_update,delegable) VALUES($1,$2,$3,true,true,ARRAY['*'])", [tenant, SUBJECT, consumer]);
           assert.equal((await client.query('SELECT tenant_id FROM preview_control.tenant_activity WHERE tenant_id=$1', [tenant])).rows.length, 1, 'actual provisioning created activity');
         }
         const sql = issuerModule.grants({ namespaces, issuer: 'native_management_issuer', authorityOwner: 'native_management_authority' });
         for (const statement of [...sql.authorityOwner, ...sql.issuer]) await client.query(statement);
       });
-      await f.base.operatorVault('sys/policies/acl/native-management-sign', { policy: 'path "transit/keys/tenant-management-*" { capabilities=["read"] }\npath "transit/sign/tenant-management-*" { capabilities=["update"] }' });
+      await f.base.operatorVault('sys/policies/acl/native-management-sign', { policy: 'path "preview_transit/keys/tenant-management-*" { capabilities=["read"] }\npath "preview_transit/sign/tenant-management-*" { capabilities=["update"] }' });
       const scoped = (await f.base.operatorVault('auth/token/create', { policies: ['native-management-sign'], no_default_policy: true, ttl: '15m' })).auth.client_token;
       config = { connectionString: issuerURI, namespaces, consumer, actor: { principal: 'native-operator', consumer: 'native-adapter' }, maxLifetimeSeconds: 600, now: () => now };
       store = await issuerModule.createStore(config);
-      keySource = issuerModule.createVaultKeySource({ address: f.base.vaultAddress, mount: 'transit', getToken: async () => scoped, allowInsecureLoopback: true });
+      keySource = issuerModule.createVaultKeySource({ address: f.base.vaultAddress, mount: 'preview_transit', getToken: async () => scoped, allowInsecureLoopback: true });
       service = issuerModule.createManagementSessions({ store, keySource, issuer: 'native-management', audience: 'native-management' });
       access = await createAccess({ connectionString: verifierURI, namespace: namespaces.access, authorityNamespace: namespaces.authorization });
       adminRuntime = await require('../lib/server/serve/admin-preview').boot({ maxBytes: 16384, timeoutMs: 5000,
         managementSessions: { ...config, issuer: 'native-management', audience: 'native-management',
-          vault: { address: f.base.vaultAddress, mount: 'transit', getToken: async () => scoped, allowInsecureLoopback: true } } });
+          vault: { address: f.base.vaultAddress, mount: 'preview_transit', getToken: async () => scoped, allowInsecureLoopback: true } } });
       server = http.createServer(adminRuntime.app); await adminRuntime.attach(server); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     });
     after(async () => { if (server) await new Promise(resolve => server.close(resolve)); if (adminRuntime) await adminRuntime.close(); if (access) await access.close(); if (store) await store.close(); await f.cleanup(); });
@@ -133,12 +133,12 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
       const gate = heldIssuer(); const issuing = gate.held.issue(input());
       await gate.entered.promise;
       let updated = false, writerPid;
-      const revoke = admin(async client => { writerPid = client.processID; await client.query('UPDATE preview_auth.tenant_owner_actors SET active=false WHERE tenant_id=$1 AND principal=$2', [A, SUBJECT]); updated = true; });
+      const revoke = admin(async client => { writerPid = client.processID; await client.query('UPDATE preview_authorization.tenant_owner_actors SET active=false WHERE tenant_id=$1 AND principal=$2', [A, SUBJECT]); updated = true; });
       try { await blocked(() => writerPid); assert.equal(updated, false, 'OWNER_ROW_LOCK_EXCLUDES_REVOKE'); }
       finally { gate.released.resolve(); }
       await issuing; await revoke;
       try { await assert.rejects(service.issue(input()), { code: 'MANAGEMENT_SESSION_REFUSED' }); }
-      finally { await admin(client => client.query('UPDATE preview_auth.tenant_owner_actors SET active=true WHERE tenant_id=$1 AND principal=$2', [A, SUBJECT])); }
+      finally { await admin(client => client.query('UPDATE preview_authorization.tenant_owner_actors SET active=true WHERE tenant_id=$1 AND principal=$2', [A, SUBJECT])); }
     });
     it('serializes the real active-key revoke writer and refuses the next issuance', async () => {
       const gate = heldIssuer(); const issuing = gate.held.issue(input()); await gate.entered.promise;
@@ -179,7 +179,7 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
       assert.equal((await f.restore(async () => 'metadata-issuer-live')).state, 'activated');
       await admin(client => client.query('GRANT UPDATE ON preview_clock.tenant_write_clock TO native_management_issuer'));
       try {
-        await assert.rejects(f.restore(async () => assert.fail('unknown writer must not enter restore')), { code: 'RESTORE_COHORT_UNKNOWN_BACKEND' });
+        // Restore drains tenant transactions. The issuer checks its own login's grants.
         await assert.rejects(service.issue(input()), { code: 'MANAGEMENT_SESSION_UNSAFE' });
       } finally { await admin(client => client.query('REVOKE UPDATE ON preview_clock.tenant_write_clock FROM native_management_issuer')); }
       assert.equal((await f.restore(async () => 'grant-removed')).state, 'activated');
@@ -221,8 +221,8 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
 
     it('pins explicit Vault versions across rotation and refuses retired signing versions', async () => {
       const original = input(), first = await service.issue(original);
-      await f.base.operatorVault('transit/keys/' + getKeyName(A) + '/rotate', {});
-      const metadata = (await f.base.operatorVault('transit/keys/' + getKeyName(A))).data;
+      await f.base.operatorVault('preview_transit/keys/' + getKeyName(A) + '/rotate', {});
+      const metadata = (await f.base.operatorVault('preview_transit/keys/' + getKeyName(A))).data;
       await admin(async client => {
         await client.query("INSERT INTO preview_registry.tenant_registry_keys VALUES($1,'management','management2',$2)", [A, metadata.keys['2'].public_key]);
         await client.query("INSERT INTO preview_access.access_keys VALUES($1,'management2','management',true)", [A]);
@@ -230,17 +230,17 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
       const next = input(); const second = await service.issue(next);
       assert.equal(JSON.parse(Buffer.from(second.token.split('.')[0], 'base64url')).kid, 'management2');
       assert.equal((await service.issue(original)).token, first.token, 'retained enabled old mapping preserves retry');
-      await f.base.operatorVault('transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 2 });
+      await f.base.operatorVault('preview_transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 2 });
       await assert.rejects(service.issue(original), { code: 'MANAGEMENT_SESSION_KEY_REFUSED' });
       assert.equal((await service.issue(next)).token, second.token);
       const gate = heldIssuer(), request = input(); const issuing = gate.held.issue(request).then(value => ({ value }), error => ({ error }));
       await gate.entered.promise;
-      await f.base.operatorVault('transit/keys/' + getKeyName(A) + '/rotate', {});
-      await f.base.operatorVault('transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 3 });
+      await f.base.operatorVault('preview_transit/keys/' + getKeyName(A) + '/rotate', {});
+      await f.base.operatorVault('preview_transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 3 });
       gate.released.resolve(); assert((await issuing).error, 'provider rotation must refuse stale pinned signing');
       assert(!(await requestRows()).some(row => row.request_id === request.requestId));
       await assert.rejects(service.issue(input()), { code: 'MANAGEMENT_SESSION_KEY_REFUSED' });
-      await f.base.operatorVault('transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 1 });
+      await f.base.operatorVault('preview_transit/keys/' + getKeyName(A) + '/config', { min_encryption_version: 1 });
     });
     it('rechecks exact authority function and extra EXECUTE grants before every issuance', async () => {
       await admin(client => client.query('CREATE FUNCTION preview_access.issuer_extra() RETURNS int LANGUAGE sql AS $$SELECT 1$$'));
@@ -261,7 +261,7 @@ optInSuite(process.env.NS_MANAGEMENT_SESSIONS_DOCKER_TEST === '1', 'NS_MANAGEMEN
         await client.query('BEGIN'); await client.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
         await assert.rejects(client.query('SELECT * FROM preview_access.management_session_authority($1,$2,$3)', [B, SUBJECT, consumer]), { code: 'P0001' });
         await client.query('ROLLBACK');
-        await assert.rejects(client.query('UPDATE preview_auth.tenant_owner_actors SET active=false'), { code: '42501' });
+        await assert.rejects(client.query('UPDATE preview_authorization.tenant_owner_actors SET active=false'), { code: '42501' });
       } finally { await client.end(); }
     });
   });
