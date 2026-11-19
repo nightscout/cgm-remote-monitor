@@ -110,7 +110,7 @@ optInSuite(process.env.NS_COHORT_SNAPSHOT_DOCKER_TEST==='1','NS_COHORT_SNAPSHOT_
   await assert.rejects(open('snapshot-native-wrong-database',url.toString()),{code:'POSTGRES_GENERATION_DATASTORE_MISMATCH'});
  });
  it('admits only the reader control SELECT surface, refuses a revoked read, and restores pre-start admission',async function(){
-  const verified=await require('../lib/server/serve/platform-verification-lifecycle').inspect({namespace,poolOptions:{connectionString:lifetimeURI}});
+  const verified=await require('../lib/server/serve/lifecycle-catalogue-check').inspect({namespace,poolOptions:{connectionString:lifetimeURI}});
   async function verifyReader() {
    const reader=new Client({connectionString:lowerURI});await reader.connect();
    try { return await verified.controlReads(reader); } finally {await reader.end();}

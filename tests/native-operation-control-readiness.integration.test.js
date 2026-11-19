@@ -6,9 +6,8 @@ const { Client } = require('pg');
 const { optInSuite } = require('./support/opt-in');
 const { run } = require('../lib/migrations/postgres');
 const readiness = require('../lib/server/serve/evaluator-readiness');
-const lifecycleCheck = require('../lib/server/serve/platform-verification-lifecycle');
+const lifecycleCheck = require('../lib/server/serve/lifecycle-catalogue-check');
 const native = require('../lib/tenant-lifecycle/native-selection');
-const adminCheck = require('../lib/server/serve/platform-verification-admin');
 const columns = require('../lib/pgstream/realtime-receipt').COLUMNS;
 const quote = name => '"' + name + '"';
 
@@ -139,45 +138,4 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await check();
   });
 
-  async function operational() {
-    return adminCheck.checkTarget({role: 'evaluator', config, operationConfig});
-  }
-  function refused(causeCode) {
-    return error => error.verificationDiagnostic?.targetRole === 'evaluator' &&
-      error.verificationDiagnostic.checkPhase === 'CONSUMER_READINESS' && error.verificationDiagnostic.causeCode === causeCode;
-  }
-  it('refuses a suppression port in another database before issuing a proof', async function () {
-    await operational();
-    const foreignDatabase = prefix + '_foreign';
-    await admin.query('CREATE DATABASE ' + quote(foreignDatabase)); createdDatabases.push(foreignDatabase);
-    const binding = config.consumers.realtime.suppression;
-    const foreign = new URL(binding.connectionString); foreign.pathname = '/' + foreignDatabase;
-    config.consumers.realtime.suppression = {...binding, connectionString: foreign.toString()};
-    try { await assert.rejects(operational(), refused('EVALUATOR_CONSUMER_READINESS_REFUSED')); }
-    finally { config.consumers.realtime.suppression = binding; }
-    await operational();
-  });
-  it('refuses suppression catalogue drift and excess grants at admin pre-start, then passes after repair', async function () {
-    await operational();
-    const alarmTable = quote(consumerNamespaces.alarm) + '.tenant_alarm_suppression';
-    await admin.query('REVOKE SELECT ON ' + alarmTable + ' FROM ' + quote(consumerRoles.alarm));
-    try { await assert.rejects(operational(), refused('EVALUATOR_CONSUMER_READINESS_REFUSED')); }
-    finally { await admin.query('GRANT SELECT ON ' + alarmTable + ' TO ' + quote(consumerRoles.alarm)); }
-    await operational();
-    await admin.query('GRANT SELECT(value) ON ' + table('unrelated', 'private_rows') + ' TO ' + quote(consumerRoles.alarm));
-    try { await assert.rejects(operational(), refused('EVALUATOR_CONSUMER_READINESS_REFUSED')); }
-    finally { await admin.query('REVOKE SELECT(value) ON ' + table('unrelated', 'private_rows') + ' FROM ' + quote(consumerRoles.alarm)); }
-    await operational();
-    await admin.query('GRANT SELECT(claim_id) ON ' + table('control', 'tenant_lifecycle_recommission') + ' TO ' + quote(consumerRoles.alarm));
-    try { await assert.rejects(operational(), refused('LIFECYCLE_WINDOW_SCHEMA_UNSAFE')); }
-    finally { await admin.query('REVOKE SELECT(claim_id) ON ' + table('control', 'tenant_lifecycle_recommission') + ' FROM ' + quote(consumerRoles.alarm)); }
-    await operational();
-  });
-  it('refuses an unreadable outbox at admin pre-start', async function () {
-    const heads = quote(consumerNamespaces.outbox) + '.tenant_notification_heads';
-    await admin.query('REVOKE SELECT ON ' + heads + ' FROM ' + quote(consumerRoles.outbox));
-    try { await assert.rejects(operational(), refused('NOTIFICATION_SCHEMA_UNSAFE')); }
-    finally { await admin.query('GRANT SELECT ON ' + heads + ' TO ' + quote(consumerRoles.outbox)); }
-    await operational();
-  });
 });

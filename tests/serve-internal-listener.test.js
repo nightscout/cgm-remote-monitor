@@ -107,8 +107,6 @@ describe('serve.internal: one private listener per role process', function () {
     } finally { r.cleanup(); }
   });
   it('plans contracts from role code only, refusing a contract on a role that does not own it', function () {
-    const participant = { roles: ['evaluator'], endpoint: { socketPath: '/srv/e.sock', maxBytes: 1000, timeoutMs: 1000 } };
-    assert.deepEqual(internalListener.plan(['evaluator'], { participant }).map(row => row.id), ['role-health']);
     assert.deepEqual(internalListener.plan(['evaluator'], {}), []);
     // The evaluator's inspection read follows its own parsed settings (evaluator-config inspectionFor).
     assert.deepEqual(internalListener.plan(['evaluator'], { evaluatorPreview: { inspection: true } }).map(row => row.id), ['evaluator-inspection','evaluator-readiness-witness']);
@@ -117,7 +115,6 @@ describe('serve.internal: one private listener per role process', function () {
     assert.deepEqual(internalListener.plan(['api'], { preview: {} }), [], 'socket-authority only with socket forwarding');
     assert.deepEqual(internalListener.plan(['evaluator'], { preview: { socketForwarding: BOUNDS }, realtimePreview: BOUNDS }), [],
       'another role\'s settings cannot place its contract on this process');
-    assert.throws(() => internalListener.plan(['evaluator'], { participant: { ...participant, roles: ['api'] } }), { code: 'INTERNAL_API_CONTRACT_UNOWNED' });
     assert.deepEqual(Object.keys(internalListener.OWNED).sort(), [...listenerConfig.ROLES].sort());
   });
   it('control: without the ownership check, a role binding a foreign contract is accepted', async function () {

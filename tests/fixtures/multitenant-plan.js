@@ -93,15 +93,14 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
       NS_OUTBOX_PG: urls.outbox, NS_SUPPRESSION_PG: urls.suppression, NS_STREAM_RECOVERY_PG: urls.stream_reader, NS_PLAN_PGSTREAM_BINARY: '/usr/local/bin/pgstream', NS_PLAN_PGSTREAM_CONFIG: '/run/synthetic/pgstream.yaml', ...readers },
     'tenant-admin': { ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('tenant-admin'), TENANT_ADMIN_HOSTNAME: '0.0.0.0', TENANT_ADMIN_PORT: '1341',
       MULTITENANT_OWNER_PREVIEW_CONFIG: file('config.json'), NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader } };
-  // The participant manifest: each role's protected namespaces as the role
-  // process computes them (the api also protects the notification outbox it
+  // Each role's protected namespaces as the role process computes them (the api also protects the notification outbox it
   // reads through the evaluator's metadata), the control namespace excluded.
   const protectedNamespaces = require('../../lib/server/serve/role-topology').protectedNamespaces;
   const protects = role => [...new Set([...protectedNamespaces(configs[role]), ...(role === 'api' ? [ns.outbox] : [])])].filter(name => name !== ns.control).sort();
   const participants = serviceRoles.map(role => ({ id: role, roles: [role], namespaces: protects(role), maxMessageBytes: 1048576, timeoutMs: 5000 }));
   const operations = {};
   for (const role of serviceRoles) {
-    operations[role] = { version: 2, namespace: ns.control, connectionEnv: 'NS_LIFETIME_PG', registry: { namespace: registry.namespace }, participantId: role, participants };
+    operations[role] = { version: 1, namespace: ns.control, connectionEnv: 'NS_LIFETIME_PG', registry: { namespace: registry.namespace } };
     Object.assign(environments[role], { NS_LIFETIME_PG: urls['lifetime_' + role.replace('-', '_')], MULTITENANT_OPERATION_CONFIG: file('operation.json') });
   }
   const remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces,
@@ -164,14 +163,6 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   owner.ownerCredentials = { connectionEnv: 'NS_OWNER_CREDENTIALS_PG', namespace: ns.secrets, vault: { ...tokenVault } };
   Object.assign(env['tenant-admin'], { NS_OWNER_SETTINGS_PG: urls.owner_settings, NS_OWNER_ACTIVITY_PG: urls.owner_activity, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_VAULT_TOKEN: 'synthetic-placeholder' });
   const admin = docs.admin.config;
-  for (const role of ['api', 'evaluator', 'realtime']) docs.configs[role].platformVerification = { namespace: named('platform_verification'), role };
-  // vcpool checks the proof at start too (decision vcpool-proof-role); it has no operation plane.
-  docs.vcpool.config.platformVerification = { namespace: named('platform_verification'), role: 'vcpool' };
-  admin.platformVerification = { connectionEnv: 'NS_PLATFORM_VERIFY_PG', namespace: named('platform_verification'),
-    targets: ['api', 'evaluator', 'realtime'].map(role => ({ role, configFile: CONFIG_DIRECTORY + '/verification/' + role + '.config.json',
-      operationConfigFile: CONFIG_DIRECTORY + '/verification/' + role + '.operation.json', environmentFile: CONFIG_DIRECTORY + '/verification/' + role + '.env.json' }))
-      .concat([{ role: 'vcpool', configFile: CONFIG_DIRECTORY + '/verification/vcpool.config.json', environmentFile: CONFIG_DIRECTORY + '/verification/vcpool.env.json' }]) };
-  docs.admin.environment.NS_PLATFORM_VERIFY_PG = urls.provisioner;
 
   admin.pools = { connectionEnv: 'NS_POOL_OPERATOR_PG', namespace: named('pool'), kinds: ['evaluator'] };
   admin.provisioning.mode = 'canonical-internal';
@@ -180,25 +171,25 @@ function everyOptionalField (docs, { l, named, urls, vaultAddress, socketOf, env
   // A fixed roster: the api role is two instances behind one service address, and
   // every row names its own instance address; the realtime row names its worker.
   const service = 'http://api-internal.example.test:7001', instance = n => 'http://api-' + n + '.example.test:7001';
-  const original = docs.operations.api.participants.find(row => row.id === 'api');
+  const original = docs.remote.find(row => row.id === 'api');
   const participants = [1, 2].map(n => ({ ...original, id: 'api-' + n, address: { url: instance(n) } }))
-    .concat(docs.operations.api.participants.filter(row => row.id !== 'api').map(row => ({ ...row, namespaces: protects(row.id),
-      ...(row.id === 'realtime' ? { slice: {count:1,ordinal:0} } : {}), address: { socket: socketOf(row.id + '-1') } })));
+    .concat(docs.remote.filter(row => row.id !== 'api').map(row => ({ ...row, namespaces: protects(row.id),
+      address: { socket: socketOf(row.id + '-1') } })));
   for (const [role, environment] of Object.entries(env)) {
     delete environment.NS_API_INTERNAL_SOCKET; environment.NS_API_INTERNAL_URL = service;
     // A process that listens on its instance address does not also name its own role's service address.
     if (role !== 'api') { environment.NS_SERVE_INTERNAL_SOCKET = socketOf(role + '-1'); delete environment[envName(role) + 'SOCKET']; }
-    docs.operations[role] = { ...docs.operations[role], leaseSessions: 2, participants };
+    docs.operations[role] = { ...docs.operations[role], leaseSessions: 2 };
   }
   for (const n of [1, 2]) {
     const name = 'api-' + n;
     docs.configs[name] = api;
     env[name] = { ...env.api, NS_SERVE_INTERNAL_HOST: '0.0.0.0', NS_SERVE_INTERNAL_PORT: '7001' }; delete env[name].NS_SERVE_INTERNAL_SOCKET;
-    docs.operations[name] = { ...docs.operations.api, participantId: name };
+    docs.operations[name] = { ...docs.operations.api };
   }
   delete docs.configs.api; delete env.api; delete docs.operations.api;
-  docs.remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces, ...(peer.slice ? { slice: peer.slice } : {}),
-    endpoint: { ...(peer.address.url ? { url: peer.address.url + '/', trust: 'network' } : { socketPath: peer.address.socket }), maxBytes: peer.maxMessageBytes, timeoutMs: peer.timeoutMs } }));
+  docs.remote = participants.map(peer => ({ id: peer.id, roles: peer.roles, namespaces: peer.namespaces,
+    endpoint: { ...(peer.address.url ? { url: peer.address.url + '/', trust: 'network' } : { socketPath: peer.address.socket }), maxBytes: peer.endpoint.maxBytes, timeoutMs: peer.endpoint.timeoutMs } }));
   return docs;
 }
 

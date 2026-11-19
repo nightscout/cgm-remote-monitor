@@ -66,7 +66,7 @@ function fixture ({ count = 3, previewText = fs.readFileSync(PREVIEW, 'utf8'), s
     './evaluator-config': { registryEntry () {}, async withSettings () { return {}; } },
     './registry-tenant-set': { async openDemand () { return { tenants: new Map(), isActive: () => false, revision: () => 1, onRemove () {}, async close () {} }; } },
     // The role's one platform check, counted as its readiness.
-    './platform-verification': require('./fixtures/platform-proof')(undefined, async () => { calls.readiness++; }),
+    './role-readiness': require('./fixtures/role-readiness')(undefined, async () => { calls.readiness++; }),
     './evaluator-readiness': Object.assign(async () => { calls.readiness++; }, { async provisionTenant () {} }),
     '../../pool-membership': { async member () { return { configured: { leaseMs: 1000 }, async register () {}, async close () {} }; } },
     './evaluator-pool': { create: () => ({ start () {}, async refresh () {}, admits: () => true, reason: () => null, onChange () {}, close () {} }) },

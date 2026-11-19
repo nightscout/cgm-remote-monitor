@@ -51,7 +51,7 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
     './registry-tenant-set': { async openDemand () {
       return {tenants:new Map(), lookup:async id=>tenants.get(id), isActive:()=>false, revision:()=>1, stats:()=>({}), onRemove(){}, async close(){}};
     }, async open () { return { tenants, isActive:()=>true, revision: () => 1, activeIds: () => ids, waiting: () => 0, async follow () {}, async close () {} }; } },
-    './platform-verification': require('./fixtures/platform-proof')(undefined, () => readiness()), './evaluator-readiness': readiness,
+    './role-readiness': require('./fixtures/role-readiness')(undefined, () => readiness()), './evaluator-readiness': readiness,
     '../../pool-membership': { async member () { return member; } },
     './evaluator-pool': { create: () => gate },
     './pool-config': { pool: () => ({ max: 2 }), tenantReadiness: () => 'serve', startupConcurrency: () => 1 },

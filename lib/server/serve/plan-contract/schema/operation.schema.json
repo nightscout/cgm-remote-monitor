@@ -12,8 +12,7 @@
   "properties": {
     "version": {
       "enum": [
-        1,
-        2
+        1
       ]
     },
     "namespace": {
@@ -43,92 +42,6 @@
     "leaseSessions": {
       "type": "integer",
       "minimum": 1
-    },
-    "participantId": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-    },
-    "participants": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "id",
-          "roles",
-          "namespaces",
-          "maxMessageBytes",
-          "timeoutMs"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_-]{0,62}$"
-          },
-          "roles": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "minItems": 1
-          },
-          "namespaces": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$",
-              "description": "A PostgreSQL schema name."
-            }
-          },
-          "maxMessageBytes": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "timeoutMs": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "address": {
-            "type": "object",
-            "required": [],
-            "additionalProperties": false,
-            "properties": {
-              "url": {
-                "type": "string",
-                "description": "http://host:port"
-              },
-              "socket": {
-                "type": "string",
-                "description": "An absolute socket path."
-              }
-            },
-            "minProperties": 1,
-            "maxProperties": 1,
-            "description": "This instance's own serve.internal address, {url} or {socket}; required on every row of a role that more than one row names."
-          },
-          "slice": {
-            "type": "object",
-            "properties": {
-              "count": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 1024
-              },
-              "ordinal": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1023
-              }
-            },
-            "required": [
-              "count",
-              "ordinal"
-            ],
-            "additionalProperties": false
-          }
-        }
-      },
-      "minItems": 1
     },
     "intakeProfile": {
       "type": "object",

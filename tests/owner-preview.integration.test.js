@@ -319,11 +319,8 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       const validator = '"' + registryLab.provisioned.namespaces.settings + '".tenant_settings_values_valid(jsonb)';
       await admin.query('REVOKE EXECUTE ON FUNCTION ' + validator + ' FROM PUBLIC');
       const operationFile = path.join(directory, 'recovery-selection.json');
-      const participants = ['api', 'evaluator', 'realtime', 'tenant-admin'].map(role => ({
-        id: role, roles: [role], namespaces: Object.values(namespaces), maxMessageBytes: 65536, timeoutMs: 1500
-      }));
-      fs.writeFileSync(operationFile, JSON.stringify({ version: 2, namespace: control, registry: { namespace: registryLab.provisioned.namespaces.registry },
-        connectionEnv: 'OWNER_GENERATION_PG', participantId: 'tenant-admin', participants }), { mode: 0o600 });
+      fs.writeFileSync(operationFile, JSON.stringify({ version: 1, namespace: control, registry: { namespace: registryLab.provisioned.namespaces.registry },
+        connectionEnv: 'OWNER_GENERATION_PG' }), { mode: 0o600 });
       const configured = { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'owner-health.sock'),
         OWNER_GENERATION_PG: controlURI.toString(), MULTITENANT_OPERATION_CONFIG: operationFile, NS_DATASTORE_PROBE_INTERVAL_MS: '250' };
       const selected = await start(config(), configured);

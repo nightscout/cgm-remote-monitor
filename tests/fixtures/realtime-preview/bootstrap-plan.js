@@ -157,9 +157,7 @@ function documents ({selected,layout: l,paths}) {
       consumerState:{evaluatorConfigEnv:'MULTITENANT_EVALUATOR_CONFIG'}}};
   const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin}).configs['tenant-admin'];
   const configs={api,evaluator,realtime,'tenant-admin':owner};
-  const protectedNamespaces=require('../../../lib/server/serve/role-topology').protectedNamespaces;
-  const participants=Object.entries(configs).map(([role,config])=>({id:role,roles:[role],namespaces:[...new Set([...protectedNamespaces(config),...(role==='api'?[ns.outbox]:[])])].filter(name=>name!==ns.control).sort(),maxMessageBytes:o.maxMessageBytes,timeoutMs:o.timeoutMs}));
-  const operations=Object.fromEntries(Object.keys(configs).map(role=>[role,{version:2,namespace:ns.control,connectionEnv:'RT_BOOTSTRAP_LIFETIME_PG',registry:{namespace:ns.registry},participantId:role,participants}]));
+  const operations=Object.fromEntries(Object.keys(configs).map(role=>[role,{version:1,namespace:ns.control,connectionEnv:'RT_BOOTSTRAP_LIFETIME_PG',registry:{namespace:ns.registry}}]));
   return {...configs,operations,paths};
 }
 module.exports={parse,layout,documents,phases,optionsKeys,optionalOptionsKeys,A,B,SUBJECT,STALE,STATUS,rolePermissions,clinicalSettings,subjects,phaseConfiguration,credentials,resetTables,resetPlan};

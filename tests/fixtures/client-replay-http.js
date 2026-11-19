@@ -11,7 +11,6 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const { run } = require('../../lib/migrations/postgres');
 const provisionedTenants = require('./provisioned-tenants');
-const prestart = require('./platform-prestart');
 
 const root = path.resolve(__dirname, '../..');
 const BIN = path.join(root, 'bin/nightscout.js');
@@ -42,8 +41,6 @@ const docker = args => execFileSync('docker', args, {
 // tenants are provisioned through the shipping provisioning; the api reads
 // them from the registry with one role-level Vault credential.
 const HOSTS = ['one.example.test', 'two.example.test'];
-// The serving api checks this fixture's platform proof at start.
-const PROOF_NAMESPACE = 'client_replay_proof';
 function configuration (address, provisioned) {
   return {
     version: 1,
@@ -52,8 +49,7 @@ function configuration (address, provisioned) {
     vault: { address, mount: 'transit', tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 1000 },
     resolution: { mode: 'direct-alias' },
     registry: { namespace: provisioned.registry, maxTenants: 100, refreshMs: 500 },
-    tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.settings, operatorPolicy: provisioned.operatorPolicy } },
-    platformVerification: { namespace: PROOF_NAMESPACE, role: 'api' }
+    tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: provisioned.settings, operatorPolicy: provisioned.operatorPolicy } }
   };
 }
 
@@ -65,7 +61,7 @@ module.exports = function clientReplayHTTP () {
     const fixtureDirectory = path.resolve(root, '..', '.client-replay-test-' + suffix);
     const configFile = path.join(fixtureDirectory, 'preview.json');
     const roots = [], children = new Set();
-    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot, roleToken, provisioned, proof, lastVerified = null;
+    let pgOwned = false, vaultOwned = false, admin, adminURI, appURI, checkURI, settingsURI, address, vaultRoot, roleToken, provisioned;
 
     async function until (probe, label) {
       const deadline = Date.now() + 20000;
@@ -105,15 +101,6 @@ module.exports = function clientReplayHTTP () {
     function start (config = configuration(address, provisioned.namespaces), extra) {
       const text = typeof config === 'string' ? config : JSON.stringify(config);
       fs.writeFileSync(configFile, text, { mode: 0o600 });
-      // The deployment's pre-start step; an unchanged configuration keeps its
-      // published proof and a refusal leaves none, so the role refuses at start.
-      const key = JSON.stringify([text, extra || null]);
-      if (key !== lastVerified) {
-        const result = prestart.verifySync({ directory: fixtureDirectory, namespace: proof.namespace, writerURI: proof.writerURI,
-          targets: [{ role: 'api', configFile }], source: environment(extra) });
-        lastVerified = result.status === 'verified' ? key : null;
-        if (result.status !== 'verified') console.log('CLIENT_REPLAY_PRE_START_REFUSED ' + JSON.stringify({ code: result.code, diagnostic: result.diagnostic }));
-      }
       const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], {
         cwd: fixtureDirectory, env: environment(extra), stdio: ['ignore', 'pipe', 'pipe']
       });
@@ -265,25 +252,6 @@ module.exports = function clientReplayHTTP () {
         'path "transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
         'path "transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
-      proof = await prestart.install(admin, { namespace: PROOF_NAMESPACE, adminURI, registry: provisioned.namespaces.registry, floorReaders: ['preview_app'], readers: ['preview_app', 'preview_check'] });
-      fs.writeFileSync(configFile, JSON.stringify(configuration(address, provisioned.namespaces)), { mode: 0o600 });
-      const initialized = prestart.verifySync({ directory: fixtureDirectory, ...proof, targets: [{ role: 'api', configFile }], source: environment(), backfillSeededTenants: true });
-      assert.equal(initialized.status, 'verified', 'seeded tenant backfill failed: ' + JSON.stringify(initialized));
-    }
-
-    function verifyPlatform () {
-      return prestart.verifySync({ directory: fixtureDirectory, ...proof, targets: [{ role: 'api', configFile }], source: environment() });
-    }
-    // Exercise a normal pre-start with a valid proof for the existing tenants
-    // and no authority to enumerate the registry for a migration.
-    async function withoutFloorEnumeration (check) {
-      const permitted = '"' + provisioned.namespaces.registry + '".tenant_registry_tenants(uuid,integer)';
-      await admin.query('REVOKE EXECUTE ON FUNCTION ' + permitted + ' FROM "' + proof.writer + '"');
-      try { return await check(); }
-      finally { await admin.query('GRANT EXECUTE ON FUNCTION ' + permitted + ' TO "' + proof.writer + '"'); }
-    }
-    async function floorVersions () {
-      return (await admin.query('SELECT tenant_id,xmin::text FROM ' + PROOF_NAMESPACE + '.verified_tenant_floor ORDER BY tenant_id')).rows;
     }
 
     async function close () {
@@ -313,6 +281,6 @@ module.exports = function clientReplayHTTP () {
     }
     const credential = tenant => 'sameviewer-' + hash(hash(roots[tenant === B ? 1 : 0]) + SUBJECT).slice(0, 16);
     const rootCredential = tenant => hash(roots[tenant === B ? 1 : 0]);
-    return { A, B, open, close, start, ready, stop, http, exchange, rows, reset, grants, verifyPlatform, withoutFloorEnumeration, floorVersions,
+    return { A, B, open, close, start, ready, stop, http, exchange, rows, reset, grants,
       credential, rootCredential, permissions };
 };

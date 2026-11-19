@@ -159,10 +159,10 @@ describe('bounded read-through and pinned atomic publication cache', function ()
 
   it('CONFIG_FAILED_URL: malformed pool credential encodings refuse before retaining a resource',function(){
     const config=path.join(dir,'operation.json'),roles=['api','evaluator','realtime','tenant-admin'];
-    const value={version:2,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',locks:[{tenant:A,key:'17'}],participantId:'peer_0',participants:roles.map((role,index)=>({id:'peer_'+index,roles:[role],namespaces:['clinical_'+index],maxMessageBytes:100000,timeoutMs:1000}))};
+    const value={version:1,namespace:'synthetic_window',connectionEnv:'SYNTHETIC_PG',locks:[{tenant:A,key:'17'}]};
     fs.writeFileSync(config,JSON.stringify(value));
     const source={MULTITENANT_OPERATION_CONFIG:config,NS_SERVE_INTERNAL_SOCKET:'/synthetic/api.sock',...Object.fromEntries(roles.slice(1).map(role=>['NS_'+role.toUpperCase().replace('-','_')+'_INTERNAL_SOCKET','/synthetic/'+role+'.sock']))};
-    source.SYNTHETIC_PG='postgresql://synthetic:synthetic@127.0.0.1/disposable_test';assert.deepEqual(require('../lib/server/serve/operation-cohort-config').load(source).ownership,{count:1,rule:'sha256-modulo-v1'});
+    source.SYNTHETIC_PG='postgresql://synthetic:synthetic@127.0.0.1/disposable_test';assert.equal(require('../lib/server/serve/operation-cohort-config').load(source).namespace,'synthetic_window');
     for(const url of ['postgresql://%ZZ:synthetic@127.0.0.1/disposable_test','postgresql://synthetic:%ZZ@127.0.0.1/disposable_test','postgresql://synthetic:synthetic@127.0.0.1/%ZZ']){source.SYNTHETIC_PG=url;assert.throws(()=>require('../lib/server/serve/operation-cohort-config').load(source),/invalid explicit tenant operation configuration/);}
   });
 
@@ -219,7 +219,7 @@ describe('bounded read-through and pinned atomic publication cache', function ()
       '../../trusted-worker/postgres': { create: () => { counts.factories++; return { scan: async () => [],
         read: async tenant => { assert.equal(tenant, A); return { version: ++counts.reads, effective: {} }; }, close: async () => { counts.closes++; } }; } },
       '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
-      './platform-verification': require('./fixtures/platform-proof')(), './evaluator-readiness': async () => {},
+      './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness': async () => {},
       './registry-tenant-set': { openDemand: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
       '../../pgstream/evaluator': { open: async ({ config: current }) => {
         testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;

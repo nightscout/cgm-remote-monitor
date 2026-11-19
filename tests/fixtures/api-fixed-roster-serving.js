@@ -6,7 +6,6 @@ const crypto = require('node:crypto'), fs = require('node:fs'), path = require('
 const { Client, Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
 const { run } = require('../../lib/migrations/postgres');
-const manifests = require('../../lib/server/serve/operation-cohort-manifest');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
@@ -14,7 +13,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode, proofWriter;
+  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -35,26 +34,13 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   }
   async function start (id, { readinessTenant } = {}) {
     const file = path.join(base.directory, id + '-operation.json');
-    const rows = participants.map(peer => ({ id: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces],
-      maxMessageBytes: peer.endpoint.maxBytes, timeoutMs: peer.endpoint.timeoutMs, ...(peer.roles.includes('api') ? { address: { url: peer.endpoint.url } } : {}) }));
-    fs.writeFileSync(file, JSON.stringify({ version: 2, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, participantId: id, participants: rows, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
+    fs.writeFileSync(file, JSON.stringify({ version: 1, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
     const extra = { NS_ROSTER_LIFETIME_PG: lifetimeURI, MULTITENANT_OPERATION_CONFIG: file,
       NS_SERVE_INTERNAL_HOST: id === 'api-1' ? '127.0.0.2' : '127.0.0.3', NS_SERVE_INTERNAL_PORT: String(port), NS_API_INTERNAL_URL: url('127.0.0.4'),
       NS_EVALUATOR_INTERNAL_URL: url('127.0.0.5'), NS_REALTIME_INTERNAL_URL: url('127.0.0.6'), NS_TENANT_ADMIN_INTERNAL_URL: url('127.0.0.7'),
       NODE_OPTIONS: '--require ' + path.join(__dirname, 'api-fixed-roster-controls.js'),
       NS_API_ROSTER_CONTROL_DIR: base.directory, NS_API_ROSTER_ID: id,
       NS_PREVIEW_REPLICA_CONTROL: 'history-clock', NS_PREVIEW_REPLICA_CLOCK_MS: controlledClock, NS_POOL_OPERATION_MAX: '2', NS_POOL_API_MAX: '2', ...environment };
-    if (id === 'api-1' && !environments.has(id)) {
-      const roleFile = path.join(base.directory, 'api-prestart.json');
-      fs.writeFileSync(roleFile, JSON.stringify(config), { mode: 0o600 });
-      const verifier = require('../../lib/server/serve/platform-verification-admin').create({
-        namespace: config.platformVerification.namespace, connectionString: proofWriter,
-        targets: [{ role: 'api', configFile: roleFile, operationConfigFile: file }]
-      }, base.environment(extra));
-      try { await verifier.verify(); await verifier.backfillTenantFloorsV1(); } catch (error) {
-        throw new Error('Roster API pre-start refused: ' + JSON.stringify(error.verificationDiagnostic), { cause: error });
-      } finally { await verifier.close(); }
-    }
     environments.set(id, extra);
     const worker = base.start(config, extra);
     await base.ready(worker, readinessTenant); current.set(id, worker); return worker;
@@ -74,11 +60,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     };
     lifetimeURI = await roleURI('preview_lifetime_api');
     const operatorURI = await roleURI('preview_restore_operator');
-    proofWriter = await roleURI('preview_roster_verifier');
-    config.platformVerification = { namespace: 'preview_roster_proof', role: 'api' };
-    await require('../../lib/server/serve/platform-verification').install(admin, { namespace: config.platformVerification.namespace,
-      writer: 'preview_roster_verifier', floorReaders: ['preview_app'], readers: ['preview_app','preview_check'] });
-    for (const sql of base.provisioned.registryGrants({ enumerators: ['preview_roster_verifier'] })) await admin.query(sql);
     for (const role of ['preview_app', 'preview_check', 'preview_settings', 'preview_lifetime_api']) {
       await admin.query('GRANT USAGE ON SCHEMA preview_control TO ' + q(role));
       await admin.query('GRANT SELECT ON preview_control.schema_migrations,preview_control.tenant_lifecycle_windows,preview_control.tenant_lifecycle_operations TO ' + q(role));
@@ -102,7 +83,8 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     }
     port = await freePort();
     const protectedNames = require('../../lib/server/serve/role-topology').protectedNamespaces(config).filter(name => name !== namespace).sort();
-    participants = manifests.validate([
+    // Instance addresses of the two api replicas and the other roles (no manifest).
+    participants = Object.freeze([
       ...['api-1', 'api-2'].map((id, i) => ({ id, roles: ['api'], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 2)) })),
       ...['evaluator', 'realtime', 'tenant-admin'].map((role, i) => ({ id: role, roles: [role], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 5)) }))]);
     await base.provisioned.release();

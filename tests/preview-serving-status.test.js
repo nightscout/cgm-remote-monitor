@@ -54,7 +54,7 @@ function bootProtocol ({ hold, fail } = {}) {
     '../tenant-app/data-access': () => (req, res, next) => next(), '../tenant-app/exchange': () => async () => null,
     '../tenant-app': { createTenantApp: () => express.Router() },
     // The 'readiness' stage is the API's one platform proof check.
-    './platform-verification': require('./fixtures/platform-proof')(undefined, () => stage('readiness')), './tenant-floor-verification': { createReader: () => async () => {} },
+    './role-readiness': require('./fixtures/role-readiness')(undefined, () => stage('readiness')),
     './preview-domains': async options => { readState = options.servingState; await stage('domains'); return { data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, prepareTenant: async () => {} }; },
     '../realtime/private-api': { boot: async () => { await stage('private'); return { close: resource().end }; } }
   };

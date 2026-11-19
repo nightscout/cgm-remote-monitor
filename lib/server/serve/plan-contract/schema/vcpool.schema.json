@@ -221,24 +221,6 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 100000
-    },
-    "platformVerification": {
-      "type": "object",
-      "required": [
-        "namespace",
-        "role"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "namespace": {
-          "type": "string",
-          "pattern": "^(?!public$|information_schema$|pg_)[a-z][a-z0-9_]{0,62}$"
-        },
-        "role": {
-          "const": "vcpool"
-        }
-      },
-      "description": "Explicit admin-verified platform state (decision vcpool-proof-role). The connector checks the proof once at start; the admin pre-start step runs its ledger, catalogue and privilege screens."
     }
   }
 }

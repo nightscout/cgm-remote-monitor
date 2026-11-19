@@ -7,7 +7,6 @@
 const assert = require('node:assert/strict'), fs = require('node:fs'), http = require('node:http');
 const { randomUUID } = require('node:crypto');
 const { Pool } = require('pg');
-const path = require('node:path');
 const { optInSuite } = require('./support/opt-in');
 const createFixture = require('./fixtures/api-fixed-roster-serving');
 const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
@@ -19,7 +18,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
   'restore, resume and legacy marker inspection on native PostgreSQL with actual API processes', function () {
     this.timeout(180000);
     const f = createFixture(), [A, B] = f.base.tenants, pools = [], written = [];
-    let a, b, observer, floors, sequence = 0;
+    let a, b, observer, sequence = 0;
     const call = (id, tenant, method, path, token, body, headers) => f.base.http(f.current.get(id), tenant, method, path, token, body, headers);
     const operatorPool = () => { const pool = new Pool({ connectionString: f.operatorPool.options.connectionString, max: 1 }); pool.on('error', () => {}); pools.push(pool); return pool; };
     const admin = f.withAdmin;
@@ -35,9 +34,9 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
     async function operator (fn, { controller = maintenance, drainTimeoutMs = 300 } = {}) {
       const pool = operatorPool();
       const restore = controller.create({ namespace: f.namespace, locks: f.locks, pool, drainTimeoutMs });
-      // Admin verifies the tenant's DATA floors before activation (decision
-      // catalogue-verification-admin-owned; ADMIN_POSTCONDITION_MUST_PRECEDE_ACTIVATION).
-      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool, beforeActivation: tenant => floors.verifyTenant(tenant) });
+      // Floors are postconditions of the restore transaction itself (decision
+      // platform-verification-removal); nothing is certified before activation.
+      const resume = recovery.create({ namespace: f.namespace, locks: f.locks, pool });
       try { return await fn({ restore, resume }); }
       finally { await restore.close(); await resume.close(); await pool.end(); }
     }
@@ -58,29 +57,10 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       return { done, ready: () => f.base.until(async () => fs.existsSync(f.mark('held', id)), 'committed response held on ' + id), abort: () => request.destroy() };
     }
     const probe = value => ({ connection }) => connection.query('INSERT INTO restore_probe.rows(tenant_id,value) VALUES ($1,$2)', [A, value]);
-    // A completed restore: admin verifies A's floors after the DATA commit, while
-    // the replacement lock is still held, before activation.
-    const restored = value => async context => { await probe(value)(context); context.connection.afterCommit(() => floors.verifyTenant(A)); };
+    const restored = value => probe(value);
 
     before(async () => {
       await f.setup(); a = await f.base.localToken(A); b = await f.base.localToken(B);
-      // The admin floor writer for restore/resume postconditions: a login member
-      // of the fixture's proof writer, on the same api target the fixture verified.
-      const writer = new URL(f.base.adminConnectionString); writer.username = 'restore_resume_floor_writer'; writer.password = randomUUID();
-      await f.withAdmin(async client => {
-        await client.query('CREATE ROLE restore_resume_floor_writer LOGIN NOSUPERUSER NOBYPASSRLS INHERIT PASSWORD ' + client.escapeLiteral(writer.password));
-        await client.query('GRANT preview_roster_verifier TO restore_resume_floor_writer');
-      });
-      // api-1's operation configuration and internal addresses, as the fixture's pre-start step used them.
-      const operationConfigFile = path.join(f.base.directory, 'api-1-operation.json');
-      const internal = host => 'http://' + host + ':' + new URL(f.participants.find(peer => peer.id === 'api-1').endpoint.url).port + '/';
-      floors = require('../lib/server/serve/platform-verification-admin').create({ namespace: 'preview_roster_proof', connectionString: writer.toString(),
-        targets: [{ role: 'api', configFile: path.join(f.base.directory, 'api-prestart.json'), operationConfigFile }]
-      }, f.base.environment({ NS_ROSTER_LIFETIME_PG: f.lifetimeConnectionString, MULTITENANT_OPERATION_CONFIG: operationConfigFile,
-        NS_SERVE_INTERNAL_HOST: '127.0.0.2', NS_SERVE_INTERNAL_PORT: new URL(internal('127.0.0.2')).port, NS_API_INTERNAL_URL: internal('127.0.0.4'),
-        NS_EVALUATOR_INTERNAL_URL: internal('127.0.0.5'), NS_REALTIME_INTERNAL_URL: internal('127.0.0.6'), NS_TENANT_ADMIN_INTERNAL_URL: internal('127.0.0.7') }));
-      // Fail here, not inside a restore, if the target does not load.
-      assert.equal((await floors.verifyTenant(A)).status, 'verified');
       await f.withAdmin(async client => {
         await client.query('CREATE SCHEMA restore_probe');
         await client.query('CREATE TABLE restore_probe.rows(tenant_id uuid NOT NULL, value text NOT NULL)');
@@ -91,7 +71,7 @@ optInSuite(process.env.NS_RESTORE_RESUME_DOCKER_TEST === '1', 'NS_RESTORE_RESUME
       assert.equal((await call('api-1', A, 'POST', '/api/v3/entries', a, entry('resume-a-before'))).status, 201);
       await bWrites('before');
     });
-    after(async () => { for (const pool of pools) await pool.end().catch(() => {}); await floors?.close().catch(() => {}); await f.cleanup(); });
+    after(async () => { for (const pool of pools) await pool.end().catch(() => {}); await f.cleanup(); });
 
     // The drills' four interruption kinds. Each leaves A closed; resume reopens it.
     const kinds = [
