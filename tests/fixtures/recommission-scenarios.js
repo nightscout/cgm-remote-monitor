@@ -386,9 +386,13 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         try{await sleep(150);assert.equal(entered,undefined,'checked native DATA transaction must block replacement');}finally{unlock();}
         await transaction;await replacement;assert.equal(entered,true);
         await admin(client=>client.query('REVOKE SELECT(generation) ON '+table('lifecycle','tenant_lifecycle_recommission')+' FROM '+q(lifetime)));
-        const refusedPool=new Pool({connectionString:uri(lifetime),max:1}),refused=windows.create({namespace:ns.lifecycle,locks,pool:refusedPool,...selectionOptions()});
-        try{await assert.rejects(refused.ready(),{code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});}finally{await refused.close();await refusedPool.end();}
+        // The serving admission owns catalogue and grant checks. A tenant's
+        // transaction checks its generation inside the already admitted scope.
+        const selected = { namespace: ns.lifecycle, nativeSelection: profile, poolOptions: { connectionString: uri(lifetime) } };
+        const catalogue = require('../../lib/server/serve/lifecycle-catalogue-check');
+        await assert.rejects(catalogue.inspect(selected), {code:'LIFECYCLE_WINDOW_SCHEMA_UNSAFE'});
         await admin(async client=>{for(const sql of nativeSelection.servingGrants({namespace:ns.lifecycle,role:lifetime}))await client.query(sql);});
+        await catalogue.inspect(selected);
       }finally{if(lower)await lower.end();await window.close();await lifetimePool.end();}
     });
 
