@@ -30,7 +30,7 @@ describe('tenant root admin tools routes (no database)', function () {
     async exchangeLegacyCredential () { return null; },
     async adminLegacyTokens () { return null; }
   };
-  const authority = { authorize: async () => false, subjectSnapshot: async () => null };
+  const authority = { subjectAuthorizationSnapshot: async () => null };
   function app (calls) {
     const admin = {};
     for (const method of ['list', 'listRoles', 'create', 'createRole', 'updateRole', 'removeRole', 'update', 'remove']) {
@@ -60,6 +60,32 @@ describe('tenant root admin tools routes (no database)', function () {
     assert.throws(() => createOwnerPolicy({ namespace: 'auth', catalogue: ['*'], plane: 'operator' }), TypeError);
     assert.equal(createOwnerPolicy({ namespace: 'auth', catalogue: ['*'], plane: 'root' }).plane, 'root');
     assert.equal(createOwnerPolicy({ namespace: 'auth', catalogue: ['*'] }).plane, 'owner');
+  });
+
+  it('reads the subject and its roles once per admin-tools authentication and checks every permission in memory', async function () {
+    let reads = 0;
+    const counted = { ...secrets, async verifyLegacyCredential (context, { apiSecret }) {
+      return apiSecret === 'admin-token' ? { kind: 'subject', subjectId: 'admin' } : apiSecret === 'reader-token'
+        ? { kind: 'subject', subjectId: 'reader' } : secrets.verifyLegacyCredential(context, { apiSecret });
+    }, async adminLegacyTokens (context, currentAuthority) { return await currentAuthority() === true ? new Map() : null; } };
+    const grants = { admin: ['admin:api:subjects:read', 'admin:api:subjects:write'], reader: ['api:entries:read'] };
+    const snapshot = principal => ({ subject: { sub: principal.subjectId, permissionGroups: [grants[principal.subjectId]] },
+      allows: permission => grants[principal.subjectId].includes(permission) });
+    // Every read path counts, so a second authority read on any of them shows up.
+    const store = { authorize: async ({ principal, permission }) => { reads++; return snapshot(principal).allows(permission); },
+      subjectSnapshot: async ({ principal }) => { reads++; return snapshot(principal).subject; },
+      subjectAuthorizationSnapshot: async ({ principal }) => { reads++; return snapshot(principal); } };
+    const authenticate = createRootAuthentication({ secrets: counted, authority: store, verifierContext, tenants: [A] });
+    const legacy = token => ({ method: 'GET', path: '/subjects', query: { token }, rawHeaders: [], headers: {}, header: () => undefined });
+    const admitted = await authenticate({ tenant: A, request: legacy('admin-token'), permission: 'admin:api:subjects:write' });
+    assert.equal(admitted.actor.principal, 'admin'); assert(await admitted.tokens() instanceof Map);
+    assert.equal(reads, 1, 'ONE_AUTHORITY_READ_PER_ADMIN_AUTHENTICATION');
+    reads = 0;
+    assert.equal(await authenticate({ tenant: A, request: legacy('reader-token'), permission: 'admin:api:subjects:read' }), null, 'SUBJECT_WITHOUT_ROUTE_PERMISSION_REFUSED');
+    assert.equal(reads, 1);
+    reads = 0;
+    const root = await authenticate({ tenant: A, request: { method: 'GET', path: '/subjects', query: {}, rawHeaders: ['api-secret', ROOT[A]], headers: {}, header: () => undefined }, permission: 'admin:api:subjects:write' });
+    assert.equal(root.actor.principal, 'root'); assert.equal(reads, 0, 'ROOT_READS_NO_SUBJECT_AUTHORITY');
   });
 
   it('serves the single-site payloads to the resolved tenant\'s root only', async function () {
@@ -156,7 +182,7 @@ describe('preview API boot composes root subject administration only when select
         exchangeLegacyCredential: async () => null, adminLegacyTokens: async () => null }) },
       '../../secrets/postgres': { createPostgresSecrets: async () => ({ ...resource('secrets'), store: { get: async () => ({}) } }) },
       '../../secrets/legacy-postgres': async () => ({ ...resource('legacy'), read: async () => ({ reference: { tenant: A, id: 'synthetic' } }) }),
-      '../../tenant-authorization/postgres': async () => ({ ...resource('authority'), authorize: async () => false, subjectSnapshot: async () => null }),
+      '../../tenant-authorization/postgres': async () => ({ ...resource('authority'), subjectAuthorizationSnapshot: async () => null }),
       '../../subject-admin/postgres': async options => {
         seen.stores.push(options);
         return { plane: options.plane, close: async () => { seen.closed.push('root-writer'); },

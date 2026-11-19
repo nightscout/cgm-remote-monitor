@@ -55,20 +55,16 @@ describe('API role-owned activity/request/effect transaction', function() {
     f.state.delete(A);
     await assert.rejects(f.request(A, {method:'POST'}, async()=>{}), {code:'TENANT_ACTIVITY_UNAVAILABLE'});
   });
-  it('rechecks authority at the effect after a queued wait and rejects foreign request context',async()=>{
-    const f=fixture();let allowed=true,checks=0;
-    await f.context(A,{},async()=>{
-      await f.request(A,{method:'POST'},async()=>true,async()=>{checks++;return allowed;});
-      allowed=false;
-      await assert.rejects(scope.withTenant(A,()=>f.writes.transaction(()=>f.connection.query('forbidden'))),{code:'TENANT_DATA_FORBIDDEN'});
-      assert.equal(checks,1);allowed=true;
-      await scope.withTenant(A,()=>f.writes.transaction(()=>f.connection.query('restored')));
-      await assert.rejects(scope.withTenant(B,()=>f.writes.transaction(()=>f.connection.query('foreign'))),{code:'TENANT_DATA_FORBIDDEN'});
-    });
-    assert.equal(f.calls.some(row=>['forbidden','foreign'].includes(row[0])),false);
+  it('authorizes once at admission; the effect reads activity only (decision credential-rotation-next-request)',async()=>{
+    const f=fixture();let authorizations=0;
+    await f.request(A,{method:'POST'},async()=>{authorizations++;return true;});
+    f.calls.length=0;
+    await scope.withTenant(A,()=>f.writes.transaction(()=>f.connection.query('mutation')));
+    assert.equal(authorizations,1);
+    assert.deepEqual(f.calls.map(row=>row[0]),['BEGIN','activity','mutation','COMMIT']);
   });
   it('red/restored: removing the current-effect check permits a forbidden mutation', async function() {
-    const file = require.resolve('../lib/server/serve/api-admission'), needle = "await gate(tenant, { method: 'POST' });";
+    const file = require.resolve('../lib/server/serve/api-admission'), needle = "await gate(scope.requireTenant('API effect admission'), { method: 'POST' });";
     const original = fs.readFileSync(file,'utf8'); assert(original.includes(needle));
     const m = new Module(file,module); m.filename=file; m.paths=Module._nodeModulePaths(require('node:path').dirname(file)); m._compile(original.replace(needle,''),file);
     const criterion = async factory => { const f=fixture(factory); f.state.get(A).suspended=true;
