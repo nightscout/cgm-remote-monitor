@@ -36,6 +36,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     await f.admin(async admin => {
       for (const tenant of [f.A, f.B]) {
         await admin.query('INSERT INTO \"'+f.ns.control+'\".tenant_activity (tenant_id,version,paused,suspended) VALUES ($1,1,false,false)',[tenant]);
+        await admin.query(`INSERT INTO "${f.ns.clock}".tenant_write_clock (tenant_id,last_stamp) VALUES ($1,$2)`, [tenant, Date.now()]);
         const root = Buffer.from('synthetic-root-' + tenant), prepared = prepare(root, [{ subjectId: 'writer', tokenPrefix: 'writer' }]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_config (tenant_id,root_reference_id,root_verifiers,verifier_root_reference_id,root_version) VALUES ($1,'root',$2,'root',1)`, [tenant, prepared.rootVerifiers]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_subjects (tenant_id,subject_id,token_prefix,verifiers,verifier_token_prefix,credential_version) VALUES ($1,'writer','writer',$2,'writer',1)`, [tenant, prepared.subjects[0].verifiers]);
@@ -127,7 +128,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     const environment = require('../lib/server/tenant-app/environment');
     graph = await require('../lib/server/serve/preview-domains')({ config: { domains: DOMAINS, legacyEnabled: true, contextEnabled: true,
       bindings: new Map([[f.A, {}], [f.B, {}]]), environments: new Map([f.A, f.B].map(t => [t, environment()])),
-      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: admission.writes, exchange: async () => null });
+      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: require('../lib/storage/postgres-write-clock')(admission.writes, f.ns.clock), exchange: async () => null });
   });
   after(async () => {
     try { if (original) pg.Client.prototype.query = original; }

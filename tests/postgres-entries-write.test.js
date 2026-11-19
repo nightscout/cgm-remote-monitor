@@ -19,6 +19,7 @@ const entriesIntent = require('../lib/storage/postgres-entries-intent');
 const intentStep = require('../lib/storage/write-intent');
 const srvDates = require('../lib/server/srv-dates');
 const scope = require('../lib/storage/tenant-scope');
+const writeClock = require('./fixtures/native-write-clock');
 
 describe('PostgreSQL entries write refusals', function () {
   it('accepts and serializes JSON-safe nested entry values', async function () {
@@ -109,6 +110,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     await admin.query(fs.readFileSync(path.join(__dirname, 'fixtures/postgres/entries-identity-kinds.sql'), 'utf8'));
     await admin.query(`GRANT USAGE ON SCHEMA "${name}" TO "${role}"`);
     await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".entries TO "${role}"`);
+    await writeClock.provision(admin, { connectionString: pgURI, namespace: name + '_clock', role, tenants: [A, B] });
     const url = new URL(pgURI);
     url.username = role;
     url.password = password;
@@ -144,6 +146,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
       if (admin) {
         try {
           await admin.query(`DROP SCHEMA IF EXISTS "${name}" CASCADE`);
+          await admin.query(`DROP SCHEMA IF EXISTS "${name}_clock" CASCADE`);
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
         } finally { await admin.end(); }
       }
@@ -517,7 +520,7 @@ suite('PostgreSQL entries write differential (requires disposable PostgreSQL and
     bus.on(intentStep.INTENT_EVENT, () => {
       visible.push({ committed, query: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND "_id" = 'committed'`, [A]) });
     });
-    const step = entriesIntent({ connection: observed, table, bus });
+    const step = entriesIntent({ connection: writeClock.clocked(observed, name + '_clock'), table, bus });
     await scope.withTenant(A, () => step.write({ op: 'create', docs: [{ _id: 'committed', sgv: 170 }] }));
     assert.equal(visible.length, 1);
     assert.equal(visible[0].committed, true);
