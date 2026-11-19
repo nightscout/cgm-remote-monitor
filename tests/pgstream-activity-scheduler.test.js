@@ -42,3 +42,28 @@ describe('durable recovery paging with held clinical work',()=>{
   await assert.rejects(criterion(broken.exports.start),/RECOVERY_PAGE_STARVED_BY_HELD_EARLIER_TENANT/);await criterion();
  });
 });
+
+// Control: a tenant that is not admitted (removed, not yet registered) is set
+// aside for one retry interval, never for the process lifetime, so the
+// exclusion sent with every durable read does not grow with the roster.
+describe('scheduler exclusion bounded by work in flight, not by the roster',()=>{
+ async function sent(count){
+  let now=0;const timers=new Map();let id=0;const excludes=[];
+  const rows=Array.from({length:count},(_,i)=>({tenant:'t'+String(i).padStart(5,'0'),pendingAt:null}));
+  const store={async work(limit,{after,exclude=[]}={}){excludes.push(exclude.length);return rows.filter(row=>(!after||row.tenant>after)&&!exclude.includes(row.tenant)).slice(0,limit);},
+   async nextDue({exclude=[]}={}){excludes.push(exclude.length);return null;}};
+  const s=scheduler.start({store,admitRecovered:async()=>false,scan:async()=>{},run:async()=>{},retryMs:1000,now:()=>now,
+   setTimer(fn,delay){const key=++id;timers.set(key,{fn,at:now+delay});return key;},clearTimer:key=>timers.delete(key)});
+  await s.recover();
+  const settle=async()=>{for(let i=0;i<20;i++)await new Promise(resolve=>setImmediate(resolve));};
+  for(let turn=0;turn<count;turn++){await settle();const due=[...timers].filter(([,t])=>t.at<=now);if(!due.length)break;for(const [key,t]of due){timers.delete(key);await t.fn();}}
+  const sweep=Math.max(...excludes);
+  now+=1000;excludes.length=0;s.wake('t00000');await new Promise(resolve=>setImmediate(resolve));await s.drain();
+  await s.close();return {sweep,steady:Math.max(0,...excludes)};
+ }
+ it('sends the same bounded exclusion after 10 and 1,000 refused tenants',async()=>{
+  const small=await sent(10),large=await sent(1000);
+  assert.equal(large.steady,small.steady,'EXCLUSION_GROWS_WITH_ROSTER '+small.steady+' vs '+large.steady);
+  assert(large.steady<=1,'only work in flight is excluded after one retry interval');
+ });
+});
