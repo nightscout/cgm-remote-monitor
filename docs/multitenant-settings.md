@@ -81,7 +81,9 @@ the process environment.
 
 The Vault token is the file `<NS_SECRETS_DIR>/vault-token` (admin's management
 signer: `management-vault-token`; vcpool: `vcpool-token`), or `NS_VAULT_TOKEN`
-when set. Admin's elevated identities belong in admin's mount only.
+when set. A Vault Agent deployment can set `NS_VAULT_TOKEN_FILE` to its sink.
+The role reads that file on each provider call so Agent token rotation takes effect
+without a process restart. Admin's elevated identities belong in admin's mount only.
 
 ## Stream source identity
 

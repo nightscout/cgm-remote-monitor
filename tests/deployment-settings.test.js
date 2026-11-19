@@ -55,6 +55,27 @@ describe('deployment settings: the environment builds the deployment\'s document
     assert.throws(() => settings.layout({ NS_PG_PREFIX: 'Pg-bad' }), /NS_PG_PREFIX/);
   });
 
+  it('loads mounted database settings and reads a rotated Vault Agent token on the next call', async function () {
+    const plan = require('./fixtures/multitenant-plan');
+    const layout = plan.layout('nstest');
+    const { api } = plan.documents({ layout, urls: plan.syntheticUrls(layout) }).environments;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-vault-agent-'));
+    const sink = path.join(dir, 'token');
+    try {
+      fs.writeFileSync(sink, 'first', { mode: 0o600 });
+      fs.writeFileSync(path.join(dir, 'api-pg'), api.NS_API_PG, { mode: 0o600 });
+      const source = { ...api, NS_API_PG_FILE: path.join(dir, 'api-pg'), NS_VAULT_TOKEN_FILE: sink };
+      delete source.NS_API_PG;
+      const loaded = require('../lib/server/serve/preview-config').load(source);
+      assert.strictEqual(await loaded.registryVault.getToken(), 'first');
+      fs.writeFileSync(sink + '.new', 'replacement', { mode: 0o600 });
+      fs.renameSync(sink + '.new', sink);
+      assert.strictEqual(await loaded.registryVault.getToken(), 'replacement');
+      fs.unlinkSync(sink);
+      await assert.rejects(loaded.registryVault.getToken(), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('DS_SECRET_FILE: a secret is read from NAME, NAME_FILE or the secrets directory, in that order', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-secrets-'));
     try {
