@@ -258,6 +258,12 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     async function seed (tenant = lab.A, id = 'preview-reading', sgv = 111) {
       return lab.writeCanonical({ tenant, planned: { op: 'create', docs: [runtimeReading(id, sgv, 2)] } });
     }
+    async function waitForReading (worker, tenant = lab.A, expected = 111) {
+      return lab.wait(async () => {
+        const last = await worker.call('last', tenant);
+        return last?.eligible && value(last) === expected && last;
+      });
+    }
     const cyclesOf = health => health.tenants.find(row => row.tenant === lab.A).cycles;
     const version = value => BigInt(value || '0');
     // Activity is outside clinical membership but stays in the independent raw
@@ -329,8 +335,9 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
     });
     lifecycle('finds committed canonical absence and activity through maintained stream receipts', async function () {
-      await seed(); const config = lab.configure(d => { d.timeIntervalMs = 60000; });
-      const worker = await start(config), first = await worker.call('last'),foreignBefore=(await lab.previewPhysical()).B;
+      const worker = await start(lab.configure(d => { d.timeIntervalMs = 60000; }));
+      await seed();
+      const first = await waitForReading(worker), foreignBefore = (await lab.previewPhysical()).B;
       const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
       const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
         { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
@@ -349,9 +356,8 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert(version(recovered.done.bootstrap)>=version(recovered.input.checkpoint),'M5_EVAL_BACKSTOP_NATIVE_INPUT_COMPLETED');
     });
     lifecycle('keeps unchanged timer input and acquires complete committed writes from maintained CDC', async function () {
-      await seed(); const worker = await start();
-      // The imported snapshot may already include the seed. Sample its native
-      // input after durable completion. Retained output content may carry an
+      const worker = await start(); await seed();
+      // Sample the live seed after durable completion. Retained output content may carry an
       // older result checkpoint, so read current coverage from the typed row.
       const { first, before } = await lab.wait(async () => {
         const physical = await lab.previewPhysical(), last = await worker.call('last');
@@ -395,13 +401,14 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
     lifecycle('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
       for (const scenario of ['row', 'byte']) {
         if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
-        await seed(); await seed(lab.B, 'preview-reading', 333);
         const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
-        const worker = await start(config);let first;
+        const worker = await start(config);
+        await seed(); await seed(lab.B, 'preview-reading', 333);
         // Establish the actual last-good model before testing its retention.
         // A concurrent durable receipt can refuse a bootstrap snapshot; the
         // common scheduler must recover it within the existing watchdog.
-        await lab.wait(async()=>{first=await worker.call('last');return first?.eligible===true&&value(first)===111;});
+        const first = await waitForReading(worker);
+        await waitForReading(worker, lab.B, 333);
         const checkpoint = await lab.previewCheckpoint(lab.A), completed = await lab.previewCompleted(lab.A),inputBefore=await lab.checkpoint(lab.consumerName,lab.A);
         const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
           { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
@@ -437,7 +444,8 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       }
     });
     lifecycle('drains and fences a real in-flight clinical read before role shutdown', async function () {
-      await seed(); const worker = await start(), first = await worker.call('last'), completed = await lab.previewCompleted(lab.A);
+      const worker = await start(); await seed();
+      const first = await waitForReading(worker), completed = await lab.previewCompleted(lab.A);
       // Arm before the write: maintained CDC may start its actual cycle as soon
       // as COMMIT arrives, before a later explicit acquire call.
       await worker.call('arm'); const held = worker.held();
@@ -458,32 +466,31 @@ optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.N
       assert.equal(Number(retained.output_revision), first.outputRevision); assert.equal(value(retained.projection[0].output), 111);
       await lab.stopWorker(worker);
     });
-    lifecycle('refuses source write, checkpoint identity and unrelated grants before starting jobs', async function () {
+    lifecycle('provisions a read-only clinical source and restricts evaluator checkpoint updates', async function () {
       const grants = [[lab.namespaces.entries + '.entries', 'doc', 'UPDATE'],
         [lab.namespaces.clock + '.tenant_write_clock', 'last_stamp', 'UPDATE'],
         [lab.replayNamespace + '.tenant_consumer_checkpoint', 'tenant_id', 'UPDATE'],
         [lab.namespaces.settings + '.settings', null, 'SELECT']];
       for (const [table, column, privilege] of grants) {
-        const quoted = table.split('.').map(n => '"' + n + '"').join('.');
-        const action = column ? privilege + '(' + column + ')' : privilege;
-        if (!column) await lab.admin.query('GRANT USAGE ON SCHEMA "' + lab.namespaces.settings + '" TO "' + lab.previewRole + '"');
-        await lab.admin.query('GRANT ' + action + ' ON ' + quoted + ' TO "' + lab.previewRole + '"');
-        try {
-          const allowed = (await lab.admin.query(column ? 'SELECT has_column_privilege($1,$2,$3,$4) AS allowed'
-            : 'SELECT has_table_privilege($1,$2,$3) AS allowed', column ? [lab.previewRole, table, column, privilege]
-            : [lab.previewRole, table, privilege])).rows[0].allowed;
-          const before = await lab.previewPhysical(), worker = await lab.worker(lab.configure());
-          lab.tracePreview('preview-unsafe-grant', { table, column, privilege, allowed, startup: worker.startup,
-            before, after: await lab.previewPhysical() });
-          assert.equal(allowed, true, 'M5_EVAL_PRIVILEGE physical forbidden grant exists');
-          assert.equal(worker.startup.bootError?.previewConfigError, true, 'M5_EVAL_PRIVILEGE actual PreviewConfigError class');
-          assert.equal(worker.startup.bootError.message, 'evaluator preview readiness or initialization refused', 'M5_EVAL_PRIVILEGE bounded readiness refusal');
-          assert.equal(worker.startup.ready, undefined);
-          assert.deepEqual(await lab.previewPhysical(), before);
-        } finally {
-          await lab.admin.query('REVOKE ' + action + ' ON ' + quoted + ' FROM "' + lab.previewRole + '"');
-          if (!column) await lab.admin.query('REVOKE USAGE ON SCHEMA "' + lab.namespaces.settings + '" FROM "' + lab.previewRole + '"');
-        }
+        const check = column ? 'SELECT has_column_privilege($1,$2,$3,$4) AS allowed'
+          : 'SELECT has_table_privilege($1,$2,$3) AS allowed';
+        const args = column ? [lab.previewRole, table, column, privilege] : [lab.previewRole, table, privilege];
+        const { rows } = await lab.admin.query(check, args);
+        assert.equal(rows[0].allowed, false, 'evaluator provisioning forbids ' + privilege + ' on ' + table + (column ? '.' + column : ''));
+      }
+    });
+    lifecycle('refuses lost clinical source row isolation before starting jobs', async function () {
+      const table = '"' + lab.namespaces.entries + '".entries';
+      const before = await lab.previewPhysical();
+      await lab.admin.query('ALTER TABLE ' + table + ' NO FORCE ROW LEVEL SECURITY');
+      try {
+        const worker = await lab.worker(lab.configure());
+        assert.equal(worker.startup.bootError?.previewConfigError, true, 'M5_EVAL_PRIVILEGE actual PreviewConfigError class');
+        assert.match(worker.startup.bootError.message, /PLATFORM_SERVING_IDENTITY_UNSAFE/);
+        assert.equal(worker.startup.ready, undefined);
+        assert.deepEqual(await lab.previewPhysical(), before);
+      } finally {
+        await lab.admin.query('ALTER TABLE ' + table + ' FORCE ROW LEVEL SECURITY');
       }
     });
   });

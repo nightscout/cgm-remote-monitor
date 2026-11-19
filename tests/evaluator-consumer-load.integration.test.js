@@ -34,7 +34,6 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     }
     const alarms = tenant => lab.sinkEffects.filter(row => row.tenant === tenant && !row.notification?.clear);
     async function boot () {
-      await reading(50, lab.A, 'synthetic-a'); await reading(50, lab.B, 'synthetic-b');
       await lab.provisionPreview(); await lab.openSink();
       await lab.setSettings({ enable: ['bgnow', 'delta', 'direction', 'simplealarms'], heartbeat: HEARTBEAT_S });
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
@@ -43,6 +42,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
           retryDelayMs: Math.min(POLL_MS, 1000), attemptTimeoutMs: 10000 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      await reading(50, lab.A, 'synthetic-a'); await reading(50, lab.B, 'synthetic-b');
       await lab.wait(async () => alarms(lab.A).length >= 1 && alarms(lab.B).length >= 1);
       await sleep(Math.floor(Math.random() * EVALUATOR_MS)); // random phase against the evaluator timers
       return worker;

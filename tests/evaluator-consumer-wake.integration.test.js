@@ -23,14 +23,15 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     }
     const alarms = tenant => lab.sinkEffects.filter(row => row.tenant === tenant && !row.notification?.clear);
     it('an idle tenant gets no polling pass; a new low is delivered by the revision wake without quiet-tenant polling', async function () {
-      await reading(120, lab.A, 'normal-a'); await reading(120, lab.B, 'normal-b');
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
         document.timeIntervalMs = 60000;
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      await reading(120, lab.A, 'normal-a'); await reading(120, lab.B, 'normal-b');
       const passes = async () => Object.fromEntries((await worker.call('health')).consumers.tenants.map(row => [row.tenant, row.passes]));
+      await lab.wait(async () => Object.hasOwn(await passes(), lab.B));
       await sleep(1500); const before = await passes(); await sleep(3000); const after = await passes();
       assert.equal(after[lab.B] - before[lab.B], 0, 'EV_CONSUMER_IDLE_NOT_POLLED no pass for a tenant with nothing to deliver ' + JSON.stringify({ before, after }));
       await reading(45, lab.A, 'urgent-low-a'); const changedAt = Date.now();
@@ -41,13 +42,13 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.stopConsumer(worker);
     });
     it('a failed delivery is retried with the same request on the active retry loop', async function () {
-      await reading(45, lab.A, 'urgent-low-a');
       await lab.provisionPreview(); await lab.openSink(); lab.sinkMode = 'lost-response';
       const worker = await lab.workerConsumers(lab.configureConsumers(document => {
         document.timeIntervalMs = 60000;
         Object.assign(document.consumers.realtime, { pollIntervalMs: 200, retryIntervalMs: 200, retryDelayMs: 200 });
       }));
       assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      await reading(45, lab.A, 'urgent-low-a');
       await lab.wait(async () => lab.sinkEffects.some(row => row.tenant === lab.A));
       const first = lab.sinkEffects.find(row => row.tenant === lab.A);
       lab.sinkMode = 'accept'; const switchedAt = Date.now();
