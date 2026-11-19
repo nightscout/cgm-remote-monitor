@@ -16,7 +16,7 @@ const maintenance = require('../lib/tenant-lifecycle/maintenance-window');
 const recovery = require('../lib/tenant-lifecycle/restore-resume');
 const scopeFactory = require('../lib/tenant-lifecycle/generation-scope');
 const source = require.resolve('../lib/server/serve/tenant-floor-verification');
-const enabled = process.env.NS_TEST_POSTGRES_ADMIN_URI ? describe : describe.skip;
+const enabled = require('./support/opt-in').optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'NS_TEST_POSTGRES_ADMIN_URI');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const q = name => '"' + name + '"';
 function controlled (before, after) {

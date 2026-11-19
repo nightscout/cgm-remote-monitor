@@ -11,8 +11,12 @@ async function canonicalReply () {
     env: fixture.env, ctx: fixture.ctx, authorizationFor: () => ({ read: true, write: true }) }) });
   const producer = { collection: 'profile', data: { _id: '111111111111111111111111', NSCLIENT_ID: 'synthetic', startDate: '2026-11-06', store: { Synthetic: { dia: 3 } } } };
   const startedAt = Date.now();
-  const raw = await executor({ tenant: '11111111-1111-4111-8111-111111111111', source: 'socket', namespace: '/', event: 'dbAdd',
-    args: [structuredClone(producer)], actor: { tenant: '11111111-1111-4111-8111-111111111111', permissions: { read: true, write: true } } });
+  // A multitenant write stamps history dates from its tenant's database clock
+  // transaction; the recording context has no database, so it runs in a stand-in clock.
+  let floor = 0;
+  const clock = { tenant: '11111111-1111-4111-8111-111111111111', active: true, next: now => (floor = Math.max(now, floor + 1)) };
+  const raw = await require('../lib/server/srv-dates').withAllocator(clock, () => executor({ tenant: '11111111-1111-4111-8111-111111111111', source: 'socket', namespace: '/', event: 'dbAdd',
+    args: [structuredClone(producer)], actor: { tenant: '11111111-1111-4111-8111-111111111111', permissions: { read: true, write: true } } }));
   return { raw, producer, physical: fixture.collections.profile.documents, window: { startedAt, finishedAt: Date.now() } };
 }
 async function actualPrivateCodec (raw) {

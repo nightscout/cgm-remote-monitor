@@ -24,7 +24,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER_TEST=1 (or NS_TEST_VAULT_ADDR)')('api role in registry mode (actual PostgreSQL and Vault)', function () {
   this.timeout(180000);
-  let lab, dir, worker, provisioning, prior, entries, check, settings;
+  let lab, dir, worker, provisioning, prior, entries, check, settings, proof, verifier;
   const env = {};
   // fetch cannot set Host; node:http sends it as given.
   const exchange = (host, method, route, body) => new Promise((resolve, reject) => {
@@ -79,10 +79,19 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 2000 },
       resolution: { mode: 'direct-alias' },
       registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: REFRESH_MS },
-      tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } } };
+      tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } },
+      platformVerification: { namespace: 'trl_proof_' + lab.id, role: 'api' } };
     fs.writeFileSync(path.join(dir, 'api.json'), JSON.stringify(config), { mode: 0o600 });
     Object.assign(env, { PATH: process.env.PATH, MULTITENANT_PREVIEW_CONFIG: path.join(dir, 'api.json'), API_HOSTNAME: '127.0.0.1', API_PORT: '0',
       PREVIEW_APP_PG: lab.urls.api, PREVIEW_CHECK_PG: check.url, PREVIEW_SETTINGS_PG: settings.url, PREVIEW_VAULT_TOKEN: apiToken });
+    // The deployment's pre-start step (decision platform-application-boundary):
+    // admin verifies this exact configuration and publishes the api proof; as in
+    // admin-preview, provisioning records each new tenant's floor through it.
+    proof = await require('./fixtures/platform-prestart').install(lab.admin, { namespace: config.platformVerification.namespace,
+      adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, registry: lab.namespaces.registry, readers: [api, check.name], floorReaders: [api] });
+    verifier = require('../lib/server/serve/platform-verification-admin').create({ namespace: proof.namespace, connectionString: proof.writerURI,
+      targets: [{ role: 'api', configFile: path.join(dir, 'api.json') }] }, env);
+    await verifier.verify();
     const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
     worker = { child, stdout: '', stderr: '' };
     child.stdout.on('data', bytes => { worker.stdout += bytes; });
@@ -94,13 +103,18 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       if (child.exitCode !== null || Date.now() > until) throw new Error('api did not listen: ' + worker.stderr);
       await sleep(50);
     }
-    provisioning = createProvisioning(lab.provisioningOptions());
+    provisioning = createProvisioning({ ...lab.provisioningOptions(), postcondition: tenant => verifier.verifyTenant(tenant) });
   });
   after(async function () {
     if (worker && worker.child.exitCode === null) { worker.child.kill('SIGTERM'); await new Promise(resolve => worker.child.once('exit', resolve)); }
     if (provisioning) await provisioning.close().catch(() => {});
+    if (verifier) await verifier.close().catch(() => {});
     if (lab) {
       await lab.admin.query(`DROP SCHEMA IF EXISTS "${entries}" CASCADE`).catch(() => {});
+      if (proof) {
+        await lab.admin.query(`DROP SCHEMA IF EXISTS "${proof.namespace}" CASCADE`).catch(() => {});
+        await lab.admin.query(`DROP OWNED BY "${proof.writer}"`).catch(() => {}); await lab.admin.query(`DROP ROLE IF EXISTS "${proof.writer}"`).catch(() => {});
+      }
       for (const role of [check, settings].filter(Boolean)) { await lab.admin.query(`DROP OWNED BY "${role.name}"`).catch(() => {}); await lab.admin.query(`DROP ROLE IF EXISTS "${role.name}"`).catch(() => {}); }
       await lab.close();
     }

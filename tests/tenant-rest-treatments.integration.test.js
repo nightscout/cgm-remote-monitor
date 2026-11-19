@@ -23,6 +23,7 @@ const treatmentsOptions = require('../lib/server/tenant-app/treatments');
 const provider = require('./fixtures/tenant-credential-provider');
 const defaults = require('../lib/api3/const.json');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -196,6 +197,8 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
       await admin.query(`GRANT USAGE ON SCHEMA "${name}", "${auth}" TO "${role}"`);
       await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".treatments TO "${role}"`);
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
+      await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: name + '_clock', role, tenants: [A, B] });
       const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       uri.username = role;
       uri.password = password;
@@ -236,7 +239,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
             worker.visible.push(rows(tenant));
           });
           const options = Object.fromEntries(['v3', 'v1/internal'].map(source => [
-            source, treatmentsOptions({ connection: worker.connection, table: name + '.treatments', env, bus, source })
+            source, treatmentsOptions({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: name + '.treatments', env, bus, source })
           ]));
           worker.ports.set(tenant, options);
           const ctx = graph(env, bus, require('../lib/server/tenant-app/legacy-authorization')(), undefined, {
@@ -301,7 +304,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         const permissions = shiro.new();
         mongoGrants.forEach(grant => permissions.add(grant));
         authentication.bind(req, { shiros: [permissions], ...(mongoName ? { subject: { name: mongoName } } : {}) });
-        scope.withTenant(A, next);
+        writeClock.referenceClock(A, () => scope.withTenant(A, next));
       });
       referenceApp.use('/api', legacy(env, ctx));
       referenceApp.use('/api/v3', api3(env, ctx).app);
@@ -322,6 +325,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         if (admin) {
           await admin.query(`DROP SCHEMA IF EXISTS "${name}" CASCADE`);
           await admin.query(`DROP SCHEMA IF EXISTS "${auth}" CASCADE`);
+          await admin.query(`DROP SCHEMA IF EXISTS "${name}_clock" CASCADE`);
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
           await admin.end();
         }

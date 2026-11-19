@@ -16,6 +16,7 @@ const { run } = require('../lib/migrations/postgres');
 const dataAccess = require('../lib/server/tenant-app/data-access');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const domains = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'];
 const GRANTS = domains.flatMap(d => ['read', 'create', 'update', 'delete'].map(a => 'api:' + d + ':' + a));
@@ -28,7 +29,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
   const auth = 'acquisition_authority';
   const password = randomBytes(24).toString('hex');
   const credentials = new Map([['synthetic-a', A], ['synthetic-b', B]]);
-  let owned = false, containerId, pinnedImage, admin, connection, authority, app, oldApp, previous, closed = false;
+  let owned = false, containerId, pinnedImage, admin, connection, clocked, authority, app, oldApp, previous, closed = false;
   let suspended = false, checks = 0, queries = [], witnessing = false, witnesses = [];
   const at = Date.now() - 1000;
   const unavailable = async () => { throw new Error('owner service outside fixture'); };
@@ -71,6 +72,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       await admin.query(`INSERT INTO ${auth}.tenant_authorization_roles VALUES ($1,'writer',$2)`, [tenant, GRANTS]);
       await admin.query(`INSERT INTO ${auth}.tenant_authorization_subject_roles VALUES ($1,'subject','writer')`, [tenant]);
     }
+    await writeClock.provision(admin, { connectionString: uri.toString(), namespace: ns + '_clock', role, tenants: [A, B] });
     uri.username = role; uri.password = secret;
     connection = await connect({ connectionString: uri.toString(), max: 1 });
     const query = connection.query.bind(connection);
@@ -92,7 +94,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     authority = await require('../lib/tenant-authorization/postgres')({ connectionString: uri.toString(), namespace: auth, connection });
     const previewOptions = { config: { domains, legacyEnabled: true, contextEnabled: true, bindings: new Map([[A, {}], [B, {}]]),
       environments: new Map([A, B].map(t => [t, environment()])), namespaces: Object.fromEntries(domains.map(d => [d, ns + '_' + d])) },
-    connection, exchange: async () => null };
+    connection: clocked = require('../lib/storage/postgres-write-clock')(connection, ns + '_clock'), exchange: async () => null };
     const graph = await preview(previewOptions);
     const file = require.resolve('../lib/server/serve/preview-domains');
     const fs = require('node:fs'), vm = require('node:vm'), { createRequire } = require('node:module');
@@ -228,7 +230,8 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     await admin.query(`ANALYZE ${ns}_entries.entries`);
     let captured;
     const query = connection.query;
-    connection.query = async (sql, params) => { captured = { sql, params }; return query(sql, params); };
+    // The decorated data connection shares query by identity (fused read join).
+    connection.query = clocked.query = async (sql, params) => { captured = { sql, params }; return query(sql, params); };
     try {
       const full = await scope.withTenant(A, () => read.findFiltered(filter, { sort: { date: 1 } }));
       assert.equal(full.length, 1500);
@@ -261,7 +264,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         await admin.query(`DELETE FROM ${ns}_entries.entries WHERE tenant_id=$1 AND doc->>'_id'='plan-bad'`, [A]);
       }
     } finally {
-      connection.query = query;
+      connection.query = clocked.query = query;
       await admin.query(`DELETE FROM ${ns}_entries.entries WHERE doc->>'device'='explain-fixture'`);
     }
   });

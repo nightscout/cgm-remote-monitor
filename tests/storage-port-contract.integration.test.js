@@ -20,6 +20,7 @@ const { and, cmp } = require('../lib/storage/filter');
 const scope = require('../lib/storage/tenant-scope');
 const intentStep = require('../lib/storage/write-intent');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -59,7 +60,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
   const ownedContainers = [];
   const role = name + '_app';
   const table = name + '.entries';
-  let admin, connection, mongo, db, mode, pgURI;
+  let admin, connection, clock, mongo, db, mode, pgURI;
   const ports = {};
 
   before(async function () {
@@ -87,8 +88,10 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     await admin.query(fs.readFileSync(path.join(__dirname, 'fixtures/postgres/entries-identity-kinds.sql'), 'utf8'));
     await admin.query(`GRANT USAGE ON SCHEMA "${name}" TO "${role}"`);
     await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".entries TO "${role}"`);
+    await writeClock.provision(admin, { connectionString: pgURI, namespace: name + '_clock', role, tenants: [A, B] });
     url.username = role;
     connection = await connect({ connectionString: url.toString(), max: 2 });
+    clock = writeClock.clocked(connection, name + '_clock');
     mongo = new MongoClient('mongodb://127.0.0.1:' + mongoPort, { serverSelectionTimeoutMS: 500 });
     await ready(() => mongo.connect());
     db = mongo.db(name);
@@ -125,7 +128,8 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
   after(async function () {
     const failures = [];
     for (const close of [async () => { if (mongo) { try { if (db) await db.dropDatabase(); } finally { await mongo.close(); } } },
-      async () => { if (connection) await connection.end(); }, async () => { if (admin) await admin.end(); }]) {
+      async () => { if (connection) await connection.end(); },
+      async () => { if (admin) { try { await admin.query(`DROP SCHEMA IF EXISTS "${name}_clock" CASCADE`); } finally { await admin.end(); } } }]) {
       try { await close(); } catch (error) { failures.push(error); }
     }
     for (const container of ownedContainers) {
@@ -354,9 +358,10 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     it(backend + ' emits one logical result event for create/resend/no-op/delete with typed records', async function () {
       const bus = new EventEmitter(), events = [];
       bus.on(intentStep.INTENT_EVENT, event => events.push(event));
-      const step = backend === 'pg' ? entriesIntent({ connection, table, bus })
+      const step = backend === 'pg' ? entriesIntent({ connection: clock, table, bus })
         : intentStep.forCollectionIntent(ports.mongo.write, 'entries', 'v3', { bus });
-      const run = fn => scope.withTenant(A, fn);
+      const run = backend === 'pg' ? fn => scope.withTenant(A, fn)
+        : fn => writeClock.referenceClock(A, () => scope.withTenant(A, fn));
       const write = intent => run(() => step.write(intent));
       let result = await write({ op: 'create', docs: [{ _id: 'intent', identifier: 'intent', value: 0 }] });
       assert.equal(result.items[0].outcome, 'inserted');
@@ -382,12 +387,12 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     const bus = new EventEmitter(), observed = [];
     bus.on(intentStep.INTENT_EVENT, event => observed.push({ event,
       visible: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND "_id" = 'committed'`, [A]) }));
-    const step = entriesIntent({ connection, table, bus });
+    const step = entriesIntent({ connection: clock, table, bus });
     await scope.withTenant(A, () => step.write({ op: 'create', docs: [{ _id: 'committed', value: false }] }));
     assert.equal(observed.length, 1);
     assert.equal((await observed[0].visible).rows[0].doc.value, false);
-    const failed = entriesIntent({ connection: { ...connection,
-      transaction: fn => connection.transaction(async function () { await fn(); throw new Error('synthetic commit failure'); }) }, table, bus });
+    const failed = entriesIntent({ connection: writeClock.clocked({ ...connection,
+      transaction: fn => connection.transaction(async function () { await fn(); throw new Error('synthetic commit failure'); }) }, name + '_clock'), table, bus });
     await assert.rejects(scope.withTenant(A, () => failed.write({ op: 'create', docs: [{ _id: 'rolled-back' }] })), /synthetic commit failure/);
     assert.equal(observed.length, 1);
     assert.deepEqual(await ports.pg.run(() => ports.pg.read.findOne('rolled-back')), []);
@@ -431,7 +436,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
       const bus = new EventEmitter(), observed = [];
       bus.on(intentStep.INTENT_EVENT, event => observed.push(event));
       let mutated = false;
-      const failed = create({ connection: { ...connection,
+      const failed = create({ connection: writeClock.clocked({ ...connection,
         transaction: fn => connection.transaction(async function () {
           const result = await fn();
           const inside = await connection.query(`SELECT doc FROM "${name}".entries WHERE doc->>'identifier' = 'rollback-common'`);
@@ -439,7 +444,7 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
           mutated = true;
           assert.equal(result.items[0].outcome, 'inserted');
           throw new Error('synthetic common commit failure');
-        }) }, table, bus });
+        }) }, name + '_clock'), table, bus });
       await assert.rejects(scope.withTenant(A, () => failed.write({ op: 'create',
         docs: [{ _id: 'rollback-common', identifier: 'rollback-common', value: false, dateString: '2026-11-05T00:00:00.000+01:00' }] })), /synthetic common commit failure/);
       assert.equal(mutated, true);
@@ -451,8 +456,8 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
     it(adapter + ' common commit wrapper preserves committed results and synchronous settle without a transaction', async function () {
       const bus = new EventEmitter(), observed = [];
       let transactions = 0;
-      const step = create({ connection: { ...connection,
-        transaction (fn) { transactions++; return connection.transaction(fn); } }, table, bus });
+      const step = create({ connection: writeClock.clocked({ ...connection,
+        transaction (fn) { transactions++; return connection.transaction(fn); } }, name + '_clock'), table, bus });
       bus.on(intentStep.INTENT_EVENT, event => observed.push({ event,
         visible: admin.query(`SELECT doc FROM "${name}".entries WHERE tenant_id = $1 AND doc->>'identifier' = 'success-common'`, [A]) }));
       const written = await scope.withTenant(A, () => step.write({ op: 'create',

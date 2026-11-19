@@ -46,6 +46,8 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
     window = require('../lib/tenant-lifecycle/operation-window').create({ namespace: profile.binding.lifecycleNamespace, lockRule: 'tenant-id-sha256-v1', intakeProfile: profile, pool: { connect: noIO, options: { max: 2 } }, leaseSessionCount: 1 });
     const preview = compiled(require.resolve('../lib/server/serve/preview-api'), {
       './platform-verification': require('./fixtures/platform-proof')(), './postgres-domains': { readiness: async () => {}, assertServing: async () => ({}) },
+      // Admin-certified tenant floors are read per request, not at boot; outside this criterion.
+      './tenant-floor-verification': { createReader: () => async () => {} },
       './registry-tenants': { create: async () => ({ bindings: new Map(), providers: new Map(), environments: new Map(), close: async () => {} }) },
       '../../secrets/legacy-postgres': async options => { legacyOptions = options; try { return await legacy(options); } catch (error) { legacyFailure = error; throw error; } },
       '../../secrets/postgres': { createPostgresSecrets: async () => ({ store: { get: noIO, insert: noIO }, audit: async () => {}, close: async () => {} }) },

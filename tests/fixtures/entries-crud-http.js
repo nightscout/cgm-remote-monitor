@@ -21,6 +21,7 @@ const Collection = require('../../lib/api3/generic/collection');
 const configureApi3 = require('../../lib/api3');
 const authentication = require('../../lib/api3/tenant-authentication');
 const entriesOptions = require('../../lib/server/tenant-app/entries');
+const writeClock = require('./native-write-clock');
 const purifier = require('../../lib/server/purifier');
 const provider = require('./tenant-credential-provider');
 const apiDefaults = require('../../lib/api3/const.json');
@@ -62,6 +63,8 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
     await require('./tenant-insertion-grants').grant(admin, { namespace: name, domain: 'entries', role,
       catalogue: require('../../migrations/candidates/postgres-entries-v1.json') });
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
+    await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      namespace: name + '_clock', role, tenants: [A, B] });
     const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
     uri.username = role;
     uri.password = password;
@@ -113,13 +116,13 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
           ctx: { bus, purifier: purifier({}, {}) }, env, app, colName: 'entries', storageColName: 'entries',
           fallbackGetDate: doc => new Date(doc.srvModified), fallbackDateField: 'date',
           dedupFallbackFields: ['date', 'type'],
-          ...entriesOptions({ connection: worker.connection, table: lab.table, env, bus })
+          ...entriesOptions({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: lab.table, env, bus })
         });
         col.mapRoutes();
         worker.collections.set(tenant, col);
         worker.environments.set(tenant, env);
         if (legacy) {
-          const port = entriesOptions({ connection: worker.connection, table: lab.table, env, bus, source: 'v1/internal' });
+          const port = entriesOptions({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: lab.table, env, bus, source: 'v1/internal' });
           const ctx = { bus, purifier: purifier({}, {}), ddata: require('../../lib/data/ddata')(),
             storagePorts: { resolve: selection => selection.logical === 'entries' ? port : null } };
           ctx.cache = require('../../lib/server/cache')(env, ctx);
@@ -157,7 +160,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       const grants = shiro.new();
       lab.mongoGrants.forEach(grant => grants.add(grant));
       authentication.bind(req, { shiros: [grants], ...(lab.mongoName ? { subject: { name: lab.mongoName } } : {}) });
-      scope.withTenant(A, next);
+      writeClock.referenceClock(A, () => scope.withTenant(A, next));
     });
     const bus = new EventEmitter();
     for (const event of EVENTS) bus.on(event, value => lab.mongoEvents.push({ event, value }));
@@ -185,7 +188,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
         lab.mongoGrants.forEach(grant => grants.add(grant));
         authentication.bind(req, { shiros: [grants], subject: { name: lab.mongoName } });
         req.tenantAuthenticate = async () => ({ tenant: A, principal: SUBJECT, consumer: 'api' });
-        scope.withTenant(A, next);
+        writeClock.referenceClock(A, () => scope.withTenant(A, next));
       });
       reference.use('/api/v1', v1);
       reference.use('/api/v2', v2);
@@ -257,6 +260,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       if (admin) {
         await admin.query(`DROP SCHEMA IF EXISTS "${name}" CASCADE`);
         await admin.query(`DROP SCHEMA IF EXISTS "${auth}" CASCADE`);
+        await admin.query(`DROP SCHEMA IF EXISTS "${name}_clock" CASCADE`);
         await admin.query(`DROP ROLE IF EXISTS "${role}"`);
         await admin.end();
       }

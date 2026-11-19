@@ -11,6 +11,7 @@ const { createExecutor } = require('../lib/server/tenant-socket-write-executor')
 const { createApiReceiver, createForwarder } = require('../lib/server/tenant-socket-forwarding');
 const scope = require('../lib/storage/tenant-scope');
 const pattern = require('./fixtures/socket-forwarding/patterns');
+const srvDates = require('../lib/server/srv-dates');
 const A = '10000000-0000-4000-8000-000000000001';
 const B = '10000000-0000-4000-8000-000000000002';
 const grants = { read: true, write: true, write_treatment: true };
@@ -37,6 +38,13 @@ function baseline (fixture) {
     on: (event, callback) => { handlers[event] = callback; }, emit: () => {}, join: () => {} };
   connected(socket);
   return handlers;
+}
+// A multitenant write stamps history dates from its tenant's database clock
+// transaction (lib/storage/postgres-write-clock). The recording context has no
+// database, so the api side of the forwarding seam runs inside a stand-in clock.
+function clocked (tenant, fn) {
+  let floor = 0;
+  return srvDates.withAllocator({ tenant, active: true, next: now => (floor = Math.max(now, floor + 1)) }, fn);
 }
 const call = (handlers, event, payload) => new Promise(resolve => handlers[event](payload, (...args) => resolve(args)));
 function norm (value, key) {
@@ -74,6 +82,10 @@ async function sequence (send, collections) {
 
 describe('canonical socket DATA extraction and dormant API executor', function () {
   this.timeout(5000);
+  // A timed-out test never reaches its own finally; never leak 'multi' into later files.
+  let tenancy;
+  beforeEach(function () { tenancy = scope.getTenancyMode(); });
+  afterEach(function () { scope.setTenancyMode(tenancy); });
   it('matches frozen single-handler acknowledgements and stored values for pinned AAPS DATA pattern replay and four events', async function () {
     const before = context();
     const original = baseline(before);
@@ -96,7 +108,7 @@ describe('canonical socket DATA extraction and dormant API executor', function (
           assert.equal(credential.token, 'synthetic-client'); return { tenant, permissions: grants };
         }, executeWrite });
       const forwarder = createForwarder({ contextForSocket: () => ({ tenant: A, credential: { token: 'synthetic-client' } }),
-        transport: envelope => receive({}, envelope) });
+        transport: envelope => clocked(A, () => receive({}, envelope)) });
       await sequence(async (event, payload) => {
         let reply;
         const outcome = await forwarder.forward({ namespace: '/', event, args: [payload], acknowledge: (...args) => { reply = args; } });
@@ -119,7 +131,7 @@ describe('canonical socket DATA extraction and dormant API executor', function (
       const receive = createApiReceiver({ authenticateTransport: async () => true, resolveTenant: async () => A,
         authorizeSocket: async () => ({ tenant: A }), executeWrite });
       const forwarder = createForwarder({ contextForSocket: () => ({ tenant: A, credential: { token: 'synthetic-client' } }),
-        transport: envelope => receive({}, envelope) });
+        transport: envelope => clocked(A, () => receive({}, envelope)) });
       let acknowledged = false;
       const writing = forwarder.forward({ namespace: '/', event: 'dbAdd', args: [pattern.addTreatment()],
         acknowledge: () => { acknowledged = true; } });

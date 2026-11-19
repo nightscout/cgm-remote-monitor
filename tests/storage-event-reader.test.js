@@ -29,7 +29,7 @@ describe('addressed raw journal reader and current-worker fence',()=>{
  });
  it('default boot drains raw receipts and wakes only addressed owed delivery after transaction acceptance',async()=>{
   const text=require('node:fs').readFileSync(require.resolve('../lib/server/serve/preview-realtime'),'utf8');
-  assert.match(text,/check:tenants=>storageEvents.check\(tenants,\{runtime,protocol,concurrency:REFRESH_CONCURRENCY\}\)/,'DEFAULT_MUST_DRAIN_RAW_EVENTS');
+  assert.match(text,/check:\s*tenants\s*=>\s*storageEvents\.check\(tenants,\s*\{\s*runtime,\s*protocol,\s*concurrency:\s*REFRESH_CONCURRENCY\s*\}\)/,'DEFAULT_MUST_DRAIN_RAW_EVENTS');
   const evaluate=require('node:fs').readFileSync(require.resolve('../lib/server/serve/evaluator-preview'),'utf8');
   const anchor='acceptTransaction:async(envelope,options)=>{';
   assert.equal(evaluate.split(anchor).length,2,'ONE_ACTUAL_TRANSACTION_ACCEPT_CALLBACK_REQUIRED');

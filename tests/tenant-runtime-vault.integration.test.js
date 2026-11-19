@@ -25,6 +25,7 @@ const writer = require('../lib/storage/postgres-entries-write');
 const entriesOptions = require('../lib/server/tenant-app/entries');
 const purifier = require('../lib/server/purifier');
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 
 const image = 'hashicorp/vault@sha256:962a92876e168d68eaaa24b0b8b49bbce1cb63024060a67bba95cd158a366fc2';
 const A = '11111111-1111-4111-8111-111111111111';
@@ -169,7 +170,7 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
           env, app: routeApp, colName: 'entries', storageColName: 'entries',
           fallbackGetDate: doc => new Date(doc.srvModified),
           dedupFallbackFields: ['date', 'type'], fallbackDateField: 'date',
-          ...entriesOptions({ connection: worker.connection, table: 'runtime_data.entries', bus, env })
+          ...entriesOptions({ connection: writeClock.clocked(worker.connection, 'runtime_clock'), table: 'runtime_data.entries', bus, env })
         });
         collection.mapRoutes();
         data.use((req, res, next) => req.tenantContext.tenant === tenant ? routes(req, res, next) : next());
@@ -308,6 +309,7 @@ optInSuite(process.env.NS_TENANT_RUNTIME_VAULT_DOCKER_TEST === '1',
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA runtime_auth, runtime_identity TO ${role}`);
       await admin.query('GRANT SELECT, INSERT ON runtime_secrets.secret_records TO ' + role);
       await admin.query('GRANT INSERT ON runtime_secrets.secret_audit TO ' + role);
+      await writeClock.provision(admin, { connectionString: adminURI, namespace: 'runtime_clock', role, tenants: [A, B] });
       const appURL = new URL(adminURI);
       appURL.username = role;
       appURL.password = appPassword;

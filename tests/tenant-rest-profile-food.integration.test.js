@@ -40,6 +40,7 @@ const catalogues = {
   identity: require('../lib/secrets/legacy-credentials-candidate.json')
 };
 const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -124,7 +125,7 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
         ctx.authorization = legacyAuthorization();
         for (const logical of Object.keys(factories)) {
           ports[logical] = factories[logical]({
-            connection: worker.connection, table: schemas[logical] + '.' + logical, bus: ctx.bus, env,
+            connection: writeClock.clocked(worker.connection, name + '_clock'), table: schemas[logical] + '.' + logical, bus: ctx.bus, env,
             source: 'v1/internal'
           });
         }
@@ -150,10 +151,10 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       for (const method of ['post', 'put', 'patch', 'delete']) app[method] = routes[method].bind(routes);
       for (const logical of Object.keys(factories)) {
         const options = reference ? {
-          ...factories[logical]({ connection: worker.connection, table: schemas[logical] + '.' + logical }),
+          ...factories[logical]({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: schemas[logical] + '.' + logical }),
           storage: new (require('../lib/api3/storage/mongoCollection'))(ctx, env, env[logical + '_collection'], logical),
           intentFactory: undefined
-        } : factories[logical]({ connection: worker.connection, table: schemas[logical] + '.' + logical, bus: ctx.bus, env });
+        } : factories[logical]({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: schemas[logical] + '.' + logical, bus: ctx.bus, env });
         if (reference) {
           delete options.storage;
           delete options.intentFactory;
@@ -292,6 +293,8 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       await admin.query(`GRANT INSERT ON "${schemas.secrets}".secret_audit TO "${role}"`);
       const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
       url.username = role; url.password = password; uri = url.toString();
+      await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: name + '_clock', role, tenants: [A, B] });
       await vault('sys/mounts/transit', { type: 'transit' });
       for (const [i, tenant] of [A, B].entries()) {
         for (const purpose of ['data', 'signing']) await vault(`transit/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
@@ -321,7 +324,7 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
       referenceApp.use((req, res, next) => {
         const trie = shiro.new(); mongoGrants.forEach(grant => trie.add(grant));
         authentication.bind(req, { shiros: [trie], subject: { name: mongoName } });
-        scope.withTenant(A, next);
+        writeClock.referenceClock(A, () => scope.withTenant(A, next));
       });
       referenceApp.use('/api/v1', graph.legacy);
       referenceApp.use('/api/v2', graph.v2);
@@ -347,7 +350,7 @@ optInSuite(process.env.NS_PROFILE_FOOD_HTTP_TEST === '1' &&
           await mongo.close();
         }
         if (admin) {
-          for (const namespace of Object.values(schemas)) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
+          for (const namespace of [...Object.values(schemas), name + '_clock']) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
           await admin.query(`DROP ROLE IF EXISTS "${role}"`);
           await admin.end();
         }
