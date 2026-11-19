@@ -31,6 +31,16 @@ describe('ordinary deployment shared grant composition (source protocol)', funct
     const l=layout(), statements=fixture.grants(l);
     for(const sql of [...canonical.ownerGrants(l),...canonical.lifetimeGrants(l,Object.keys(l.roles)),...canonical.realtimeGrants(l),...canonical.registryGrants(l)])assert(statements.includes(sql),sql);
   });
+  it('adds the native lifecycle column reads only for the selected serving identities', function () {
+    const l = layout();
+    const native = require('../lib/tenant-lifecycle/native-selection');
+    const selection = native.create({ namespace: l.namespaces.eval_checkpoint, lifecycleNamespace: l.namespaces.control, consumer: 'evaluator-main' });
+    const serving = ['owner_reader', 'lifetime_tenant_admin'];
+    const base = canonical.lifetimeGrants(l, serving);
+    const selected = canonical.lifetimeGrants(l, serving, selection);
+    assert.deepEqual(selected.filter(sql => !base.includes(sql)),
+      serving.flatMap(who => native.servingGrants({ namespace: l.namespaces.control, role: l.roles[who] })));
+  });
   it('gives the shared fixture API the current activity reader capability', function () {
     const l = layoutFixture.layout('synthetic_activity'), sql = layoutFixture.grants(l);
     for (const statement of require('../lib/tenant-activity/postgres').grants({ namespace: l.namespaces.control, reader: l.roles.api })) {
