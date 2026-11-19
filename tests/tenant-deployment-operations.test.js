@@ -450,6 +450,27 @@ describe('whole deployment source admission and filesystem durability', function
       await fs.promises.writeFile(path.join(scratch, file), original);
       assert.equal(admit({ root: scratch, namespaces: namespaces(), selection: { checkpoint: file } }).catalogues.find(entry => entry.kind === 'checkpoint').candidatePath, file);
     }
+    // Both typed sources existed before the independent recovery migrations.
+    // Source operations select the archived SQL, while current admission still
+    // requires the full current catalogue in each family.
+    for (const file of files) {
+      const previous = JSON.parse(await fs.promises.readFile(path.join(scratch, file), 'utf8'));
+      previous.migrations.pop();
+      await fs.promises.writeFile(path.join(scratch, file), JSON.stringify(previous));
+    }
+    const paired = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
+      instances: [{ kind: 'evaluator_checkpoint', of: 'checkpoint' }],
+      selection: { checkpoint: files[0], evaluator_checkpoint: files[1] } };
+    const archived = admit({ ...paired, root: scratch });
+    for (const file of files) {
+      const selected = archived.catalogues.find(entry => entry.candidatePath === file);
+      assert.deepEqual(selected.catalogue, JSON.parse(await fs.promises.readFile(path.join(scratch, file), 'utf8')));
+      const original = fs.readFileSync;
+      try {
+        fs.readFileSync = (location, ...args) => original(location === path.join(ROOT, file) ? path.join(scratch, file) : location, ...args);
+        assert.throws(() => admit(paired), { code: 'OPERATIONS_CENSUS_ALTERNATIVE_CHANGED' });
+      } finally { fs.readFileSync = original; }
+    }
     for (const file of files) await fs.promises.unlink(path.join(scratch, file));
     const old = admit({ root: scratch, namespaces: namespaces() });
     assert.equal(old.catalogues.find(entry => entry.kind === 'checkpoint').catalogue.migrations.length, 1);
