@@ -113,6 +113,7 @@
         "tests/settings.test.js",
         "tests/simplealarms.test.js",
         "tests/status-headers.test.js",
+        "tests/status-permissions.test.js",
         "tests/timeago.test.js",
         "tests/times.test.js",
         "tests/timezone-modernization.test.js",
