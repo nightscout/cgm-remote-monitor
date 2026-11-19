@@ -47,7 +47,7 @@ async function startVault () {
   return { address, token, close: async () => { try { execFileSync('docker', ['rm', '-f', '-v', name], { stdio: 'ignore' }); } catch { /* already gone */ } } };
 }
 
-async function createLab () {
+async function createLab ({ servingApi = false } = {}) {
   const ADMIN = process.env.NS_TEST_POSTGRES_ADMIN_URI;
   const id = randomUUID().replace(/-/g, '').slice(0, 10);
   // Names follow the deployment layout, <prefix>_<kind> (lib/server/serve/deployment-settings.js),
@@ -56,9 +56,27 @@ async function createLab () {
   const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, prefix + '_' + (LAYOUT_KIND[kind] || kind)]));
   const owner = 'trl_owner_' + id;
   const roles = { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
+  const migrations = Object.fromEntries(Object.entries(CATALOGUES).map(([kind, build]) => [namespaces[kind], build()]));
+  const extraSchemas = [];
+  let layout;
+  if (servingApi) {
+    const plan = require('./multitenant-plan');
+    const deployment = require('../../lib/server/serve/deployment-settings').layout({ NS_PG_PREFIX: prefix });
+    const catalogues = require('./realtime-preview/bootstrap-grants').catalogues();
+    const selected = {};
+    for (const [kind, catalogue] of Object.entries(catalogues)) {
+      const namespace = deployment.namespaces[kind];
+      if (!Object.hasOwn(migrations, namespace)) extraSchemas.push(namespace);
+      selected[kind] = namespace;
+      migrations[namespace] = catalogue;
+    }
+    for (const kind of [...plan.roleNames(plan.layout(prefix)), 'ui_registry']) {
+      roles[kind] ||= prefix + '_' + kind;
+    }
+    layout = { owner, roles, namespaces: selected };
+  }
   const urls = {};
   const admin = new Client({ connectionString: ADMIN }); await admin.connect();
-  const vault = await startVault();
   const mount = prefix + '_transit';
   const q = (sql, values) => admin.query(sql, values);
   await q(`CREATE ROLE "${owner}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
@@ -67,19 +85,20 @@ async function createLab () {
     await q(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     const url = new URL(ADMIN); url.username = role; url.password = password; urls[kind] = url.toString();
   }
-  for (const [kind, catalogue] of Object.entries(CATALOGUES)) {
-    const namespace = namespaces[kind];
+  for (const [namespace, migration] of Object.entries(migrations)) {
     await q(`CREATE SCHEMA "${namespace}"`);
-    await run('up', { direct: true, connectionString: ADMIN, namespace, catalogue: catalogue() });
+    await run('up', { direct: true, connectionString: ADMIN, namespace, catalogue: migration });
     for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [namespace])).rows) await q(`ALTER TABLE "${namespace}"."${row.tablename}" OWNER TO "${owner}"`);
     for (const row of (await q('SELECT p.oid::regprocedure::text AS fn FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1', [namespace])).rows) {
       await q(`ALTER FUNCTION ${row.fn} OWNER TO "${owner}"`);
     }
     await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
   }
-  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }], extraSchemas = [];
+  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }];
+  if (layout) for (const sql of require('../../lib/server/ordinary-deployment-grants').grants(layout)) await q(sql);
   for (const sql of registry.grants({ namespace: namespaces.registry, resolvers: [roles.api], enumerators: [roles.realtime], readers: [roles.api] })) await q(sql);
   for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: consumers })) await q(sql);
+  const vault = await startVault();
   const vaultRequest = async (path, body, method = body === undefined ? 'GET' : 'POST') => {
     const response = await fetch(vault.address + 'v1/' + path, { method, headers: { 'X-Vault-Token': vault.token, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });

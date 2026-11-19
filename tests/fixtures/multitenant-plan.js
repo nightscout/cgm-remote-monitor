@@ -55,10 +55,14 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     vcpool: { config: settings.configuration('vcpool', vcpoolEnvironment), environment: vcpoolEnvironment } };
 }
 
+function roleNames (l) {
+  return [...new Set([...Object.keys(l.roles), ...REGISTRY_IDENTITIES])];
+}
+
 // Synthetic connection addresses for every identity the documents name.
 function syntheticUrls (l) {
-  return Object.fromEntries([...Object.keys(l.roles), ...REGISTRY_IDENTITIES].map(kind =>
+  return Object.fromEntries(roleNames(l).map(kind =>
     [kind, 'postgres://' + (l.roles[kind] || l.prefix + '_' + kind) + ':synthetic@postgres.example.test:5432/nightscout_test_plan']));
 }
 
-module.exports = { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle, documents, syntheticUrls };
+module.exports = { A, B, subject, clinical, ordered, serviceRoles, quote, catalogues, layout, insertionGrants, grants, lifecycle, documents, syntheticUrls, roleNames };

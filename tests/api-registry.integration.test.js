@@ -14,7 +14,6 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { createLab, enabled } = require('./fixtures/tenant-registry-lab');
 const { createProvisioning } = require('./../lib/tenant-registry/provision');
-const { run } = require('../lib/migrations/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const { optInSuite } = require('./support/opt-in');
 
@@ -24,7 +23,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER_TEST=1 (or NS_TEST_VAULT_ADDR)')('api role in registry mode (actual PostgreSQL and Vault)', function () {
   this.timeout(180000);
-  let lab, dir, worker, provisioning, prior, entries, check, settings;
+  let lab, dir, worker, provisioning, prior;
   const env = {};
   // fetch cannot set Host; node:http sends it as given.
   const exchange = (host, method, route, body) => new Promise((resolve, reject) => {
@@ -41,31 +40,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   });
   before(async function () {
     prior = scope.getTenancyMode(); scope.setTenancyMode('multi');
-    lab = await createLab();
-    const q = (sql, values) => lab.admin.query(sql, values);
-    entries = 'trl_entries_' + lab.id;
-    const catalogue = require('../lib/server/serve/postgres-domains').get('entries').catalogue;
-    await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace: entries, catalogue });
-    const api = lab.roles.api;
-    for (const name of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy, lab.namespaces.clock]) await q(`GRANT USAGE ON SCHEMA "${name}" TO "${api}"`);
-    await require('./fixtures/tenant-insertion-grants').grant(lab.admin, { namespace: entries, domain: 'entries', role: api, catalogue });
-    await q(`GRANT SELECT ON ALL TABLES IN SCHEMA "${lab.namespaces.authorization}", "${lab.namespaces.legacy}" TO "${api}"`);
-    await q(`GRANT SELECT, INSERT ON "${lab.namespaces.secrets}".secret_records TO "${api}"`);
-    await q(`GRANT INSERT ON "${lab.namespaces.secrets}".secret_audit TO "${api}"`);
-    await q(`GRANT SELECT, UPDATE(last_stamp,last_delete_stamp) ON "${lab.namespaces.clock}".tenant_write_clock TO "${api}"`);
-    for (const role of ['check', 'settings']) {
-      const name = 'trl_' + role + '_' + lab.id, password = crypto.randomBytes(18).toString('hex');
-      await q(`CREATE ROLE "${name}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-      const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = name; url.password = password;
-      if (role === 'check') { check = { name, url: url.toString() }; for (const ns of [entries, lab.namespaces.authorization, lab.namespaces.secrets, lab.namespaces.legacy, lab.namespaces.clock]) {
-        await q(`GRANT USAGE ON SCHEMA "${ns}" TO "${name}"`); await q(`GRANT SELECT ON "${ns}".schema_migrations TO "${name}"`);
-      } } else {
-        settings = { name, url: url.toString() };
-        for (const ns of [lab.namespaces.settings, lab.namespaces.operatorPolicy]) {
-          await q(`GRANT USAGE ON SCHEMA "${ns}" TO "${name}"`); await q(`GRANT SELECT ON ALL TABLES IN SCHEMA "${ns}" TO "${name}"`);
-        }
-      }
-    }
+    lab = await createLab({ servingApi: true });
     // One role-level Vault credential: prefix globs over every tenant's keys.
     await lab.vaultRequest('sys/policies/acl/' + lab.mount + '_api', { policy: [
       `path "${lab.mount}/decrypt/tenant-data-*" { capabilities = ["update"] }`,
@@ -73,16 +48,14 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       `path "${lab.mount}/verify/tenant-signing-*" { capabilities = ["update"] }`].join('\n') });
     const apiToken = (await lab.vaultRequest('auth/token/create', { policies: [lab.mount + '_api'], no_default_policy: true, ttl: '1h' })).auth.client_token;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-api-registry-'));
-    const config = { version: 1, writeClock: true,
-      postgres: { connectionEnv: 'PREVIEW_APP_PG', readinessConnectionEnv: 'PREVIEW_CHECK_PG',
-        namespaces: { entries, authorization: lab.namespaces.authorization, secrets: lab.namespaces.secrets, legacy: lab.namespaces.legacy, clock: lab.namespaces.clock } },
-      vault: { address: lab.vault.address, mount: lab.mount, tokenEnv: 'PREVIEW_VAULT_TOKEN', allowInsecureLoopback: true, timeoutMs: 2000 },
-      resolution: { mode: 'direct-alias' },
-      registry: { namespace: lab.namespaces.registry, maxTenants: 100, refreshMs: REFRESH_MS },
-      tenantSettings: { connectionEnv: 'PREVIEW_SETTINGS_PG', namespaces: { settings: lab.namespaces.settings, operatorPolicy: lab.namespaces.operatorPolicy } } };
-    fs.writeFileSync(path.join(dir, 'api.json'), JSON.stringify(config), { mode: 0o600 });
-    Object.assign(env, { PATH: process.env.PATH, MULTITENANT_PREVIEW_CONFIG: path.join(dir, 'api.json'), API_HOSTNAME: '127.0.0.1', API_PORT: '0',
-      PREVIEW_APP_PG: lab.urls.api, PREVIEW_CHECK_PG: check.url, PREVIEW_SETTINGS_PG: settings.url, PREVIEW_VAULT_TOKEN: apiToken });
+    Object.assign(env, {
+      PATH: process.env.PATH, API_HOSTNAME: '127.0.0.1', API_PORT: '0',
+      NS_PG_PREFIX: lab.prefix, NS_REGISTRY_REFRESH_MS: String(REFRESH_MS), NS_SECRETS_DIR: dir,
+      NS_SERVE_INTERNAL_SOCKET: path.join(dir, 'api.sock'),
+      NS_VAULT_ADDR: lab.vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_VAULT_TOKEN: apiToken,
+      NS_API_PG: lab.urls.api, NS_READINESS_PG: lab.urls.readiness, NS_API_ROOT_WRITER_PG: lab.urls.root_writer,
+      NS_ALARM_PG: lab.urls.alarm, NS_DISPLAY_PG: lab.urls.display_reader
+    });
     const child = spawn(process.execPath, [BIN, 'multitenant', 'api'], { cwd: dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
     worker = { child, stdout: '', stderr: '' };
     child.stdout.on('data', bytes => { worker.stdout += bytes; });
@@ -99,11 +72,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   after(async function () {
     if (worker && worker.child.exitCode === null) { worker.child.kill('SIGTERM'); await new Promise(resolve => worker.child.once('exit', resolve)); }
     if (provisioning) await provisioning.close().catch(() => {});
-    if (lab) {
-      await lab.admin.query(`DROP SCHEMA IF EXISTS "${entries}" CASCADE`).catch(() => {});
-      for (const role of [check, settings].filter(Boolean)) { await lab.admin.query(`DROP OWNED BY "${role.name}"`).catch(() => {}); await lab.admin.query(`DROP ROLE IF EXISTS "${role.name}"`).catch(() => {}); }
-      await lab.close();
-    }
+    if (lab) await lab.close();
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
     scope.setTenancyMode(prior);
   });
