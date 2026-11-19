@@ -69,7 +69,7 @@ function fixture({registryRace,clinicalTenants=0,assignedTenants,sourceBlocked=f
     return {tenants,async lookup(tenant){trace.push(['lookup',tenant]);if(!provisioned.has(tenant))return null;tenants.set(tenant,current);return current;},isActive:tenant=>tenants.has(tenant),onRemove(){},stats:()=>({}),revision:()=>1,async close(){}};
   },open:async()=>{trace.push('registry-open');if(registryError)throw registryError;return {tenants:new Map([[A,current]]),isActive:()=>true,follow:async()=>{registryFollowed=true;},close:async()=>{},revision:()=>1,stats:()=>({})};}},
   './tenant-startup':{create:()=>startup,limited:require('../lib/server/serve/tenant-startup').limited},
-  './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){streamTrace.push('delivery-prepare');trace.push('delivery-prepare');await prepare.promise;assertOperational();return {async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
+  './evaluator-consumers':{async prepare({current:read,operationWindow,jobContext,assertOperational}){streamTrace.push('delivery-prepare');trace.push('delivery-prepare');await prepare.promise;assertOperational();return {addTenant(){},async wake(){},revised(){if(read(A))delivered++;},start(){started=true;this.dispatch=jobContext.run(()=>operationWindow.run(A,()=>{if(read(A))delivered++;}));},async close(){await this.dispatch;},health:()=>({})};}},
   './evaluator-inspection':()=>()=>({}), '../../language':()=>({set(){}})
  };
  if(clinicalTenants) mocks['./evaluator-consumers']={prepare:async()=>null};

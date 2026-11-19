@@ -104,16 +104,16 @@ describe('evaluator schema work bounds', function () {
         } finally { await service.close(); }
       }
       const scanAtBoot = text => {
-        const needle = 'const demand = !config.consumers?.realtime';
+        const needle = 'const demand = options.assignedTenants === undefined;';
         assert.equal(text.split(needle).length, 2);
-        return text.replace(needle, 'const demand = false');
+        return text.replace(needle, 'const demand = false;');
       };
       for (const count of [10,1000]) {
         await assert.rejects(check(count,scanAtBoot),/BOOT_TENANT_SQL/);
         await check(count);
       }
     });
-    for (const count of [1, 65, 500]) it(name + ' notification recovery pages the selected cohort ' + count, async () => {
+    for (const count of [1, 65, 500]) it(name + ' notification recovery reads no roster at cohort ' + count, async () => {
       const f = fixture(count, selected);
       const service = await f.boot(async () => {
         assert.equal(Object.hasOwn(f.callbacks(), 'onSchema'), false, 'NO_IN_PLACE_SCHEMA_CALLBACK');
@@ -121,10 +121,10 @@ describe('evaluator schema work bounds', function () {
         await f.callbacks().onRecovered(f.store);
         assert.equal(f.calls.readiness, 1, 'NO_PLATFORM_RECHECK_AFTER_STREAM_RECOVERY');
         console.log(JSON.stringify({ entry: name, cohort: count, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
-        assert.equal(f.calls.scans.length, Math.ceil(count / 64), 'RECOVERY_RECONCILES_ONCE_PER_PAGE');
-        assert.equal(f.calls.scans.flat().length, count, 'RECOVERY_COVERS_ENTIRE_COHORT');
-        assert.equal(f.calls.pages.flat().length, count, 'DURABLE_BOOTSTRAP_COVERS_COHORT');
-        assert(f.calls.pages.every(page => page.length <= 64), 'DURABLE_PAGES_STAY_BOUNDED');
+        // Demand discovery (16768f18f): stream recovery admits tenants with pending durable
+        // work; it neither scans nor bootstraps the roster.
+        assert.deepEqual(f.calls.scans, [], 'DEMAND_RECOVERY_SCANS_NO_ROSTER');
+        assert.deepEqual(f.calls.pages, [], 'DEMAND_RECOVERY_BOOTSTRAPS_NO_ROSTER');
       });
       await service.close();
       if(!selected){
@@ -161,11 +161,6 @@ describe('evaluator schema work bounds', function () {
         assert.equal(f.calls.deliveryRecovery, 1, 'RECONNECT_MUST_RECOVER_DURABLE_NOTIFICATION_WORK');
       } finally { await service.close(); }
     });
-    it(name + ' recovery refuses an uncommitted bootstrap page', async () => {
-      const f = fixture(65, selected); const service = await f.boot();
-      try { f.state.failPage = true; await assert.rejects(f.callbacks().onRecovered(f.store), /SYNTHETIC_COMMIT_LOSS/); assert.equal(f.calls.pages.length, 1); }
-      finally { await service.close(); }
-    });
   }
   async function quietCriterion (selected, lifecycleChange = text => text) {
     const f = fixture(65, selected, 0, text => text, true, lifecycleChange), service = await f.boot();
@@ -176,12 +171,12 @@ describe('evaluator schema work bounds', function () {
       await new Promise(resolve => setImmediate(resolve));
       assert.equal(f.calls.scans.length, scans); assert.equal(f.calls.verify, verified); assert.equal(f.calls.wakes.length, wakes);
       await f.callbacks().onRecovered(f.store);
-      assert.deepEqual(f.calls.scans.flat(), f.ids, 'NOTIFICATION_RECOVERY_RECONCILES_ROSTER');
+      assert.deepEqual(f.calls.scans.flat(), [], 'DEMAND_RECOVERY_SCANS_NO_ROSTER');
     } finally { await service.close(); }
   }
   for (const selected of [false]) {
   const name=selected?'selected fixed-v1':'global';
-  it(name+' quiet streaming has no metadata SQL/roster timer, while transport recovery still reconciles', () => quietCriterion(selected));
+  it(name+' quiet streaming has no metadata SQL/roster timer, and transport recovery reads no roster', () => quietCriterion(selected));
   async function readmissionCriterion (change = text => text) {
     const f = fixture(2, selected, 0, change, true), service = await f.boot();
     try {
@@ -232,7 +227,7 @@ describe('actual preview completion authority after computation',()=>{
   }finally{await service.close();}
  });
  it('control: removing completion refresh publishes stale authority; restored refuses',async()=>{
-  async function criterion(change){const f=fixture(1,false,0,change),service=await f.boot();try{await f.reader().verify();await f.reader().scan(f.ids);f.state.policy=2;await assert.rejects(f.runtimeOptions().durable.complete(f.ids[0],{identity:'1:1'}),/EVALUATOR_COMPLETION_CONFIG_CHANGED/,'CURRENT_AUTHORITY_REQUIRED_AT_COMPLETION');}finally{await service.close();}}
+  async function criterion(change){const f=fixture(1,false,0,change),service=await f.boot();try{await f.reader().verify();await f.reader().scan(f.ids);f.state.paused=true;await assert.rejects(f.runtimeOptions().durable.complete(f.ids[0],{identity:'1:1'}),/EVALUATOR_COMPLETION_ACTIVITY_CHANGED/,'CURRENT_AUTHORITY_REQUIRED_AT_COMPLETION');}finally{await service.close();}}
   await assert.rejects(criterion(text=>{const needle='await trusted.scan([tenant]);const row=';assert.equal(text.split(needle).length,2);return text.replace(needle,'const row=');}),/CURRENT_AUTHORITY_REQUIRED_AT_COMPLETION/);
   await criterion(text=>text);
  });

@@ -63,11 +63,11 @@ describe('live registry admission and dynamic worker rosters',function(){
     finally{await evaluator.close();await realtime.close();}
     await assert.rejects(evalFactory({tenants:[],readCurrent:current,create:async()=>{},recoveryIntervalMs:1,timeIntervalMs:1}),/Explicit/);
   });
-  it('gives a newly added evaluator its own watchdog age and preserves pool-owned/unowned selection',async function(){
+  it('gives a newly added evaluator its own watchdog age',async function(){
     let at=100000;const runtime=await require('../lib/server/serve/evaluator-runtime')({tenants:[],dynamic:true,externalRecovery:true,recoveryIntervalMs:100,timeIntervalMs:100,now:()=>at,
       schedule:()=>null,cancel:()=>{},setTimer:()=>null,clearTimer:()=>{},readCurrent:async tenant=>({tenant,identity:'a'.repeat(64)}),
-      pool:{refresh:async()=>{},admits:tenant=>tenant===B,reason:()=>null},create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0}}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}})});
-    try{runtime.addTenant(A);runtime.addTenant(B);await runtime.acquire(A);await runtime.acquire(B);assert.equal(runtime.last(A),null);assert.ok(runtime.last(B));assert.ok(runtime.health().tenants.every(t=>t.evaluatedAgeMs===0));}
+      create:async()=>({evaluate:async()=>({checkpoint:1,signature:{stamp:1,deleted:0}}),evaluateTime:async()=>({checkpoint:1}),close:()=>{}})});
+    try{runtime.addTenant(A);runtime.addTenant(B);await runtime.acquire(A);await runtime.acquire(B);assert.ok(runtime.last(A));assert.ok(runtime.last(B));assert.ok(runtime.health().tenants.every(t=>t.evaluatedAgeMs===0));}
     finally{await runtime.close();}
   });
 });
