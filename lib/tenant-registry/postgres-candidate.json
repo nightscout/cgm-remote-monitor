@@ -56,6 +56,7 @@
       "name": "0004_tenant_registry_addressed_changes",
       "up": [
         "CREATE TABLE tenant_registry_changes (tenant_id uuid PRIMARY KEY, revision bigint NOT NULL CHECK (revision >= 0))",
+        "CREATE INDEX tenant_registry_changes_revision ON tenant_registry_changes (revision)",
         "REVOKE ALL ON tenant_registry_changes FROM PUBLIC",
         "CREATE FUNCTION tenant_registry_stamp() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $fn$ DECLARE r bigint; BEGIN SELECT c.revision + 1 INTO r FROM tenant_registry_clock c WHERE c.singleton FOR UPDATE; IF r IS NULL THEN RETURN NULL; END IF; IF TG_OP = 'TRUNCATE' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES ('00000000-0000-0000-0000-000000000000'::uuid, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; RETURN NULL; END IF; IF TG_OP <> 'INSERT' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES (OLD.tenant_id, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; END IF; IF TG_OP <> 'DELETE' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES (NEW.tenant_id, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; END IF; RETURN NULL; END $fn$",
         "REVOKE ALL ON FUNCTION tenant_registry_stamp() FROM PUBLIC",
@@ -65,10 +66,10 @@
         "CREATE TRIGGER tenant_registry_hosts_changes_reset AFTER TRUNCATE ON tenant_registry_hosts FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_stamp()",
         "CREATE TRIGGER tenant_registry_keys_changes AFTER INSERT OR UPDATE OR DELETE ON tenant_registry_keys FOR EACH ROW EXECUTE FUNCTION tenant_registry_stamp()",
         "CREATE TRIGGER tenant_registry_keys_changes_reset AFTER TRUNCATE ON tenant_registry_keys FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_stamp()",
-        "CREATE FUNCTION tenant_registry_changed(after_revision bigint, candidates uuid[]) RETURNS TABLE (tenant_id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ BEGIN IF after_revision IS NULL OR candidates IS NULL THEN RAISE EXCEPTION 'TENANT_REGISTRY_CHANGES_REFUSED'; END IF; RETURN QUERY SELECT c.tenant_id FROM tenant_registry_changes c WHERE c.revision > after_revision AND (c.tenant_id = ANY(candidates) OR c.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid); END $fn$",
+        "CREATE FUNCTION tenant_registry_changed(after_revision bigint, candidates uuid[]) RETURNS TABLE (tenant_id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ BEGIN IF after_revision IS NULL OR candidates IS NULL THEN RAISE EXCEPTION 'TENANT_REGISTRY_CHANGES_REFUSED'; END IF; RETURN QUERY WITH since AS MATERIALIZED (SELECT c.tenant_id FROM tenant_registry_changes c WHERE c.revision > after_revision) SELECT s.tenant_id FROM since s WHERE s.tenant_id = ANY(candidates) OR s.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid; END $fn$",
         "REVOKE ALL ON FUNCTION tenant_registry_changed(bigint, uuid[]) FROM PUBLIC"
       ],
-      "checksum": "f9f970f1f1e9c22e00b008bacd56d9ef29269f144bed6b4d856d6df09c44f437"
+      "checksum": "dfcfde99bbe8ff1c21c514a0e2a257c9b4b186a12003b9edde2ac44073e3f2f3"
     }
   ]
 }
