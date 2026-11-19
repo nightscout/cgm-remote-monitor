@@ -229,20 +229,22 @@ describe('owner configuration serving source composition', function () {
     assert.equal(stopped, false); assert.equal(closes, 1); assert.equal(reads, 0);
     releaseClose(); await stopping; await refused; assert.equal(stopped, true);
   });
-  it('a failed display read retires its pool and revalidates a fresh capability next operation', async function () {
-    let opens = 0, closes = 0;
+  // Control: one tenant's failed read never closes the reader for every tenant.
+  it('a failed display read refuses only that read; the shared capability stays open for the next tenant', async function () {
+    let opens = 0, closes = 0, failing = A;
     const file = path.resolve(__dirname, '../lib/tenant-settings/presentation-reader.js');
     const loaded = new Module(file, module); loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
     const original = loaded.require.bind(loaded);
     loaded.require = name => name === './effective-postgres' ? async () => {
-      const generation = ++opens;
-      return { read: async () => { if (generation === 1) throw new Error('synthetic policy outage'); return effective('mmol', false); }, close: async () => { closes++; } };
+      ++opens;
+      return { read: async tenant => { if (tenant === failing) throw new Error('synthetic policy outage'); return effective('mmol', false); }, close: async () => { closes++; } };
     } : original(name);
     loaded._compile(fs.readFileSync(file, 'utf8'), file);
     const lazy = loaded.exports({});
-    await assert.rejects(lazy.read(A), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(closes, 1);
-    assert.equal((await lazy.read(A)).effective.DISPLAY_UNITS.value, 'mmol'); assert.equal(opens, 2);
-    await lazy.close(); assert.equal(closes, 2);
+    await assert.rejects(lazy.read(A), { code: 'SETTINGS_POLICY_UNAVAILABLE' }); assert.equal(closes, 0);
+    assert.equal((await lazy.read(B)).effective.DISPLAY_UNITS.value, 'mmol'); assert.equal(opens, 1);
+    failing = null; assert.equal((await lazy.read(A)).effective.DISPLAY_UNITS.value, 'mmol'); assert.equal(opens, 1);
+    await lazy.close(); assert.equal(closes, 1);
   });
 
   it('omitting the initialization drain makes the late-pool shutdown oracle red and restoration closes it', async function () {

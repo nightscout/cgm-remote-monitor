@@ -40,8 +40,8 @@ optInSuite(!!ADMIN && /test/i.test(new URL(ADMIN || 'postgres://x/none').pathnam
     await q(`CREATE SCHEMA "${ns}"`);
     await run('up', { direct: true, connectionString: ADMIN, namespace: ns, catalogue: registry.catalogue });
     await q(`ALTER SCHEMA "${ns}" OWNER TO "${owner}"`);
-    for (const table of ['tenant_registry', 'tenant_registry_hosts', 'tenant_registry_keys', 'tenant_registry_clock']) await q(`ALTER TABLE "${ns}".${table} OWNER TO "${owner}"`);
-    for (const fn of ['tenant_registry_lookup(text, text)', 'tenant_registry_revision()', 'tenant_registry_tenants(uuid, integer)', 'tenant_registry_touch()']) await q(`ALTER FUNCTION "${ns}".${fn} OWNER TO "${owner}"`);
+    for (const table of ['tenant_registry', 'tenant_registry_hosts', 'tenant_registry_keys', 'tenant_registry_clock', 'tenant_registry_changes']) await q(`ALTER TABLE "${ns}".${table} OWNER TO "${owner}"`);
+    for (const fn of ['tenant_registry_lookup(text, text)', 'tenant_registry_revision()', 'tenant_registry_tenants(uuid, integer)', 'tenant_registry_touch()', 'tenant_registry_stamp()', 'tenant_registry_changed(bigint, uuid[])']) await q(`ALTER FUNCTION "${ns}".${fn} OWNER TO "${owner}"`);
     for (const sql of registry.grants({ namespace: ns, enumerators: [role] })) await q(sql);
   });
   after(async function () {

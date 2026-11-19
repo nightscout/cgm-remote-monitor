@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "operational catalogue: the tenant registry (decision tenant-registry). Tenants, host aliases and public verification keys; host lookup, the aggregate revision and the paged active-tenant enumeration only through three SECURITY DEFINER functions; provisioning pins their search_path and grants EXECUTE to the resolving identities. No clinical data; never part of a tenant artifact, export, erase or restore.",
+  "status": "operational catalogue: the tenant registry (decision tenant-registry). Tenants, host aliases and public verification keys; host lookup, the aggregate revision, the addressed change check and the paged active-tenant enumeration only through four SECURITY DEFINER functions; provisioning pins their search_path and grants EXECUTE to the resolving identities. No clinical data; never part of a tenant artifact, export, erase or restore.",
   "migrations": [
     {
       "name": "0001_tenant_registry",
@@ -51,6 +51,24 @@
         "REVOKE ALL ON FUNCTION tenant_registry_alias(uuid) FROM PUBLIC"
       ],
       "checksum": "bd33527f7e69216869b67662daba301b28c5aabb1add1e3daf1258f88cc7eb05"
+    },
+    {
+      "name": "0004_tenant_registry_addressed_changes",
+      "up": [
+        "CREATE TABLE tenant_registry_changes (tenant_id uuid PRIMARY KEY, revision bigint NOT NULL CHECK (revision >= 0))",
+        "REVOKE ALL ON tenant_registry_changes FROM PUBLIC",
+        "CREATE FUNCTION tenant_registry_stamp() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $fn$ DECLARE r bigint; BEGIN SELECT c.revision + 1 INTO r FROM tenant_registry_clock c WHERE c.singleton FOR UPDATE; IF r IS NULL THEN RETURN NULL; END IF; IF TG_OP = 'TRUNCATE' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES ('00000000-0000-0000-0000-000000000000'::uuid, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; RETURN NULL; END IF; IF TG_OP <> 'INSERT' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES (OLD.tenant_id, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; END IF; IF TG_OP <> 'DELETE' THEN INSERT INTO tenant_registry_changes (tenant_id, revision) VALUES (NEW.tenant_id, r) ON CONFLICT (tenant_id) DO UPDATE SET revision = excluded.revision; END IF; RETURN NULL; END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_stamp() FROM PUBLIC",
+        "CREATE TRIGGER tenant_registry_changes AFTER INSERT OR UPDATE OR DELETE ON tenant_registry FOR EACH ROW EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE TRIGGER tenant_registry_changes_reset AFTER TRUNCATE ON tenant_registry FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE TRIGGER tenant_registry_hosts_changes AFTER INSERT OR UPDATE OR DELETE ON tenant_registry_hosts FOR EACH ROW EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE TRIGGER tenant_registry_hosts_changes_reset AFTER TRUNCATE ON tenant_registry_hosts FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE TRIGGER tenant_registry_keys_changes AFTER INSERT OR UPDATE OR DELETE ON tenant_registry_keys FOR EACH ROW EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE TRIGGER tenant_registry_keys_changes_reset AFTER TRUNCATE ON tenant_registry_keys FOR EACH STATEMENT EXECUTE FUNCTION tenant_registry_stamp()",
+        "CREATE FUNCTION tenant_registry_changed(after_revision bigint, candidates uuid[]) RETURNS TABLE (tenant_id uuid) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $fn$ BEGIN IF after_revision IS NULL OR candidates IS NULL THEN RAISE EXCEPTION 'TENANT_REGISTRY_CHANGES_REFUSED'; END IF; RETURN QUERY SELECT c.tenant_id FROM tenant_registry_changes c WHERE c.revision > after_revision AND (c.tenant_id = ANY(candidates) OR c.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid); END $fn$",
+        "REVOKE ALL ON FUNCTION tenant_registry_changed(bigint, uuid[]) FROM PUBLIC"
+      ],
+      "checksum": "f9f970f1f1e9c22e00b008bacd56d9ef29269f144bed6b4d856d6df09c44f437"
     }
   ]
 }

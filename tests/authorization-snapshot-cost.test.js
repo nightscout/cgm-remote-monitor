@@ -11,7 +11,7 @@ const createDataAccess = require('../lib/server/tenant-app/data-access');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 
-async function fixture () {
+async function fixture (tries = { built: 0 }) {
   const states = new Map([[A, ['readable']], [B, ['denied']]]), queries = [], subjects = new Map();
   const file = require.resolve('../lib/tenant-authorization/postgres');
   const realRequire = Module.createRequire(file), output = { exports: {} };
@@ -27,7 +27,8 @@ async function fixture () {
     }
   };
   const requireMock = name => name === '../storage/postgres-connection' ? async () => connection
-    : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' } : realRequire(name);
+    : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' }
+    : name === 'shiro-trie' ? { new: () => { tries.built++; return realRequire(name).new(); } } : realRequire(name);
   vm.runInNewContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', {}, { filename: file })(requireMock, output, output.exports);
   const authority = await output.exports({ connectionString: 'synthetic', namespace: 'synthetic_auth' });
   const socket = principal => createSocketAuthority({ authority,
@@ -37,6 +38,19 @@ async function fixture () {
 }
 
 describe('operation-local authorization snapshots', function () {
+  // Control: the compiled Shiro trie is shared per permission set; the
+  // authority rows are still read in every operation's own query, so a
+  // revocation is refused on the next operation.
+  it('compiles a permission set once across operations and still reads authority for every operation', async function () {
+    const tries = { built: 0 }, f = await fixture(tries), socket = f.socket({ kind: 'anonymous' });
+    const verify = tenant => socket.verify({ tenant, namespace: '/', credential: {} });
+    for (let i = 0; i < 20; i++) assert.equal((await verify(A)).permissions.read, true);
+    assert.equal(f.queries.length, 20, 'one authority query per operation');
+    assert.equal(tries.built, 1, 'AUTHZ_TRIE_PER_REQUEST ' + tries.built);
+    f.states.set(A, ['denied']);
+    assert.equal((await verify(A)).permissions.read, false, 'revocation refused on the next operation');
+  });
+
   it('does one current SQL query for every root or anonymous socket decision, with no per-permission queries', async function () {
     for (const principal of [{ kind: 'anonymous' }, { kind: 'root' }]) {
       const f = await fixture();

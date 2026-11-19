@@ -46,8 +46,8 @@ optInSuite(!!ADMIN && /test/i.test(new URL(ADMIN || 'postgres://x/none').pathnam
     await run('up', { direct: true, connectionString: ADMIN, namespace: ns, catalogue: registry.catalogue });
     // As a deployment bootstrap does: catalogue objects belong to the NOLOGIN owner.
     await q(`ALTER SCHEMA "${ns}" OWNER TO "${owner}"`);
-    for (const table of ['tenant_registry', 'tenant_registry_hosts', 'tenant_registry_keys', 'tenant_registry_clock']) await q(`ALTER TABLE "${ns}".${table} OWNER TO "${owner}"`);
-    for (const fn of ['tenant_registry_lookup(text, text)', 'tenant_registry_revision()', 'tenant_registry_tenants(uuid, integer)', 'tenant_registry_touch()']) await q(`ALTER FUNCTION "${ns}".${fn} OWNER TO "${owner}"`);
+    for (const table of ['tenant_registry', 'tenant_registry_hosts', 'tenant_registry_keys', 'tenant_registry_clock', 'tenant_registry_changes']) await q(`ALTER TABLE "${ns}".${table} OWNER TO "${owner}"`);
+    for (const fn of ['tenant_registry_lookup(text, text)', 'tenant_registry_revision()', 'tenant_registry_tenants(uuid, integer)', 'tenant_registry_touch()', 'tenant_registry_stamp()', 'tenant_registry_changed(bigint, uuid[])']) await q(`ALTER FUNCTION "${ns}".${fn} OWNER TO "${owner}"`);
     for (const sql of grants()) await q(sql);
     await seed(A, [['one.example.test', 'alias'], ['one-internal.svc.test', 'internal']]);
     await seed(B, [['two.example.test', 'alias']]);
@@ -139,6 +139,23 @@ optInSuite(!!ADMIN && /test/i.test(new URL(ADMIN || 'postgres://x/none').pathnam
     await q(`DELETE FROM "${ns}".tenant_registry_hosts WHERE tenant_id = $1`, [D]);
     await q(`UPDATE "${ns}".tenant_registry SET state = 'removed' WHERE tenant_id = $1`, [D]);
     assert.ok(BigInt(await r.revision()) > after);
+  });
+
+  it('TR_ADDRESSED: a change names only the tenants it touched, from the revision snapshot; another tenant\'s change is not disclosed', async function () {
+    const api = reader('api'), realtime = reader('realtime');
+    const before = await api.revision();
+    assert.deepEqual([...(await api.changed(before, [A, B])).changed], []);
+    await q(`INSERT INTO "${ns}".tenant_registry_keys (tenant_id, purpose, kid, public_key) VALUES ($1, 'access', 'key2', $2)`, [B, key()]);
+    const E = randomUUID();
+    await seed(E, [['five.example.test', 'alias']]);
+    const moved = await api.changed(before, [A, B]);
+    assert.ok(BigInt(moved.revision) > BigInt(before));
+    assert.deepEqual([...moved.changed], [B], 'B changed; A did not; E is not disclosed to a caller that did not name it');
+    assert.deepEqual([...(await realtime.changed(moved.revision, [A, B, E])).changed], []);
+    await q(`DELETE FROM "${ns}".tenant_registry_hosts WHERE tenant_id = $1`, [E]);
+    await q(`UPDATE "${ns}".tenant_registry SET state = 'removed' WHERE tenant_id = $1`, [E]);
+    assert.deepEqual([...(await realtime.changed(moved.revision, [A, B, E])).changed], [E], 'removal is addressed to the removed tenant');
+    await assert.rejects(connections.intruder.readOnly(`SELECT * FROM "${ns}".tenant_registry_changed(0, ARRAY[]::uuid[])`), { code: '42501' });
   });
 
   it('TR_ENUMERATE: pages of active ids in id order, one revision per enumeration', async function () {

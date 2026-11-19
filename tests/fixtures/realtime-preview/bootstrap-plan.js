@@ -35,7 +35,7 @@ function resetTables () {
     legacy:['legacy_data_keys','legacy_credential_subjects','legacy_credential_config'],access:['access_tenants','access_credentials','access_sessions','access_keys','management_session_requests'],
     clock:['tenant_write_clock'],rt_checkpoint:['tenant_consumer_checkpoint'],eval_checkpoint:['tenant_consumer_checkpoint'],
     alarm:['tenant_alarm_suppression'],outbox:['tenant_notification_state','tenant_notification_heads','tenant_notification_requests'],
-    registry:['tenant_registry','tenant_registry_hosts','tenant_registry_keys','tenant_registry_clock'],
+    registry:['tenant_registry','tenant_registry_hosts','tenant_registry_keys','tenant_registry_clock','tenant_registry_changes'],
     display_settings:['tenant_settings','tenant_settings_history','tenant_connector_sources','tenant_connector_source_history'],operator_policy:['tenant_operator_policy'],
     control:['tenant_lifecycle_requests','tenant_lifecycle_ceremony','tenant_lifecycle_windows','tenant_lifecycle_operations','tenant_lifecycle_restore_authority','tenant_lifecycle_restore_audit','tenant_lifecycle_key_retention','tenant_activity','tenant_activity_audit','tenant_lifecycle_restore_resume','tenant_lifecycle_operation_clearance']};
 }
