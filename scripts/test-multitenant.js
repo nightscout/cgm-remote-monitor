@@ -234,7 +234,7 @@ const INVENTORY = [
     note: 'owns its PostgreSQL; its differential cases open CUSTOMCONNSTR_mongo' },
   { file: 'tests/clinical-ack-tenant-independent.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'one tenant\'s exact recovery never holds another tenant\'s receipt; first-seen receipt durable; restore fence refuses (decision ack-path-tenant-independent)' },
-  { file: 'tests/clinical-stream-born.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+  { file: 'tests/clinical-stream-born.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'a tenant whose provisioning arrives through the stream evaluates its first input with no snapshot recovery (decision predictable-fixes-then-test)' },
   { file: 'tests/realtime-socket-write-authority.integration.test.js', flags: { NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,
     note: 'forwarded socket writes are authorized once, at their own api admission (decision credential-rotation-next-request)' },

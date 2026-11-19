@@ -115,7 +115,7 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRE
 
   it('API proof admission suppresses the full settings screen at open, check and failed-read reopen while reads fail closed', async function () {
     const binding = { connectionString: url.toString(), namespaces };
-    const presentation = require('../lib/tenant-settings/presentation-reader')(binding, { platformVerified: true });
+    const presentation = require('../lib/tenant-settings/presentation-reader')(binding, { roleAdmitted: true });
     const relation = '"' + namespaces.settings + '".tenant_settings';
     try {
       const opened = await counted(() => presentation.check());

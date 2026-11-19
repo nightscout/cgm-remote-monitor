@@ -93,9 +93,9 @@ describe('settings owned read snapshot guard sequence', function () {
     assert.equal(factory.SCREEN_INTERVAL_MS, undefined);
     assert.doesNotMatch(fs.readFileSync(path.resolve(__dirname, '../lib/tenant-settings/effective-postgres.js'), 'utf8'), /screenIntervalMs|admitBackend|AsyncLocalStorage/);
   });
-  it('an API admitted by the platform opens and checks without metadata SQL, while a config key cannot bypass the strict default', async function () {
+  it('an API that completed role readiness opens and checks without metadata SQL, while a config key cannot bypass the strict default', async function () {
     async function criterion (ablation) {
-      const f = fixture(ablation), reader = await f.open({ platformVerified: true });
+      const f = fixture(ablation), reader = await f.open({ roleAdmitted: true });
       try {
         assert.equal(f.calls.length, 0, 'verified open sends no metadata SQL');
         await reader.check(); assert.equal(f.calls.length, 0, 'verified owner check sends no metadata SQL');
@@ -108,7 +108,7 @@ describe('settings owned read snapshot guard sequence', function () {
     await criterion();
     await assert.rejects(criterion('perRead'), { code: 'ERR_ASSERTION' }, 'restoring a read-time metadata screen is red');
     const strict = fixture(); strict.state.role = { rolsuper: true };
-    await assert.rejects(strict.open(undefined, { ...config, platformVerified: true }), /unsafe settings identity/,
+    await assert.rejects(strict.open(undefined, { ...config, roleAdmitted: true }), /unsafe settings identity/,
       'only the internal second argument conveys the already-admitted proof');
     await criterion();
   });

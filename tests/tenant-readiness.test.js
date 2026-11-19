@@ -230,7 +230,7 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
     try {
       await turn();
       assert.equal(checks, 0, 'no display store probe precedes the DATA listener');
-      assert.equal(lab.calls.settingsOptions.platformVerified, true, 'API skips the display store screen');
+      assert.equal(lab.calls.settingsOptions.roleAdmitted, true, 'API skips the display store screen');
       assert.equal(role.health().ready, true, 'pending presentation reads do not withdraw DATA readiness');
       assert.equal(role.health().displaySettings.state, 'pending');
       await role.attach({}); await turn();
