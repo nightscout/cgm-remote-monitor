@@ -17,27 +17,28 @@ function fixture(mutate,{platformVerified=false}={}){
 }
 describe('API display and notification ACK settings reader ownership',function(){
  let prior;beforeEach(()=>{prior=scope.getTenancyMode();scope.setTenancyMode('multi');});afterEach(()=>scope.setTenancyMode(prior));
- it('shares one lazy capability, reads fresh settings for every ACK, reconnects and closes once',async()=>{
+ it('shares one lazy capability, reads fresh settings for every ACK, keeps it across a failed read and closes once',async()=>{
   const f=fixture();assert.equal(f.reader.health().ready,false);await f.reader.check();
   assert.equal((await f.ack()).accepted,true);f.setVersion(2);await f.ack();
   assert.equal(f.calls.open,1);assert.equal(f.calls.read,4);assert.equal(f.calls.check,0);
   f.setChange(true);await assert.rejects(f.ack(),{code:'SOCKET_NOTIFICATION_STATE_CONFIG_REFUSED'});f.setChange(false);
-  f.setFail(true);await assert.rejects(f.ack(),{code:'SETTINGS_POLICY_UNAVAILABLE'});assert.equal(f.reader.health().ready,false);assert.equal(f.calls.close,1);
-  f.setFail(false);await f.ack();assert.equal(f.calls.open,2);assert.equal(f.reader.health().ready,true);
-  await f.reader.close();await f.reader.close();assert.equal(f.calls.close,2);await assert.rejects(f.ack(),{code:'SETTINGS_POLICY_UNAVAILABLE'});
+  // A failed read refuses that read only; the shared capability stays open.
+  f.setFail(true);await assert.rejects(f.ack(),{code:'SETTINGS_POLICY_UNAVAILABLE'});assert.equal(f.reader.health().ready,true);assert.equal(f.calls.close,0);
+  f.setFail(false);await f.ack();assert.equal(f.calls.open,1);assert.equal(f.reader.health().ready,true);
+  await f.reader.close();await f.reader.close();assert.equal(f.calls.close,1);await assert.rejects(f.ack(),{code:'SETTINGS_POLICY_UNAVAILABLE'});
  });
  it('drains an in-flight ACK read before exact idempotent cleanup',async()=>{
   const f=fixture();await f.reader.check();let release;f.setHold(new Promise(r=>release=r));const ack=f.ack();await new Promise(setImmediate);
   let ended=false;const closing=f.reader.close().then(()=>ended=true);await new Promise(setImmediate);assert.equal(ended,false);assert.equal(f.calls.close,0);
   release();await assert.rejects(ack,{code:'SETTINGS_POLICY_UNAVAILABLE'});await closing;assert.equal(f.calls.close,1);
  });
- it('keeps the API proof trust on a failed-read reopen, and refuses failed ACK settings reads',async()=>{
+ it('keeps the API proof trust, and refuses a failed ACK settings read without reopening',async()=>{
   const f=fixture(undefined,{platformVerified:true});
   try{
    await f.ack();f.setFail(true);await assert.rejects(f.ack(),{code:'SETTINGS_POLICY_UNAVAILABLE'});
-   assert.equal(f.reader.health().ready,false);assert.equal(f.calls.close,1);
+   assert.equal(f.reader.health().ready,true);assert.equal(f.calls.close,0);
    f.setFail(false);f.setVersion(2);await f.ack();
-   assert.equal(f.calls.open,2);assert.equal(f.calls.openOptions.length,2);
+   assert.equal(f.calls.open,1);assert.equal(f.calls.openOptions.length,1);
    assert(f.calls.openOptions.every(options=>options.platformVerified===true),'every open uses the internal proof option');
    assert.equal(f.reader.health().ready,true);
   }finally{await f.reader.close();}

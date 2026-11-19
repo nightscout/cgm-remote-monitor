@@ -77,7 +77,7 @@ describe('evaluator retained settings capability', function () {
       assert.equal(f.calls.close, finite ? 3 : 1);
     }
   });
-  it('refuses an unsafe-object, readiness or catalogue failure at check() and reopen, and a transport failure at read; recovers with a new capability', async function () {
+  it('refuses an unsafe-object, readiness or catalogue failure at check() and reopen, recovering with a new capability; a transport failure refuses only that read', async function () {
     for (const [key, pattern] of [['unsafe', /SETTINGS_STORE_UNSAFE/], ['readinessFails', /synthetic readiness/], ['catalogueFails', /synthetic catalogue/], ['queryFails', /synthetic query/]]) {
       const f = fixture(); try {
         await f.read(A); assert.equal(f.reader.health().ready, true); f.state[key] = true;
@@ -89,11 +89,12 @@ describe('evaluator retained settings capability', function () {
           // The reopen after an eviction is the recovery screen; it refuses too.
           await assert.rejects(f.read(A), pattern); assert.equal(f.calls.read, reads + 1, 'no value read while refused');
         }
-        // check() retires the held pool; a refused reopen closes its own pool too.
+        // check() retires the held pool; a refused reopen closes its own pool
+        // too. A failed read is that tenant's: the shared pool stays.
         const transport = key === 'queryFails';
-        assert.equal(f.calls.close, transport ? 1 : 2); assert.equal(f.reader.health().ready, false); assert.equal(f.reader.health().state, 'unavailable');
-        f.state[key] = false; await f.read(B); assert.equal(f.calls.pool, transport ? 2 : 3); assert.equal(f.reader.health().ready, true);
-        assert.equal(f.calls.readiness, transport ? 2 : 4, 'only open, check() and the reopen after an eviction screen');
+        assert.equal(f.calls.close, transport ? 0 : 2); assert.equal(f.reader.health().ready, transport); assert.equal(f.reader.health().state, transport ? 'ready' : 'unavailable');
+        f.state[key] = false; await f.read(B); assert.equal(f.calls.pool, transport ? 1 : 3); assert.equal(f.reader.health().ready, true);
+        assert.equal(f.calls.readiness, transport ? 1 : 4, 'only open, check() and the reopen after an eviction screen');
       } finally { await f.reader.close(); }
     }
   });
@@ -240,7 +241,8 @@ describe('bounded evaluator settings admission', function () {
       f.state.beforeRead = async () => { if (jobs.getStore() === 'failure') throw Error('synthetic concurrent failure'); if (jobs.getStore() === 'held') await readGate.promise; };
       f.state.beforeClose = () => closeGate.promise;
       const held = jobs.run('held', () => f.read(A)); await turn();
-      const failed = assert.rejects(jobs.run('failure', () => f.read(B)), /synthetic concurrent failure/); await turn();
+      // check() refuses and retires the held pool while a read still holds it.
+      f.state.unsafe = true; const failed = assert.rejects(f.reader.check(), /SETTINGS_STORE_UNSAFE/); await turn(); f.state.unsafe = false;
       const replacement = jobs.run('replacement', () => f.read(B)); await turn(); const poolsBeforeDrain = f.calls.pool;
       readGate.resolve(); await held; closeGate.resolve(); await failed; await replacement; await f.reader.close();
       return poolsBeforeDrain;
@@ -251,10 +253,10 @@ describe('bounded evaluator settings admission', function () {
   it('a failed retirement permanently refuses evaluator replacement; removing the guard is red', async function () {
     async function observe (unsafeReplacement) {
       const f = fixture({ unsafeReplacement }); await f.read(A);
-      f.state.beforeRead = async () => { throw Error('synthetic dependency'); };
+      f.state.unsafe = true;
       f.state.beforeClose = async () => { throw Error('synthetic unconfirmed close'); };
-      await assert.rejects(f.read(B), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && /synthetic dependency/.test(error.cause.message) && /synthetic unconfirmed close/.test(error.cleanupError.message));
-      f.state.beforeRead = undefined; f.state.beforeClose = undefined;
+      await assert.rejects(f.reader.check(), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && /SETTINGS_STORE_UNSAFE/.test(error.cause.message) && /synthetic unconfirmed close/.test(error.cleanupError.message));
+      f.state.unsafe = false; f.state.beforeClose = undefined;
       if (unsafeReplacement) await f.read(B);
       else await assert.rejects(f.read(B), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
       const constructors = f.calls.pool; await assert.rejects(f.reader.close(), /shutdown failed/); return constructors;
