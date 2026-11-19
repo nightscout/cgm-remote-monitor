@@ -37,8 +37,9 @@ creating new private state.
 Selected API ACK admission links to the **same evaluator configuration file** via
 optional `socketForwarding.consumerState.evaluatorConfigEnv`. It derives the
 consumer key, outbox namespace and bounds; it does not open a worker connection.
-The existing ACK connection receives SELECT only on producer state and its ledger.
-The same transaction advisory fence precedes STATE and HEAD/REQUEST or suppression
+The ACK connection receives SELECT on producer state and its ledger. An authorized
+ACK marks its producer for recovery through a tenant-bound function in the same
+transaction as suppression. The same advisory fence precedes STATE and HEAD/REQUEST or suppression
 locks in both processes. After that fence the ACK clock and original credential
 permission are checked again. An ACK during an active plugin snooze is ignored,
 preserving its original expiry; plugins never write owner suppression rows.
@@ -76,12 +77,13 @@ budget.
 The outbox worker has SELECT/INSERT plus exact mutable-column UPDATE on requests,
 heads and state, and SELECT on its migration ledger. The suppression reader has
 SELECT only on suppression and its ledger. Neither gains clinical/checkpoint
-writes, schema creation or ownership. The selected ACK writer retains its existing
-suppression mutation authority and gains only producer-state/ledger SELECT.
+writes, schema creation or ownership. A narrowly granted function returns indexed
+notification deadlines and tenant IDs. The clinical checkpoint separately marks
+unconsumed notification output until the matching producer transaction commits.
 Migration `0001_tenant_notification_outbox` stays unchanged. Append-only `0002`
 refuses any populated old heads/requests before creating producer state: no silent
-assumption that old browser alarm provenance is empty. A populated upgrade needs a
-separately reviewed recovery procedure.
+assumption that old browser alarm provenance is empty. The later due discovery
+migration indexes the existing retries, attempt leases and repeats in place.
 
 ## Prepared joined native campaign
 

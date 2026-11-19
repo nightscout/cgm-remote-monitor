@@ -26,7 +26,7 @@ describe('notification partition pre-send and independent user ACK source contro
   assert.equal(sent.signal.aborted,true);done(null,{accepted:true});assert.equal(f.snapshot().requests[0].state,'attempting');
  });
  it('accepts the explicit opt-in ledger for read-only ACK with no live worker or pool/checkpoint query',async function(){
-  const f=fixture(),catalogue=candidate.build(binding).catalogue;let queries=0;
+  const f=fixture(),catalogue=candidate.build(binding).catalogue;f.unsafe({partition:true});let queries=0;
   const connection={async query(sql,values){queries++;assert(!/pool_membership|pool_desired|tenant_consumer_checkpoint/.test(sql));
    if(sql.includes('notification-readiness-ledger'))return {rows:catalogue.migrations.map(({name,checksum})=>({name,checksum}))};
    if(sql.includes('notification-ack-time'))return {rows:[{now_ms:String(f.now())}]};

@@ -193,21 +193,24 @@ describe('selected evaluator role consumes notification composition', function (
     const held = new Promise(resolve => { release = resolve; });
     const clinical = { end: async () => { calls.push('clinical-end'); } };
     const consumer = { start () { calls.push('consumer-start'); }, wake () { calls.push('consumer-wake'); return held; },
-      retry () {}, flush () {}, health: () => ({ enabled: true }), async close () { calls.push('consumer-close'); release(); } };
-    const runtime = { acquire: async () => { calls.push('clinical-acquire'); }, tick: async () => {},
+      retry () {}, flush () {}, health: () => ({ enabled: true }), addTenant(){}, async close () { calls.push('consumer-close'); release(); } };
+    const runtime = { addTenant(){}, acquire: async () => { calls.push('clinical-acquire'); }, tick: async () => {},
       last: () => null, isCurrent: async () => true, health: () => ({ tenants: [] }), close: async () => { calls.push('clinical-close'); } };
     const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
       if(Object.hasOwn(nativePorts,name))return nativePorts[name];
       if (name === '../../storage/postgres-durable-replay') return () => nativeBoot.replay({events:nativeEvents});
       if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
-      if (name === './registry-tenant-set') return {open:async()=>({tenants:new Map([[A,parse.registryEntry(A)]]),isActive:()=>true,revision:()=>1,stats:()=>({}),follow:async()=>{},close:async()=>{}})};
+      if (name === './registry-tenant-set') return {openDemand:async()=>{
+        const tenants = new Map([[A,parse.registryEntry(A)]]);
+        return {tenants,lookup:async tenant=>tenants.get(tenant),isActive:()=>true,revision:()=>1,stats:()=>({}),onRemove(){},close:async()=>{}};
+      }};
       if (name === '../../pool-membership') return {member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})};
-      if (name === './evaluator-pool') return {create:()=>({partitioned:false,start(){},refresh:async()=>{},admits:()=>true,close(){}})};
+      if (name === './evaluator-pool') return {create:()=>({partitioned:false,start(){},addTenant(){},refresh:async()=>{},admits:()=>true,close(){}})};
       if (name === '../../trusted-worker/postgres') return {create:()=>({scan:async()=>new Map(),read:async()=>({version:1,effective:{},policyGeneration:1}),current:()=>null,state:()=>({available:true,generation:1}),health:()=>({available:true}),close:async()=>{}})};
-      if (name === '../../trusted-worker/lifecycle') return async()=>({version:()=>1,activateRefresh(){},close:async()=>{}});
-      if (name === '../../pgstream/evaluator') return {open:async()=>({store:{work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})};
+      if (name === '../../trusted-worker/lifecycle') return async()=>({version:()=>1,activateRefresh(){},verify:async()=>{},close:async()=>{}});
+      if (name === '../../pgstream/evaluator') return {open:async()=>({store:{admit:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})};
       if (name === '../../migrations/postgres') return {run:async()=>{}};
-      if (name === './tenant-startup') return {create:()=>({warm:async()=>{},close:async()=>{},health:()=>({})})};
+      if (name === './tenant-startup') return {create:()=>({warm:async()=>{},addTenant(){},close:async()=>{},health:()=>({})})};
       // The role's one platform check is recorded as its startup readiness.
       if (name === './platform-verification') return require('./fixtures/platform-proof')(undefined, async () => { calls.push('clinical-readiness'); });
       if (name === './evaluator-readiness') return Object.assign(async () => { calls.push('clinical-readiness'); }, {provisionTenant: async () => {}});
@@ -317,7 +320,7 @@ describe('event driven notification recovery without quiet discovery', function 
   }
   it('restart restores durable retry/repeat and explicit reconnect recovers a dropped output wake',async()=>{await recovery();});
   it('breaking startup reconciliation or reconnect reconciliation is red; restored paths pass',async function(){
-    for(const needle of ["      sweep('start', 'run', tenants);", "          await sweep('recovery', 'run', [...tenants]);"]) {
+    for(const needle of ["      sweep('start', 'run', tenants);", "else await sweep('recovery', 'run', [...tenants]);"]) {
       const source=fs.readFileSync(require.resolve('../lib/server/serve/evaluator-consumers'),'utf8');
       assert.equal(source.split(needle).length,2,'CONTROL_MUST_LAND');
       const symptom=needle.includes("'start'")?'RESTART_RECOVERS_DURABLE_ID':'RECONNECT_RECOVERS_LOST_WAKE';

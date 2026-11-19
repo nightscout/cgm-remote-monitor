@@ -160,14 +160,15 @@ describe('selected API evaluator metadata without worker credentials',function()
         {evaluatorConfigEnv:'LINKED_EVALUATOR'},{LINKED_EVALUATOR:file,SETTINGS_PG:env.EVALUATOR_PG},
         {namespace:'metadata_alarm',connectionString:env.SUPPRESSION_PG});
       const a=require('./fixtures/tenant-alarm-protocol')(),n=require('./fixtures/tenant-notifications')();
-      if(partitioned)n.unsafe({ledger:parse.parseMetadata(value).consumers.realtime.expectedCatalogue.migrations.map(({name,checksum})=>({name,checksum}))});
+      if(partitioned)n.unsafe({partition:true,ledger:parse.parseMetadata(value).consumers.realtime.expectedCatalogue.migrations.map(({name,checksum})=>({name,checksum}))});
       const db={transaction:fn=>n.connection.transaction(()=>a.db.transaction(fn)),async query(sql,args){
         assert(!/pool_membership|pool_desired|tenant_consumer_checkpoint/.test(sql),'ACK_NEVER_READS_LIVE_WORKERS_OR_ASSIGNMENTS');
         if(sql.startsWith('SELECT c.anonymous_roles'))return {rows:[{anonymous_roles:['denied']}]};
         if(sql.includes('notification-ack-time'))return a.db.query(sql,args);
         if(sql.includes('notification-')||sql.includes('tenant_notification_state')){
           const result=await n.connection.query(sql,args);
-          if(sql.includes('notification-readiness-table'))for(const row of result.rows){row.inserts=false;row.any_writes=false;row.columns.forEach(column=>{column.inserts=false;column.updates=false;});}
+          if(sql.includes('notification-readiness-schedule'))for(const row of result.rows){row.executable=!row.schedule;row.proconfig=['search_path=metadata_outbox, pg_catalog'];}
+        if(sql.includes('notification-readiness-table'))for(const row of result.rows){row.inserts=false;row.any_writes=false;row.columns.forEach(column=>{column.inserts=false;column.updates=false;});}
           return result;
         }
         return a.db.query(sql,args);

@@ -23,13 +23,14 @@ module.exports = function fixture () {
   };
   function metadata (table) {
     const ledger = table === 'schema_migrations';
-    return { kind: 'r', persistence: 'p', secured: !ledger, owns: false, schema_writes: false, reads: true, inserts: !ledger,
+    const schedule = /_(requests|state)$/.test(table) && !unsafe.partition ? [{ command:'r', roles:[7], permissive:true, using:'true', check:null }] : [];
+    return { kind: 'r', persistence: 'p', owner:'7', secured: !ledger, owns: false, schema_writes: false, reads: true, inserts: !ledger,
       broad_writes: false, any_writes: !ledger,
       columns: layouts[table].map(([name,type,notNull,updates]) => ({ name, type, not_null: notNull, updates: !!updates, inserts: !ledger })),
       primary_key: ledger ? ['name'] : table.endsWith('state') ? ['tenant_id','consumer'] : table.endsWith('heads') ? ['tenant_id','consumer','dedup_key'] : ['tenant_id','request_id'],
       policies: ledger ? [] : [{ command: '*', roles: [0], permissive: true,
         using: "tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid",
-        check: "tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid" }], ...unsafe.tables?.[table] };
+        check: "tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid" }, ...schedule], ...unsafe.tables?.[table] };
   }
   const connection = {
     async transaction (fn) {
@@ -49,6 +50,19 @@ module.exports = function fixture () {
         rolcreaterole: false, rolcreatedb: false, rolreplication: false, owns_schema: false, schema_writes: false,
         any_schema_writes: false, database_create: false, elevated_membership: false, foreign_writes: false, ...unsafe.role }] };
       if (sql.includes('notification-readiness-table')) return { rows: [metadata(values[0].split('.').at(-1))] };
+      if (sql.includes('notification-readiness-schedule')) {
+        const migration = require('../../lib/tenant-notifications/postgres-candidate.json').migrations.at(-1);
+        return {rows:[true,false].map(schedule=>{
+          const tag=schedule?'$schedule$':'$mark$';
+          return {schedule,prosecdef:true,owner_matches:true,executable:schedule,private:true,
+            proconfig:['search_path=notification_test, pg_catalog'],prosrc:migration.up.find(s=>s.startsWith('CREATE FUNCTION')&&s.includes(tag)).split(tag)[1]};
+        })};
+      }
+      if (sql.includes('notification-ack-discovery')) {
+        const producer=states.find(row=>row.tenant_id===values[0]&&row.consumer===values[1])?.producer;
+        if (producer) producer.ackPending=true;
+        return {rows:[{}]};
+      }
       if (sql.includes('notification-readiness-ledger')) {
         const migrations = require('../../lib/tenant-notifications/postgres-candidate.json').migrations;
         return { rows: unsafe.ledger || migrations.map(({name, checksum}) => ({name, checksum})) };

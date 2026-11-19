@@ -30,6 +30,7 @@ describe('selected ACK and producer share durable state admission', function () 
         assert.ok(!sql.includes('FOR UPDATE'), 'ACK state SELECT must require no UPDATE authority');
         if (sql.includes('notification-producer-lock')) locks.push(values[0]);
         const result = await n.connection.query(sql, values);
+        if(sql.includes('notification-readiness-schedule'))for(const row of result.rows)row.executable=!row.schedule;
         if (sql.includes('notification-readiness-table')) for (const row of result.rows) {
           row.inserts = false; row.any_writes = false; row.columns.forEach(column => {column.inserts = false; column.updates = false;});
         }

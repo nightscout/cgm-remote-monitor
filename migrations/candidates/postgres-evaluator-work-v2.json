@@ -41,6 +41,15 @@
         "CREATE INDEX pgstream_evaluator_delivery ON tenant_consumer_checkpoint (consumer, tenant_id) WHERE work_version=2 AND delivery_revision > delivery_ack_revision"
       ],
       "checksum": "b9b731bfb3b128738e7ba60ef3f9a6e87b2cc500bbaa9d5a211c3307f525b18b"
+    },
+    {
+      "name": "0008_evaluator_notification_pending",
+      "checksum": "4917219dedfb7a8349278c4e465802d4f811e7d1fa5022abccdc93ce2920dace",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN notification_work_pending boolean NOT NULL DEFAULT false",
+        "UPDATE tenant_consumer_checkpoint SET notification_work_pending=true WHERE work_version=2 AND jsonb_path_exists(projection,'$[0].output.result.requested[*]')",
+        "CREATE INDEX pgstream_evaluator_notification_pending ON tenant_consumer_checkpoint (consumer,tenant_id) WHERE work_version=2 AND work_enabled AND notification_work_pending"
+      ]
     }
   ]
 }

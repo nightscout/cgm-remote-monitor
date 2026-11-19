@@ -28,6 +28,7 @@ module.exports = function nativeLab () {
     await lab.admin.query(`CREATE ROLE "${lab.role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     await lab.admin.query(`GRANT SELECT ON "${name}".schema_migrations TO "${lab.role}"`);
     await lab.admin.query(`GRANT USAGE ON SCHEMA "${name}" TO "${lab.role}"`);
+    await lab.admin.query(`GRANT EXECUTE ON FUNCTION "${name}".tenant_notification_schedule(text,uuid[],integer,integer,bigint) TO "${lab.role}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(request_id,blocked_until) ON "${name}".tenant_notification_heads TO "${lab.role}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(state,next_at,attempt,attempt_token,attempt_until,accepted_at,receipt,cleared_at) ON "${name}".tenant_notification_requests TO "${lab.role}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(revision,config_identity,producer) ON "${name}".tenant_notification_state TO "${lab.role}"`);

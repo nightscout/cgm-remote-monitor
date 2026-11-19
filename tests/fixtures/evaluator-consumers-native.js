@@ -18,6 +18,7 @@ const parser = require('../../lib/server/serve/evaluator-config');
 module.exports = function consumersLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
   const name = 'consumer_join_' + randomUUID().replace(/-/g, '').slice(0, 16), children = new Set();
+  const outboxOwner = name + '_owner';
   const roles = { outbox: name + '_outbox', reader: name + '_reader', writer: name + '_writer' };
   const namespaces = { outbox: name + '_outbox', alarm: name + '_alarm' };
   let directory, source, sink, writer, configuredFile, schemaReady = false;
@@ -45,6 +46,15 @@ module.exports = function consumersLab () {
       ownedSchemas.add(namespace);
       await run('up', {direct:true, connectionString:adminUrl.toString(), namespace, catalogue});
     }
+    await lab.admin.query(`CREATE ROLE "${outboxOwner}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
+    createdRoles.add(outboxOwner);
+    for (const table of require('../../lib/tenant-notifications/partition-candidate').TABLES) {
+      await lab.admin.query(`ALTER TABLE "${namespaces.outbox}"."${table}" OWNER TO "${outboxOwner}"`);
+    }
+    await lab.admin.query(`ALTER SCHEMA "${namespaces.outbox}" OWNER TO "${outboxOwner}"`);
+    for (const sql of require('../../lib/server/ordinary-deployment-grants').notificationScheduleGrants({
+      namespace:namespaces.outbox,owner:outboxOwner,outboxRole:roles.outbox,ackRole:roles.writer
+    })) await lab.admin.query(sql);
     await lab.admin.query(`GRANT USAGE ON SCHEMA "${namespaces.outbox}" TO "${roles.outbox}"`);
     await lab.admin.query(`GRANT SELECT ON "${namespaces.outbox}".schema_migrations TO "${roles.outbox}"`);
     await lab.admin.query(`GRANT SELECT,INSERT,UPDATE(request_id,blocked_until) ON "${namespaces.outbox}".tenant_notification_heads TO "${roles.outbox}"`);

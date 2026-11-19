@@ -20,9 +20,9 @@ describe('actual durable producer and outbox recreation protocol', function () {
     source={tenant:f.A,identity:'config',runtimeId:runtime,outputRevision,inputCheckpoint:0,eligible:true,
       contentDigest:contentDigest(result),result};
   }
-  function open (send, reader={read:async()=>[]}) {
+  function open (send, reader={read:async()=>[]}, options={}) {
     const p=producer({store:f.store,reader,current:()=>source,currentConfig:async()=>({tenant:f.A,identity:source.identity}),isCurrent:async()=>true,
-      consumer:'realtime-test',now:()=>at,maxRows:10,maxBytes:65536,maxPayloadBytes:10000});
+      consumer:'realtime-test',now:()=>at,maxRows:10,maxBytes:65536,maxPayloadBytes:10000,...options});
     const n=notifier({store:f.store,adapter:{id:'realtime-test',send},selectCycle:p.select,isCurrent:async()=>true,
       allows:async()=>true,now:()=>at,normalPolicy:'realtime-cycle',requireIntentOrigin:true,
       maxRows:10,maxPayloadBytes:10000,maxInflight:1,attemptTimeoutMs:1000,retryDelayMs:1});
@@ -139,6 +139,17 @@ describe('actual durable producer and outbox recreation protocol', function () {
     at=t0+60000; const selected=await value.p.select(f.A); await value.n.retry(f.A);
     assert.equal(effects.length,2,'PRODUCER_REPEAT_ON_HEARTBEAT'); assert.notEqual(effects[1].id,effects[0].id);
     assert.equal(effects[1].notification.title,effects[0].notification.title); assert.equal(selected.repeatAt,t0+120000);
+  });
+  it('keeps the scheduled repeat floor for a fractional tenant heartbeat', async function () {
+    clinical(50);
+    const {p}=open(() => {}, undefined, {minimumRepeatMs:1000,
+      currentConfig:async()=>({tenant:f.A,identity:source.identity,env:{settings:{heartbeat:0.001}}})});
+    const first=await p.select(f.A);
+    assert.equal(first.repeatAt,at+1000);
+    at+=999;
+    assert.equal((await p.select(f.A)).outputRevision,first.outputRevision);
+    at+=1;
+    assert.notEqual((await p.select(f.A)).outputRevision,first.outputRevision);
   });
   it('does not repeat an acknowledged alarm during its silence', async function () {
     clinical(50); const effects=[], acks=[]; const value=open((row,callback)=>{effects.push(row);callback(null,{accepted:true});},{read:async()=>acks});

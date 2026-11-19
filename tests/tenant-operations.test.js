@@ -53,6 +53,7 @@ const EFFECTS = {
     create(schema, 'tenant_notification_requests', 'tenant_id uuid, request_id uuid, consumer text, dedup_key text, origin text, config_identity text, payload jsonb, state text, created_at bigint, next_at bigint, attempt integer, attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint');
   },
   '0002_tenant_notification_producer_state': schema => create(schema, 'tenant_notification_state', 'tenant_id uuid, consumer text, revision bigint, config_identity text, producer jsonb'),
+  '0006_notification_due_discovery': () => {}, // indexes and metadata functions leave tenant table shape unchanged
   '0001_consumer_checkpoint_projection': schema => create(schema, 'tenant_consumer_checkpoint', 'tenant_id uuid, consumer text, contract_digest text, checkpoint bigint, projection jsonb'),
   '0001_profile': schema => create(schema, 'profile', 'tenant_id uuid, doc jsonb, id_kind text'),
   '0002_profile_socket_order': schema => {

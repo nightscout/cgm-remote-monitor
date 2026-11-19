@@ -22,7 +22,11 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await lab.provisionPreview(); await lab.openSink();
       const worker = await lab.workerConsumers(lab.configureConsumers(change));
       assert.equal(worker.startup.ready,true, 'M5_CONSUMER_ROLE_BOOT'); assert.equal(worker.startup.servers,0);
-      await worker.call('flush',lab.A); await worker.call('flush',lab.B); return worker;
+      // These existing protocol cases seed their two inputs before the slot
+      // exists. Address those fixture inputs explicitly after role admission.
+      await worker.call('acquire',lab.A); await worker.call('acquire',lab.B);
+      await worker.call('flush',lab.A); await worker.call('flush',lab.B);
+      return worker;
     }
     async function waitDue (id) {
       const deadline=Date.now()+5000;
@@ -76,18 +80,21 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
     it('recovers retained producer normal-state clear after actual evaluator process restart without repeated clear UUIDs', async function () {
       await reading(50); const first=await boot(); const alarm=(await lab.requests())[0]; await lab.stopConsumer(first);
       await lab.writeCanonical({planned:{op:'update',form:'merge',target:{_id:'synthetic-0'},fields:{sgv:111}}});
-      const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
+      const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true);
+      await lab.wait(async () => (await lab.requests()).some(row=>row.payload.clear&&row.state==='accepted'));
       const clears=(await lab.requests()).filter(row=>row.payload.clear); lab.traceConsumer('restart-clear-before-verdict',{alarm,clears,state:await lab.producerState()}); assert.equal(clears.length,1,'M5_CONSUMER_RESTART_CLEAR');
       assert.equal(clears[0].payload.message,"Auto ack'd alarm(s)"); assert.equal(clears[0].state,'accepted');
       await next.call('tick'); await next.call('flush'); assert.equal((await lab.requests()).filter(row=>row.payload.clear).length,1,'M5_CONSUMER_CLEAR_ORIGIN_ONCE');
       lab.traceConsumer('restart-normal-clear',{alarm,clears:await lab.requests(),state:await lab.producerState()}); await lab.stopConsumer(next);
     });
     it('retries a still-current uncertain request with the same UUID after actual process death while permitting one fresh cycle event', async function () {
-      await reading(50); lab.sinkMode='lost-response'; const first=await boot();
+      const configure = doc => { doc.consumers.realtime.retryDelayMs = 1500; };
+      await reading(50); lab.sinkMode='lost-response'; const first=await boot(configure);
       const original=(await lab.requests())[0]; lab.traceConsumer('uncertain-before-death',{original,state:await lab.producerState()}); assert.equal(original.state,'uncertain');
       const exited=new Promise(resolve=>first.child.once('exit',(code,signal)=>resolve({code,signal}))); lab.killConsumer(first);
       const death={...await exited,pid:first.child.pid}; assert.equal(death.signal,'SIGKILL'); lab.sinkMode='accept'; await waitDue(original.request_id);
-      const next=await lab.workerConsumers(lab.configureConsumers()); assert.equal(next.startup.ready,true); await next.call('flush');
+      const next=await lab.workerConsumers(lab.configureConsumers(configure)); assert.equal(next.startup.ready,true);
+      await lab.wait(async () => (await lab.requests()).some(row=>row.request_id===original.request_id&&row.state==='accepted'));
       const after=(await lab.requests()).find(row=>row.request_id===original.request_id);
       lab.traceConsumer('uncertain-restart-before-verdict',{original,after,death,all:await lab.requests(),state:await lab.producerState()});
       assert.equal(after.state,'accepted','M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.ok(after.attempt>=2,'M5_CONSUMER_PROCESS_DEATH_SAME_UUID'); assert.deepEqual(after.payload,original.payload);

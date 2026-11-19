@@ -45,8 +45,8 @@ function notificationInputs ({ tenants, now, outboxRole, checkpointWriterRole, a
   return {
     extension: { kind: 'notification_outbox', candidatePath: 'lib/tenant-notifications/postgres-candidate.json',
       sourceCommit: '5600192558a10462c159d00ef53ba770a647765d',
-      sourceSha256: '0d998333640f4415dfb93edd789edb0277c1067ccd79f8583f902b3e1b0e1ec2',
-      candidateDigest: '6373384e7e3c7e4059d2d1bd01cd36d29a38964bd96a1a239f28438d598d563b',
+      sourceSha256: 'dbd40eb39574f3482339c0f74a256e6f1264be844cfc76d41aeb815045bf2e2c',
+      candidateDigest: '1bf6a9601dbbd134393eb8b8c6bfd1bc7424aa51e1aa68aee7cc5ccdee4d4e21',
       tables: ['tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state'], secrets: [] },
     rows,
     acl: { grants: [

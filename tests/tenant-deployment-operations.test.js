@@ -409,7 +409,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert(chosen.every(entry => entry.tables.includes('tenant_consumer_checkpoint')));
     assert.equal(admission.census.candidates.find(entry => entry.file === rt).disposition, 'selected');
     assert.equal(admission.census.candidates.find(entry => entry.file === ev).disposition, 'selected');
-    assert(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint' && entry.candidate.migrations.length === 2));
+    assert(admission.lifecycle.CATALOGUE.some(entry => entry.kind === 'evaluator_checkpoint' && entry.candidate.migrations.length === 3));
     const legacy = admit({ namespaces: input.namespaces, instances: checkpoints.instances });
     assert(legacy.catalogues.filter(entry => entry.kind.includes('checkpoint')).every(entry => entry.candidatePath === 'migrations/candidates/postgres-consumer-checkpoint-v1.json'));
     const partial = admit({ namespaces: input.namespaces, instances: checkpoints.instances, selection: { checkpoint: rt } });
