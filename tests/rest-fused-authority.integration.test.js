@@ -36,6 +36,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     await f.admin(async admin => {
       for (const tenant of [f.A, f.B]) {
         await admin.query('INSERT INTO \"'+f.ns.control+'\".tenant_activity (tenant_id,version,paused,suspended) VALUES ($1,1,false,false)',[tenant]);
+        await admin.query(`INSERT INTO "${f.ns.clock}".tenant_write_clock (tenant_id,last_stamp) VALUES ($1,$2)`, [tenant, Date.now()]);
         const root = Buffer.from('synthetic-root-' + tenant), prepared = prepare(root, [{ subjectId: 'writer', tokenPrefix: 'writer' }]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_config (tenant_id,root_reference_id,root_verifiers,verifier_root_reference_id,root_version) VALUES ($1,'root',$2,'root',1)`, [tenant, prepared.rootVerifiers]);
         await admin.query(`INSERT INTO "${f.ns.legacy}".legacy_credential_subjects (tenant_id,subject_id,token_prefix,verifiers,verifier_token_prefix,credential_version) VALUES ($1,'writer','writer',$2,'writer',1)`, [tenant, prepared.subjects[0].verifiers]);
@@ -49,14 +50,15 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       }
     });
   }
-  function application ({ authorityStore = authority, credentials = verifiers, separateAdmission = false, beforeAdmission } = {}) {
+  function application ({ authorityStore = authority, credentials = verifiers, separateAdmission = false, beforeAdmission, afterAdmission } = {}) {
     const access = require('../lib/server/tenant-app/data-access')({ authority: authorityStore, readConnection: f.lower, secrets: credentials,
       verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: DOMAINS, legacyCollections: DOMAINS });
     const unavailable = async () => { throw new Error('outside fixture'); };
     return require('../lib/server/tenant-app').createTenantApp({ resolver: { resolve: async req => req.hostname === 'a.example.test' ? f.A : f.B },
       verifyCredential: unavailable, authorizeRequest: unavailable, tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
       subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter: express.Router(), legacyRouter: graph.legacyRouter, dataAccess: access,
-      requestContext: admission.context, admitRequest: separateAdmission ? async (tenant,req,fn) => { await gate(tenant,req); return fn(); } : beforeAdmission ? async (...args) => { await beforeAdmission(args[0],args[1]); return admission.request(...args); } : admission.request,
+      admitRequest: separateAdmission ? async (tenant,req,fn) => { await gate(tenant,req); return fn(); } : beforeAdmission ? async (...args) => { await beforeAdmission(args[0],args[1]); return admission.request(...args); }
+        : afterAdmission ? async (...args) => { const admitted = await admission.request(...args); if (args[1]?.method === 'POST') await afterAdmission(); return admitted; } : admission.request,
       operationWindow: f.window });
   }
   const host = tenant => tenant === f.A ? 'a.example.test' : 'b.example.test';
@@ -127,7 +129,7 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     const environment = require('../lib/server/tenant-app/environment');
     graph = await require('../lib/server/serve/preview-domains')({ config: { domains: DOMAINS, legacyEnabled: true, contextEnabled: true,
       bindings: new Map([[f.A, {}], [f.B, {}]]), environments: new Map([f.A, f.B].map(t => [t, environment()])),
-      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: admission.writes, exchange: async () => null });
+      namespaces: Object.fromEntries(DOMAINS.map(d => [d, f.ns[d]])) }, connection: require('../lib/storage/postgres-write-clock')(admission.writes, f.ns.clock), exchange: async () => null });
   });
   after(async () => {
     try { if (original) pg.Client.prototype.query = original; }
@@ -145,8 +147,10 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
       const read = await tap(() => get(app, f.A, carrier).expect(200));
       oneAuthorityTransaction(read.seen, 1);
       assert.equal(count(read.seen, /FROM "[a-z_]+"\."entries"/), 1, 'JOINED_CLINICAL_READ');
+      // One credential verification and one authority read per accepted write,
+      // both at admission; the effect transaction reads activity only.
       const write = await tap(() => post(app, f.B, carrier).expect(200));
-      oneAuthorityTransaction(write.seen, 2, 2);
+      oneAuthorityTransaction(write.seen, 2, 1);
       report[carrier] = { get: read.seen.length, post: write.seen.length };
     }
     console.log('REST_FUSED_STATEMENTS ' + JSON.stringify(report));
@@ -205,16 +209,53 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
     await get(app, f.A, 'token').expect(200); await get(app, f.A, 'secret').expect(200);
   });
 
-  it('refuses current-effect revocation after request admission without writing, then regrant restores the effect',async()=>{
-    const principal={kind:'subject',subjectId:'writer'},permission='api:entries:create';
-    await admission.context(f.A,undefined,async()=>{
-      await admission.request(f.A,{method:'POST'},()=>authority.authorize({tenant:f.A,principal,permission}));
-      await f.sql('DELETE FROM "'+f.ns.authorization+'".tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=\'writer\'',[f.A]);
-      try {
-        await assert.rejects(scope.withTenant(f.A,()=>admission.writes.transaction(()=>{assert.fail('REVOKED_EFFECT_MUST_NOT_RUN');})),{code:'TENANT_DATA_FORBIDDEN'});
-      }finally{await f.sql('INSERT INTO "'+f.ns.authorization+'".tenant_authorization_subject_roles(tenant_id,subject_id,role_name) VALUES($1,\'writer\',\'writer\')',[f.A]);}
-      assert.equal(await scope.withTenant(f.A,()=>admission.writes.transaction(async()=>true)),true);
-    });
+  // Decision credential-rotation-next-request (amendment 1): a request is
+  // authorized once, at admission. A role removed or a subject deleted after
+  // admission applies from the next request; activity still holds at the effect.
+  async function afterAdmissionChange (change, restore) {
+    let armed = true, stored;
+    const app = application({ afterAdmission: async () => { if (armed) { armed = false; await change(); } } });
+    const before = (await f.sql('SELECT count(*)::int AS n FROM "'+f.ns.entries+'".entries WHERE tenant_id=$1', [f.A])).rows[0].n;
+    try {
+      const write = (await post(app)).status;
+      stored = (await f.sql('SELECT count(*)::int AS n FROM "'+f.ns.entries+'".entries WHERE tenant_id=$1', [f.A])).rows[0].n - before;
+      return { write, stored, next: (await post(app)).status, other: (await post(app, f.B)).status };
+    } finally { await restore(); }
+  }
+  const revokeRole = () => f.sql('DELETE FROM "'+f.ns.authorization+'".tenant_authorization_subject_roles WHERE tenant_id=$1 AND subject_id=\'writer\'',[f.A]);
+  const regrantRole = () => f.sql('INSERT INTO "'+f.ns.authorization+'".tenant_authorization_subject_roles(tenant_id,subject_id,role_name) VALUES($1,\'writer\',\'writer\')',[f.A]);
+  it('accepts a write whose role is removed after admission and refuses the next request', async function () {
+    assert.deepEqual(await afterAdmissionChange(revokeRole, regrantRole), { write: 200, stored: 1, next: 401, other: 200 });
+    await post(application()).expect(200);
+  });
+  it('accepts a write whose subject is deleted after admission and refuses the next request', async function () {
+    const [subject] = (await f.sql('SELECT display_name FROM "'+f.ns.authorization+'".tenant_authorization_subjects WHERE tenant_id=$1 AND subject_id=\'writer\'',[f.A])).rows;
+    assert.deepEqual(await afterAdmissionChange(async () => {
+      await revokeRole();
+      await f.sql('DELETE FROM "'+f.ns.authorization+'".tenant_authorization_subjects WHERE tenant_id=$1 AND subject_id=\'writer\'',[f.A]);
+    }, async () => {
+      await f.sql('INSERT INTO "'+f.ns.authorization+'".tenant_authorization_subjects (tenant_id,subject_id,display_name) VALUES ($1,\'writer\',$2)',[f.A, subject.display_name]);
+      await regrantRole();
+    }), { write: 200, stored: 1, next: 401, other: 200 });
+    await post(application()).expect(200);
+  });
+  it('still refuses a write whose tenant is suspended after admission', async function () {
+    const outcome = await afterAdmissionChange(() => f.sql('UPDATE "'+f.ns.control+'".tenant_activity SET suspended=true WHERE tenant_id=$1',[f.A]),
+      () => f.sql('UPDATE "'+f.ns.control+'".tenant_activity SET suspended=false WHERE tenant_id=$1',[f.A]));
+    assert.notEqual(outcome.write, 200); assert.equal(outcome.stored, 0); assert.equal(outcome.next, 423); assert.equal(outcome.other, 200);
+  });
+  it('API_SECRET write accepted, wrong secret refused, read-only subject write refused', async function () {
+    const app = application();
+    await post(app, f.A, 'secret').expect(200);
+    const wrong = request(app).post('/api/v1/entries').set('Host', host(f.A)).set('api-secret', sha1('not-the-root'))
+      .send([{ type: 'sgv', sgv: 120, date: at, dateString: new Date(at).toISOString(), device: 'synthetic' }]);
+    assert.equal((await wrong).status, 401);
+    await f.sql('UPDATE "'+f.ns.authorization+'".tenant_authorization_roles SET permissions=$2 WHERE tenant_id=$1 AND name=\'writer\'', [f.A, GRANTS.filter(g => g.endsWith(':read'))]);
+    try {
+      assert.equal((await post(app)).status, 401, 'READ_ONLY_SUBJECT_WRITE_REFUSED');
+      await get(app).expect(200);
+    } finally { await f.sql('UPDATE "'+f.ns.authorization+'".tenant_authorization_roles SET permissions=$2 WHERE tenant_id=$1 AND name=\'writer\'', [f.A, GRANTS]); }
+    await post(app).expect(200);
   });
 
   it('joins activity with authority, preserves paused uploads, refuses suspended effects and keeps API activity read-only',async()=>{
