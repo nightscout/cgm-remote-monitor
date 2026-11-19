@@ -104,7 +104,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
     }
   });
 
-  function compose ({ beforeEffect, admitRequest = (tenant, req, fn) => fn(), requestContext = (tenant, req, fn) => fn() } = {}) {
+  function compose ({ beforeEffect, admitRequest = (tenant, req, fn) => fn() } = {}) {
     const token = Symbol('transport'), effects = [];
     const secrets = { async verifyLegacyCredential (context, { apiSecret, token: carried }) {
       counts.credential++;
@@ -126,7 +126,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       return [{ result: 'stored' }];
     };
     const ops = privateApi.operations({ token, admission, authority: socketAuthority, executeWrite, alarmConnection,
-      admitRequest, requestContext,
+      admitRequest,
       config: { socketForwarding: { alarm: { namespace: 'socket_alarm' } }, namespaces: { authorization: NAMESPACE } } });
     const write = credential => ops.executeSocketMutation({ transport: token }, { host: HOST, envelope: { tenant: A, credential,
       namespace: '/', event: 'dbAdd', args: [{ collection: 'entries', data: { type: 'sgv', sgv: 120, date: 1 } }] } });
@@ -156,7 +156,7 @@ optInSuite(process.env.NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST === '1',
       gated.push(tenant);
       if (paused) throw Object.assign(new Error('TENANT_PAUSED'), { code: 'TENANT_PAUSED' });
     });
-    const f = compose({ admitRequest: api.request, requestContext: api.context });
+    const f = compose({ admitRequest: api.request });
     assert.deepEqual((await f.write({ token: 'synthetic-writer' })).replyArgs, [{ result: 'stored' }]);
     assert.deepEqual(gated, [A], 'Z2_FORWARDED_WRITE_ADMITTED');
     paused = true;
