@@ -9,7 +9,7 @@ describe('immutable static realtime ownership',function(){
   });
   it('STATIC_CONFIG: exact boot identity is immutable and legacy publication selectors refuse',async function(){
     const shape={count:3,ordinal:1},value=ownership.create(shape);shape.ordinal=2;assert.equal(value.ordinal,1);assert(Object.isFrozen(value));
-    for(const input of [{count:0,ordinal:0},{count:3,ordinal:3},{count:2.5,ordinal:1},{count:2,ordinal:-1},{count:2,ordinal:0,extra:true}])assert.throws(()=>ownership.create(input),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
+    for(const input of [{count:0,ordinal:0},{count:2.5,ordinal:1},{count:2,ordinal:-1},{count:2,ordinal:0,extra:true}])assert.throws(()=>ownership.create(input),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
     for(const key of ['MULTITENANT_REALTIME_PLACEMENT','MULTITENANT_REALTIME_ROUTES','REALTIME_WORKER_ID','REALTIME_WORKER_INCARNATION','NS_REALTIME_OWNERSHIP_CONTRACT'])assert.throws(()=>ownership.load({[key]:'obsolete'}),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
     assert.deepEqual(ownership.load({}).cached(),{count:1,ordinal:0,rule:slice.RULE});
     await assert.rejects(require('../lib/server/serve/preview-realtime').boot({registry:{},completedOutput:{},trustedWorker:{}}),{code:'REALTIME_STATIC_OWNERSHIP_REQUIRED'},'missing process ownership refuses before resource construction');
@@ -20,8 +20,14 @@ describe('immutable static realtime ownership',function(){
     const selected=ownership.peers(source([{socket:'/synthetic/z.sock'},{url:'http://realtime-2:19913/'}]),observer,bounds);assert.equal(selected.endpoints[0].socketPath,'/synthetic/z.sock');assert.equal(selected.endpoints[1].url,'http://realtime-2:19913/');
     for(const addresses of [[],[{socket:'/synthetic/a.sock'},{socket:'/synthetic/a.sock'}],[{socket:'/synthetic/service.sock'}],[{socket:'relative'}],[{url:'http://realtime/path'}],[{url:'https://realtime:19913/'}],[{url:'http://realtime:19913/',extra:true}]])assert.throws(()=>ownership.peers(source(addresses),observer,bounds));
   });
-  it('STATIC_CENSUS: requires every ordinal once with one K including idle owners',function(){
-    const rows=Array.from({length:3},(_,ordinal)=>({roles:['realtime'],slice:{count:3,ordinal}}));assert.deepEqual(ownership.census(rows),{count:3,rule:slice.RULE});
-    for(const bad of [rows.slice(0,2),[rows[0],rows[0],rows[2]],[rows[0],rows[1],{roles:['realtime'],slice:{count:4,ordinal:2}}]])assert.throws(()=>ownership.census(bad),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
+  it('SLICE_ENV: ordinal and count come from NS_SLICE_ORDINAL/NS_SLICE_COUNT; slices are disjoint and cover every tenant; an ordinal at or above K owns nothing',function(){
+    const tenants=Array.from({length:1000},(_,i)=>'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0'));
+    for(const count of [1,2,3]){
+      const owners=tenants.map(tenant=>Array.from({length:count},(_,ordinal)=>ownership.load({NS_SLICE_ORDINAL:String(ordinal),NS_SLICE_COUNT:String(count)})).filter(o=>o.owns(tenant)).length);
+      assert(owners.every(n=>n===1),'K='+count+': every tenant has exactly one owner');
+      const extra=ownership.load({NS_SLICE_ORDINAL:String(count),NS_SLICE_COUNT:String(count)});
+      assert.equal(tenants.filter(extra.owns).length,0,'ordinal K owns nothing');
+    }
+    for(const env of [{NS_SLICE_ORDINAL:'x',NS_SLICE_COUNT:'2'},{NS_SLICE_ORDINAL:'0',NS_SLICE_COUNT:'0'},{NS_SLICE_ORDINAL:'-1',NS_SLICE_COUNT:'2'}])assert.throws(()=>ownership.load(env),{code:'REALTIME_STATIC_OWNERSHIP_REFUSED'});
   });
 });

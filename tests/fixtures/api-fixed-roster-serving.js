@@ -6,7 +6,6 @@ const crypto = require('node:crypto'), fs = require('node:fs'), path = require('
 const { Client, Pool } = require('pg');
 const scope = require('../../lib/storage/tenant-scope');
 const { run } = require('../../lib/migrations/postgres');
-const manifests = require('../../lib/server/serve/operation-cohort-manifest');
 const maintenance = require('../../lib/tenant-lifecycle/maintenance-window');
 const namespace = 'preview_control', q = name => '"' + name + '"';
 const freePort = () => new Promise(resolve => { const s = http.createServer().listen(0, '127.0.0.1', () => { const port = s.address().port; s.close(() => resolve(port)); }); });
@@ -35,9 +34,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   }
   async function start (id, { readinessTenant } = {}) {
     const file = path.join(base.directory, id + '-operation.json');
-    const rows = participants.map(peer => ({ id: peer.id, roles: [...peer.roles], namespaces: [...peer.namespaces],
-      maxMessageBytes: peer.endpoint.maxBytes, timeoutMs: peer.endpoint.timeoutMs, ...(peer.roles.includes('api') ? { address: { url: peer.endpoint.url } } : {}) }));
-    fs.writeFileSync(file, JSON.stringify({ version: 2, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, participantId: id, participants: rows, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
+    fs.writeFileSync(file, JSON.stringify({ version: 1, namespace, connectionEnv: 'NS_ROSTER_LIFETIME_PG', registry: { namespace: base.provisioned.namespaces.registry }, ...(leaseSessions === undefined ? {} : { leaseSessions }) }), { mode: 0o600 });
     const extra = { NS_ROSTER_LIFETIME_PG: lifetimeURI, MULTITENANT_OPERATION_CONFIG: file,
       NS_SERVE_INTERNAL_HOST: id === 'api-1' ? '127.0.0.2' : '127.0.0.3', NS_SERVE_INTERNAL_PORT: String(port), NS_API_INTERNAL_URL: url('127.0.0.4'),
       NS_EVALUATOR_INTERNAL_URL: url('127.0.0.5'), NS_REALTIME_INTERNAL_URL: url('127.0.0.6'), NS_TENANT_ADMIN_INTERNAL_URL: url('127.0.0.7'),
@@ -102,7 +99,8 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     }
     port = await freePort();
     const protectedNames = require('../../lib/server/serve/role-topology').protectedNamespaces(config).filter(name => name !== namespace).sort();
-    participants = manifests.validate([
+    // Instance addresses of the two api replicas and the other roles (no manifest).
+    participants = Object.freeze([
       ...['api-1', 'api-2'].map((id, i) => ({ id, roles: ['api'], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 2)) })),
       ...['evaluator', 'realtime', 'tenant-admin'].map((role, i) => ({ id: role, roles: [role], namespaces: protectedNames, endpoint: endpoint('127.0.0.' + (i + 5)) }))]);
     await base.provisioned.release();

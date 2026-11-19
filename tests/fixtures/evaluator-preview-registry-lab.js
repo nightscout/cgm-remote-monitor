@@ -109,9 +109,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
       if (producer && producerIdentity === identity) return;
       assert(![...children].some(child => child.exitCode === null && child.signalCode === null), 'fixture cannot rebind a live producer');
       if (producer) { await producer.close(); producer = null; }
-      // A dedicated evaluator is one participant in the maintained four-role
-      // composition. The other private endpoints are declared but absent in
-      // this local evaluator fixture: no remote cohort/census claim is made.
       const plan = require('./multitenant-plan'), layout = plan.layout('ev_' + crypto.createHash('sha256').update(lab.name).digest('hex').slice(0, 16));
       Object.assign(layout.namespaces, namespaces, { eval_checkpoint: lab.replayNamespace,
         authorization: registry.authorization, secrets: registry.secrets, legacy: registry.legacy,
@@ -122,12 +119,9 @@ module.exports = function evaluatorPreviewRegistryLab () {
         if (document.tenantSettings) document.tenantSettings = structuredClone(config.document.tenantSettings);
       }
       documents.configs.evaluator = config.document;
-      const protects = require('../../lib/server/serve/role-topology').protectedNamespaces;
-      const participants = documents.operations.evaluator.participants.map(row => ({ ...row,
-        namespaces: protects(documents.configs[row.id]).filter(namespace => namespace !== registry.control) }));
       fs.writeFileSync(operationFile, JSON.stringify({ ...documents.operations.evaluator,
         namespace: registry.control, connectionEnv: 'NS_EVALUATOR_FIXTURE_LIFETIME',
-        registry: { namespace: registry.registry }, participants }), { mode: 0o600 });
+        registry: { namespace: registry.registry } }), { mode: 0o600 });
       producer = await stream.setup({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, directory,
         config: selected, evaluatorRole: lab.previewRole });
       producerIdentity = identity;

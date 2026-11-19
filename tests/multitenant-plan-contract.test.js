@@ -309,12 +309,6 @@ describe('deployment plan contract', function () {
   describe('process rules', function () {
     const only = (name, mutate) => { const set = documentSet(), entry = set.processes.find(candidate => candidate.name === name); mutate(entry); return contract.check({ contract: 1, processes: [entry] }).processes[0]; };
 
-    it('refuses a participant manifest that does not name the namespaces the role protects', function () {
-      const result = only('realtime', entry => { entry.files['/run/ns-config/operation.json'].participants.find(peer => peer.id === 'realtime').namespaces.pop(); });
-      assert.deepEqual(result.findings.map(finding => finding.code), ['PLAN_PROCESS_REFUSED']);
-      assert.match(result.findings[0].message, /Participant manifest does not match actual role resources/);
-    });
-
     it('refuses the static tenant list flag, a missing document and an unknown role', function () {
       assert(only('api', entry => { entry.environment.MULTITENANT_STATIC_TENANTS = 'lab'; }).findings.some(finding => finding.code === 'PLAN_STATIC_TENANTS'));
       assert(only('api', entry => { delete entry.files['/run/ns-config/operation.json']; }).findings.some(finding => finding.code === 'PLAN_DOCUMENT_MISSING'));

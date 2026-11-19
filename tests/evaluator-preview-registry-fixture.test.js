@@ -102,9 +102,7 @@ describe('independent registry evaluator fixture setup', function () {
       assert.deepEqual(configured.document.pgstream.recovery,{connectionEnv:'NS_STREAM_RECOVERY_PG',timeoutMs:5000,maxQueued:32});
       assert(worker.options.env.MULTITENANT_OPERATION_CONFIG);
       const composition = require('../lib/cli/commands/multitenant').configure(['evaluator'], worker.options.env);
-      assert.equal(composition.operationConfig.participantId, 'evaluator');
-      assert.deepEqual(composition.operationConfig.participants.flatMap(row => row.roles).sort(), ['api','evaluator','realtime','tenant-admin']);
-      assert.equal(composition.operationConfig.participants.find(row => row.id === 'evaluator').endpoint.socketPath, worker.options.env.NS_SERVE_INTERNAL_SOCKET);
+      assert.equal(composition.operationConfig.namespace, JSON.parse(require('node:fs').readFileSync(worker.options.env.MULTITENANT_OPERATION_CONFIG, 'utf8')).namespace);
       assert(f.calls.some(c => c.text === 'REVOKE ALL ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) FROM PUBLIC'));
       assert(f.calls.some(c => c.text === 'GRANT EXECUTE ON FUNCTION "provisioned_settings".tenant_settings_values_valid(jsonb) TO "protocol_provisioner"'));
       assert(!Object.hasOwn(worker.options.env,'NS_RT_BOOTSTRAP_PGSTREAM_CONFIG'));assert(!Object.hasOwn(worker.options.env,'NS_RT_BOOTSTRAP_PGSTREAM_BINARY'));

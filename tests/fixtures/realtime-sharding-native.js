@@ -68,12 +68,12 @@ module.exports = function fixture () {
   }
   async function startRealtime (id) {
     const row = map.workers.find(worker => worker.id === id);
-    const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), NS_REALTIME_SLICE: JSON.stringify({count: 2, ordinal: row.ordinal}), RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
+    const env = { MULTITENANT_REALTIME_CONFIG: path.join(directory, 'realtime.json'), NS_SLICE_ORDINAL: String(row.ordinal), NS_SLICE_COUNT: '2', RT_PG: lab.urls.realtime, DISPLAY_PG: display.url, ACTIVITY_PG: activity.url,
       NS_SHARD_WARM_CONTROL_DIR: directory, NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')+' --require '+path.join(__dirname,'realtime-sharding-controls.cjs'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_SERVE_INTERNAL_SOCKET: row.address.socket, REALTIME_HOSTNAME: '127.0.0.1', REALTIME_PORT: String(new URL(row.consumerOrigin).port), NS_TENANT_READINESS: 'all' };
     if(operationState){
       const file=path.join(directory,'operation-rt-'+id+'.json');
-      fs.writeFileSync(file,JSON.stringify({...operationState.base,participantId:'rt-'+id}));
+      fs.writeFileSync(file,JSON.stringify(operationState.base));
       Object.assign(env,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:operationState.lifetime.url,NS_POOL_OPERATION_MAX:'2',NS_API_INTERNAL_SOCKET:path.join(directory,'api-service.sock')});
     }
     require('../../lib/server/realtime/config').load(env);
@@ -188,18 +188,10 @@ module.exports = function fixture () {
       await q('GRANT EXECUTE ON FUNCTION ' + quote(lab.namespaces.control) + '.tenant_lifecycle_backend_birth() TO ' + quote(lifetime.name));
       const foreignFunctions = (await q("SELECT p.oid::regprocedure::text AS function FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND NOT(n.nspname=$1 AND p.proname='tenant_lifecycle_backend_birth') AND has_function_privilege($2,p.oid,'EXECUTE')", [lab.namespaces.control,lifetime.name])).rows;
       assert.deepEqual(foreignFunctions, [], 'SHARD_NATIVE_LIFETIME_FOREIGN_FUNCTIONS '+JSON.stringify(foreignFunctions));
-      const namespaces = [...new Set([...Object.values(apiNamespaces),lab.namespaces.settings,lab.namespaces.operatorPolicy,alarmNamespace,ns.evaluatorCheckpoint,ns.checkpoint])];
-      const protectedNamespaces=require('../../lib/server/serve/role-topology').protectedNamespaces;
-      const roleNamespaces={api:protectedNamespaces(config),evaluator:protectedNamespaces(evaluatorConfig),realtime:protectedNamespaces(realtimeConfig)};
-      const participants = ['api','evaluator','realtime','tenant-admin'].map(role => ({ id: role, roles: [role], namespaces:[...new Set(roleNamespaces[role]||namespaces)].filter(name=>name!==lab.namespaces.control),
-        maxMessageBytes: 1048576, timeoutMs: 5000, address: { socket: path.join(directory,role + '.sock') } }));
-      if(operation==='sharded'){
-        const rtNamespaces=[...new Set([ns.clock,ns.checkpoint,ns.evaluatorCheckpoint,lab.namespaces.settings,lab.namespaces.operatorPolicy])];
-        participants.splice(participants.findIndex(row=>row.id==='realtime'),1,...map.workers.map(worker=>({id:'rt-'+worker.id,roles:['realtime'],slice:{count:2,ordinal:worker.ordinal},namespaces:rtNamespaces,maxMessageBytes:1048576,timeoutMs:5000,address:worker.address})));
-        operationState={lifetime,base:{version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participants}};
-      }
+      const base={version:1,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry}};
+      if(operation==='sharded')operationState={lifetime,base};
       const file = path.join(directory,'operation-api.json');
-      fs.writeFileSync(file,JSON.stringify({version:2,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry},participantId:'api',participants}));
+      fs.writeFileSync(file,JSON.stringify(base));
       Object.assign(operationEnvironment,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:lifetime.url,NS_POOL_OPERATION_MAX:'2',NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')});
     }
     const apiEnvironment = { ...operationEnvironment, MULTITENANT_PREVIEW_CONFIG: path.join(directory, 'api.json'), API_PG: lab.urls.api, CHECK_PG: check.url,
@@ -242,7 +234,7 @@ module.exports = function fixture () {
     if (paused) for (const tenant of tenants) await activityWriter.transition({tenant,principal:'synthetic-operator',consumer:'native-proof'},'pause');
     fs.writeFileSync(path.join(directory,'evaluator.json'),JSON.stringify(evaluatorConfig),{mode:0o600});
     const evaluatorOperation=path.join(directory,'operation-evaluator.json');
-    fs.writeFileSync(evaluatorOperation,JSON.stringify({...operationState.base,participantId:'evaluator'}));
+    fs.writeFileSync(evaluatorOperation,JSON.stringify(operationState.base));
     const evaluatorEnvironment={...producer.environment,MULTITENANT_EVALUATOR_CONFIG:path.join(directory,'evaluator.json'),MULTITENANT_OPERATION_CONFIG:evaluatorOperation,
       EVAL_PG:evaluator.url,DISPLAY_PG:display.url,ACTIVITY_PG:activity.url,LIFETIME_PG:operationState.lifetime.url,
       NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address)),NS_SERVE_INTERNAL_SOCKET:path.join(directory,'evaluator.sock'),NS_POOL_OPERATION_MAX:'2',NS_TENANT_READINESS:'all'};
@@ -312,5 +304,5 @@ module.exports = function fixture () {
       finally { await q('REVOKE SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry FROM ' + quote(lab.roles.realtime)); }
       await lastScreen();
     }, tenants, roots, credentials, hosts, workers,
-    get cohortParticipants () { return operationState?.base.participants.map(row=>({id:row.id,roles:row.roles,...(row.slice?{slice:row.slice}:{}),namespaces:row.namespaces,endpoint:{socketPath:row.address.socket,maxBytes:row.maxMessageBytes,timeoutMs:row.timeoutMs}})); }, async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get peers () { return slicePeers; }, get routes () { return routeReader; }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
+    async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get peers () { return slicePeers; }, get routes () { return routeReader; }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
 };
