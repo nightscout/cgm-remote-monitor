@@ -71,8 +71,7 @@ module.exports = function fixture () {
     lastScreen = async () => require('../../lib/server/serve/evaluator-readiness')(require('../../lib/server/realtime/config').load({ PATH: process.env.PATH, ...env }));
     const worker = await ready(start(id, 'realtime', env), 'realtime'); workers.set(id, worker); return worker;
   }
-  async function setup ({ operation = false, apiOnly = false, paused = false } = {}) {
-    if (!apiOnly) operation = 'sharded';
+  async function setup ({ paused = false } = {}) {
     previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi'); lab = await require('./tenant-registry-lab').createLab();
     directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-realtime-sharding-'));
     const ns = Object.fromEntries(domains.map(domain => [domain, 'sr_' + domain + '_' + lab.id]));
@@ -147,19 +146,17 @@ module.exports = function fixture () {
       activity: { namespace: lab.namespaces.control },
       socketForwarding: { maxTenants: 100, maxMessageBytes: 1048576, operationTimeoutMs: 5000, alarm: { connectionEnv: 'ALARM_PG', namespace: alarmNamespace } } };
     fs.writeFileSync(path.join(directory, 'api.json'), JSON.stringify(config), { mode: 0o600 });
-    if(operation==='sharded'){
-      map={count:2,workers:[]};
-      for(const [ordinal,id] of ['a','b'].entries())map.workers.push({id,ordinal,address:{socket:path.join(directory,id+'.sock')},consumerOrigin:'http://127.0.0.1:'+await freePort()});
-    }
+    map={count:2,workers:[]};
+    for(const [ordinal,id] of ['a','b'].entries())map.workers.push({id,ordinal,address:{socket:path.join(directory,id+'.sock')},consumerOrigin:'http://127.0.0.1:'+await freePort()});
     const operationEnvironment = {};
-    if (operation) {
+    {
       // The issuer's reviewed preparation revokes PUBLIC execution even when
       // this fixture does not select the optional management issuer role.
       await q('REVOKE ALL ON FUNCTION ' + quote(lab.namespaces.access) + '.management_session_authority(uuid,text,text) FROM PUBLIC');
       await q('REVOKE ALL ON FUNCTION ' + quote(lab.namespaces.settings) + '.tenant_settings_values_valid(jsonb) FROM PUBLIC');
       await q('GRANT EXECUTE ON FUNCTION ' + quote(lab.namespaces.settings) + '.tenant_settings_values_valid(jsonb) TO ' + quote(lab.roles.provisioner));
       const lifetime = await role('lifetime');
-      for (const selected of [{ name: lab.roles.api },...(operation==='sharded'?[{name:lab.roles.realtime},evaluator]:[]), check, display, activity, alarm, lifetime]) {
+      for (const selected of [{ name: lab.roles.api },{name:lab.roles.realtime},evaluator, check, display, activity, alarm, lifetime]) {
         await q('GRANT USAGE ON SCHEMA ' + quote(lab.namespaces.control) + ' TO ' + quote(selected.name));
         await q('GRANT SELECT ON ' + ['schema_migrations','tenant_lifecycle_windows','tenant_lifecycle_operations'].map(table => quote(lab.namespaces.control) + '.' + table).join(',') + ' TO ' + quote(selected.name));
       }
@@ -168,7 +165,7 @@ module.exports = function fixture () {
       const foreignFunctions = (await q("SELECT p.oid::regprocedure::text AS function FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND NOT(n.nspname=$1 AND p.proname='tenant_lifecycle_backend_birth') AND has_function_privilege($2,p.oid,'EXECUTE')", [lab.namespaces.control,lifetime.name])).rows;
       assert.deepEqual(foreignFunctions, [], 'SHARD_NATIVE_LIFETIME_FOREIGN_FUNCTIONS '+JSON.stringify(foreignFunctions));
       const base={version:1,namespace:lab.namespaces.control,connectionEnv:'LIFETIME_PG',registry:{namespace:lab.namespaces.registry}};
-      if(operation==='sharded')operationState={lifetime,base};
+      operationState={lifetime,base};
       const file = path.join(directory,'operation-api.json');
       fs.writeFileSync(file,JSON.stringify(base));
       Object.assign(operationEnvironment,{MULTITENANT_OPERATION_CONFIG:file,LIFETIME_PG:lifetime.url,NS_POOL_OPERATION_MAX:'2',NODE_OPTIONS:'--require '+path.join(__dirname,'realtime-sharding-diagnostics.cjs')});
@@ -184,9 +181,6 @@ module.exports = function fixture () {
     async function seedEntries () {
       for (const [index, tenant] of tenants.entries()) assert.equal((await request(tenant, 'POST', '/api/v3/entries', { identifier: 'shard-initial-' + index, type: 'sgv', date: Date.now(), utcOffset: 0, app: 'synthetic-sharding', sgv: 120 + index })).status, 201);
     }
-    if (apiOnly) { await seedEntries(); return { ns }; }
-    if(!map){map = {count:2,workers:[]};
-      for (const [ordinal,id] of ['a','b'].entries()) map.workers.push({ id, ordinal, address: { socket: path.join(directory, id + '.sock') }, consumerOrigin: 'http://127.0.0.1:' + await freePort() });}
     fs.writeFileSync(path.join(directory, 'realtime.json'), JSON.stringify(realtimeConfig), {mode:0o600});
     const internal = require('../../lib/server/internal-api/listener-config').resolve(['api'], { NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'operator.sock') });
     slicePeers = ownership.peers({NS_REALTIME_SLICE_PEERS:JSON.stringify(map.workers.map(worker=>worker.address))},internal,{maxBytes:1048576,timeoutMs:5000});
@@ -277,5 +271,5 @@ module.exports = function fixture () {
       finally { await q('REVOKE SELECT ON ' + quote(lab.namespaces.registry) + '.tenant_registry FROM ' + quote(lab.roles.realtime)); }
       await lastScreen();
     }, tenants, roots, credentials, hosts, workers,
-    async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get peers () { return slicePeers; }, get routes () { return routeReader; }, get edgePort () { return edge.address().port; }, get api () { return api; }, get apiInternal () { return { socketPath: path.join(directory,'api.sock'),maxBytes:1048576,timeoutMs:5000 }; } };
+    async closeProvisioner () {await provisioner?.close();provisioner=null;}, get lab () { return lab; }, get evaluator () { return evaluator; }, get publisher () { return publisher; }, get map () { return map; }, set map (value) { map = value; }, get directory () { return directory; }, get peers () { return slicePeers; }, get routes () { return routeReader; }, get edgePort () { return edge.address().port; }, get api () { return api; } };
 };

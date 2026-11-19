@@ -32,6 +32,13 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST === '1',
       for (const worker of [...fixture.workers]) await fixture.stop(worker);
     });
 
+    it('the registry API reports readiness on its private health endpoint', async function () {
+      const socketPath = require('node:path').join(fixture.directory, 'api-ready.sock');
+      const worker = fixture.start(fixture.configuration(), { NS_SERVE_INTERNAL_SOCKET: socketPath });
+      await fixture.ready(worker);
+      assert.equal(await require('./fixtures/role-readiness-probe')({ socketPath, timeoutMs: 5000 }), true);
+    });
+
     it('alternates committed outcomes and tenant isolation across two actual CLI processes', async function () {
       const [first, second] = await pair();
       const a = await fixture.localToken(A), b = await fixture.localToken(B);

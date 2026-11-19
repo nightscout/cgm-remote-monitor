@@ -69,13 +69,6 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
       console.log('SHARD_RAW_STORAGE_PROOF '+JSON.stringify({oldPublicIdentity:old.doc.identifier,foodPublicIdentity:meal.doc.identifier,transports:clients.map(c=>c.transport),freshCountsAfterExpiry:fresh.map(c=>c.events.length),expiry:{stamp,before:entering,after},foreignEvents:foreign.events.length,pauseFenced:true}));
     } finally {for(const socket of sockets)socket.close();for(const agent of agents)agent.destroy();await f.cleanup();}
   });
-  it('SHARD_REGISTRY_STATUS: the selected registry API reports its own readiness',async function(){
-    const f=require('./fixtures/realtime-sharding-native')();
-    try {
-      await f.setup({operation:true,apiOnly:true});
-      assert.equal(await require('./fixtures/role-readiness-probe')(f.apiInternal), true);
-    } finally { await f.cleanup(); }
-  });
   it('SHARD_ALL_PAUSED: real owners boot and inspect honestly without projection work; one resumed tenant warms while the other stays quiet', async function () {
     const f=require('./fixtures/realtime-sharding-native')();let socket,agent;
     try {
