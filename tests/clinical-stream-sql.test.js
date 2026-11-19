@@ -24,7 +24,7 @@ function fixture({holdCommit=false,loseReply=false}={}){
   throw new Error('UNEXPECTED_SQL:'+text);
  }};
  const cache=new Map([...durable].map(([tenant,row])=>[tenant,structuredClone(row.projection[0])]));
- const options={cache,pool:{connect:async()=>{connected++;return client;}},observeBackend:async()=>{},table:'synthetic_work.tenant_consumer_checkpoint',consumer:'evaluator-synthetic',snapshotDigest:digest,completedConsumer:'evaluator-synthetic-completed',completedDigest:digest,expectedSource:native.source,lockKey:'123',assertFence:async()=> '1',routes:[{schema:'synthetic_entries',table:'entries',domain:'entries'}],...limits,maxTransactionRows:100,maxTransactionBytes:100000,envelope:native.envelope([native.row('a')])};
+ const options={cache,pool:{connect:async()=>{connected++;return client;}},observeBackend:async()=>{},table:'synthetic_work.tenant_consumer_checkpoint',consumer:'evaluator-synthetic',snapshotDigest:digest,completedConsumer:'evaluator-synthetic-completed',completedDigest:digest,expectedSource:native.source,lockKey:()=>'123',assertFence:async()=> '1',routes:[{schema:'synthetic_entries',table:'entries',domain:'entries'}],...limits,maxTransactionRows:100,maxTransactionBytes:100000,envelope:native.envelope([native.row('a')])};
  return {options,calls,durable,cache,get connected(){return connected;},commit:()=>commit()};
 }
 describe('atomic native clinical and control SQL receipt',()=>{

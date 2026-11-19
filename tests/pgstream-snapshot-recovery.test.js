@@ -54,7 +54,7 @@ describe('exact clinical snapshot recovery coordinator', function () {
     assert.equal(f.imported[0].name, '00000001-00000002-1');
     const sql = f.calls.filter(Array.isArray);
     assert.equal(sql[0][1], 'SELECT pg_advisory_lock($1::bigint)');
-    assert.equal(sql[0][2][0], recovery.lockKey('checkpoint', 'evaluator-test'));
+    assert.equal(sql[0][2][0], recovery.lockKey('checkpoint', 'evaluator-test', TENANT));
     assert.deepEqual(sql.slice(1).filter(row => !row[1].startsWith('SELECT NOT EXISTS')).map(row => row[1].split(' ')[0]), ['IDENTIFY_SYSTEM', 'SET', 'CREATE_REPLICATION_SLOT']);
     assert(f.calls.includes('export:end')); assert(f.calls.includes('lock:end'));
     await f.coordinator.close();

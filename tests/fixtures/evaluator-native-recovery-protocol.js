@@ -22,9 +22,9 @@ function mocks({events=[]}={}){
   async query(text){assert.equal(text,'IDENTIFY_SYSTEM','BOOT_PROTOCOL_MUST_NOT_FAKE_SOURCE_READS');return {rows:[{systemid:'123',timeline:1,dbname:'synthetic'}]};}
   async end(){if(!this.closed){this.closed=true;events.push('identify-closed');}}
  }
- return {'pg':{Client},'../../pgstream/snapshot-recovery':{lockKey:()=> '123',create(options){
+ return {'pg':{Client},'../../pgstream/snapshot-recovery':{create(options){
   assert.equal(options.mainSource.system_id,'123');assert.equal(typeof options.connection,'object');assert.equal(typeof options.generation,'function');events.push('native-recovery-created');let closed=false;
-  return {async close(){if(!closed){closed=true;events.push('native-recovery-closed');}},async withSnapshot(){throw new Error('CLINICAL_SNAPSHOT_OUTSIDE_BOOT_PROTOCOL');}};
+  return {lockKey:()=>'123',async close(){if(!closed){closed=true;events.push('native-recovery-closed');}},async withSnapshot(){throw new Error('CLINICAL_SNAPSHOT_OUTSIDE_BOOT_PROTOCOL');}};
  }},'../../pgstream/receipt-authority':{create(options){assert.equal(typeof options.namespace,'string');assert.equal(options.generation,generation);assert.equal(typeof options.available,'function');return async()=>{throw new Error('CLINICAL_RECEIPT_OUTSIDE_BOOT_PROTOCOL');};}}};
 }
 module.exports={document,config,replay,mocks};

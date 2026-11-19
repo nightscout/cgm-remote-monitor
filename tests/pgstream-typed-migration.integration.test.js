@@ -443,7 +443,7 @@ optInSuite(process.env.NS_PGSTREAM_RECOVERY_TEST==='1'&&!!process.env.NS_TEST_PO
    assert.deepEqual(await read(a),{stamp:'6',enabled:true});
    assert.deepEqual(await read(b),{stamp:'5',enabled:false});
    await assert.rejects(legacy(envelope(a,'suspended','2')),/RECEIPT_CONTRACT/);
-   const receive=receiver(store,(envelope,opts)=>stream.acceptTransaction({...opts,pool,observeBackend:async()=>{},table,consumer,initialDigest:inputDigest,snapshotDigest,completedConsumer:completed,completedDigest:store.digest,envelope,expectedSource:source,operationWindow:{nativeLifecycle:selection},lockKey:'-7',maxRows:100,maxBytes:10000,maxTransactionRows:10,maxTransactionBytes:10000,assertFence:require('../lib/pgstream/receipt-authority').create({namespace:control,generation,available:()=>true})}));
+   const receive=receiver(store,(envelope,opts)=>stream.acceptTransaction({...opts,pool,observeBackend:async()=>{},table,consumer,initialDigest:inputDigest,snapshotDigest,completedConsumer:completed,completedDigest:store.digest,envelope,expectedSource:source,operationWindow:{nativeLifecycle:selection},lockKey:()=>'-7',maxRows:100,maxBytes:10000,maxTransactionRows:10,maxTransactionBytes:10000,assertFence:require('../lib/pgstream/receipt-authority').create({namespace:control,generation,available:()=>true})}));
    await receive(envelope(a,'suspended','2'));assert.deepEqual(await read(a),{stamp:'6',enabled:true});
    await query("UPDATE "+windows+" SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1",[b]);
    await receive(envelope(b,'active','2'));assert.deepEqual(await read(b),{stamp:'6',enabled:true});

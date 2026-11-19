@@ -67,10 +67,10 @@ suite('PostgreSQL exact exported snapshot recovery', function () {
     const c = coordinator();
     try {
       await scope.withTenant(TENANT, () => c.withSnapshot({ tenant: TENANT, fn: async () => {
-        assert.equal((await admin.query('SELECT pg_try_advisory_lock_shared($1::bigint) AS held', [c.lockKey])).rows[0].held, false);
+        assert.equal((await admin.query('SELECT pg_try_advisory_lock_shared($1::bigint) AS held', [c.lockKey(TENANT)])).rows[0].held, false);
       } }));
-      assert.equal((await admin.query('SELECT pg_try_advisory_lock_shared($1::bigint) AS held', [c.lockKey])).rows[0].held, true);
-      await admin.query('SELECT pg_advisory_unlock_shared($1::bigint)', [c.lockKey]);
+      assert.equal((await admin.query('SELECT pg_try_advisory_lock_shared($1::bigint) AS held', [c.lockKey(TENANT)])).rows[0].held, true);
+      await admin.query('SELECT pg_advisory_unlock_shared($1::bigint)', [c.lockKey(TENANT)]);
     } finally { await c.close(); }
   });
   it('refuses an exported name lost before import and commits no seed', async function () {
@@ -83,11 +83,11 @@ suite('PostgreSQL exact exported snapshot recovery', function () {
   });
   it('deadline cancels a queued deployment lock without leaving a waiting backend', async function () {
     const c = coordinator({ timeoutMs: 100 });
-    await admin.query('SELECT pg_advisory_lock($1::bigint)', [c.lockKey]);
+    await admin.query('SELECT pg_advisory_lock($1::bigint)', [c.lockKey(TENANT)]);
     try {
       await assert.rejects(scope.withTenant(TENANT, () => c.withSnapshot({ tenant: TENANT, fn: () => assert.fail('locked recovery reached seed') })), /DEADLINE/);
       assert.equal((await admin.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE usename=$1 AND wait_event='advisory'", [role])).rows[0].n, 0);
-    } finally { await admin.query('SELECT pg_advisory_unlock($1::bigint)', [c.lockKey]); await c.close(); }
+    } finally { await admin.query('SELECT pg_advisory_unlock($1::bigint)', [c.lockKey(TENANT)]); await c.close(); }
   });
   it('deadline kills a blocked exporter and releases its session lock and temporary slot', async function () {
     const writer = new Client(cfg); await writer.connect();
@@ -95,8 +95,8 @@ suite('PostgreSQL exact exported snapshot recovery', function () {
     const c = coordinator({ timeoutMs: 100 });
     try {
       await assert.rejects(scope.withTenant(TENANT, () => c.withSnapshot({ tenant: TENANT, fn: () => assert.fail('held export reached seed') })), /DEADLINE/);
-      const locked = (await admin.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [c.lockKey])).rows[0].held;
-      assert.equal(locked, true); await admin.query('SELECT pg_advisory_unlock($1::bigint)', [c.lockKey]);
+      const locked = (await admin.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [c.lockKey(TENANT)])).rows[0].held;
+      assert.equal(locked, true); await admin.query('SELECT pg_advisory_unlock($1::bigint)', [c.lockKey(TENANT)]);
       assert.equal((await admin.query("SELECT count(*)::int AS n FROM pg_replication_slots WHERE slot_name LIKE 'ns_recovery_%'")).rows[0].n, 0);
     } finally { await writer.query('ROLLBACK'); await writer.end(); await c.close(); }
   });
