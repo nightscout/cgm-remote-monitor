@@ -215,7 +215,10 @@ module.exports = function fixture () {
     // The owned producer is an independent actor; cold role bootstrap alone
     // cannot deliver later activity changes or committed clinical writes.
     await producer.start();
-    await until(async()=>{assert.equal(evaluatorWorker.exit,null,'actual evaluator child refused: '+evaluatorWorker.stderr);try{return await require('../../lib/server/internal-api/clients').roleHealth({socketPath:path.join(directory,'evaluator.sock'),maxBytes:1048576,timeoutMs:5000}).getStatus({request:randomUUID()});}catch{return false;}},'actual evaluator operation endpoint');
+    await until(async () => {
+      assert.equal(evaluatorWorker.exit, null, 'actual evaluator child refused: ' + evaluatorWorker.stderr);
+      return require('./role-readiness-probe')({ socketPath: path.join(directory, 'evaluator.sock'), timeoutMs: 5000 });
+    }, 'actual evaluator readiness endpoint');
 
     await startRealtime('a'); await startRealtime('b');
     edge = http.createServer((req, res) => {

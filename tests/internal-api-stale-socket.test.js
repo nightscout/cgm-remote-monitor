@@ -10,14 +10,14 @@ const os = require('node:os');
 const path = require('node:path');
 const { fork } = require('node:child_process');
 const transport = require('../lib/server/internal-api/transport');
-const health = require('../lib/server/internal-api/contracts').roleHealth;
+const hints = require('../lib/server/internal-api/contracts').completedOutput;
 
-// A child that serves the role health contract on the given socket and reports ready.
+// A child that serves the completed output contract on the given socket and reports ready.
 const CHILD = `
 const transport = require(process.env.TRANSPORT);
-const contract = require(process.env.CONTRACTS).roleHealth;
+const contract = require(process.env.CONTRACTS).completedOutput;
 transport.open({ socketPath: process.env.SOCKET, maxBytes: 65536, timeoutMs: 1000 }, contract, () => ({
-  getStatus: async (ctx, { request }) => ({ request, participant: 'api', roles: ['api'], ready: true }) }))
+  hintCompletedOutput: async () => ({ accepted: true }) }))
   .then(() => process.send({ ready: true }), error => process.send({ refused: error.code || error.message }));
 `;
 
@@ -38,8 +38,8 @@ describe('serve.internal stale socket reclaim', function () {
       child.once('error', reject);
     });
   }
-  const operations = () => ({ getStatus: async (ctx, { request }) => ({ request, participant: 'api', roles: ['api'], ready: true }) });
-  const open = socket => transport.open({ socketPath: socket, maxBytes: 65536, timeoutMs: 1000 }, health, operations);
+  const operations = () => ({ hintCompletedOutput: async () => ({ accepted: true }) });
+  const open = socket => transport.open({ socketPath: socket, maxBytes: 65536, timeoutMs: 1000 }, hints, operations);
 
   it('a member killed with SIGKILL restarts in place and serves', async function () {
     const socket = path.join(directory, 'killed.sock');
@@ -50,8 +50,8 @@ describe('serve.internal stale socket reclaim', function () {
     const second = await serve(socket);
     assert.equal(second.ready, true, 'STALE_SOCKET_RECLAIMED ' + second.refused);
     const request = require('node:crypto').randomUUID();
-    const client = transport.client({socketPath:socket, maxBytes:65536, timeoutMs:1000}, health);
-    assert.deepEqual(await client.getStatus({request}), {request, participant:'api', roles:['api'], ready:true});
+    const client = transport.client({socketPath:socket, maxBytes:65536, timeoutMs:1000}, hints);
+    assert.deepEqual(await client.hintCompletedOutput({tenants:[request]}), {accepted:true});
   });
   it('a live listener at the path is still refused and left untouched', async function () {
     const socket = path.join(directory, 'live.sock');

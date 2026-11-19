@@ -21,7 +21,7 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const REQUEST = '00000000-0000-4000-8000-000000000001';
 const TRANSPORT_FILE = require.resolve('../lib/server/internal-api/transport');
-const HEALTH_WIRE_VERSION = String(contracts.roleHealth.version);
+const HINT_WIRE_VERSION = String(contracts.completedOutput.version);
 
 function mutated (mutate) {
   const source = fs.readFileSync(TRANSPORT_FILE, 'utf8'), changed = mutate(source);
@@ -67,10 +67,10 @@ function recordingModules (calls) {
     { service: contracts.socketAuthority, create: () => ({
       async authorizeSocket (ctx, body) { calls.push(['authorize', body.tenant]); return { denied: true }; },
       async executeSocketMutation (ctx, body) { calls.push(['mutate', body.envelope.tenant]); return { replyArgs: [] }; } }) },
-    { service: contracts.roleHealth, create: () => ({
-      async getStatus (ctx, body) {
-        calls.push(['status']);
-        return { participant: 'api_1', roles: ['api'], ready: true, request: body.request };
+    { service: contracts.completedOutput, create: () => ({
+      async hintCompletedOutput () {
+        calls.push(['hint']);
+        return { accepted: true };
       } }) }
   ];
 }
@@ -82,12 +82,12 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
     const e = await endpoint(kind); const calls = []; let listener;
     try {
       listener = await transport.compose(e.options, recordingModules(calls));
-      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /role/health']);
+      assert.deepEqual(listener.routes, ['POST /authorize', 'POST /mutate', 'POST /completed-output/hint']);
       const authority = transport.client(e.options, contracts.socketAuthority);
-      const lifecycle = transport.client(e.options, contracts.roleHealth);
+      const hints = transport.client(e.options, contracts.completedOutput);
       assert.deepEqual(await authority.authorizeSocket(authorizeBody(A)), { denied: true });
-      assert.equal((await lifecycle.getStatus({ request: REQUEST })).request, REQUEST);
-      assert.deepEqual(calls, [['authorize', A], ['status']]);
+      assert.equal((await hints.hintCompletedOutput({ tenants: [A] })).accepted, true);
+      assert.deepEqual(calls, [['authorize', A], ['hint']]);
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });
   it('refuses a request naming a foreign or unregistered service before dispatch', async function () {
@@ -96,23 +96,23 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
       listener = await transport.compose(e.options, recordingModules(calls));
       // Registered elsewhere on this listener, but not the owner of the route.
       // Match the owning route's wire version so only the service fence refuses.
-      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'socket-authority', version: HEALTH_WIRE_VERSION }), 'foreign co-resident service');
-      refused(await raw(e.options, '/authorize', authorizeBody(A), { service: 'role-health' }), 'foreign co-resident service');
+      refused(await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'socket-authority', version: HINT_WIRE_VERSION }), 'foreign co-resident service');
+      refused(await raw(e.options, '/authorize', authorizeBody(A), { service: 'completed-output' }), 'foreign co-resident service');
       // A real contract not composed here.
-      refused(await raw(e.options, '/alarm', { request: REQUEST }, { service: 'alarm-delivery' }), 'unregistered service');
-      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'alarm-delivery', version: HEALTH_WIRE_VERSION }), 'unregistered service');
+      refused(await raw(e.options, '/alarm', { tenants: [A] }, { service: 'alarm-delivery' }), 'unregistered service');
+      refused(await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'alarm-delivery', version: HINT_WIRE_VERSION }), 'unregistered service');
       await assert.rejects(transport.client(e.options, contracts.alarmDelivery).deliverAlarm({ tenant: A, id: REQUEST, attempt: 1, notification: {}, receipts: [] }));
-      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION, method: 'GET' }), 'unregistered method');
-      refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: '0' }), 'old health wire version');
+      refused(await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'completed-output', version: HINT_WIRE_VERSION, method: 'GET' }), 'unregistered method');
+      refused(await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'completed-output', version: '0' }), 'old hint wire version');
       assert.deepEqual(calls, [], 'No foreign or unregistered service may invoke a composed handler');
-      assert.equal((await raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION })).status, 200);
-      assert.deepEqual(calls, [['status']], 'Positive control reaches the route owner');
+      assert.equal((await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'completed-output', version: HINT_WIRE_VERSION })).status, 200);
+      assert.deepEqual(calls, [['hint']], 'Positive control reaches the route owner');
     } finally { if (listener) await listener.close(); e.cleanup(); }
   });
   it('refuses a duplicate method/path or duplicate service registration before binding', async function () {
     const e = await endpoint(kind);
     const colliding = { id: 'synthetic-colliding', version: 1, operations: {
-      shadow: { path: '/role/health', request: { type: 'object' }, response: { type: 'object' } } } };
+      shadow: { path: '/completed-output/hint', request: { type: 'object' }, response: { type: 'object' } } } };
     try {
       for (const [modules, code] of [
         [[...recordingModules([]), { service: colliding, create: () => ({ async shadow () { return {}; } }) }], 'INTERNAL_API_ROUTE_DUPLICATE'],
@@ -125,7 +125,7 @@ for (const kind of ['uds', 'http']) describe('Composed component-private listene
           });
         } finally { if (leaked) await leaked.close(); }
         if (kind === 'uds') assert.equal(fs.existsSync(e.options.socketPath), false, 'A refused composition must not publish an endpoint');
-        else await assert.rejects(raw(e.options, '/role/health', { request: REQUEST }, { service: 'role-health', version: HEALTH_WIRE_VERSION }), { code: 'ECONNREFUSED' });
+        else await assert.rejects(raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'completed-output', version: HINT_WIRE_VERSION }), { code: 'ECONNREFUSED' });
       }
     } finally { e.cleanup(); }
   });
@@ -154,7 +154,7 @@ describe('Composition registration rules', function () {
   it('control: duplicate-route refusal goes red when the collision check is removed', async function () {
     const broken = mutated(source => source.replace(
       "      if (table.has(route)) registration('INTERNAL_API_ROUTE_DUPLICATE', route + ' (' + table.get(route).service.id + ', ' + service.id + ')');\n", ''));
-    const colliding = { id: 'synthetic-colliding', version: 1, operations: { shadow: { path: '/role/health', request: { type: 'object' }, response: { type: 'object' } } } };
+    const colliding = { id: 'synthetic-colliding', version: 1, operations: { shadow: { path: '/completed-output/hint', request: { type: 'object' }, response: { type: 'object' } } } };
     async function check (implementation) {
       const e = await endpoint('uds'); let listener;
       try {
@@ -172,7 +172,7 @@ describe('Composition registration rules', function () {
       const e = await endpoint('uds'); const calls = []; let listener;
       try {
         listener = await implementation.compose(e.options, recordingModules(calls));
-        refused(await raw(e.options, '/role/health', { request: REQUEST }, { service: 'socket-authority', version: HEALTH_WIRE_VERSION }), 'foreign co-resident service');
+        refused(await raw(e.options, '/completed-output/hint', { tenants: [A] }, { service: 'socket-authority', version: HINT_WIRE_VERSION }), 'foreign co-resident service');
         assert.deepEqual(calls, []);
       } finally { if (listener) await listener.close(); e.cleanup(); }
     }
@@ -264,7 +264,7 @@ async function lifecycleLab (implementation, kind = 'uds') {
   const hold = tenant => { let release; const promise = new Promise(resolve => { release = resolve; }); held.set(tenant, { promise }); return () => { held.delete(tenant); release(); }; };
   return { f, e, app, hold,
     authority: transport.client(e.options, contracts.socketAuthority),
-    lifecycle: transport.client(e.options, contracts.roleHealth),
+    hints: transport.client(e.options, contracts.completedOutput),
     suspend: tenant => { options.phases[tenant] = 'suspended'; },
     async close () { try { await listener.close(); await f.window.close(); } finally { e.cleanup(); } } };
 }
@@ -272,25 +272,25 @@ async function lifecycleLab (implementation, kind = 'uds') {
 describe('Per-module generation scope on a composed listener', function () {
   this.timeout(10000);
   for (const kind of ['uds', 'http']) {
-    it('keeps role health and B callable while suspended A refuses over ' + kind, async function () {
+    it('keeps output hints and B callable while suspended A refuses over ' + kind, async function () {
       const lab = await lifecycleLab(transport, kind);
       try {
         assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(A)), { denied: true });
         lab.suspend(A);
         await assert.rejects(lab.authority.authorizeSocket(authorizeBody(A)), /SOCKET_IPC_UNAVAILABLE/);
         assert.deepEqual(await lab.authority.authorizeSocket(authorizeBody(B)), { denied: true });
-        assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).request, REQUEST);
+        assert.equal((await lab.hints.hintCompletedOutput({ tenants: [A] })).accepted, true);
         assert.deepEqual(lab.app, [['authorize', A], ['authorize', B]]);
       } finally { await lab.close(); }
     });
   }
-  it('serves role health during a held tenant response', async function () {
+  it('serves output hints during a held tenant response', async function () {
     const lab = await lifecycleLab(transport);
     const release = lab.hold(A);
     try {
       const pending = lab.authority.authorizeSocket(authorizeBody(A));
       while (!lab.app.length) await new Promise(resolve => setImmediate(resolve));
-      assert.equal((await lab.lifecycle.getStatus({ request: REQUEST })).ready, true);
+      assert.equal((await lab.hints.hintCompletedOutput({ tenants: [A] })).accepted, true);
       release();
       assert.deepEqual(await pending, { denied: true });
     } finally { release(); await lab.close(); }

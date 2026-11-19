@@ -130,7 +130,7 @@ A failed database-pool drain leaves the registry selected and blocks an
 unwindowed fallback. This reference assumes trusted service roles and private
 transport ownership. Cross-process coordination uses the fixed private participant protocol above.
 
-Source protocol checks are in `tests/operation-cohort.test.js`, `tests/operation-cohort-peers.test.js`,
+Source protocol checks are in `tests/operation-cohort.test.js`,
 `tests/tenant-operation-window.test.js`, `tests/tenant-startup-admission.test.js`,
 `tests/evaluator-preview-runtime.test.js`
 and `tests/realtime-preview.test.js`. Recording SQL and role constructors do not

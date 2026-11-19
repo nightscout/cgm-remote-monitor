@@ -7,7 +7,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const { randomUUID } = require('node:crypto');
 const root = path.resolve(__dirname, '../../..');
 const clients = require(root + '/lib/server/internal-api/clients');
 const transport = require(root + '/lib/server/internal-api/transport');
@@ -24,7 +23,7 @@ const address = name => {
   return transport.options(process.env[prefix + 'URL'] ? { url: process.env[prefix + 'URL'], trust: 'network', ...LIMITS } : { socketPath: process.env[prefix + 'SOCKET'], ...LIMITS });
 };
 const ep = Object.fromEntries(['api', 'realtime', 'evaluator', 'tenant-admin'].map(name => [name, address(name)]));
-const lifecycle = Object.fromEntries(Object.entries(ep).map(([name, value]) => [name, clients.roleHealth(value)]));
+const ready = require(root + '/tests/fixtures/role-readiness-probe');
 const authority = clients.socketAuthority(ep.api);
 const authorizeBody = tenant => ({ host: tenant === A ? 'one.example.test' : 'two.example.test', tenant, namespace: '/', credential: {} });
 function raw (target, requestPath, service, body) {
@@ -52,7 +51,11 @@ const summary = rows => ({ ok: rows.filter(r => r.ok).length, refused: rows.filt
 
 async function scenario () {
   const results = { started: new Date().toISOString(), phases: {} };
-  for (;;) { try { await Promise.all(Object.values(lifecycle).map(c => c.getStatus({ request: randomUUID() }))); break; } catch { await delay(200); } }
+  const deadline = Date.now() + 30000;
+  while (!(await Promise.all(Object.values(ep).map(ready))).every(Boolean)) {
+    assert(Date.now() < deadline, 'private role listeners did not become ready');
+    await delay(200);
+  }
   write('authority.json', { [A]: 'allow', [B]: 'allow' }); write('phases.json', {});
   let mark = Date.now(); await delay(50);
   const baseline = await cyclesAfter(mark);
@@ -71,13 +74,7 @@ async function scenario () {
   const directA = await authority.authorizeSocket(authorizeBody(A)).then(() => 'admitted', e => e.message);
   const directB = await authority.authorizeSocket(authorizeBody(B)).then(v => v.denied ? 'denied' : 'admitted', e => e.message);
   const control = {};
-  for (const [name, client] of Object.entries(lifecycle)) {
-    const request = randomUUID();
-    const current = await client.getStatus({ request });
-    assert.equal(current.request, request);
-    control[name] = { participant: current.participant, roles: current.roles, ready: current.ready };
-
-  }
+  for (const [name, endpoint] of Object.entries(ep)) control[name] = await ready(endpoint);
   results.phases.suspendedA = { A: summary(suspended[A]), B: summary(suspended[B]), directA, directB, control };
   write('phases.json', {}); mark = Date.now(); await delay(50);
   const resumed = await cyclesAfter(mark);
@@ -85,10 +82,10 @@ async function scenario () {
 
   // Route ownership across the network on composed listeners.
   results.phases.routes = {
-    foreignOnApi: (await raw(ep.api, '/role/health', 'socket-authority', { request: randomUUID() })).status,
+    foreignOnApi: (await raw(ep.api, '/authorize', 'alarm-delivery', authorizeBody(A))).status,
     unregisteredOnApi: (await raw(ep.api, '/alarm', 'alarm-delivery', { tenant: A })).status,
-    foreignOnRealtime: (await raw(ep.realtime, '/role/health', 'alarm-delivery', { request: randomUUID() })).status,
-    healthOnRealtime: (await raw(ep.realtime, '/role/health', 'role-health', { request: randomUUID() })).status
+    foreignOnRealtime: (await raw(ep.realtime, '/alarm', 'socket-authority', { tenant: A })).status,
+    realtimeReady: await ready(ep.realtime)
   };
   write('results-scenario.json', results);
   const p = results.phases;
@@ -96,11 +93,9 @@ async function scenario () {
   assert(p.revokedA.A.ok === 0 && p.revokedA.A.refused >= 3 && p.revokedA.B.refused === 0, 'revoked A refuses at current API authority, B delivers');
   assert(p.suspendedA.A.ok === 0 && p.suspendedA.B.refused === 0 && p.suspendedA.B.ok >= 3, 'suspended A refuses, B progresses');
   assert.equal(p.suspendedA.directA, 'SOCKET_IPC_UNAVAILABLE'); assert.equal(p.suspendedA.directB, 'admitted');
-  for (const [name, row] of Object.entries(p.suspendedA.control)) {
-    assert.equal(row.ready, true); assert.equal(row.participant, name); assert.deepEqual(row.roles, [name]);
-  }
+  for (const name of Object.keys(ep)) assert.equal(p.suspendedA.control[name], true, name);
   assert(p.resumed.A.refused === 0 && p.resumed.A.ok >= 3, 'resumed A delivers');
-  assert.deepEqual(p.routes, { foreignOnApi: 503, unregisteredOnApi: 503, foreignOnRealtime: 503, healthOnRealtime: 200 });
+  assert.deepEqual(p.routes, { foreignOnApi: 503, unregisteredOnApi: 503, foreignOnRealtime: 503, realtimeReady: true });
   console.log('SCENARIO_PASS', JSON.stringify(results.phases));
 }
 // Hold one A application call open at the API; run.sh then SIGTERMs the API.

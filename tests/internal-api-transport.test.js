@@ -356,9 +356,9 @@ describe('Production public API and internal listener isolation', function () {
     await checkPublicIsolation();
   });
   it('detects accidental mounting of an internal operation on the public production app', async function () {
-    // Break authorization and role health using their current declared paths.
+    // Check two operations using their declared private paths.
     const contracts = require('../lib/server/internal-api/contracts');
-    for (const internalPath of [contracts.socketAuthority.operations.authorizeSocket.path, contracts.roleHealth.operations.getStatus.path]) {
+    for (const internalPath of [contracts.socketAuthority.operations.authorizeSocket.path, contracts.completedOutput.operations.hintCompletedOutput.path]) {
       await assert.rejects(checkPublicIsolation(source => {
         const mount = 'app.use(createTenantApp({';
         assert.equal(source.split(mount).length, 2, 'Actual production tenant-app mount must exist exactly once');

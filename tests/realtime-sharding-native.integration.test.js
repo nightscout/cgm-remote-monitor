@@ -73,9 +73,7 @@ optInSuite(enabled(), 'owned PostgreSQL and Vault native sharding')('actual fixe
     const f=require('./fixtures/realtime-sharding-native')();
     try {
       await f.setup({operation:true,apiOnly:true});
-      const request=randomUUID();
-      const reply=await require('../lib/server/internal-api/clients').roleHealth(f.apiInternal).getStatus({request});
-      assert.deepEqual(reply,{request,participant:'api',roles:['api'],ready:true});
+      assert.equal(await require('./fixtures/role-readiness-probe')(f.apiInternal), true);
     } finally { await f.cleanup(); }
   });
   it('SHARD_ALL_PAUSED: real owners boot and inspect honestly without projection work; one resumed tenant warms while the other stays quiet', async function () {

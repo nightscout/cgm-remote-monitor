@@ -37,9 +37,9 @@ async function main () {
   const f = windowFixture(options);
   // The rows serve/internal-listener.plan() derives from role settings.
   const rows = [...(role === 'api' ? [{ id: 'socket-authority', roles: [role], tenantScoped: true, bounds: LIMITS }] : []),
-    ...(role === 'realtime' ? [{ id: 'alarm-delivery', roles: [role], tenantScoped: true, bounds: LIMITS }] : []),
-    { id: 'role-health', roles: [role], tenantScoped: false, bounds: LIMITS }];
-  const listener = await internalListener.open(internal, rows, { operationWindow: f.window });
+    ...(role === 'realtime' ? [{ id: 'alarm-delivery', roles: [role], tenantScoped: true, bounds: LIMITS }] : [])];
+  const health = require(root + '/lib/server/serve/role-health').create({ configs: () => ({}), ready: () => true });
+  const listener = await internalListener.open(internal, rows, { operationWindow: f.window, health });
   const bindings = {};
   if (role === 'api') bindings['socket-authority'] = { resolveTenant: async body => body.tenant || body.envelope.tenant, create: () => ({
     async authorizeSocket (ctx, body) {
@@ -62,7 +62,6 @@ async function main () {
         return { accepted: true, receipt: null, clearedRequestIds: [] };
       } }) };
   }
-  bindings['role-health'] = { create: () => ({ async getStatus (ctx, { request }) { return { request, participant: role, roles: [role], ready: true }; } }) };
   listener.bind(role, bindings); listener.assertBound();
   log('READY', JSON.stringify({ routes: listener.routes, endpoint: internal.listen.url || internal.listen.socketPath, bind: internal.listen.bindHost || null, shutdownTimeoutMs: internal.shutdownTimeoutMs }));
 

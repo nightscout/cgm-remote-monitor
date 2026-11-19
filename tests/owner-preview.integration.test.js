@@ -326,23 +326,23 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       const selected = await start(config(), configured);
       const endpoint = require('../lib/server/internal-api/listener-config').resolve(['tenant-admin'], configured)
         .peer('tenant-admin', { maxBytes: 65536, timeoutMs: 1500 });
-      const status = () => require('../lib/server/internal-api/clients').roleHealth(endpoint).getStatus({ request: crypto.randomUUID() });
+      const ready = () => require('./fixtures/role-readiness-probe')(endpoint);
       const role = await require('../lib/server/serve').start(['tenant-admin'], {}, null, source, { ownerPreview: parsed });
       try {
         const worker = { port: role.servers[0].address().port };
         const credential = await token(), before = role.datastore.current.postmaster_birth, beforeEpoch = role.datastore.epoch;
         assert.equal((await http(worker, credential)).status, 200);
-        assert.equal((await status()).ready, true);
+        assert.equal((await ready()), true);
         assert.equal((await http(selected, credential)).status, 200);
         await registryLab.restartDatabase(async () => {
           await registryLab.until(() => !role.datastore.available, 'role health turns unavailable');
-          await registryLab.until(async () => !(await status()).ready, 'private role health turns unavailable');
+          await registryLab.until(async () => !(await ready()), 'private role health turns unavailable');
           assert.equal((await http(worker, credential)).status, 503);
           assert.equal((await http(selected, credential)).status, 503);
         });
         admin = registryLab.admin;
         await registryLab.until(() => role.datastore.available, 'role health recovers');
-        await registryLab.until(async () => (await status()).ready, 'private role health recovers');
+        await registryLab.until(async () => (await ready()), 'private role health recovers');
         assert.equal((await http(selected, credential)).status, 200);
         assert.notEqual(role.datastore.current.postmaster_birth, before);
         assert.notEqual(role.datastore.epoch, beforeEpoch, 'new postmaster must not revalidate old role admissions');

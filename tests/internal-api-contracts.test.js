@@ -8,7 +8,6 @@ const request = '00000000-0000-4000-8000-000000000001';
 const authorize = contracts.socketAuthority.operations.authorizeSocket;
 const mutate = contracts.socketAuthority.operations.executeSocketMutation;
 const alarm = contracts.alarmDelivery.operations.deliverAlarm;
-const health = contracts.roleHealth.operations;
 const refused = fn => assert.throws(fn, error => error.code === 'INTERNAL_API_SCHEMA_REFUSED' && error.message === 'INTERNAL_API_SCHEMA_REFUSED');
 
 describe('Internal service API contracts', function () {
@@ -17,7 +16,6 @@ describe('Internal service API contracts', function () {
     assert.deepEqual(Object.keys(contracts.alarmDelivery.operations), ['deliverAlarm']);
     assert.deepEqual(Object.keys(contracts.completedOutput.operations), ['hintCompletedOutput']);
     assert.equal(Object.hasOwn(contracts, 'intakeState'), false, 'SYNTHETIC_INTAKE_STATE_CONTRACT_RETIRED');
-    assert.deepEqual(Object.keys(health), ['getStatus']);
     assert.deepEqual(Object.keys(contracts.ownershipOperations.operations), ['listOwners', 'addOwner', 'transferOwner', 'recoverOwner']);
     assert.deepEqual(Object.keys(contracts.connectorInspection.operations), ['inspectConnectors']);
     const paths = Object.values(contracts).flatMap(service => {
@@ -30,10 +28,10 @@ describe('Internal service API contracts', function () {
         return operation.path;
       });
     });
-    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/alarm', '/role/health',
+    assert.deepEqual(paths, ['/authorize', '/mutate', '/completed-output/hint', '/alarm',
       '/ownership/list', '/ownership/add', '/ownership/transfer', '/ownership/recover', '/vcpool/inspect',
-        '/evaluator/inspect', '/evaluator/readiness-witness', '/pool/get', '/pool/members', '/realtime/inspect', '/realtime/inspect-tenants']);
-    assert.throws(() => { contracts.alarmDelivery.operations.getStatus = health.getStatus; }, TypeError);
+        '/evaluator/inspect', '/evaluator/readiness-witness', '/realtime/inspect', '/realtime/inspect-tenants']);
+    assert.throws(() => { contracts.alarmDelivery.operations.getStatus = authorize; }, TypeError);
   });
   it('carries only a bounded distinct tenant wake list and refuses invented revision or completion authority', function () {
     const operation=contracts.completedOutput.operations.hintCompletedOutput,ids=Array.from({length:65},(_,i)=>'00000000-0000-4000-8000-'+String(i).padStart(12,'0'));
@@ -107,15 +105,6 @@ describe('Internal service API contracts', function () {
     refused(() => validate(alarm.request, { ...body, callback: 'ignored' }));
     refused(() => validate(alarm.response, { accepted: true, receipt: { deviceAcknowledged: true }, clearedRequestIds: [] }));
     refused(() => validate(alarm.response, { accepted: true, receipt: null, clearedRequestIds: [request] }));
-  });
-  it('requires the exact role health acknowledgement', function () {
-    const reply = { request, participant: 'api_1', roles: ['api'], ready: true };
-    validate(health.getStatus.request, { request });
-    validate(health.getStatus.response, reply);
-    validate(health.getStatus.response, { ...reply, ready: false });
-    for (const bad of [{}, { request: A, tenant: A }]) refused(() => validate(health.getStatus.request, bad));
-    for (const bad of [{ ...reply, ready: 1 }, { ...reply, roles: [] }, { ...reply, roles: ['root'] },
-      { ...reply, backends: [] }]) refused(() => validate(health.getStatus.response, bad));
   });
   it('fails unsupported schema vocabulary and exercises the implemented JSON Schema subset', function () {
     assert.throws(() => compile({ type: 'object', patternProperties: {} }), /Unsupported internal API schema/);
