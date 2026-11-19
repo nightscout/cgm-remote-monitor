@@ -37,6 +37,17 @@ optInSuite(process.env.NS_REST_CLIENT_REPLAY_TEST === '1',
     const follower = (domain, tenant = lab.A, version = 1) => lab.http(worker, tenant, 'GET',
       patterns.followerPath(domain, lab.credential(tenant), version));
 
+    it('re-verifies ordinary deployment without enumerating or rewriting seeded tenant proofs', async function () {
+      const before = await lab.floorVersions();
+      assert.deepEqual(before.map(row => row.tenant_id), [lab.A, lab.B]);
+      await lab.withoutFloorEnumeration(async () => {
+        assert.equal(lab.verifyPlatform().status, 'verified', 'ORDINARY_ROLLOUT_MUST_NOT_ENUMERATE');
+      });
+      assert.deepEqual(await lab.floorVersions(), before, 'ORDINARY_ROLLOUT_MUST_PRESERVE_PROOFS');
+      await lab.stop(worker); worker = lab.start(); await lab.ready(worker);
+      assert.equal((await follower('entries', lab.B, 1)).status, 200, 'UNTOUCHED_TENANT_MUST_SERVE_AFTER_RESTART');
+    });
+
     it('requeues unchanged entry, treatment and device arrays after a simulated lost response without duplicate rows', async function () {
       const docs = await fill();
       for (const domain of domains.filter(value => value !== 'profile')) {

@@ -271,6 +271,21 @@ module.exports = function clientReplayHTTP () {
       assert.equal(initialized.status, 'verified', 'seeded tenant backfill failed: ' + JSON.stringify(initialized));
     }
 
+    function verifyPlatform () {
+      return prestart.verifySync({ directory: fixtureDirectory, ...proof, targets: [{ role: 'api', configFile }], source: environment() });
+    }
+    // Exercise a normal pre-start with a valid proof for the existing tenants
+    // and no authority to enumerate the registry for a migration.
+    async function withoutFloorEnumeration (check) {
+      const permitted = '"' + provisioned.namespaces.registry + '".tenant_registry_tenants(uuid,integer)';
+      await admin.query('REVOKE EXECUTE ON FUNCTION ' + permitted + ' FROM "' + proof.writer + '"');
+      try { return await check(); }
+      finally { await admin.query('GRANT EXECUTE ON FUNCTION ' + permitted + ' TO "' + proof.writer + '"'); }
+    }
+    async function floorVersions () {
+      return (await admin.query('SELECT tenant_id,xmin::text FROM ' + PROOF_NAMESPACE + '.verified_tenant_floor ORDER BY tenant_id')).rows;
+    }
+
     async function close () {
       for (const worker of children) {
         if (!worker.exit) worker.child.kill('SIGKILL');
@@ -298,6 +313,6 @@ module.exports = function clientReplayHTTP () {
     }
     const credential = tenant => 'sameviewer-' + hash(hash(roots[tenant === B ? 1 : 0]) + SUBJECT).slice(0, 16);
     const rootCredential = tenant => hash(roots[tenant === B ? 1 : 0]);
-    return { A, B, open, close, start, ready, stop, http, exchange, rows, reset, grants,
+    return { A, B, open, close, start, ready, stop, http, exchange, rows, reset, grants, verifyPlatform, withoutFloorEnumeration, floorVersions,
       credential, rootCredential, permissions };
 };
