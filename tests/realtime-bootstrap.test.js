@@ -165,7 +165,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
       const authenticate=tokens.createAuthentication({verifyToken,snapshot:authority.snapshot,now:()=>1000});
       const socket=require('../lib/server/realtime/authority').create({accessTokens:{authenticate},admission:{allows:async()=>true},
         verifierContext:async tenant=>({tenant}),secrets:{verifyLegacyCredential(){throw new Error('NO_LEGACY_FALLBACK');}},
-        authority:{subjectSnapshot(){throw new Error('NO_SNAPSHOT_BYPASS');},authorize(){throw new Error('NO_PERMISSION_BYPASS');}}});
+        authority:{subjectAuthorizationSnapshot(){throw new Error('NO_SNAPSHOT_BYPASS');},permissionSnapshot(){throw new Error('NO_PERMISSION_BYPASS');}}});
       const signed=subject=>{const header=Buffer.from(JSON.stringify({alg:'EdDSA',typ:'ns-access+jwt',kid:'key1'})).toString('base64url');
         const body=Buffer.from(JSON.stringify({iss:'synthetic-source',aud:'synthetic-data',tid:plan.A,purpose:'data',sub:subject,sid:'session-'+subject,cv:1,iat:1000,nbf:1000,exp:2000})).toString('base64url');
         return header+'.'+body+'.'+crypto.sign(null,Buffer.from(header+'.'+body),pair.privateKey).toString('base64url');};

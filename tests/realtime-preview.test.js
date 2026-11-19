@@ -100,8 +100,8 @@ describe('explicit realtime preview source contracts', function () {
     const auth = authorityFactory.create({ admission: { allows: async () => enabled }, verifierContext: tenant => ({ tenant }),
       secrets: { async verifyLegacyCredential (ctx, values) { inputs.push(values); if (values.apiSecret === 'root-' + ctx.tenant) return { kind: 'root' };
         if (values.apiSecret === 'subject' || values.token === 'jwt') return { kind: 'subject', subjectId: 'one' }; return values.apiSecret === undefined && values.token === undefined ? { kind: 'anonymous' } : null; } },
-      authority: { authorize: async ({ principal }) => principal.kind === 'root',
-        subjectSnapshot: async () => allowed ? { permissionGroups: [['api:*:read','api:*:create,update,delete','notifications:*:ack']] } : null } });
+      authority: { permissionSnapshot: async ({ principal }) => ({ allows: () => principal.kind === 'root' }),
+        subjectAuthorizationSnapshot: async () => allowed ? { allows: permission => ['api:*:read','api:*:create,update,delete','notifications:*:ack'].includes(permission) || /^api:[a-z]+:read$/.test(permission) } : null } });
     const root = await auth.verify({ tenant: A, namespace: '/', credential: { secret: 'root-' + A } });
     assert.equal(root.permissions.write, true);
     await assert.rejects(auth.verify({ tenant: B, namespace: '/', credential: { secret: 'root-' + A } }));
@@ -121,7 +121,7 @@ describe('explicit realtime preview source contracts', function () {
     const input = header + '.' + payload, token = input + '.' + crypto.sign(null, Buffer.from(input), key.privateKey).toString('base64url');
     const auth = authorityFactory.create({ admission: { allows: async () => true }, verifierContext: tenant => ({ tenant }),
       secrets: { verifyLegacyCredential: async () => assert.fail('current token must not require Vault/decrypt') },
-      authority: { subjectSnapshot: async () => assert.fail('token uses one current access snapshot'), authorize: async () => false },
+      authority: { subjectAuthorizationSnapshot: async () => assert.fail('token uses one current access snapshot'), permissionSnapshot: async () => assert.fail('token uses one current access snapshot') },
       accessTokens: { authenticate: access.createAuthentication({ verifyToken: access.createVerifier({ issuer: 'synthetic', audience: 'data', purpose: 'data', maxLifetimeSeconds: 28800,
         resolveKey: tenant => tenant === A ? { tenant: A, kid: 'key1', issuer: 'synthetic', purpose: 'data', publicKey: key.publicKey } : null }),
       snapshot: async () => { snapshots++; return { active, sessionActive: true, keyActive: true, credentialVersion: 1, sessionExpiresAt: time + 2000,
