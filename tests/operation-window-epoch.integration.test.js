@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/serve/platform-verification-lifecycle.js, lib/server/serve/evaluator-consumer-readiness.js
+// covers: lib/server/serve/lifecycle-catalogue-check.js, lib/server/serve/evaluator-consumer-readiness.js
 // Admin pre-start checks against the deployment catalogue and grants. Keep the
 // historical suite entry and its owned Docker fixture for enabled-corpus runs.
 const assert = require('node:assert/strict');
@@ -9,7 +9,7 @@ const { execFileSync } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const plan = require('./fixtures/multitenant-plan');
-const catalogue = require('../lib/server/serve/platform-verification-lifecycle');
+const catalogue = require('../lib/server/serve/lifecycle-catalogue-check');
 const readiness = require('../lib/server/serve/evaluator-consumer-readiness');
 const { optInSuite } = require('./support/opt-in');
 

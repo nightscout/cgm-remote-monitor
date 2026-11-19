@@ -96,11 +96,8 @@ module.exports = function consumersLab () {
       maxPayloadBytes: 65536, maxInflight: 2, attemptTimeoutMs: 5000, retryDelayMs: 10, pollIntervalMs: 1000000, retryIntervalMs: 1000000 } };
     schemaReady = true;
   };
-  // Every serving evaluator checks a platform proof at start (decision
-  // platform-application-boundary), as the base lab's lab.configure selects.
   lab.configureConsumers = (change = () => {}) => {
     const document = structuredClone(lab.document);
-    document.platformVerification = { namespace: lab.name + '_verification', role: 'evaluator' };
     change(document);
     const file = path.join(directory, 'config.json'); fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600 });
     // Recovery credentials exist only after prepareProduct creates the owned
@@ -141,11 +138,6 @@ module.exports = function consumersLab () {
   lab.workerConsumers = async config => {
     if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
     await lab.prepareProduct(config);
-    // The deployment's pre-start step, with this lab's selected consumer
-    // identities; a refusal publishes no proof and the role refuses at start.
-    const previous = lab.extraEnvironment;
-    lab.extraEnvironment = { ...previous, ...source, ...lab.extraEnv };
-    try { await lab.preStart(config); } finally { lab.extraEnvironment = previous; }
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), [], { silent: true, detached: false, env: {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH, NODE_ENV: 'test', TZ: 'UTC',

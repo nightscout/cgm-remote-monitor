@@ -301,7 +301,6 @@
         "tests/admin-provisioning-cli.test.js",
         "tests/tenant-ensure.test.js",
         "tests/tenant-ensure-driver.test.js",
-        "tests/tenant-ensure-readiness.test.js",
         "tests/admin-inspect-cli.test.js",
         "tests/registry-config.test.js",
         "tests/registry-realtime.test.js",
@@ -313,7 +312,6 @@
         "tests/tenant-alarm-composition.test.js",
         "tests/tenant-notifications.test.js",
         "tests/evaluator-consumers.test.js",
-        "tests/evaluator-control-readiness.test.js",
         "tests/evaluator-consumer-metadata.test.js",
         "tests/evaluator-consumer-open-order.test.js",
         "tests/evaluator-consumer-native-observation.test.js",
@@ -408,8 +406,7 @@
         "tests/pgstream-work-admission.test.js",
         "tests/tenant-api-admission.test.js",
         "tests/tenant-api-settings-reader.test.js",
-        "tests/tenant-api-authority-ownership.test.js",
-        "tests/tenant-floor-verification.test.js"
+        "tests/tenant-api-authority-ownership.test.js"
       ],
       "env": true,
       "require": [
@@ -493,8 +490,6 @@
     },
     "integration": {
       "files": [
-        "tests/platform-verification.test.js",
-        "tests/vcpool-platform-proof.test.js",
         "tests/connection-pool-bound.test.js",
         "tests/clinical-ack-tenant-independent.integration.test.js",
         "tests/clinical-working-set.integration.test.js",
@@ -667,8 +662,7 @@
         "tests/native-operation-control-readiness.integration.test.js",
         "tests/pgstream-assigned-worker.integration.test.js",
         "tests/tenant-api-write-cost.integration.test.js",
-        "tests/api-tenant-lru.integration.test.js",
-        "tests/tenant-floor-verification.integration.test.js"
+        "tests/api-tenant-lru.integration.test.js"
       ],
       "env": true,
       "require": [

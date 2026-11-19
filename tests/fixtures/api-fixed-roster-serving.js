@@ -14,7 +14,7 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
   const base = require('./multitenant-preview-replicas')({ writeClock: true, namespaceNames: { control: 'preview_control', registry: 'preview_registry' } }), current = new Map(), environments = new Map(), calls = new Map();
   const controlledClock = String(Date.now());
   const locks = base.tenants.map(tenant => ({ tenant, key: require('../../lib/tenant-registry/rules').lockKey(tenant) }));
-  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode, proofWriter;
+  let port, publicProxy, privateProxy, participants, operatorPool, controller, resume, lifetimeURI, config, previousMode;
   const url = host => 'http://' + host + ':' + port + '/';
   const endpoint = host => ({ url: url(host), trust: 'network', maxBytes: 1048576, timeoutMs: 5000 });
   async function withAdmin (fn) {
@@ -44,17 +44,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
       NODE_OPTIONS: '--require ' + path.join(__dirname, 'api-fixed-roster-controls.js'),
       NS_API_ROSTER_CONTROL_DIR: base.directory, NS_API_ROSTER_ID: id,
       NS_PREVIEW_REPLICA_CONTROL: 'history-clock', NS_PREVIEW_REPLICA_CLOCK_MS: controlledClock, NS_POOL_OPERATION_MAX: '2', NS_POOL_API_MAX: '2', ...environment };
-    if (id === 'api-1' && !environments.has(id)) {
-      const roleFile = path.join(base.directory, 'api-prestart.json');
-      fs.writeFileSync(roleFile, JSON.stringify(config), { mode: 0o600 });
-      const verifier = require('../../lib/server/serve/platform-verification-admin').create({
-        namespace: config.platformVerification.namespace, connectionString: proofWriter,
-        targets: [{ role: 'api', configFile: roleFile, operationConfigFile: file }]
-      }, base.environment(extra));
-      try { await verifier.verify(); await verifier.backfillTenantFloorsV1(); } catch (error) {
-        throw new Error('Roster API pre-start refused: ' + JSON.stringify(error.verificationDiagnostic), { cause: error });
-      } finally { await verifier.close(); }
-    }
     environments.set(id, extra);
     const worker = base.start(config, extra);
     await base.ready(worker, readinessTenant); current.set(id, worker); return worker;
@@ -74,11 +63,6 @@ module.exports = function create ({ environment = {}, leaseSessions, drainTimeou
     };
     lifetimeURI = await roleURI('preview_lifetime_api');
     const operatorURI = await roleURI('preview_restore_operator');
-    proofWriter = await roleURI('preview_roster_verifier');
-    config.platformVerification = { namespace: 'preview_roster_proof', role: 'api' };
-    await require('../../lib/server/serve/platform-verification').install(admin, { namespace: config.platformVerification.namespace,
-      writer: 'preview_roster_verifier', floorReaders: ['preview_app'], readers: ['preview_app','preview_check'] });
-    for (const sql of base.provisioned.registryGrants({ enumerators: ['preview_roster_verifier'] })) await admin.query(sql);
     for (const role of ['preview_app', 'preview_check', 'preview_settings', 'preview_lifetime_api']) {
       await admin.query('GRANT USAGE ON SCHEMA preview_control TO ' + q(role));
       await admin.query('GRANT SELECT ON preview_control.schema_migrations,preview_control.tenant_lifecycle_windows,preview_control.tenant_lifecycle_operations TO ' + q(role));

@@ -17,7 +17,7 @@ function request(app,tenant,url){
 }
 async function criterion(transform){
  const calls=[],factory=load(calls,transform);
- const config={platformVerification:{namespace:'synthetic_verification',role:'api'},domains,bindings:new Map([[A,{}],[B,{}]]),environments:new Map([[A,environment({})],[B,environment({})]]),namespaces:Object.fromEntries(domains.map(n=>[n,'synthetic_'+n])),legacyEnabled:true,contextEnabled:true};
+ const config={domains,bindings:new Map([[A,{}],[B,{}]]),environments:new Map([[A,environment({})],[B,environment({})]]),namespaces:Object.fromEntries(domains.map(n=>[n,'synthetic_'+n])),legacyEnabled:true,contextEnabled:true};
  const connection={withTenant:(tenant,fn)=>scope.withTenant(tenant,fn),transaction:fn=>fn(),withSavepoint:fn=>fn(),async query(sql){await Promise.resolve();if(sql.includes("current_setting('server_version')"))return{rows:[{version:'protocol'}]};if(sql.startsWith('SELECT'))return{rows:[]};throw Error('UNEXPECTED_PROTOCOL_SQL');}};
  const graph=await factory({config,connection,exchange:async()=>null,deferInitialization:true});
  await graph.prepareTenant(A);await graph.prepareTenant(B);

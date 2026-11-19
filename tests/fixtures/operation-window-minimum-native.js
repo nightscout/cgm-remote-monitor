@@ -33,7 +33,7 @@ function create ({ receiptPrefix = '' } = {}) {
     try { return await fn(client); } finally { await client.end(); }
   }
   async function prestart() {
-    const platform = require('../../lib/server/serve/platform-verification-lifecycle');
+    const platform = require('../../lib/server/serve/lifecycle-catalogue-check');
     const inspection = await platform.inspect({namespace:ns.control,poolOptions:{connectionString:urls.lifetime_api}}, counter.Client);
     await platform.withClient({connectionString:urls.api}, inspection.controlReads, counter.Client);
   }
