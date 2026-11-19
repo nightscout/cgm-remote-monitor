@@ -28,6 +28,14 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       }
       throw new Error(symptom);
     }
+    // These opening clinical rows were committed before the test slot existed.
+    // Request the first snapshot; restarted workers recover their own durable work.
+    async function startExisting(config, options, tenants = [lab.A]) {
+      const worker = await lab.worker(config, options);
+      assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
+      for (const tenant of tenants) await worker.call('acquire', tenant);
+      return worker;
+    }
     async function firstUsefulOutput(worker, expected) {
       if (!selectedStartup) return;
       const started=performance.now();let observation;
@@ -44,7 +52,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
             residentFrame:!!resident?.frame?.sgvs?.some(row=>row._id===wanted.id&&row.mgdl===wanted.value),
             durableFrame:!!durable.projection?.[0]?.output?.frame?.sgvs?.some(row=>row._id===wanted.id&&row.mgdl===wanted.value),
             noPending:work.work_pending_at===null,acceptedFloor:completed(durable,String(accepted?.floor||'0')),
-            observedCovered:work.work_observed.every((value,i)=>value===null||floor(work.work_completed[i])>=floor(value))};
+            observedCovered:Array.isArray(work.work_observed)&&Array.isArray(work.work_completed)&&work.work_observed.every((value,i)=>value===null||floor(work.work_completed[i])>=floor(value))};
           tenants.push({wanted,predicates,progress,accepted,work,resident,durable});
         }
         observation={tenants,health};
@@ -109,7 +117,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       const original=lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT;
       async function criterion(mutant){
         if(mutant)lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT='1';else delete lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT;
-        const worker=await lab.worker(lab.configure());let pending,finished=false,result;
+        const worker=await startExisting(lab.configure());let pending,finished=false,result;
         try{
           assert.equal(worker.startup.bootError,undefined);
           await lab.wait(async()=>!!(await worker.call('last',lab.A)));
@@ -142,7 +150,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       await write(117);await lab.provisionPreview();const prior=lab.extraEnvironment;lab.extraEnvironment={...(prior||{})};
       const criterion=async mutant=>{
         if(mutant)lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_SOURCE_MUTANT='1';else delete lab.extraEnvironment.NS_EVALUATOR_FIXTURE_WARM_SOURCE_MUTANT;
-        const worker=await lab.worker(lab.configure());
+        const worker=await startExisting(lab.configure());
         try{assert.equal(worker.startup.bootError,undefined);await lab.wait(async()=>!!(await worker.call('last',lab.A)));
           const before=await worker.call('queries');await worker.call('acquire',lab.A);const after=await worker.call('queries');
           for(const key of ['snapshots','catalogue','exports','imports'])assert.equal(after[key],before[key],'WARM_SOURCE_REACQUISITION_'+key);
@@ -151,7 +159,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       try{await assert.rejects(criterion(true),/WARM_SOURCE_REACQUISITION/);await criterion(false);}finally{lab.extraEnvironment=prior;}
     });
     it('materializes actual default clinical cohorts, corrections and deletion without warm clinical snapshot or catalogue rediscovery',async function(){
-      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await write(110);const config=lab.configure(),worker=await startExisting(config, {detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       try{
         const initial=await worker.call('queries');assert(initial.snapshots>0&&initial.exports>0&&initial.imports>0,'EXACT_NATIVE_BOOTSTRAP_REQUIRED');
         const at=Date.now(),late=at-300000;
@@ -187,7 +195,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     });
     it('accepts and completes unstamped activity after an actual stopped-feed red control without changing public history',async function(){
       await write(110);
-      const config=lab.configure(),worker=await lab.worker(config,{detached:true});
+      const config=lab.configure(),worker=await startExisting(config, {detached:true});
       assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       const id='native-unstamped-activity',publicClock=await lab.clock();
       const raw=async steps=>{
@@ -226,7 +234,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     it('lets an unrelated tenant complete newly arriving input while the first tenant is held',async function(){
       await write(110);const at=Date.now();
       await lab.persistDomains({entries:[{_id:'neighbor',type:'sgv',sgv:210,date:at,dateString:new Date(at).toISOString()}]},lab.B);
-      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      const config=await startupConfiguration(),worker=await startExisting(config, {detached:true}, [lab.A, lab.B]);assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110},{tenant:lab.B,id:'neighbor',value:210}]);
       try{
         const held=await holdNext(worker,131);
@@ -240,7 +248,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       }finally{await worker.call('release');await lab.stopWorker(worker);}
     });
     it('keeps the same evaluator alive without synthetic idle-feed expiry and catches up durable output after external restart',async function(){
-      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await write(110);const config=lab.configure(),worker=await startExisting(config, {detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       const evaluator=identity(worker.child.pid),producer=lab.stream(),original=producer.identity(),originalStarts=producer.state().starts,before=await lab.previewCompleted();assert(original,'INDEPENDENT_PRODUCER_RUNNING');assert.notEqual(original.group,evaluator.group,'PRODUCER_NOT_IN_EVALUATOR_GROUP');
       const beforeWork=await state(),began=performance.now();await lab.stopStream();assert.equal(producer.state().running,false);
       await write(149);
@@ -265,7 +273,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       await lab.stopWorker(worker);
     });
     it('retains a newer observation across held completion and recovers pending clinical work after actual role process-group death',async function(){
-      await write(110);const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      await write(110);const config=await startupConfiguration(),worker=await startExisting(config, {detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110}]);
       await holdNext(worker,130);await write(149);const newer=await acceptedValue(149);
       await wait(async()=>floor((await state()).observed.bootstrap)>=floor(newer),5000,'NEWER_RECEIPT_MUST_COMMIT_WHILE_OLDER_CYCLE_HELD');
@@ -291,7 +299,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     it('preserves completed output across process death and fires recovered future clinical due work without a new input write',async function(){
       await lab.setSettings({enable:['bgnow','delta','direction','simplealarms']});
       await write(50,'synthetic-recovery',600000-15000);
-      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
+      const config=await startupConfiguration(),worker=await startExisting(config, {detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));
       await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:50}]);
       const before=await state(),outputBefore=await lab.previewCompleted(),clockBefore=(await lab.clock()).stamp,inputBefore=await inputBookend();
       const remainingAtKillMs=Number(before.due_at)-Date.now();
@@ -322,7 +330,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     });
     (selectedStartup ? it : it.skip)('selected startup refuses a held completion after actual lifecycle generation advance and keeps a healthy neighbor progressing',async function(){
       await write(110);const now=Date.now();await lab.persistDomains({entries:[{_id:'generation-neighbor',type:'sgv',sgv:210,date:now,dateString:new Date(now).toISOString()}]},lab.B);
-      const config=await startupConfiguration(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true);
+      const config=await startupConfiguration(),worker=await startExisting(config, {detached:true}, [lab.A, lab.B]);assert.equal(worker.startup.ready,true);
       const table='"'+lab.registryNamespaces.control+'".tenant_lifecycle_windows';let advanced=false;
       await firstUsefulOutput(worker,[{tenant:lab.A,id:'synthetic-recovery',value:110},{tenant:lab.B,id:'generation-neighbor',value:210}]);
       try {
@@ -341,7 +349,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
       }
     });
     it('preserves durable ACK refusal during an injected exact receiver grant failure and recovers without evaluator replacement',async function(){
-      await write(110);const config=lab.configure(),worker=await lab.worker(config,{detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));const evaluator=identity(worker.child.pid);
+      await write(110);const config=lab.configure(),worker=await startExisting(config, {detached:true});assert.equal(worker.startup.ready,true,JSON.stringify(worker.startup));const evaluator=identity(worker.child.pid);
       const table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint',role='"'+lab.previewRole+'"';
       const grants=async()=>(await lab.admin.query("SELECT grantor,grantee,is_grantable FROM information_schema.column_privileges WHERE table_schema=$1 AND table_name='tenant_consumer_checkpoint' AND column_name='work_observed' AND grantee=$2 AND privilege_type='UPDATE' ORDER BY grantor",[lab.replayNamespace,lab.previewRole])).rows;
       const canUpdate=async()=>(await lab.admin.query("SELECT has_column_privilege($1,$2,'work_observed','UPDATE') AS allowed",[lab.previewRole,lab.replayNamespace+'.tenant_consumer_checkpoint'])).rows[0].allowed;
