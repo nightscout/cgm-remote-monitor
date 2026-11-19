@@ -28,12 +28,13 @@ function fixture(capability='member',brokenLock=false){
  const client={query,release:error=>releases.push(error)};
  class Pool{on(){}query(...args){return query(...args);}async connect(){return client;}async end(){}}
  const lock=require('../lib/pool-membership/transaction-lock');
+ const transactionLock=brokenLock?{...lock,lock:async()=>{}}:lock;
  const postgres=load(require.resolve('../lib/pool-membership/postgres'),{
   pg:{Pool,Client:class{}},
   '../migrations/postgres':{run:async(action,options)=>migration.push({action,options})},'../diagnostics/m7':{observePool(){}},
-  './transaction-lock':brokenLock?{lock:async()=>{}}:lock
+  './transaction-lock':transactionLock
  });
- const operator=load(require.resolve('../lib/pool-membership/operator'),{'./postgres':postgres,'./transaction-lock':brokenLock?{lock:async()=>{}}:lock});
+ const operator=load(require.resolve('../lib/pool-membership/operator'),{'./postgres':postgres,'./transaction-lock':transactionLock});
  return {postgres,operator,calls,releases,migration,setExpired:value=>{expired=value;},setCommit:value=>{commit=value;}};
 }
 function lockedTransactions(calls){
@@ -71,7 +72,7 @@ it('fixed registration cannot reuse its incarnation after an unconfirmed registr
 });
 it('control: omit exclusive writer lock; actual mutation ordering criterion turns red then restores',async()=>{
  async function qualify(broken){const f=fixture('member',broken),member=await f.postgres.create({kind:'evaluator',ordinal:0,leaseMs:5000,connectionString:'synthetic',namespace:'test_membership',onAlert:()=>{}});await member.register();await member.close();lockedTransactions(f.calls);}
- await assert.rejects(qualify(true),{code:'ERR_ASSERTION'});await qualify(false);
+ await assert.rejects(qualify(true),{code:'ERR_ASSERTION',message:'membership/desired mutation must follow exclusive lock in transaction'});await qualify(false);
 });
 it('optional migration checksum/prefix and lock key are exact and default catalogue is unchanged',()=>{
  const {validateCatalogue}=require('../lib/migrations/catalogue'),catalogue=require('../migrations/candidates/postgres-pool-mutation-v1.json'),base=require('../lib/pool-membership/postgres-candidate.json');
