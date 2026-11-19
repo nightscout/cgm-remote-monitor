@@ -1,12 +1,8 @@
 'use strict';
-/* eslint-disable security/detect-non-literal-fs-filename -- Explicit owned artifact root and constrained per-manifest relative files. */
 
 // Independent observer: pg_catalog + raw SQL only. No backup encoder, summary,
 // row digest, migration-state reader or lifecycle verification is imported.
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const crypto = require('node:crypto');
 const quote = name => { assert.match(name, /^[a-z_][a-z0-9_]{0,62}$/); return '"' + name + '"'; };
 function ordered (value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -55,35 +51,5 @@ function preserved (before, after) {
 }
 // Independent closed-file validation, including SQL row projection. No artifact
 // serializer/decoder/digest implementation is imported. Call before any NEW up.
-async function artifact (directory, before, emit) {
-  const names = (await fs.promises.readdir(directory)).filter(name => /^deployment-backup-[0-9TZ-]+-[a-f0-9]{12}$/.test(name));
-  assert.equal(names.length, 1, 'WHOLE_C_ARTIFACT_PUBLICATION');
-  const root = path.join(directory, names[0]);
-  const privateFile = async file => {
-    const stat = await fs.promises.lstat(file);
-    assert.ok(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o600 && stat.uid === process.getuid());
-    return fs.promises.readFile(file, 'utf8');
-  };
-  const head = JSON.parse(await privateFile(path.join(root, 'manifest.json')));
-  const files = {};
-  for (const entry of head.manifest.catalogues) for (const table of entry.tables) {
-    assert.match(table.file, /^tables\/[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.ndjson$/);
-    const text = await privateFile(path.join(root, table.file));
-    const rows = text === '' ? [] : text.trimEnd().split('\n').map(line => JSON.parse(line));
-    assert.ok(!Object.hasOwn(files, entry.kind + '.' + table.table), 'WHOLE_C_ARTIFACT_DUPLICATE');
-    files[entry.kind + '.' + table.table] = { rows: sorted(rows), textDigest: crypto.createHash('sha256').update(text).digest('hex'), columns: table.columns, count: table.count, expectedDigest: table.digest, ledger: entry.ledger };
-  }
-  await emit({ name: names[0], head, files }); // Physical readback precedes verdict.
-  assert.deepEqual(Object.keys(files).sort(), Object.keys(before).sort(), 'WHOLE_C_ARTIFACT_INVENTORY');
-  assert.equal(crypto.createHash('sha256').update(JSON.stringify(ordered(head.manifest))).digest('hex'), head.digest, 'WHOLE_C_ARTIFACT_HEADER_DIGEST');
-  for (const [key, file] of Object.entries(files)) {
-    assert.equal(file.textDigest, file.expectedDigest, 'WHOLE_C_ARTIFACT_FILE_DIGEST ' + key);
-    assert.equal(file.rows.length, file.count, 'WHOLE_C_ARTIFACT_FILE_COUNT ' + key);
-    const columns = file.columns.map(column => column.name);
-    const expected = sorted(before[key].rows.map(row => Object.fromEntries(columns.map(name => [name, row[name]]))));
-    assert.deepEqual(file.rows, expected, 'WHOLE_C_ARTIFACT_SQL_ROWS ' + key);
-    assert.deepEqual(file.ledger, before[key].ledger, 'WHOLE_C_ARTIFACT_LEDGER ' + key);
-  }
-  return head;
-}
-module.exports = { physical, sameRows, preserved, sorted, quote, artifact };
+
+module.exports = { physical, sameRows, preserved, sorted, quote };

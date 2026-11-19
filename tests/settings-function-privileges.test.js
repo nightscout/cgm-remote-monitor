@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-const { prepareAcl } = require('../lib/tenant-operations/restore');
+const { prepareAcl } = require('../tools/lab/tenant-whole-c/fixture-acl');
 const { writerGrants } = require('../lib/tenant-settings/function-privileges');
 const steps = [{ kind: 'tenant_settings', namespace: 'restored_settings', tables: ['tenant_settings', 'tenant_settings_history', 'tenant_connector_sources'] }];
 const work = steps[0].tables.map(table => ({ kind: 'tenant_settings', table, columns: [{ name: 'values' }, { name: 'version' }] }));

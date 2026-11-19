@@ -77,7 +77,8 @@ function columnsFor (table) {
   const spec = COLUMNS[table] || 'tenant_id uuid';
   return spec.split(',').map(part => {
     const words = part.trim().split(/\s+/);
-    return { name: words[0], type: words[1], identity: words[2] === 'identity' };
+    const oid = { uuid: 2950, text: 25, 'text[]': 1009, boolean: 16, bigint: 20, integer: 23, jsonb: 3802, timestamptz: 1184 }[words[1]];
+    return { name: words[0], type: words[1], oid, identity: words[2] === 'identity' };
   });
 }
 
@@ -144,8 +145,19 @@ function recordingConnection (seed = seedRows(), legacy = false) {
   async function query (text, values = []) {
     if (!active) throw new Error('recording connection used outside a transaction');
     const tenant = bound();
-    log.push({ text: text.replace(/\s+/g, ' ').trim(), values: clone(values), tenant });
+    log.push({ text: (text.text || text).replace(/\s+/g, ' ').trim(), values: clone(values), tenant });
     let match;
+    if (typeof text !== 'string' && text.text.startsWith('COPY (SELECT ')) {
+      const select = text.text.slice('COPY ('.length, text.text.indexOf(') TO STDOUT'))
+        .replace("current_setting('app.current_tenant_id')::uuid", '$1');
+      const selected = (await query(select, [tenant])).rows;
+      const relation = select.match(/FROM ("[^"]+"\."[^"]+")/)[1];
+      const copy = require('./fixtures/tenant-copy').csv(tables.get(relation).columns, selected);
+      text.handleCopyData({ chunk: Buffer.from(copy) });
+      text.callback(null);
+      return;
+    }
+    if (text.includes('tenant-copy-format')) return { rows: [] };
     if (text.includes('reviewed-relation-inventory')) return { rows: [
       ...(ledgers.has(values[0]) ? [{ name: 'schema_migrations', kind: 'r', partition: false, inherited: false }] : []),
       ...[...tables].filter(([name]) => name.startsWith('"' + values[0] + '".')).map(([name, table]) => ({ name: name.split('"')[3], kind: table.kind || 'r', partition: table.partition || false, inherited: table.inherited || false }))
@@ -176,6 +188,11 @@ function recordingConnection (seed = seedRows(), legacy = false) {
       return { rows: clone(tables.get(match[2]).rows.filter(row => row.tenant_id === tenant && row.request_id === values[0] && row.tenant_id === values[1])) };
     }
     if ((match = /^SELECT (.+) FROM ("[a-z0-9_]+"\."[a-z0-9_]+") WHERE tenant_id = \$1$/.exec(text))) {
+      if (match[1].endsWith('AS copy_fields')) {
+        const table = tables.get(match[2]);
+        const copy = require('./fixtures/tenant-copy').csv(table.columns, table.rows.filter(row => row.tenant_id === values[0] && row.tenant_id === tenant));
+        return { rows: require('../lib/tenant-lifecycle/copy-table').fields(copy).map(copy_fields => ({ copy_fields })) };
+      }
       const names = match[1].split(',').map(part => part.trim().replace(/"/g, ''));
       return { rows: tables.get(match[2]).rows.filter(row => row.tenant_id === tenant && row.tenant_id === values[0])
         .map(row => clone(Object.fromEntries(names.map(name => [name, row[name] === undefined ? null : row[name]])))) };
@@ -183,11 +200,11 @@ function recordingConnection (seed = seedRows(), legacy = false) {
     if ((match = /^INSERT INTO ("[a-z0-9_]+"\."[a-z0-9_]+") \((.+?)\)( OVERRIDING SYSTEM VALUE)? VALUES \((.+)\)$/.exec(text))) {
       const table = tables.get(match[1]);
       const names = match[2].split(',').map(part => part.trim().replace(/"/g, ''));
-      const casts = match[4].split(',').map(part => part.trim().split('::')[1]);
       const row = Object.fromEntries(table.columns.map(c => [c.name, null]));
       names.forEach((name, index) => {
         const value = values[index];
-        row[name] = (casts[index] === 'jsonb' || casts[index] === 'json') && typeof value === 'string' ? JSON.parse(value) : clone(value);
+        const oid = table.columns.find(column => column.name === name).oid;
+        row[name] = typeof value === 'string' ? require('pg').types.getTypeParser(oid)(value) : clone(value);
       });
       if (row.tenant_id !== tenant) { const error = new Error('new row violates row-level security policy'); error.code = '42501'; throw error; }
       if (table.columns.some(c => c.identity) && !match[3]) throw new Error('identity column requires OVERRIDING SYSTEM VALUE');
@@ -333,7 +350,8 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       transaction: async fn => { try { return await fn(); } finally { release(id); } },
       query: async text => {
         assert.equal(tenantScope.requireTenant('controlled ceremony query'), A);
-        if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations', ...LEDGER_TABLES].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
+        if (text.includes('tenant-copy-format')) return { rows: [] };
+    if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations', ...LEDGER_TABLES].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
         if (text.includes('SELECT name, checksum')) return { rows: validateCatalogue(ledgerCandidate).map(({ name, checksum }) => ({ name, checksum })) };
         if (text.includes('pg_advisory_xact_lock')) { await acquire(id, 'policy'); return { rows: [] }; }
         if (text.includes('SELECT generation, policy')) return { rows: [{ generation: 1, policy: { wholeCFixtureActors: [{ ...principal, active: true, actions: ['execute','cancel'] }] } }] };
@@ -758,7 +776,7 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
           // eslint-disable-next-line security/detect-non-literal-fs-filename -- Owned private artifact instrumentation.
           const handle = await fs.promises.open(...args);
           return { writeFile: (...values) => handle.writeFile(...values), readFile: (...values) => handle.readFile(...values), stat: () => handle.stat(),
-            sync: async () => { events.push(['sync', args[0]]); if (fail && args[0].endsWith('artifact.json')) throw new Error('synthetic tenant artifact fsync failure'); await handle.sync(); }, close: () => handle.close() };
+            sync: async () => { events.push(['sync', args[0]]); if (fail && args[0].endsWith('manifest.json')) throw new Error('synthetic tenant artifact fsync failure'); await handle.sync(); }, close: () => handle.close() };
         },
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- Exact owned staging/publication paths.
         rename: async (...args) => { events.push(['rename']); return fs.promises.rename(...args); }
@@ -769,8 +787,28 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       events.length = 0;
       assert.deepEqual(await lifecycleModule.saveTenantArtifact(artifact, { directory, io: io(false) }), artifact);
       const renamed = events.findIndex(event => event[0] === 'rename');
-      assert.ok(events.slice(0, renamed).some(event => event[0] === 'sync' && event[1].endsWith('artifact.json')));
+      assert.ok(events.slice(0, renamed).some(event => event[0] === 'sync' && event[1].endsWith('manifest.json')));
       assert.ok(events.slice(renamed + 1).some(event => event[0] === 'sync' && event[1] === directory));
+    } finally { await fs.promises.rm(directory, { recursive: true, force: true }); }
+  });
+
+  it('reloads retained v1 tenant artifacts using their original digest', async function () {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-retained-v1-'));
+    try {
+      const exported = await lifecycle.exportTenant(recordingConnection(), options());
+      const old = require('../lib/tenant-lifecycle/artifact').buildArtifact({
+        ...exported.manifest, catalogues: exported.manifest.catalogues.map(catalogue => ({
+          ...catalogue,
+          tables: catalogue.tables.map(entry => ({ ...entry,
+            columns: entry.columns.map(({ name, type, identity }) => ({ name, type, identity })),
+            rows: exported.tables[catalogue.kind + '.' + entry.table], secrets: Boolean(entry.keyReferences) }))
+        }))
+      });
+      const retained = path.join(directory, 'tenant-artifact-' + old.digest);
+      await fs.promises.mkdir(retained, { mode: 0o700 });
+      await fs.promises.writeFile(path.join(retained, 'artifact.json'), JSON.stringify(old), { mode: 0o600 });
+      assert.equal(old.version, 1);
+      assert.deepEqual(await lifecycleModule.loadTenantArtifact({ directory, digest: old.digest }), old);
     } finally { await fs.promises.rm(directory, { recursive: true, force: true }); }
   });
 
@@ -784,12 +822,12 @@ describe('tenant lifecycle: typed export, import and two-phase deletion', functi
       const request = await durable.requestDeletion(connection, { tenant: A, ledgerNamespace, artifact, now: () => 1 });
       const args = { tenant: A, namespaces, ledgerNamespace, artifact, requestId: request.requestId, now: () => 2 };
       await durable.confirmDeletion(connection, args);
-      const file = path.join(directory, 'tenant-artifact-' + artifact.digest, 'artifact.json');
+      const file = path.join(directory, 'tenant-artifact-' + artifact.digest, 'entries.entries.csv');
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Owned temporary recovery artifact.
       const text = await fs.promises.readFile(file, 'utf8');
-      assert.ok(text.includes('"sgv":100'));
+      assert.ok(text.includes('""sgv"":100'));
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- Corrupt only the owned temporary artifact control.
-      await fs.promises.writeFile(file, text.replace('"sgv":100', '"sgv":999'));
+      await fs.promises.writeFile(file, text.replace('""sgv"":100', '""sgv"":999'));
       const before = totalRows(connection, A);
       await assert.rejects(durable.executeDeletion(connection, { ...args, now: () => 3 }), { code: 'LIFECYCLE_ARTIFACT_TABLE_DIGEST' });
       assert.equal(totalRows(connection, A), before);

@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable security/detect-non-literal-fs-filename -- All filesystem paths are owned private temporary fixtures. */
-// covers: lib/storage/postgres-relation-inventory.js, lib/tenant-operations/catalogues.js, lib/tenant-operations/filesystem.js, lib/tenant-operations/deployment.js
+// covers: lib/storage/postgres-relation-inventory.js, lib/tenant-operations/catalogues.js, lib/tenant-operations/deployment.js
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -31,16 +31,7 @@ const candidate = () => {
   const up = ['CREATE TABLE synthetic_state (tenant_id uuid NOT NULL, value jsonb NOT NULL)'];
   return { version: 1, migrations: [{ name: '0001_synthetic_state', up, checksum: checksum(up) }] };
 };
-function artifact () {
-  const encoded = common.encodeTable([{ tenant_id: A, doc: { _id: 'synthetic', nullable: null, flag: false } }]);
-  const manifest = { format: common.FORMAT, version: common.VERSION, takenAt: 1700000000000, sourceCommit: COMMIT,
-    catalogues: [{ kind: 'entries', namespace: 'source_entries', ledger: [{ name: '0001_entries', checksum: 'a'.repeat(64) }],
-      tables: [{ table: 'entries', file: 'tables/entries.entries.ndjson', columns: [{ name: 'tenant_id', type: 'uuid' }, { name: 'doc', type: 'jsonb' }], count: encoded.count, digest: encoded.digest }] }],
-    tenants: [{ tenant_id: A, registered: null, rows: { 'entries.entries': 1 } }] };
-  return { format: common.FORMAT, version: common.VERSION, manifest, tables: { 'entries.entries': encoded.text }, digest: common.manifestDigest(manifest) };
-}
-
-describe('whole deployment source admission and filesystem durability', function () {
+describe('deployment catalogue admission and tenant fixture controls', function () {
   let scratch;
   beforeEach(async function () { scratch = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-deployment-unit-')); });
   afterEach(async function () { await fs.promises.rm(scratch, { recursive: true, force: true }); });
@@ -126,19 +117,6 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => preserved(before, after), /WHOLE_C_OLD_ROWS evaluator_checkpoint/);
   });
 
-  it('whole-C independent closed-file oracle compares durable artifact to raw SQL-shaped rows before upgrade', async function () {
-    const { artifact: independentArtifact } = require('../tools/lab/tenant-whole-c/oracle');
-    const value = artifact();
-    await operations.saveArtifact(value, { directory: scratch });
-    const before = { 'entries.entries': { ledger: value.manifest.catalogues[0].ledger,
-      rows: [{ tenant_id: A, doc: { _id: 'synthetic', nullable: null, flag: false } }] } };
-    let observation;
-    await independentArtifact(scratch, before, captured => { observation = captured; });
-    assert.equal(observation.files['entries.entries'].rows.length, 1);
-    const missing = structuredClone(before); missing['entries.entries'].rows = [];
-    await assert.rejects(independentArtifact(scratch, missing, () => {}), /WHOLE_C_ARTIFACT_SQL_ROWS entries.entries/);
-  });
-
   it('whole-C runtime config binds immutable heads, role manifest and explicit loopback fixture without opening services', async function () {
     const { parse, OLD } = require('../tools/lab/tenant-whole-c/config');
     const source = path.join(scratch, 'source'), oldRoot = path.join(scratch, 'old'), captureDirectory = path.join(scratch, 'capture');
@@ -200,7 +178,7 @@ describe('whole deployment source admission and filesystem durability', function
 
   it('retains strict sequence and column guards while the explicit OLD ACL compiles without a sequence', async function () {
     const { versioned, old, manifest, names } = versionedAclFixture();
-    const restore = require('../lib/tenant-operations/restore'), steps = common.plan(old.catalogues);
+    const restore = require('../tools/lab/tenant-whole-c/fixture-acl'), steps = common.plan(old.catalogues);
     const work = [{ kind: 'profile', table: 'profile', columns: [{ name: 'doc', identity: false }] }];
     const connection = { query: async () => { throw new Error('OLD profile must not resolve any identity sequence'); } };
     const selected = versioned.project(manifest, old, 'OLD', names).grants;
@@ -236,41 +214,6 @@ describe('whole deployment source admission and filesystem durability', function
       assert.ok(rows[table].some(row => row.tenant_id === A), table + ' missing A');
       assert.ok(rows[table].some(row => row.tenant_id === B), table + ' missing B');
     }
-  });
-
-  it('preserves valid synthetic local authentication keys through artifact encoding and detects key omission or tampering', function () {
-    const { populatedRows, A, B } = require('./fixtures/tenant-deployment-data');
-    const rows = populatedRows().legacy_data_keys;
-    assert.deepEqual(populatedRows().legacy_data_keys, rows, 'repeat seed reads retain the same synthetic keys');
-    const encoded = common.encodeTable(rows), key = 'legacy.legacy_data_keys';
-    const captured = artifact();
-    captured.manifest.catalogues = [{ kind: 'legacy', namespace: 'source_legacy', ledger: [], tables: [{
-      table: 'legacy_data_keys', columns: Object.keys(rows[0]).map(name => ({ name })),
-      count: encoded.count, digest: encoded.digest
-    }] }];
-    captured.manifest.tenants = rows.map(row => ({ tenant_id: row.tenant_id, rows: { [key]: 1 } }));
-    captured.tables = { [key]: encoded.text };
-    captured.digest = common.manifestDigest(captured.manifest);
-    const restore = require('../lib/tenant-operations/restore');
-    const restored = restore.verifyArtifact(captured)[key];
-    assert.deepEqual(restored, common.decodeTable(encoded.text));
-    const tokens = require('../lib/tenant-authorization/legacy-data-token').create({ issuer: 'synthetic.invalid', audience: 'synthetic-data', now: () => 1000 });
-    for (const row of restored) {
-      const issued = tokens.issue(row.tenant_id, { kind: 'subject', subjectId: 'synthetic_subject', credentialVersion: 1, rootVersion: 1 },
-        { kid: row.kid, privateKey: row.private_key });
-      const keys = [{ kid: row.kid, publicKey: row.public_key, active: row.active }];
-      assert.equal(tokens.verify(issued.token, row.tenant_id, keys).tid, row.tenant_id);
-      assert.throws(() => tokens.verify(issued.token, row.tenant_id, []), { code: 'SECRETS_TOKEN_INVALID' });
-      assert.throws(() => tokens.verify(issued.token, row.tenant_id === A ? B : A, keys), { code: 'SECRETS_TOKEN_INVALID' });
-    }
-    const omitted = { ...captured, tables: {} };
-    assert.throws(() => restore.verifyArtifact(omitted), { code: 'RESTORE_ARTIFACT_INVALID', detail: key });
-    const missing = { ...captured, tables: { [key]: common.encodeTable(rows.slice(1)).text } };
-    assert.throws(() => restore.verifyArtifact(missing), { code: 'RESTORE_COUNT_MISMATCH', detail: key });
-    const changed = rows.map(row => ({ ...row, signing: false }));
-    assert.throws(() => restore.verifyArtifact({ ...captured, tables: { [key]: common.encodeTable(changed).text } }),
-      { code: 'RESTORE_DIGEST_MISMATCH', detail: key });
-    assert.deepEqual(restore.verifyArtifact(captured)[key], restored, 'restored original remains valid');
   });
 
   it('control: adding a candidate refuses until its exact extension, namespace and table list are admitted', async function () {
@@ -395,7 +338,7 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ namespaces: input.namespaces, instances: [{ kind: 'checkpoint', of: 'checkpoint' }] }), { code: 'OPERATIONS_CENSUS_INSTANCE_INVALID' });
   });
 
-  it('selects pinned typed checkpoint families independently and preserves exact artifact values and grants', async function () {
+  it('selects pinned typed checkpoint families independently and checks fixture values and grants', async function () {
     const { checkpointInputs } = require('./fixtures/tenant-deployment-checkpoints');
     const rt = 'migrations/candidates/postgres-realtime-output-v2.json', ev = 'migrations/candidates/postgres-evaluator-work-v2.json';
     const input = { namespaces: { ...namespaces(), evaluator_checkpoint: 'deploy_eval_checkpoint' },
@@ -417,22 +360,19 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => admit({ namespaces: input.namespaces, instances: checkpoints.instances, selection: { evaluator_checkpoint: 'migrations/candidates/postgres-profile-v1.json' } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
     assert.throws(() => admit({ namespaces: namespaces(), selection: { evaluator_checkpoint: ev } }), { code: 'OPERATIONS_CENSUS_SELECTION_INVALID' });
     for (const [key, rows] of Object.entries(checkpoints.rows)) {
-      const encoded = common.encodeTable(rows), restored = common.decodeTable(encoded.text);
-      assert.equal(common.encodeTable(restored).digest, encoded.digest);
-      assert.deepEqual(restored, rows);
       if (key.startsWith('evaluator_')) {
-        assert.equal(restored[0].work_observed[0], '9007199254740993');assert.equal(restored[0].work_observed[1], null);
-        assert.equal(restored[0].output_restore_generation, '9223372036854775807');assert.deepEqual(restored[0].projection[0].output.frame.values, [false, 0, null, '9007199254740993']);
+        assert.equal(rows[0].work_observed[0], '9007199254740993');assert.equal(rows[0].work_observed[1], null);
+        assert.equal(rows[0].output_restore_generation, '9223372036854775807');assert.deepEqual(rows[0].projection[0].output.frame.values, [false, 0, null, '9007199254740993']);
         assert.throws(() => require('../lib/pgstream/checkpoint').create({typed:false}), /EVALUATOR_CHECKPOINT_TYPED_REQUIRED/, 'retired reader is refused before it can consume a restored projection');
-      } else assert.equal(restored[0].output_received, '9007199254740993');
+      } else assert.equal(rows[0].output_received, '9007199254740993');
     }
     const selected = admission.catalogues.filter(entry => entry.kind.includes('checkpoint'));
     const work = selected.map(entry => ({ kind: entry.kind, table: 'tenant_consumer_checkpoint', columns: Object.keys(checkpoints.rows[entry.kind + '.tenant_consumer_checkpoint'][0]).map(name => ({ name, identity: false })) }));
-    const compiled = await require('../lib/tenant-operations/restore').prepareAcl({ query: async () => { throw Error('no identity sequence permitted'); } }, common.plan(selected), work, checkpoints.acl);
+    const compiled = await require('../tools/lab/tenant-whole-c/fixture-acl').prepareAcl({ query: async () => { throw Error('no identity sequence permitted'); } }, common.plan(selected), work, checkpoints.acl);
     assert(compiled.statements.some(sql => sql.includes('"output_received"')));assert(compiled.statements.some(sql => sql.includes('"work_observed"')));
     assert(!compiled.statements.some(sql => /GRANT (?:ALL|UPDATE) ON/.test(sql)));
     const mutated = structuredClone(checkpoints.acl);mutated.grants.find(grant => grant.kind === 'checkpoint' && grant.columnPrivileges).columnPrivileges.UPDATE.push('work_observed');
-    await assert.rejects(require('../lib/tenant-operations/restore').prepareAcl({}, common.plan(selected), work, mutated), { code: 'RESTORE_ACL_COLUMN_INVALID' });
+    await assert.rejects(require('../tools/lab/tenant-whole-c/fixture-acl').prepareAcl({}, common.plan(selected), work, mutated), { code: 'RESTORE_ACL_COLUMN_INVALID' });
   });
 
   it('refuses checksum-valid changed typed pins, restores admission, and reads an old archive without optional typed files', async function () {
@@ -622,117 +562,4 @@ describe('whole deployment source admission and filesystem durability', function
     assert.throws(() => createdTables({ version: 1, migrations: [{ name: '0001_bad', up: ['CREATE TABLE unbound (value text)'], checksum: checksum(['CREATE TABLE unbound (value text)']) }] }), { code: 'OPERATIONS_CENSUS_DDL_UNSUPPORTED' });
   });
 
-  it('saves, fsyncs, atomically publishes and independently reloads the exact original-tenant artifact', async function () {
-    const events = [];
-    const io = { ...fs.promises,
-      open: async (...args) => {
-        const handle = await fs.promises.open(...args);
-        return { writeFile: (...values) => handle.writeFile(...values), readFile: (...values) => handle.readFile(...values), stat: () => handle.stat(),
-          sync: async () => { events.push(['sync', args[0]]); await handle.sync(); }, close: () => handle.close() };
-      },
-      rename: async (...args) => { events.push(['rename']); await fs.promises.rename(...args); }
-    };
-    const original = artifact();
-    const saved = await operations.saveArtifact(original, { directory: scratch, io });
-    assert.deepEqual(saved, original);
-    const rename = events.findIndex(event => event[0] === 'rename');
-    assert.ok(events.slice(0, rename).some(event => /manifest.json$/.test(event[1])));
-    assert.ok(events.slice(0, rename).some(event => /\.ndjson$/.test(event[1])));
-    assert.ok(events.slice(rename + 1).some(event => event[0] === 'sync' && event[1] === scratch));
-    const name = operations.artifactName(original);
-    const loaded = await operations.loadArtifact({ directory: scratch, name });
-    assert.deepEqual(loaded, original);
-    assert.equal(loaded.manifest.tenants[0].tenant_id, A);
-    assert.deepEqual(await fs.promises.readdir(scratch), [name]);
-    await assert.rejects(operations.saveArtifact(original, { directory: scratch }), { code: 'BACKUP_DESTINATION_EXISTS' });
-  });
-
-  it('control: a lying filesystem write or corrupt published row cannot pass readback validation', async function () {
-    const io = { ...fs.promises, open: async (...args) => {
-      const handle = await fs.promises.open(...args);
-      if (!args[0].endsWith('.ndjson')) return handle;
-      return { writeFile: async () => {}, readFile: (...values) => handle.readFile(...values), stat: () => handle.stat(), sync: () => handle.sync(), close: () => handle.close() };
-    } };
-    await assert.rejects(operations.saveArtifact(artifact(), { directory: scratch, io }), error => error.code === 'BACKUP_DURABILITY_FAILED' && error.cause.code === 'RESTORE_COUNT_MISMATCH');
-    assert.deepEqual(await fs.promises.readdir(scratch), []);
-    await operations.saveArtifact(artifact(), { directory: scratch });
-    const name = operations.artifactName(artifact());
-    const file = path.join(scratch, name, 'tables/entries.entries.ndjson');
-    const original = await fs.promises.readFile(file, 'utf8');
-    await fs.promises.writeFile(file, original.replace('"flag":false', '"flag":true'));
-    await assert.rejects(operations.loadArtifact({ directory: scratch, name }), { code: 'RESTORE_DIGEST_MISMATCH' });
-  });
-
-  it('control: interrupted write/sync/rename refuses and never publishes a partial artifact', async function () {
-    for (const stage of ['write', 'sync', 'rename']) {
-      const io = { ...fs.promises,
-        open: async (...args) => {
-          const handle = await fs.promises.open(...args);
-          return { writeFile: async (...values) => { if (stage === 'write') throw new Error('synthetic interrupted write'); return handle.writeFile(...values); },
-            readFile: (...values) => handle.readFile(...values), stat: () => handle.stat(),
-            sync: async () => { if (stage === 'sync') throw new Error('synthetic interrupted sync'); return handle.sync(); }, close: () => handle.close() };
-        }, rename: async (...args) => { if (stage === 'rename') throw new Error('synthetic interrupted rename'); return fs.promises.rename(...args); }
-      };
-      await assert.rejects(operations.saveArtifact(artifact(), { directory: scratch, io }), { code: 'BACKUP_DURABILITY_FAILED' });
-      assert.deepEqual(await fs.promises.readdir(scratch), []);
-    }
-    await operations.saveArtifact(artifact(), { directory: scratch }); // rerun completes
-  });
-
-  it('refuses after a failed publication-directory sync and retains the published artifact for recovery', async function () {
-    const io = { ...fs.promises, open: async (...args) => {
-      const handle = await fs.promises.open(...args);
-      if (args[0] !== scratch) return handle;
-      return { sync: async () => { throw new Error('synthetic root sync failure'); }, close: () => handle.close() };
-    } };
-    await assert.rejects(operations.saveArtifact(artifact(), { directory: scratch, io }), { code: 'BACKUP_DURABILITY_FAILED' });
-    assert.deepEqual(await fs.promises.readdir(scratch), [operations.artifactName(artifact())]);
-    assert.deepEqual(await operations.loadArtifact({ directory: scratch, name: operations.artifactName(artifact()) }), artifact());
-  });
-
-  it('durability refusal prevents any migration up; a restored filesystem callback completes before up', async function () {
-    const old = artifact();
-    const up = ['CREATE TABLE entries (tenant_id uuid)'];
-    const first = { name: '0001_entries', up, checksum: checksum(up) };
-    old.manifest.catalogues[0].ledger[0].checksum = first.checksum;
-    old.digest = common.manifestDigest(old.manifest);
-    const second = { name: '0002_extension', up: ['ALTER TABLE entries ADD COLUMN flag boolean'], checksum: checksum(['ALTER TABLE entries ADD COLUMN flag boolean']) };
-    const catalogues = [{ kind: 'entries', namespace: 'upgrade_entries', tables: ['entries'], catalogue: { version: 1, migrations: [first, second] } }];
-    const connection = { query: async text => {
-      if (text.includes('reviewed-relation-inventory')) return { rows: ['schema_migrations','entries'].map(name => ({ name, kind: 'r', partition: false, inherited: false })) };
-      if (/FROM pg_attribute/.test(text)) return { rows: old.manifest.catalogues[0].tables[0].columns };
-      if (/to_regclass/.test(text)) return { rows: [{ present: true }] };
-      if (/SELECT name, checksum/.test(text)) return { rows: [first, second].map(({ name, checksum }) => ({ name, checksum })) };
-      return { rows: common.decodeTable(old.tables['entries.entries']) };
-    } };
-    const calls = [];
-    const migrate = async action => {
-      calls.push(action);
-      if (action === 'status') return { applied: ['0001_entries'], pending: ['0002_extension'] };
-      if (action === 'up') {
-        const saved = await operations.loadArtifact({ directory: scratch, name: operations.artifactName(old) });
-        assert.equal(saved.digest, old.digest, 'durable readback before first up');
-        return { done: ['0002_extension'] };
-      }
-      return { applied: ['0001_entries', '0002_extension'] };
-    };
-    const bad = operations.createFilesystemBackup({ directory: scratch, io: { ...fs.promises, rename: async () => { throw new Error('synthetic refusal'); } }, backup: async () => old });
-    await assert.rejects(operations.upgrade(connection, { migrate, catalogues, sourceCommit: COMMIT, backup: bad }), { code: 'BACKUP_DURABILITY_FAILED' });
-    assert.deepEqual(calls, ['status']);
-    calls.length = 0;
-    await operations.upgrade(connection, { migrate, catalogues, sourceCommit: COMMIT, backup: operations.createFilesystemBackup({ directory: scratch, backup: async () => old }) });
-    assert.deepEqual(calls, ['status', 'up', 'check']);
-  });
-
-  it('refuses cloning and incomplete whole-deployment admission before any database or filesystem write', async function () {
-    const deploy = operations.createDeploymentOperations({ directory: scratch, namespaces: namespaces(), extensions: defaultExtensions() });
-    const connection = { query: async () => { assert.fail('must refuse before database'); } };
-    await assert.rejects(deploy.restore(connection, artifact(), { targetTenant: A }), { code: 'OPERATIONS_REHOME_UNSUPPORTED' });
-    const broken = operations.createDeploymentOperations({ directory: scratch, namespaces: {}, extensions: defaultExtensions() });
-    await assert.rejects(broken.backup(connection, { sourceCommit: COMMIT }), { code: 'OPERATIONS_NAMESPACE_INVALID' });
-    await assert.rejects(deploy.restore(connection, artifact(), { acl: { role: 'blanket_writer' } }), { code: 'OPERATIONS_DEPLOYMENT_ACL_REQUIRED' });
-    await assert.rejects(deploy.upgrade(connection, {}), { code: 'UPGRADE_SOURCE_ADMISSION_REQUIRED' });
-    await assert.rejects(deploy.rollback(connection, artifact()), { code: 'ROLLBACK_UPGRADE_RECORD_REQUIRED' });
-    assert.deepEqual(await fs.promises.readdir(scratch), []);
-  });
 });

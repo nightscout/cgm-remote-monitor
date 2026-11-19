@@ -1,5 +1,5 @@
 'use strict';
-// covers: lib/tenant-operations/backup.js, lib/tenant-operations/restore.js, lib/tenant-operations/upgrade.js, lib/tenant-operations/common.js
+// covers: lib/tenant-operations/upgrade.js, lib/tenant-lifecycle/copy-table.js, lib/tenant-operations/common.js
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -8,10 +8,12 @@ const { execFileSync } = require('node:child_process');
 const { Client } = require('pg');
 const { run } = require('../lib/migrations/postgres');
 const operations = require('../lib/tenant-operations');
-const common = require('../lib/tenant-operations/common');
+const path = require('node:path');
+const os = require('node:os');
+const lifecycle = require('../lib/tenant-lifecycle');
+const scope = require('../lib/storage/tenant-scope');
 const { optInSuite } = require('./support/opt-in');
-const { upgradePlan, catalogues, seedEntries, applicationAcl, observe: observeState, older } = require('./fixtures/tenant-operations-current');
-const clock = require('../migrations/candidates/postgres-write-clock-v1.json');
+const { upgradePlan, catalogues, seedEntries, observe: observeState, older } = require('./fixtures/tenant-operations-current');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const COMMIT = '83582e876dd193f4448f44c28e379fb5464a26c7';
@@ -46,13 +48,6 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     await client.query('INSERT INTO "' + ns.clock + '".tenant_write_clock (tenant_id,last_stamp) VALUES ($1,1000),($2,2000)', [A, B]);
     return ns;
   }
-  const capture = ns => operations.backup(client, { catalogues: catalogues(ns), sourceCommit: COMMIT });
-  const observe = (ns, old = false) => observeState(client, ns, old);
-  const recording = () => {
-    const statements = [];
-    return { statements, query: async (text, values) => { statements.push(text); return client.query(text, values); } };
-  };
-
   before(async function () {
     const password = crypto.randomBytes(24).toString('hex');
     execFileSync('docker', ['run', '--pull', 'never', '--rm', '--name', name, '--label', 'org.nightscout.test.owner=' + name, '-d', '-p', '127.0.0.1::5432', '-e', 'POSTGRES_USER=operator', '-e', 'POSTGRES_PASSWORD', '-e', 'POSTGRES_DB=operations_test', 'postgres:16'],
@@ -93,106 +88,57 @@ optInSuite(process.env.NS_TENANT_OPERATIONS_PG_TEST === '1', 'NS_TENANT_OPERATIO
     }
   });
 
-  it('refuses damaged files and invalid ACL before statements; bound identity before table reads', async function () {
-    const ns = await source();
-    const artifact = await capture(ns);
-    const fresh = namespaces();
-    await prepare(fresh);
-    const wire = recording();
-    const damaged = { ...artifact, tables: { ...artifact.tables, 'entries.entries': artifact.tables['entries.entries'].replace('"sgv":100', '"sgv":999') } };
-    await assert.rejects(operations.restore(wire, damaged, { catalogues: catalogues(fresh) }), { code: 'RESTORE_DIGEST_MISMATCH' });
-    const invalidAcl = applicationAcl(role); invalidAcl.grants[0].role = 'bad-role';
-    await assert.rejects(operations.restore(wire, artifact, { catalogues: catalogues(fresh), acl: invalidAcl }), { code: 'RESTORE_ACL_ROLE_INVALID' });
-    assert.equal(wire.statements.length, 0);
-    await client.query('SET ROLE "' + role + '"');
-    try {
-      await assert.rejects(operations.backup(wire, { catalogues: catalogues(ns), sourceCommit: COMMIT }), { code: 'BACKUP_IDENTITY_BOUND' });
-      assert.equal(wire.statements.some(sql => /FROM "ops_/.test(sql)), false);
-    } finally { await client.query('RESET ROLE'); }
-  });
-
-  it('restores typed rows, clock and tenant-local ordinals with explicit RLS application grants', async function () {
-    const ns = await source();
-    const artifact = await capture(ns);
-    const expected = await observe(ns);
-    assert.deepEqual(expected.counters, [{ tenant_id: A, last_ordinal: '2' }, { tenant_id: B, last_ordinal: '1' }]);
-    assert.deepEqual(expected.ordinals.map(row => [row.tenant_id, row.insertion_ordinal]), [[A, '1'], [A, '2'], [B, '1']]);
-    const fresh = namespaces();
-    await prepare(fresh);
-    await operations.restore(client, artifact, { catalogues: catalogues(fresh), acl: applicationAcl(role) });
-    assert.deepEqual(await observe(fresh), expected);
-    await client.query('SET ROLE "' + role + '"');
-    try {
-      await client.query("SELECT set_config('app.current_tenant_id', $1, false)", [B]);
-      const visible = await client.query('SELECT tenant_id FROM "' + fresh.entries + '".entries');
-      assert.deepEqual(visible.rows, [{ tenant_id: B }]);
-      const next = await client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb) RETURNING insertion_ordinal', [B, 'string', JSON.stringify({ _id: 'after-restore' })]);
-      assert.equal(next.rows[0].insertion_ordinal, '2', 'B advances its own restored floor, independent of A');
-      await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3::jsonb)', [A, 'string', JSON.stringify({ _id: 'foreign' })]), { code: '42501' });
-      await assert.rejects(client.query('INSERT INTO "' + fresh.entries + '".entries (tenant_id,id_kind,doc,insertion_ordinal) VALUES ($1,$2,$3::jsonb,99)', [B, 'string', JSON.stringify({ _id: 'explicit-ordinal-refused' })]), { code: '42501' });
-    } finally { await client.query('RESET ROLE'); await client.query("RESET app.current_tenant_id"); }
-  });
-
-  it('backs up and restores tenant tables while refusing unknown clock siblings', async function () {
-    const ns = await source(), artifact = await capture(ns), expected = await observe(ns);
-    const fresh = namespaces(); await prepare(fresh);
-    const unknown = '"' + fresh.clock + '".unexpected_tenant_rows';
-    await client.query('CREATE TABLE ' + unknown + '(tenant_id uuid,value text)');
-    try { await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh) }), { code: 'OPERATIONS_RELATION_UNADMITTED' }); }
-    finally { await client.query('DROP TABLE ' + unknown); }
-    await operations.restore(client, artifact, { catalogues: catalogues(fresh), acl: applicationAcl(role) });
-    assert.deepEqual(await observe(fresh), expected);
-  });
-
-  it('distinguishes self-consistent row loss from digest damage using independent source readback', async function () {
-    const ns = await source();
-    const artifact = await capture(ns);
-    // A self-consistent backup losing B in entries must escape internal checks;
-    // the external source comparison must still catch the missing tenant/table.
-    const forged = JSON.parse(JSON.stringify(artifact));
-    const encoded = common.encodeTable(common.decodeTable(forged.tables['entries.entries']).filter(row => row.tenant_id !== B));
-    forged.tables['entries.entries'] = encoded.text;
-    Object.assign(forged.manifest.catalogues.find(c => c.kind === 'entries').tables.find(t => t.table === 'entries'), { count: encoded.count, digest: encoded.digest });
-    delete forged.manifest.tenants.find(t => t.tenant_id === B).rows['entries.entries'];
-    forged.digest = common.manifestDigest(forged.manifest);
-    const fresh = namespaces();
-    await prepare(fresh);
-    await operations.restore(client, forged, { catalogues: catalogues(fresh) });
-    assert.notDeepEqual(await observe(fresh), await observe(ns));
-    const differences = operations.compareSummaries(await operations.summarize(client, catalogues(ns)), await operations.summarize(client, catalogues(fresh)));
-    assert.ok(differences.some(d => d.key === 'entries.entries' && d.tenant === B && d.actual === 0));
-  });
-
-  it('rolls back lying successful inserts and interruptions; rerun restores the same target', async function () {
-    const ns = await source();
-    const artifact = await capture(ns);
-    const fresh = namespaces();
-    await prepare(fresh);
-    await assert.rejects(operations.restore(client, artifact, { catalogues: catalogues(fresh), onRow: ({ key, written }) => { if (key === 'entries.entries' && written === 1) throw new Error('synthetic interruption'); } }), /synthetic interruption/);
-    assert.deepEqual(await observe(fresh), { rows: [], stamps: [], counters: [], ordinals: [] });
-    const liar = { query: (text, values) => /^INSERT INTO .*tenant_write_clock/.test(text) ? Promise.resolve({ rowCount: 1, rows: [] }) : client.query(text, values) };
-    await assert.rejects(operations.restore(liar, artifact, { catalogues: catalogues(fresh) }), { code: 'RESTORE_ORACLE_MISMATCH' });
-    assert.deepEqual(await observe(fresh), { rows: [], stamps: [], counters: [], ordinals: [] });
-    await operations.restore(client, artifact, { catalogues: catalogues(fresh) });
-    assert.deepEqual(await observe(fresh), await observe(ns));
-  });
-
-  it('upgrades then refuses old catalogue; rollback preflights every target and restores pre-upgrade rows', async function () {
+  it('migrates an older ledger and preserves the previously written documents', async function () {
     const ns = await source(true);
-    const expected = await observe(ns, true);
-    const { artifact } = await operations.upgrade(client, { migrate, ...upgradePlan(ns), sourceCommit: COMMIT });
+    const before = await observeState(client, ns, true);
+    const { record } = await operations.upgrade(client, { migrate, ...upgradePlan(ns), sourceCommit: COMMIT });
+    assert.equal(operations.assertUpgradeCompatible(record, catalogues(ns)), true);
+    assert.throws(() => operations.assertUpgradeCompatible(record, catalogues(ns, true)), { code: 'OPERATIONS_BINARY_CATALOGUE_NEWER' });
+    const after = await observeState(client, ns);
+    assert.deepEqual(after.rows, before.rows);
     await assert.rejects(migrate('check', { namespace: ns.entries, catalogue: older }), { code: 'MIG_UNKNOWN' });
-    const fresh = namespaces();
-    await migrate('up', { namespace: fresh.clock, catalogue: clock });
-    await assert.rejects(operations.rollback(client, { migrate, artifact, catalogues: catalogues(fresh, true), upgraded: ns }), { code: 'ROLLBACK_TARGET_NOT_FRESH' });
-    assert.equal((await client.query('SELECT to_regnamespace($1) AS schema', [fresh.entries])).rows[0].schema, null);
-    const target = namespaces();
-    await seedEntries(client, ns.entries, [{ tenant: A, kind: 'string', doc: { _id: 'after-upgrade' } }]);
-    const upgraded = await observe(ns);
-    const record = await operations.rollback(client, { migrate, artifact, catalogues: catalogues(target, true), upgraded: ns, acl: applicationAcl(role, true) });
-    assert.equal(record.refusal.entries, 'MIG_UNKNOWN');
-    assert.deepEqual(await observe(target, true), expected);
-    assert.deepEqual(await observe(ns), upgraded);
-    assert.match(record.lost, /writes committed after takenAt/);
+  });
+
+  it('exports the bound tenant using COPY, reloads the files and restores the original ciphertext and IDs', async function () {
+    const namespaces = { secrets: 'copy_secrets' };
+    const ledgerNamespace = 'copy_lifecycle';
+    const entries = lifecycle.admittedCatalogue().filter(entry => entry.kind === 'secrets');
+    const life = lifecycle.createLifecycle({ catalogues: entries });
+    await migrate('up', { namespace: namespaces.secrets, catalogue: entries[0].candidate });
+    await migrate('up', { namespace: ledgerNamespace, catalogue: require('../lib/tenant-lifecycle/postgres-candidate.json') });
+    const pass = crypto.randomBytes(24).toString('hex');
+    await client.query('ALTER ROLE "' + role + '" LOGIN PASSWORD \'' + pass + '\'');
+    await client.query('GRANT USAGE ON SCHEMA copy_secrets,copy_lifecycle TO "' + role + '"');
+    await client.query('GRANT SELECT,INSERT,DELETE ON ALL TABLES IN SCHEMA copy_secrets TO "' + role + '"');
+    await client.query('GRANT SELECT, UPDATE ON copy_lifecycle.tenant_lifecycle_key_retention TO "' + role + '"');
+    const cipher = 'vault:v2:c3ludGhldGlj';
+    await client.query("INSERT INTO copy_secrets.secret_records VALUES ($1,'integration_key',1,$3),($2,'neighbour_key',1,$3)", [A, B, cipher]);
+    const before = (await client.query('SELECT * FROM copy_secrets.secret_records ORDER BY tenant_id')).rows;
+    const url = new URL(connectionString);
+    url.username = role;
+    url.password = pass;
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'tenant-copy-roundtrip-'));
+    const previous = scope.getTenancyMode();
+    scope.setTenancyMode('multi');
+    const port = await require('../lib/storage/postgres-connection')({ connectionString: url.toString(), max: 1, connectionTimeoutMillis: 3000 });
+    try {
+      const artifact = await life.exportTenant(port, { tenant: A, namespaces, sourceCommit: COMMIT });
+      await lifecycle.saveTenantArtifact(artifact, { directory });
+      const location = path.join(directory, 'tenant-artifact-' + artifact.digest);
+      const data = await fs.promises.readFile(path.join(location, 'secrets.secret_records.csv'), 'utf8');
+      const table = artifact.manifest.catalogues[0].tables.find(table => table.table === 'secret_records');
+      assert.equal(crypto.createHash('sha256').update(data).digest('hex'), table.sha256);
+      assert(data.includes(cipher));
+      assert(!data.includes(B));
+      const retained = await lifecycle.loadTenantArtifact({ directory, digest: artifact.digest });
+      await client.query('DELETE FROM copy_secrets.secret_records WHERE tenant_id=$1', [A]);
+      await life.importArtifact(port, retained, { tenant: A, namespaces, ledgerNamespace });
+      const after = (await client.query('SELECT * FROM copy_secrets.secret_records ORDER BY tenant_id')).rows;
+      assert.deepEqual(after, before);
+    } finally {
+      await port.end();
+      scope.setTenancyMode(previous);
+      await fs.promises.rm(directory, { recursive: true, force: true });
+    }
   });
 });
