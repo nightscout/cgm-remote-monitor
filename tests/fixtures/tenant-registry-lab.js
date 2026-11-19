@@ -47,25 +47,30 @@ async function startVault () {
   return { address, token, close: async () => { try { execFileSync('docker', ['rm', '-f', '-v', name], { stdio: 'ignore' }); } catch { /* already gone */ } } };
 }
 
-async function createLab ({ servingApi = false } = {}) {
-  const ADMIN = process.env.NS_TEST_POSTGRES_ADMIN_URI;
+async function createLab ({ servingApi = false, database = process.env.NS_TEST_POSTGRES_ADMIN_URI, deploymentPrefix, vaultService } = {}) {
+  if (!/test/i.test(new URL(database).pathname)) throw new Error('Expected a disposable test database');
+  const ADMIN = database;
   const id = randomUUID().replace(/-/g, '').slice(0, 10);
   // Names follow the deployment layout, <prefix>_<kind> (lib/server/serve/deployment-settings.js),
   // so a role process started with NS_PG_PREFIX=prefix reads this lab's schemas.
-  const prefix = 'trl_' + id;
+  const prefix = deploymentPrefix || 'trl_' + id;
+  const deployment = require('../../lib/server/serve/deployment-settings');
+  const defaults = deployment.layout({ NS_PG_PREFIX: prefix });
   const namespaces = Object.fromEntries(Object.keys(CATALOGUES).map(kind => [kind, prefix + '_' + (LAYOUT_KIND[kind] || kind)]));
   const owner = 'trl_owner_' + id;
-  const roles = { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
+  const roles = deploymentPrefix ? { provisioner: prefix + '_provisioner', api: prefix + '_api', realtime: prefix + '_realtime' }
+    : { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
   const migrations = Object.fromEntries(Object.entries(CATALOGUES).map(([kind, build]) => [namespaces[kind], build()]));
   const extraSchemas = [];
   let layout;
   if (servingApi) {
     const plan = require('./multitenant-plan');
-    const deployment = require('../../lib/server/serve/deployment-settings').layout({ NS_PG_PREFIX: prefix });
     const catalogues = require('./realtime-preview/bootstrap-grants').catalogues();
+    const native = deployment.nativeSelection(defaults);
+    catalogues.control = require('../../lib/tenant-lifecycle/native-selection').catalogue(native);
     const selected = {};
     for (const [kind, catalogue] of Object.entries(catalogues)) {
-      const namespace = deployment.namespaces[kind];
+      const namespace = defaults.namespaces[kind];
       if (!Object.hasOwn(migrations, namespace)) extraSchemas.push(namespace);
       selected[kind] = namespace;
       migrations[namespace] = catalogue;
@@ -73,7 +78,7 @@ async function createLab ({ servingApi = false } = {}) {
     for (const kind of [...plan.roleNames(plan.layout(prefix)), 'ui_registry']) {
       roles[kind] ||= prefix + '_' + kind;
     }
-    layout = { owner, roles, namespaces: selected };
+    layout = { owner, roles, namespaces: selected, native };
   }
   const urls = {};
   const admin = new Client({ connectionString: ADMIN }); await admin.connect();
@@ -95,10 +100,10 @@ async function createLab ({ servingApi = false } = {}) {
     await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
   }
   const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }];
-  if (layout) for (const sql of require('../../lib/server/ordinary-deployment-grants').grants(layout)) await q(sql);
+  if (layout) for (const sql of require('../../lib/server/ordinary-deployment-grants').grants(layout, { nativeSelection: layout.native })) await q(sql);
   for (const sql of registry.grants({ namespace: namespaces.registry, resolvers: [roles.api], enumerators: [roles.realtime], readers: [roles.api] })) await q(sql);
   for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: consumers })) await q(sql);
-  const vault = await startVault();
+  const vault = vaultService || await startVault();
   const vaultRequest = async (path, body, method = body === undefined ? 'GET' : 'POST') => {
     const response = await fetch(vault.address + 'v1/' + path, { method, headers: { 'X-Vault-Token': vault.token, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -112,7 +117,7 @@ async function createLab ({ servingApi = false } = {}) {
     `path "${mount}/encrypt/tenant-data-*" { capabilities = ["update"] }`].join('\n') });
   const provisionToken = (await vaultRequest('auth/token/create', { policies: [mount + '_provision'], no_default_policy: true, ttl: '1h' })).auth.client_token;
   return {
-    id, prefix, namespaces, roles, urls, owner, admin, mount, consumers,
+    id, prefix, namespaces, roles, urls, owner, admin, mount, consumers, layout,
     // The environment of an admin process that provisions into this lab:
     // adds the evaluator checkpoint schema and grants the provisioner the
     // checkpoint rows the admin role derives. The Vault token goes in dir.
@@ -154,8 +159,8 @@ async function createLab ({ servingApi = false } = {}) {
         await q(`DROP ROLE IF EXISTS "${role}"`).catch(() => {});
       }
       await admin.end().catch(() => {});
-      if (process.env.NS_TEST_VAULT_ADDR) await vaultRequest('sys/mounts/' + mount, undefined, 'DELETE').catch(() => {});
-      await vault.close();
+      if (vaultService || process.env.NS_TEST_VAULT_ADDR) await vaultRequest('sys/mounts/' + mount, undefined, 'DELETE').catch(() => {});
+      if (!vaultService) await vault.close();
     }
   };
 }
