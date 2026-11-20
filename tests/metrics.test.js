@@ -106,7 +106,7 @@ async function exercise (instance) {
   await request(app).get('/nowhere/' + HEX).expect(404);
   // SQL: a real pg.Pool's connect event, stand-in clients; one pool named with a tenant id.
   const { Pool } = require('pg');
-  for (const name of ['nightscout-evaluator-receiver', 'nightscout-' + A, 'tenant-' + HEX]) {
+  for (const name of ['nightscout-evaluator-preview', 'nightscout-' + A, 'tenant-' + HEX]) {
     const pool = instance.observePool(new Pool({ application_name: name }), name);
     const client = { query: async () => ({ rows: [] }) };
     pool.emit('connect', client);
@@ -115,9 +115,6 @@ async function exercise (instance) {
   }
   // realtime: three namespaces read at scrape time.
   instance.realtime({ of: name => ({ sockets: new Map(name === '/' ? [[1, 1], [2, 2]] : []) }) });
-  // pgstream receipt round trip.
-  instance.receipt()('ack');
-  instance.receipt()('refused');
 }
 
 describe('opt-in Prometheus metrics (NS_METRICS)', function () {
@@ -143,7 +140,7 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
     // A fresh process: configuring with the default never loads @prometheus-io/client.
     const loaded = execFileSync(process.execPath, ['-e', `
       const m = require(${JSON.stringify(path.resolve(__dirname, '../lib/metrics'))});
-      m.configure(['evaluator'], {}); m.phase('receive')(); m.receipt()('ack');
+      m.configure(['evaluator'], {}); m.phase('begin')();
       process.stdout.write(String(Object.keys(require.cache).some(k => k.includes('/node_modules/@prometheus-io/client/'))));`], { env: {} }).toString();
     assert.equal(loaded, 'false', 'METRICS_CLIENT_LOADED_WHILE_OFF');
   });
@@ -174,7 +171,7 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
       const text = scrape.body;
       for (const name of ['process_cpu_seconds_total', 'process_resident_memory_bytes', 'nodejs_eventloop_lag_seconds',
         'nodejs_heap_size_used_bytes',
-        'nightscout_evaluator_phase_seconds_bucket', 'nightscout_pgstream_receipt_seconds_bucket',
+        'nightscout_evaluator_phase_seconds_bucket',
         'nightscout_pg_statements_total', 'nightscout_pg_statement_seconds_total',
         'nightscout_evaluator_pending_oldest_age_seconds', 'nightscout_evaluator_pending_tenants',
         'nightscout_evaluator_queued_cycles', 'nightscout_http_request_seconds_bucket', 'nightscout_realtime_connected_sockets']) {
@@ -189,9 +186,7 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
       }
       assert.equal(sample(text, 'nightscout_evaluator_pending_oldest_age_seconds', { role, slice: '1' }), 2.5);
       assert.equal(sample(text, 'nightscout_evaluator_pending_tenants', { role, slice: '1' }), 1);
-      assert.equal(sample(text, 'nightscout_pgstream_receipt_seconds_count', { role, slice: '1', outcome: 'ack' }), 1);
-      assert.equal(sample(text, 'nightscout_pgstream_receipt_seconds_count', { role, slice: '1', outcome: 'refused' }), 1);
-      assert.equal(sample(text, 'nightscout_pg_statements_total', { role, application_name: 'nightscout-evaluator-receiver', outcome: 'ok' }), 2);
+      assert.equal(sample(text, 'nightscout_pg_statements_total', { role, application_name: 'nightscout-evaluator-preview', outcome: 'ok' }), 2);
       assert.equal(sample(text, 'nightscout_http_request_seconds_count', { role, method: 'GET', route: '/api/v3/:collection/:identifier', status_class: '2xx' }), 1);
       assert.equal(sample(text, 'nightscout_http_request_seconds_count', { role, method: 'GET', route: 'unmatched', status_class: '4xx' }), 1);
       assert.equal(sample(text, 'nightscout_realtime_connected_sockets', { role, namespace: '/' }), 2);

@@ -53,13 +53,13 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
   for (const domain of proposal.DOMAINS) it('preserves populated '+domain+' values, seeds each tenant and refuses the older catalogue', async () => {
     const namespace = prefix+'_'+domain, catalogue = catalogues[domain];
     // The source is the immutable global-identity prefix, before the named
-    // tenant-local conversion. Later shared size/identity tails do not change
+    // tenant-local conversion. The later shared size tail does not change
     // that historical boundary or grant the old source a tenant-local trigger.
     const conversion=catalogue.migrations.findIndex(m=>m.operation?.kind==='tenant-insertion-v1');
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
     assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
-      {kind:'clinical-storage-size-v1',domain},{kind:'storage-event-identity-v1',domain}
+      {kind:'clinical-storage-size-v1',domain}
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:

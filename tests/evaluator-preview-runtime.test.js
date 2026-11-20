@@ -73,7 +73,6 @@ describe('evaluator preview readiness protocol', function () {
       // is independently exercised by its own protocol/native suites.
       insertion.metadata = async () => {};sizes.assertReady=async()=>{};
       try { await screen({ async query (sql,args) {
-        if(sql.startsWith('SELECT relreplident FROM pg_class'))return {rows:[{relreplident:kind==='identity'?'d':'f'}]};
         count++;
         if (count === 1) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false,
           rolcreatedb: false, rolreplication: false, operator: kind === 'operator' }] };
@@ -85,7 +84,6 @@ describe('evaluator preview readiness protocol', function () {
       } }, cfg); } finally { insertion.metadata = metadata;sizes.assertReady=sizeAdmission; }
     }
     await check(null);
-    await assert.rejects(check('identity'), /STORAGE_EVENT_FULL_IDENTITY_REQUIRED/);
     for (const kind of ['operator', 'schema', 'unrelated', 'rls', 'select', 'insert', 'update', 'missing-owned-update', 'extra-update']) {
       await assert.rejects(check(kind), /unsafe evaluator/, kind);
     }

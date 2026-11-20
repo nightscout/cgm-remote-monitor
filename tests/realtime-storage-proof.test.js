@@ -29,13 +29,6 @@ describe('joined storage physical/wire/current-collection oracles',function(){
     assert.throws(()=>oracle.eventSnapshots(group,{...limits,maxRows:4}),/PROOF_BOUND/);
     assert.throws(()=>oracle.eventSnapshots(group,{...limits,maxBytes:1}),/PROOF_BOUND/);
   });
-  it('compares actual single normalizer/broadcaster shapes with actual typed protocol changes and pins inherited ambiguity',function(){
-    const rows=[{domain:'entries',document:{...object.doc,_id:new ObjectId(id)}},{domain:'entries',document:string.doc}];
-    assert.deepEqual([object,string].flatMap(row=>require('../lib/storage/storage-event-journal').changes('entries',{action:'I',columns:Object.entries(row).map(([name,value])=>({name,value}))})).map(row=>({event:row.event,value:row.value})),[oracle.single('create',object),oracle.single('create',string)]);
-    assert.equal(oracle.single('create',object).value.doc.identifier,oracle.single('create',string).value.doc.identifier);
-    assert.deepEqual(require('../lib/storage/storage-event-journal').changes('entries',{action:'D',identity:Object.entries(object).map(([name,value])=>({name,value}))}).map(row=>({event:row.event,value:row.value})),[oracle.single('delete',object)]);
-    assert.deepEqual(oracle.single('delete',object),oracle.single('delete',string),'legacy delete wire cannot identify BSON kind');
-  });
   it('rejects wrong physical twin deletion or duplicate wire delivery while preserving raw evidence before verdict',function(){
     const expected={twins:[string],events:[oracle.single('delete',object)]};
     const base={stage:'delete',id,twins:[string],clockBefore:[{last_stamp:'42'}],clockAfter:[{last_stamp:'43'}],foreignBefore:[],foreignAfter:[],
