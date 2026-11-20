@@ -65,4 +65,17 @@ describe('coalesced earliest-due refresh after clinical completions', function (
     assert(l.lookups > before, 'IDLE_COMPLETION_DUE_DEFERRED');
     await l.value.close();
   });
+
+  it('spends one due lookup on one write at rest: the completion\'s', async function () {
+    const l = lab({ tenants: ids.slice(0, 1) });
+    l.value.wake(ids[0]);
+    await l.advance(0);
+    assert.equal(l.lookups, 0, 'DUE_LOOKUP_BEFORE_COMPLETION');
+    const committed = l.now + 5000;
+    l.setDue(committed);
+    l.release.get(ids[0])(); await l.settle();
+    assert.equal(l.lookups, 1, 'ONE_DUE_LOOKUP_PER_WRITE_AT_REST');
+    assert([...l.timers.values()].some(t => t.at === committed), 'EARLIEST_DUE_NOT_ARMED');
+    await l.value.close();
+  });
 });
