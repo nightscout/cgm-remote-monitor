@@ -511,7 +511,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
 });
 
 describe('actual driver read-only outage cleanup', function () {
-  async function fixture (phase) {
+  async function fixture (phase, { readOnlyMode = 'on' } = {}) {
     const clients = [], submitted = [], wire = []; let held;
     class Stream extends EventEmitter {
       constructor () { super(); this.writable = true; this.destroyed = false; }
@@ -527,9 +527,10 @@ describe('actual driver read-only outage cleanup', function () {
         const connection = this.connection, stream = new Stream(); connection.stream = stream;
         const reply = text => {
           if (text.startsWith('SELECT')) {
-            const role = text.includes('FROM pg_roles'), names = role ? ['rolsuper', 'rolbypassrls'] : ['value'];
-            connection.emit('rowDescription', { fields: names.map(name => ({ name, dataTypeID: role ? 16 : 23, format: 'text' })) });
-            connection.emit('dataRow', { fields: names.map(() => Buffer.from(role ? 'f' : '1')) });
+            const role = text.includes('FROM pg_roles'), mode = text.includes('default_transaction_read_only');
+            const names = role ? ['rolsuper', 'rolbypassrls'] : [mode ? 'mode' : 'value'];
+            connection.emit('rowDescription', { fields: names.map(name => ({ name, dataTypeID: role ? 16 : mode ? 25 : 23, format: 'text' })) });
+            connection.emit('dataRow', { fields: names.map(() => Buffer.from(role ? 'f' : mode ? readOnlyMode : '1')) });
           }
           connection.emit('commandComplete', { text: text.startsWith('SELECT') ? 'SELECT 1' : text.split(' ')[0] });
           connection.emit('readyForQuery', { status: text === 'COMMIT' || text === 'ROLLBACK' ? 'I' : 'T' });
@@ -564,6 +565,9 @@ describe('actual driver read-only outage cleanup', function () {
     const f = await fixture();
     try {
       await f.store.readStatement('SELECT outage_work', []); // the first checkout screens its backend once
+      assert.equal(f.clients.length, 2, 'READ_STATEMENT_HAS_ITS_OWN_POOL');
+      assert.match(f.clients[1].connectionParameters.options, /-c default_transaction_read_only=on/, 'READ_POOL_STARTS_READ_ONLY');
+      assert(f.submitted.some(text => text.includes("current_setting('default_transaction_read_only')")), 'READ_BACKEND_CHECKED_ONCE');
       const before = f.submitted.length;
       const result = await f.store.readStatement('SELECT outage_work', []);
       assert.equal(result.rows.length, 1);
@@ -575,12 +579,19 @@ describe('actual driver read-only outage cleanup', function () {
       assert.deepEqual(f.submitted.slice(before).filter(text => !/^(BEGIN|COMMIT|ROLLBACK|SELECT set_config)/.test(text)), ['SELECT outage_work'], 'NO_REFUSED_TEXT_SUBMITTED');
     } finally { await f.store.end(); }
   });
+  it('refuses a read backend that did not start read-only, before running the read', async function () {
+    const f = await fixture(undefined, { readOnlyMode: 'off' });
+    try {
+      await assert.rejects(f.store.readStatement('SELECT outage_work', []), error => error.code === 'POSTGRES_READ_STATEMENT_WRITABLE');
+      assert(!f.submitted.includes('SELECT outage_work'), 'NO_READ_ON_A_WRITABLE_BACKEND');
+    } finally { await f.store.end(); }
+  });
   it('rejects an unanswered single-statement metadata read without accepting a late result', async function () {
     const f = await fixture('SELECT outage_work'); let accepted = false;
     try {
       await assert.rejects(f.store.readStatement('SELECT outage_work').then(() => { accepted = true; }), /Query read timeout/);
       assert(!f.submitted.includes('ROLLBACK'));
-      assert.equal(f.clients[0].connection.stream.destroyed, true, 'the failed backend is evicted');
+      assert.equal(f.clients.at(-1).connection.stream.destroyed, true, 'the failed backend is evicted');
       f.resume(); await new Promise(resolve => setImmediate(resolve));
       assert.equal(accepted, false);
     } finally { await f.store.end(); }
