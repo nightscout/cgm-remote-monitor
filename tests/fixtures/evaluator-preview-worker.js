@@ -35,10 +35,12 @@ const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item ===
 // memory, leaving the actual default CLI composition and source tree intact.
 if(process.env.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT==='1'){
   const file=require.resolve('../../lib/storage/postgres-durable-replay'),source=require('node:fs').readFileSync(file,'utf8');
-  const needle="checkpointSelect + (stream ? '' : ' FOR UPDATE')";
-  if(!source.includes(needle))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
+  // The warm read now runs on the read-only port, where PostgreSQL itself
+  // refuses a row lock; the control restores the old writable snapshot too.
+  const needle="checkpointSelect + (stream ? '' : ' FOR UPDATE')",port='stream ? connection.readOnlyTransaction(() => read()) : connection.snapshotTransaction(() => read())';
+  if(!source.includes(needle)||!source.includes(port))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
   require(file);const module={exports:{}};
-  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'")+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
+  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'").replace(port,'connection.snapshotTransaction(() => read())')+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
   require.cache[file].exports=module.exports;
 }
 // Native source-access control: force an actual imported source snapshot on
