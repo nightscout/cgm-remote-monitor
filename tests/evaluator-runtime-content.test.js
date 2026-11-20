@@ -134,3 +134,30 @@ describe('durable evaluator pending-work health replaces roster watchdogs',funct
    try{runtime.addTenant('22222222-2222-4222-8222-222222222222');assert.equal(intervals.length,0,'durable idle must not sweep roster health');assert.equal(timers.length,0,'unchanged dynamic tenant must not own a watchdog');}finally{await runtime.close();}
  });
 });
+
+// The output digest is sha256 of canonical(): the stored digests of existing
+// rows stay valid only while canonical() gives the same text as its recursive
+// definition, for every shape a cycle result can hold.
+describe('canonical output text equals its recursive definition', function () {
+  const { canonical, recursiveCanonical } = startRuntime;
+  it('matches on edge shapes and on seeded random values', function () {
+    const shapes = [undefined, null, 0, -0, NaN, Infinity, 'x', [], {}, [undefined, () => 1, Symbol('s')], new Date(0),
+      { b: 1, a: { d: [3, { z: 1, y: undefined, x: () => 1 }], c: null } }, { 10: 'a', 2: 'b', x: 1 }, { ['__proto__']: 1, a: 2 },
+      JSON.parse('{"__proto__":{"b":1,"a":2},"a":0}'), { t: { toJSON () { return { z: 1, a: 2 }; } } }, { s: Symbol('s'), a: 1 },
+      { é: 1, e: 2, E: 3, 'a b': 4, '': 5 }, Object.assign(Object.create(null), { b: 1, a: 2 })];
+    for (const value of shapes) assert.equal(canonical(value), recursiveCanonical(value), String(recursiveCanonical(value)));
+    let seed = 7;
+    const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const leaves = [1, 'x', null, true, undefined, 1.5, -0, NaN, 'é"\\ ', new Date(0), () => 1];
+    const names = ['b', 'a', '__proto__', '10', '2', 'z y', 'ä', '01', '-1', 'B'];
+    const make = depth => {
+      const r = random();
+      if (depth > 3 || r < 0.3) return leaves[Math.floor(random() * leaves.length)];
+      if (r < 0.6) return Array.from({ length: Math.floor(random() * 4) }, () => make(depth + 1));
+      const out = {};
+      for (let i = Math.floor(random() * 5); i > 0; i--) Object.defineProperty(out, names[Math.floor(random() * names.length)], { value: make(depth + 1), enumerable: true, configurable: true, writable: true });
+      return out;
+    };
+    for (let i = 0; i < 20000; i++) { const value = make(0); assert.equal(canonical(value), recursiveCanonical(value)); }
+  });
+});
