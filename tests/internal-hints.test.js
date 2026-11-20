@@ -133,6 +133,20 @@ describe('internal hints v1: receiver', () => {
     } finally { await peer.close(); }
   });
 
+  it('coalesces storage only inside one generation, preserving delete identifiers and writer order', () => {
+    const c = hints.contract, kind = 'storage-events';
+    const ev = (generation, op, data) => c.normalize(kind, {generation, events: [{collection: 'food', op, ...data}]});
+    const first = ev('1', 'create', {doc: {identifier: 'old'}});
+    const update = ev('2', 'update', {doc: {identifier: 'new'}});
+    const remove = ev('2', 'delete', {identifier: 'new'});
+    assert.deepEqual(remove.events, [{collection: 'food', op: 'delete', identifier: 'new'}]);
+    for (const stale of [first, {...first,generation: undefined}]) {
+      assert.deepEqual(c.merge(kind, stale, update), update, 'stale rows promoted to a new restore generation');
+      assert.deepEqual(c.merge(kind, update, stale), update);
+    }
+    assert.deepEqual(c.merge(kind, update, remove).events, [...update.events, ...remove.events]);
+  });
+
   it('storage-events and output-changed normalize, bound and merge without depending on order', () => {
     const c = hints.contract;
     const doc = { identifier: 'synthetic-1', name: 'apple', carbs: 10, srvModified: 1 };

@@ -65,6 +65,43 @@ describe('spike S2: /storage from the api post-commit hint (realtime side)', fun
       } finally { r.protocol.close(); }
     };
   }
+  it('drops a pre-restore waiting document and opens the local receiver outside the writer operation', async () => {
+    const w=windowFor(new Map([[A,1]])), r=realtime({operationWindow:w}), writerContext=new AsyncLocalStorage();
+    let release, count=0;
+    const first=new Promise(resolve=>{release=resolve;});
+    const route=hints.transport({}, {local:async(tenant, fields)=>{
+      assert.equal(writerContext.getStore(), undefined);
+      if (++count===1) await first;
+      return hints.receive(tenant,fields,r.protocol.storageHint);
+    }});
+    try {
+      const socket=await r.socket();
+      const send=(generation,id)=>writerContext.run(A,()=>route.deliver(hint(A,generation,[{event:'create',colName:'food',doc:{identifier:id}}])));
+      send('1','inflight-old'); send('1','queued-old');
+      w.generations.set(A,2); send('2','current');
+      release();
+      for(let i=0;i<30&&!socket.sent.length;i++) await new Promise(resolve=>setImmediate(resolve));
+      assert.deepEqual(socket.sent.map(x=>x.value.doc.identifier),['current']);
+      assert.equal(route.stats().merged,1);
+    } finally { release(); await route.close(); r.protocol.close(); }
+  });
+  it('recovers an over-bound batch on the subscribed collection only and ignores an unbound generation', async () => {
+    const w = windowFor(new Map([[A, 1], [B, 1]])), r = realtime({operationWindow: w});
+    const owner = (tenant, fields) => hints.receive(tenant, fields, r.protocol.storageHint);
+    const transport = hints.transport({}, {local: owner});
+    try {
+      const subscribed = await r.socket(), elsewhere = await r.socket('b.test'), unselected = await r.socket('a.test', ['entries']);
+      const change = {event: 'create', colName: 'food', doc: {identifier:'test', pad:'x'.repeat(262144)}};
+      transport.deliver({tenant:A, generation:'1', events:[change]});
+      await new Promise(resolve => setImmediate(resolve));
+      await transport.close();
+      assert(subscribed.disconnected, 'overflow did not retire subscribed client');
+      assert(!elsewhere.disconnected && !unselected.disconnected);
+      assert.deepEqual(subscribed.sent, []);
+      await owner(A, {events:[{op:'create', collection:'entries', doc:{identifier:'unbound'}}]});
+      assert.deepEqual(unselected.sent, []);
+    } finally { await transport.close(); r.protocol.close(); }
+  });
   it('RED/restored control: a hint with a stale restore generation is not delivered', async function () {
     const broken = control('../lib/server/realtime/protocol', 'if (operationWindow?.currentGeneration && String(operationWindow.currentGeneration(tenant)) !== String(generation))', 'if (false)');
     await assert.rejects(staleCheck(broken)(), /STALE_GENERATION_HINT_MUST_NOT_BE_DELIVERED/);
@@ -162,6 +199,59 @@ optInSuite(process.env.NS_S2_STORAGE_HINT_PG_TEST === '1' && !!uri, 'NS_S2_STORA
     assert(s.delivered.filter(d => d.visible !== null).every(d => d.visible === 1), 'HINT_AFTER_COMMIT');
     assert(s.delivered.every(d => d.hint.generation === '1'));
     require('node:fs').writeFileSync(process.env.NS_S2_EVIDENCE || '/dev/null', JSON.stringify({ wire: a.sent, hints: s.delivered.length }, null, 1));
+  });
+  for (const mode of ['local', 'private HTTP']) it('serves APIv3 writes and stock socket recovery over ' + mode, async function () {
+    const fs = require('node:fs'), tmp = fs.mkdtempSync(require('node:path').join(require('node:os').tmpdir(), 's4-storage-'));
+    const socketPath = require('node:path').join(tmp, 'private.sock');
+    const server = http.createServer();
+    let route, listener, attached, client, receive;
+    try {
+      const s = await stack({deliver: h => route.deliver(h)});
+      receive = (tenant, fields) => hints.receive(tenant, fields, s.r.protocol.storageHint);
+      if (mode === 'private HTTP') {
+        const internal = require('../lib/server/serve/internal-listener');
+        listener = await internal.open({listen:{socketPath}, shutdownTimeoutMs:2500},
+          internal.plan(['realtime'], {realtimePreview:{maxMessageBytes:4096,operationTimeoutMs:1000}}), {operationWindow:s.w});
+        listener.bind('realtime', {
+          'alarm-delivery':{resolveTenant:body=>body.tenant,create:()=>({deliverAlarm:async()=>({accepted:true})})},
+          'storage-events':{owns:t=>t===A, receive}
+        });
+        listener.assertBound();
+      }
+      route = hints.transport({NS_REALTIME_INTERNAL_SOCKET:socketPath}, mode==='local'?{local:receive}:{});
+      attached = require('../lib/server/realtime/socket-server').attach(server, {protocol:s.r.protocol,
+        admission:{resolve:async()=>A}, maxMessageBytes:1048576});
+      await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+      client = require('socket.io-client').io('http://127.0.0.1:'+server.address().port+'/storage',
+        {autoConnect:false, transports:['websocket'], reconnectionDelay:10, randomizationFactor:0});
+      const once = event => new Promise(resolve=>client.once(event,resolve));
+      const subscribed = () => new Promise((resolve,reject)=>client.emit('subscribe',{collections:['food']},
+        value=>value?.success?resolve():reject(Error('storage subscribe failed'))));
+      const connected = once('connect'); client.connect(); await connected; await subscribed();
+      const wire = [];
+      for(const event of ['create','update','delete'])client.on(event,value=>wire.push({event,value}));
+      const {a} = await v3Lifecycle(s);
+      assert.equal(wire.length,7);
+      assert.deepEqual(wire,a.sent);
+      for(const {event,value} of wire) assert.deepEqual(Object.keys(value).sort(),
+        event==='delete'?['colName','identifier']:['colName','doc']);
+      assert.equal(wire[6].value.identifier,wire[5].value.doc.identifier);
+      assert.match(wire[6].value.identifier,/^s2-hard-/);
+      assert.equal(route.stats().accepted,7);
+      assert(s.delivered.every(d=>d.visible===null||d.visible===1));
+      const lost=once('disconnect'), reconnected=once('connect');
+      route.deliver({tenant:A,generation:'1',events:[{event:'update',colName:'food',doc:{pad:'x'.repeat(262144)}}]});
+      assert.notEqual(await lost,'io server disconnect', 'stock auto-reconnect disabled');
+      await reconnected; await subscribed();
+      assert.equal(wire.length,7, 'overflow sent a malformed public event');
+      const after=once('create');
+      const fresh='s4-reconnect-'+run;
+      await s.call(A,'POST','/api/v3/food',food(fresh,'new'));
+      assert.equal((await after).doc.identifier,fresh);
+    } finally {
+      client?.close(); await route?.close(); await attached?.close(); await listener?.close();
+      fs.rmSync(tmp,{recursive:true,force:true});
+    }
   });
   it('RED/restored control: with the api hint removed, a /storage subscriber receives nothing', async function () {
     const broken = control('../lib/server/serve/preview-domains', 'if (storageHint) storageHint.attach(bus, tenant);', '');
