@@ -46,14 +46,17 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     await admin.query('CREATE TABLE ' + lab.lifecycleTable + ' (tenant_id uuid PRIMARY KEY, generation bigint NOT NULL, phase text NOT NULL)');
     const reader = base.readerRole, writer = base.role;
     for (const ns of [workNs, controlNs]) await admin.query(`GRANT USAGE ON SCHEMA "${ns}" TO "${reader}"`);
-    await admin.query(`GRANT USAGE ON SCHEMA "${workNs}" TO "${writer}"`);
     await admin.query(`GRANT SELECT, UPDATE ON ${lab.workTable} TO "${reader}"`);
     // The evaluator's cross-tenant work reads (begin, sweep) have no tenant
-    // binding; the deployment grants give the evaluator role this read.
+    // binding. The deployment's evaluator metadata policy has this predicate
+    // (deploy pgstream.js outputGrants, pgstream_evaluator_metadata).
     await admin.query(`CREATE POLICY s1_evaluator_work_read ON ${lab.workTable} FOR SELECT TO "${reader}" USING (consumer='${COMPLETED}')`);
-    // The api marks pending: a column grant on the evaluator's work row.
-    await admin.query(`GRANT SELECT(tenant_id,consumer,work_version,work_observed,work_pending_at), UPDATE(work_observed,work_observed_at,work_pending_at) ON ${lab.workTable} TO "${writer}"`);
-    // FOR SHARE needs an UPDATE privilege on some column.
+    // The api marks pending: the core pending-writer grants (lib/writer-driven),
+    // the same SQL ordinary deployment grants apply when writer-driven is selected.
+    for (const sql of require('../../lib/writer-driven').grants({ namespace: workNs, roles: [writer] })) await admin.query(sql);
+    // Lab only: no operation window, so completion fences generation with FOR
+    // SHARE (typed-checkpoint generationFence), which needs an UPDATE privilege
+    // on some column. Production completion is fenced by the operation window.
     await admin.query(`GRANT SELECT, UPDATE(phase) ON ${lab.lifecycleTable} TO "${reader}"`);
     const password = crypto.randomBytes(24).toString('hex');
     await admin.query(`ALTER ROLE "${reader}" PASSWORD '${password}'`);

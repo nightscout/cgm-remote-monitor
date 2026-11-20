@@ -70,6 +70,30 @@ describe('private realtime storage hint mount', function () {
     assert.ok(server.routes.some(row => row.includes('alarm')));
   });
 
+  it('serves the writer-driven evaluator changed hint beside storage-events, each by its own role, readiness and slice', async function () {
+    const rows = internal.plan(['realtime', 'evaluator'], { realtimePreview: settings, evaluatorPreview: { inspection: false } });
+    server = await internal.open({ listen: { socketPath }, shutdownTimeoutMs: 2500 }, rows, {
+      operationWindow: { run: (tenant, work) => work() }, changed: true,
+      health: (req, res) => { res.writeHead(204); res.end(); } });
+    server.bind('realtime', { 'alarm-delivery': { resolveTenant: body => body.tenant, create: () => ({ deliverAlarm: () => ({ accepted: true, receipt: null, clearedRequestIds: [] }) }) } });
+    const woken = [], stored = [];
+    let ready = false;
+    assert.throws(() => server.assertBound(), /INTERNAL_API_CONTRACT_UNBOUND.*changed/);
+    assert.throws(() => server.bind('realtime', { changed: { owns: () => true, receive: () => {} } }), /INTERNAL_API_CONTRACT_UNOWNED/);
+    assert.deepEqual(await endpoint(contract.path('changed', A)), [503, ''], 'UNBOUND_CHANGED_IS_NOT_READY');
+    server.bind('evaluator', { changed: { owns: tenant => tenant === B, ready: () => ready, receive: (tenant, hint) => woken.push({ tenant, hint }) } });
+    server.bind('realtime', { 'storage-events': { owns: tenant => tenant === A, receive: (tenant, hint) => stored.push({ tenant, hint }) } });
+    server.assertBound();
+    assert.deepEqual(await endpoint(contract.path('changed', B)), [503, ''], 'EVALUATOR_NOT_READY');
+    ready = true;
+    assert.deepEqual(await endpoint(contract.path('changed', A)), [421, ''], 'EVALUATOR_SLICE_OWNS_ITS_TENANTS');
+    assert.deepEqual(await endpoint(contract.path('changed', B), 'POST', JSON.stringify({ stamp: 5, generation: '3', domains: ['entries'], extra: 1 })), [202, '']);
+    assert.deepEqual(await endpoint(route(A)), [202, ''], 'STORAGE_ANSWERED_BY_REALTIME_OWNERSHIP');
+    assert.deepEqual(woken, [{ tenant: B, hint: { generation: '3', stamp: 5, domains: ['entries'] } }]);
+    assert.deepEqual(stored.map(row => row.tenant), [A]);
+    assert.ok(server.routes.some(row => row.endsWith('/{tenant}/changed')));
+  });
+
   it('keeps listeners without a generation window on their existing fixed routes', async function () {
     await open(false);
     server.assertBound();

@@ -12,6 +12,9 @@ const { optInSuite } = require('./support/opt-in');
 
 const DEADLINE_MS = 120000;
 const SWEEP_MS = Number(process.env.NS_S1_SWEEP_MS || 10000);
+// Mechanism-only controls (lost hint, restore fence, hard delete) sweep every
+// second; C1 keeps the deadline-scale interval.
+const FAST_SWEEP_MS = Number(process.env.NS_S1_FAST_SWEEP_MS || 1000);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // The oracle polls while writes are still being made, so a latency is the time
@@ -80,7 +83,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
     });
 
     it('S1_C2_LOST_HINT a write whose hint is lost (crash after COMMIT) is still evaluated, from its pending mark', async function () {
-      await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: true });
+      await lab.startEvaluator({ sweepMs: FAST_SWEEP_MS, hints: true });
       const track = tracker(lab);
       track.add(await write(lab, lab.base.A, 'c2-a0', 120));
       lab.api.drop.add(lab.base.B);
@@ -88,7 +91,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       lab.api.drop.delete(lab.base.B);
       track.add(await write(lab, lab.base.A, 'c2-a1', 121));
       const result = await track.done();
-      console.log('S1_C2', JSON.stringify({ sweepMs: SWEEP_MS, lostLatencyMs: lost.latencyMs, latencies: result.latencies,
+      console.log('S1_C2', JSON.stringify({ sweepMs: FAST_SWEEP_MS, lostLatencyMs: lost.latencyMs, latencies: result.latencies,
         hintsSent: lab.api.sent, hintsDropped: lab.api.dropped, sweep: lab.evaluator.sweepStats() }));
       assert.equal(lab.api.dropped, 1);
       assert.deepEqual(result.missing.map(w => w.id), [], 'S1_C2_LOST_HINT_WRITE_MISSING_OR_LATE');
@@ -104,7 +107,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
         held();
         await released;
       };
-      const evaluator = await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: true, gate, retryMs: 500 });
+      const evaluator = await lab.startEvaluator({ sweepMs: FAST_SWEEP_MS, hints: true, gate, retryMs: 500 });
       const first = await write(lab, A, 'c3-w1', 140, Date.now() - 2000);
       assert.deepEqual((await awaitReflected(lab, [first])).missing, []);
       const before = (await lab.outputs()).find(row => row.tenant === A);
@@ -154,7 +157,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
     });
 
     it('S1_X_HARD_DELETE a hard delete (no clock stamp) is evaluated from its pending mark', async function () {
-      await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: false });
+      await lab.startEvaluator({ sweepMs: FAST_SWEEP_MS, hints: false });
       const older = await write(lab, lab.base.A, 'x-older', 110, Date.now() - 2000);
       const newer = await write(lab, lab.base.A, 'x-newer', 111, Date.now() - 1000);
       assert.deepEqual((await awaitReflected(lab, [older, newer])).missing, []);
