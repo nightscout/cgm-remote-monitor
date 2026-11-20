@@ -85,7 +85,7 @@ joined with `+`, for example `api` or `api+realtime`).
 
 | series | type | labels | what it measures |
 |---|---|---|---|
-| `process_*`, `nodejs_*` | default | role | prom-client defaults: CPU, resident memory, heap, event-loop lag, GC, handles |
+| `process_*`, `nodejs_*` | default | role | @prometheus-io/client defaults: CPU, resident memory, heap, event-loop lag, GC, handles |
 | `nightscout_pgstream_receipt_seconds` | histogram | slice, outcome (`ack`, `refused`) | evaluator: a pgstream webhook from arrival to its 204 acknowledgement or 503 refusal |
 | `nightscout_evaluator_phase_seconds` | histogram | slice, phase | evaluator wall time per phase, with awaited I/O: `receive` (parse and accept a delivery), `begin` (durable receipt read), `settings` (metadata and current configuration), `acquisition` or `time` (the evaluation), `completion` (durable completion, including its recheck), `consumers` (one notification delivery pass) |
 | `nightscout_evaluator_pending_oldest_age_seconds` | gauge | slice | age of the oldest input the evaluator still owes a completion for, 0 when none |

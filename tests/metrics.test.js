@@ -124,7 +124,7 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
   this.timeout(20000);
   afterEach(() => metrics.reset());
 
-  it('is off by default: no /metrics route, no prom-client load, no pool listener, shared no-op hooks', async function () {
+  it('is off by default: no /metrics route, no client library load, no pool listener, shared no-op hooks', async function () {
     assert.deepEqual(metrics.settings({}), { enabled: false });
     assert.deepEqual(metrics.settings({ NS_METRICS: 'false' }), { enabled: false });
     assert.equal(metrics.settings({ NS_METRICS: 'true' }).enabled, true);
@@ -140,12 +140,12 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
       assert.equal(pool.listenerCount('connect'), 0, 'OFF_TOUCHED_POOL');
       assert.equal(metrics.current.middleware, null);
     } finally { await started.stop(); }
-    // A fresh process: configuring with the default never loads prom-client.
+    // A fresh process: configuring with the default never loads @prometheus-io/client.
     const loaded = execFileSync(process.execPath, ['-e', `
       const m = require(${JSON.stringify(path.resolve(__dirname, '../lib/metrics'))});
       m.configure(['evaluator'], {}); m.phase('receive')(); m.receipt()('ack');
-      process.stdout.write(String(Object.keys(require.cache).some(k => k.includes('/node_modules/prom-client/'))));`], { env: {} }).toString();
-    assert.equal(loaded, 'false', 'PROM_CLIENT_LOADED_WHILE_OFF');
+      process.stdout.write(String(Object.keys(require.cache).some(k => k.includes('/node_modules/@prometheus-io/client/'))));`], { env: {} }).toString();
+    assert.equal(loaded, 'false', 'METRICS_CLIENT_LOADED_WHILE_OFF');
   });
 
   it('when on, serves the named series with role and slice labels on serve.internal', async function () {
