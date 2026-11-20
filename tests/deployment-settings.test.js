@@ -37,6 +37,8 @@ describe('deployment settings: the environment builds the deployment\'s document
     // The deployment replaced this digest with the native selection's when it
     // attached the selection at bootstrap; the role now computes it itself.
     completed.digest = settings.nativeSelection(settings.layout(env)).contractDigest;
+    // Provisioning creates this row typed and pending in both input transports (lib/writer-driven).
+    expected.provisioning.pendingConsumer = { namespace: completed.namespace, consumer: completed.consumer };
     assert.deepStrictEqual(built, expected);
     // Each admin service is composed when the process has its connection secret.
     assert.deepStrictEqual(Object.keys(settings.configuration('admin', { NS_OWNERSHIP_PG: env.NS_OWNERSHIP_PG })), ['version', 'maxBytes', 'timeoutMs', 'ownership']);

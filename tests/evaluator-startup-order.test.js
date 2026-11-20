@@ -370,7 +370,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
     assert.equal(f.state().started,false);assert.equal(f.state().output,undefined);
    }finally{await f.window.close();}
   }
-  const remove=text=>{const needle="    const startupCause = ['PGSTREAM_REBOOTSTRAP_REQUIRED', 'PGSTREAM_SOURCE_REFUSED', ...roleReadiness.TERMINAL].includes(error?.code) ? error.code : null;";assert.equal(text.split(needle).length,2);return text.replace(needle,'    const startupCause = null;');};
+  const remove=text=>{const needle="    const startupCause = ['PGSTREAM_REBOOTSTRAP_REQUIRED', 'PGSTREAM_SOURCE_REFUSED', schemaRefused, ...roleReadiness.TERMINAL].includes(error?.code) ? error.code : null;";assert.equal(text.split(needle).length,2);return text.replace(needle,'    const startupCause = null;');};
   await criterion('PGSTREAM_REBOOTSTRAP_REQUIRED');
   await assert.rejects(criterion('PGSTREAM_REBOOTSTRAP_REQUIRED',remove),/ALLOWLISTED_EVALUATOR_BOOT_CAUSE_REQUIRED/);
   for(const code of ['PGSTREAM_REBOOTSTRAP_REQUIRED','PGSTREAM_SOURCE_REFUSED','UNKNOWN_PRIVATE_CODE','PGSTREAM_SOURCE_REFUSED PRIVATE_BOOT_DETAIL',undefined])await criterion(code);
