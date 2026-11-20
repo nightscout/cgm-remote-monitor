@@ -101,7 +101,12 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     }
     await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
   }
-  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }];
+  // A serving lab provisions the evaluator's completed-work row typed and pending, as the
+  // deployment's admin provisioning does (deployment-settings admin(): checkpoints(l) and
+  // pendingConsumer), so the api's writer-driven pending mark finds it (lib/writer-driven).
+  const pendingRow = layout ? { namespace: defaults.namespaces.eval_checkpoint, consumer: deployment.IDENTITY.evaluatorConsumer + '-completed',
+    digest: deployment.nativeSelection(defaults).contractDigest } : null;
+  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }, ...(pendingRow ? [pendingRow] : [])];
   if (layout) for (const sql of require('../../lib/server/ordinary-deployment-grants').grants(layout, { nativeSelection: layout.native })) await q(sql);
   for (const sql of registry.grants({ namespace: namespaces.registry, resolvers: [roles.api], enumerators: [roles.realtime], readers: [roles.api] })) await q(sql);
   for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: consumers })) await q(sql);
@@ -143,10 +148,15 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     },
     vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
     vaultRequest,
-    provisioningOptions: (extra = {}) => ({ connectionString: urls.provisioner, namespaces: { ...namespaces }, checkpoints: consumers,
-      vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
-      actor: { principal: 'registry-lab-operator', consumer: 'registry-lab' },
-      signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM, ...extra }),
+    provisioningOptions: (extra = {}) => {
+      const selected = extra.checkpoints || consumers;
+      const pending = pendingRow && selected.some(row => row.namespace === pendingRow.namespace && row.consumer === pendingRow.consumer)
+        ? { pendingConsumer: { namespace: pendingRow.namespace, consumer: pendingRow.consumer } } : {};
+      return { connectionString: urls.provisioner, namespaces: { ...namespaces }, checkpoints: consumers,
+        vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
+        actor: { principal: 'registry-lab-operator', consumer: 'registry-lab' },
+        signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM, ...pending, ...extra };
+    },
     // Every row any provisioning table holds for a tenant (as the superuser).
     async rowsFor (tenant) {
       const out = {};
