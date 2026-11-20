@@ -62,7 +62,7 @@ async function main () {
     value = await req('./tests/human-access-vault-native').run({ nativeStage: stage, consume });
     if (value.verdict !== 'pass' || value.mode !== stage.mode || JSON.stringify(value.checks.map(check => check.name)) !== JSON.stringify(probeChecks.vault) ||
         value.checks.some(check => check.pass !== true) || value.cleanup.some(item => typeof item !== 'string')) fail('OWNER_MATRIX_VAULT_INCOMPLETE');
-    families = { [stage.id === 'vault-single' ? 'vaultSingle' : 'vaultMulti']: true };
+    families = { vaultSingle: true };
   } else {
     await require('./transit-profile.cjs').prove({ req, env: process.env, mode: stage.mode, tenant, file: process.env.HUMAN_SESSION_SIGNER_CONFIG });
     if (stage.id.endsWith('-sessions')) {

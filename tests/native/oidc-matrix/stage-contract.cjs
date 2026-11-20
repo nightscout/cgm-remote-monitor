@@ -5,7 +5,8 @@
 const fail = code => Object.assign(new Error(code), { code });
 const STAGES = Object.freeze([
   { id: 'vault-single', persistence: 'vault', mode: 'single', activeMs: 90000, families: ['vaultSingle'] },
-  { id: 'vault-multi', persistence: 'vault', mode: 'multi', activeMs: 90000, families: ['vaultMulti'] },
+  // No vault-multi stage: multitenant human signing is derived in process and
+  // never calls Vault (decision deployment-signing-secret).
   { id: 'mongo-sessions', persistence: 'mongo', mode: 'single', activeMs: 90000, families: ['mongoNativeSessions'] },
   { id: 'pg-sessions', persistence: 'postgres', mode: 'multi', activeMs: 90000, families: ['postgresNativeSessions'] },
   { id: 'mongo-http', persistence: 'mongo', mode: 'single', activeMs: 120000,

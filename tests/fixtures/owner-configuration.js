@@ -71,9 +71,12 @@ module.exports = function ownerConfigurationFixture () {
     const ns = Object.fromEntries(['registry', 'access', 'authorization', 'control'].map(k => [k, namespaces[k]]));
     const grants = require('../../lib/management-sessions/authority').grants({ namespaces: ns, issuer: lab.roles.management_issuer, authorityOwner });
     for (const sql of [...grants.authorityOwner, ...grants.issuer]) await lab.admin.query(sql);
-    const signer = await vaultToken('signer', ['keys', 'sign'].map((op, i) =>
-      'path "' + lab.mount + '/' + op + '/tenant-management-*" { capabilities=["' + (i ? 'update' : 'read') + '"] }').join('\n'));
-    const roleToken = await vaultToken('serving', ['decrypt/tenant-data-', 'encrypt/tenant-data-', 'hmac/tenant-signing-', 'verify/tenant-signing-']
+    // Signing keys are derived in process (decision deployment-signing-secret):
+    // no role holds a Transit sign, HMAC or verify grant. The admin holds the
+    // deployment's provisioner rule; the serving roles decrypt (and encrypt) data keys.
+    const signer = await vaultToken('provisioner', ['path "' + lab.mount + '/keys/tenant-data-*" { capabilities=["create","read","update"] }',
+      'path "' + lab.mount + '/encrypt/tenant-data-*" { capabilities=["update"] }'].join('\n'));
+    const roleToken = await vaultToken('serving', ['decrypt/tenant-data-', 'encrypt/tenant-data-']
       .map(op => 'path "' + lab.mount + '/' + op + '*" { capabilities=["update"] }').join('\n'));
     servingEnv = { NS_VAULT_TOKEN: roleToken, NS_API_PG: lab.urls.api, NS_READINESS_PG: lab.urls.readiness,
       NS_API_ROOT_WRITER_PG: lab.urls.root_writer, NS_ALARM_PG: lab.urls.alarm, NS_DISPLAY_PG: lab.urls.display_reader,

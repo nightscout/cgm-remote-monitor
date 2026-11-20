@@ -41,11 +41,11 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   before(async function () {
     prior = scope.getTenancyMode(); scope.setTenancyMode('multi');
     lab = await createLab({ servingApi: true });
-    // One role-level Vault credential: prefix globs over every tenant's keys.
-    await lab.vaultRequest('sys/policies/acl/' + lab.mount + '_api', { policy: [
-      `path "${lab.mount}/decrypt/tenant-data-*" { capabilities = ["update"] }`,
-      `path "${lab.mount}/hmac/tenant-signing-*" { capabilities = ["update"] }`,
-      `path "${lab.mount}/verify/tenant-signing-*" { capabilities = ["update"] }`].join('\n') });
+    // One role-level Vault credential: the deployment's one api rule, decrypt on
+    // every tenant's data key. Signing keys are derived in process (decision
+    // deployment-signing-secret), so there is no Transit HMAC or verify grant.
+    await lab.vaultRequest('sys/policies/acl/' + lab.mount + '_api', { policy:
+      `path "${lab.mount}/decrypt/tenant-data-*" { capabilities = ["update"] }` });
     const apiToken = (await lab.vaultRequest('auth/token/create', { policies: [lab.mount + '_api'], no_default_policy: true, ttl: '1h' })).auth.client_token;
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-api-registry-'));
     Object.assign(env, {

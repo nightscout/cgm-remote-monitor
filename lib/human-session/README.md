@@ -26,7 +26,7 @@ configuration files.
 | `OIDC_SIGNING_ALGORITHM` | Optional pinned ID/logout token algorithm: RS256 (default), PS256, ES256 or EdDSA. Unsupported algorithms refuse; no negotiated downgrade. |
 | `OIDC_ORIGIN` | Exact canonical HTTPS origin, with no path or trailing slash. |
 | `OIDC_COOKIE_KEY` | Canonical base64 encoding of 32 random bytes shared by workers serving the same origins. It seals pending browser flows and binds CSRF tokens; rotating it expires pending flows. |
-| `OIDC_ACCESS_CONFIG`, `OIDC_ACCESS_CONFIG_FILE` | The access JSON below, inline in `OIDC_ACCESS_CONFIG` or in a private file named by `OIDC_ACCESS_CONFIG_FILE`; setting both refuses at start. An `OIDC_ACCESS_CONFIG` value that is not a JSON object is read as a file path, as before. Specifies the separate Nightscout access issuer, distinct data/management audiences, provisioned public keys and bound Transit signing references. Required for multitenant; a single site may use the local signing key instead. |
+| `OIDC_ACCESS_CONFIG`, `OIDC_ACCESS_CONFIG_FILE` | The access JSON below, inline in `OIDC_ACCESS_CONFIG` or in a private file named by `OIDC_ACCESS_CONFIG_FILE`; setting both refuses at start. An `OIDC_ACCESS_CONFIG` value that is not a JSON object is read as a file path, as before. Specifies the separate Nightscout access issuer, distinct data/management audiences and provisioned public keys; on a single site also the bound Transit signing references. Required for multitenant (a static key list or `registry: true`); a single site may use the local signing key instead. |
 | `OIDC_ACCESS_SIGNING_KEY`, `OIDC_ACCESS_SIGNING_KEY_FILE` | Single site only, instead of the access JSON: one Ed25519 private key in PEM (PKCS#8) form, inline (literal `\n` line breaks accepted) or in a private file; never both, and never together with the access JSON. Create one with `openssl genpkey -algorithm ed25519`. |
 | `OIDC_IDENTITIES`, `OIDC_IDENTITIES_FILE` | Single site: the signed-in identities and the existing roles each gets; inline, or a `.csv`, `.tsv` or `.json` file; never both. Applied to the database at each start (below). |
 | `OIDC_FALLBACK_ROLES` | Single site: roles for a signed-in person not on the list, separated like `AUTH_DEFAULT_ROLES`, for example `readable`. Unset: such a person is refused, as before. |
@@ -57,7 +57,14 @@ Its closed version1 shape is:
 }
 ```
 
-Use canonical UUID bindings for multitenant keys. The private single human
+Multitenant keys use canonical UUID bindings and carry no `vault` object and no
+`signingKey`/`signingVersion`: each current key's `kid` is
+`human-<purpose>-<version>` (`human-data-1`, `human-management-1`) and its public
+key must be the tenant's key derived from the deployment signing secret
+(`NS_SIGNING_SECRET_FILE`, decision deployment-signing-secret). The role signs in
+process and refuses at start a key that is not this deployment's derivation or a
+configuration naming a Vault signer; multitenant issuance never calls Vault.
+The shape above, with its `vault` object, is the single-site form. The private single human
 profile accepts only the literal auth scope `single`; this is not a clinical
 tenant ID and never serializes or changes storage's `SINGLE_TENANT` symbol.
 Per-site issuer, audience and public-key bindings isolate sites. Default and
@@ -66,8 +73,9 @@ cannot be selected by configuration or request. Human and existing headless
 issuer/audience namespaces must be disjoint; a recognized failed human proof
 never falls back to machine or legacy authentication.
 
-The access issuer is Ed25519/EdDSA through the configured private Transit sign
-capability, or on a single site the local signing key, separate from the
+The access issuer is Ed25519/EdDSA: multitenant through the derived keys, and on
+a single site through the configured private Transit sign capability or the local
+signing key, separate from the
 existing legacy HMAC methods. The provider's
 `OIDC_SIGNING_ALGORITHM` setting does not select the Nightscout access algorithm.
 Provision non-exportable Ed25519 keys and sign-only service ACLs, and separately
@@ -166,7 +174,7 @@ audiences `nightscout-human-data:<OIDC_ORIGIN>` and
 recorded as accepted keys in the authority document (`source: 'local'`); a key
 no longer configured is retired there, so replacing the key ends existing access
 at the next request and people sign in again. The key is never logged, exported
-or written. Multitenant signing stays on Vault Transit; a local key in
+or written. Multitenant signs with derived keys (above); a local key in
 multitenant mode refuses at start.
 
 ## Single-site identity list and fallback role
@@ -349,8 +357,8 @@ checks do not imply an actual MongoDB run.
 
 `tests/human-access-vault-native.js` is a separately reserved, finite Vault
 instrument. It refuses before transport without both native/Vault reservation
-flags, explicit loopback service/admin credential and an exact single or UUID
-authentication binding. It creates a unique owned Transit mount, nonexportable
+flags, explicit loopback service/admin credential and the exact single
+authentication binding (multitenant signing has no Vault signer to prove). It creates a unique owned Transit mount, nonexportable
 Ed25519 keys and sign-only tokens, then consumes production configuration and
 issuance. It checks forbidden read/export/mutation paths, unchanged legacy HMAC
 behavior and local verification after deliberately revoking a still-valid

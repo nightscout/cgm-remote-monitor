@@ -180,18 +180,19 @@ per-tenant key list:
   "version": 1,
   "registry": true,
   "issuer": "https://human-issuer.example.test",
-  "audiences": { "data": "human-data", "management": "human-management" },
-  "vault": { "addressEnv": "OIDC_VAULT_ADDRESS", "mount": "transit", "tokenFile": "/run/vault/token" }
+  "audiences": { "data": "human-data", "management": "human-management" }
 }
 ```
 
 The deployment still supplies issuer/client configuration, the cookie key and
 human-store PostgreSQL identity/namespaces. `OIDC_ORIGIN` is not needed in registry
 mode and `OIDC_TENANT_ORIGINS` is refused. Human and headless verification
-issuer/audience namespaces remain disjoint. Vault human signing keys are
-`tenant-human-data-<id>` and `tenant-human-management-<id>`, with registry/access
-kids `human-data-1` and `human-management-1`. Signing remains scoped by the
-role's Vault policy; cookie, CSRF, renewal and current-authority checks are unchanged.
+issuer/audience namespaces remain disjoint. Human signing keys are derived in
+process from the deployment signing secret (`NS_SIGNING_SECRET_FILE`) per tenant
+and purpose, with registry/access kids `human-data-<version>` and
+`human-management-<version>`; the role refuses a registry key that is not its
+derivation, and login and renewal make no Vault call. A `vault` object in this
+document is refused. Cookie, CSRF, renewal and current-authority checks are unchanged.
 
 Provider clients are cached per resolved tenant and origin, default 128 entries
 (`OIDC_PROVIDER_CACHE_MAX`, 1..10,000). Concurrent discovery is bounded to the
