@@ -77,6 +77,28 @@ describe('deployment settings: the environment builds the deployment\'s document
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('DS_EVALUATOR_SLICE: the hostname ordinal and NS_EVALUATOR_SLICES give the evaluator its slice and its own receiver', function () {
+    const os = require('node:os'), hostname = os.hostname;
+    const plan = require('./fixtures/multitenant-plan');
+    const layout = plan.layout('nstest');
+    const base = { ...plan.documents({ layout, urls: plan.syntheticUrls(layout) }).environments.evaluator };
+    delete base.NS_PGSTREAM_RECEIVER_URL; delete base.NS_PGSTREAM_EVALUATOR_SLICE;
+    const config = require('../lib/server/serve/evaluator-config');
+    try {
+      os.hostname = () => 'evaluator-1';
+      const sliced = config.load({ ...base, NS_EVALUATOR_SLICES: '2' });
+      assert.deepStrictEqual({ ...sliced.processAssignment, receivers: [...sliced.processAssignment.receivers] },
+        { count: 2, ordinal: 1, receivers: ['http://evaluator-0.evaluator:19913/', 'http://evaluator-1.evaluator:19913/'] });
+      assert.strictEqual(sliced.pgstream.receiver.url, 'http://evaluator-1.evaluator:19913/');
+      const single = config.load(base);
+      assert.strictEqual(single.processAssignment, undefined);
+      assert.strictEqual(single.pgstream.receiver.url, 'http://evaluator:19913/');
+      os.hostname = () => 'evaluator-4';
+      assert.strictEqual(config.load({ ...base, NS_EVALUATOR_SLICES: '2' }).processAssignment.ordinal, 4, 'an ordinal >= K starts and owns nothing');
+      assert.throws(() => config.load({ ...base, NS_PGSTREAM_EVALUATOR_SLICE: '{"count":1,"ordinal":0,"receivers":["http://evaluator:19913/"]}' }), /invalid explicit evaluator/);
+    } finally { os.hostname = hostname; }
+  });
+
   it('DS_SECRET_FILE: a secret is read from NAME, NAME_FILE or the secrets directory, in that order', function () {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-secrets-'));
     try {

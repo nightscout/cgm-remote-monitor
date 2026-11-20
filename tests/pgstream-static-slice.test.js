@@ -14,6 +14,28 @@ describe('static evaluator ingress and process assignment',()=>{
   for(const bad of [{...value,count:3},{...value,ordinal:2},{...value,receivers:[receivers[0],receivers[0]]},{...value,receivers:[...receivers].reverse()},{...value,receivers:['http://evaluator:19913/path',receivers[1]]},{...value,extra:true}])assert.throws(()=>assigned.processProfile(JSON.stringify(bad),receiver),/CONFIG/);
   assert.deepEqual(assigned.processProfile(JSON.stringify(value),receiver),profile);
  });
+ it('derives ordinal from the hostname and K from NS_EVALUATOR_SLICES; receivers are StatefulSet DNS names; K=1 is unsliced',()=>{
+  const receiver={url:'http://evaluator:19913/',bindHost:'0.0.0.0',trust:'network',timeoutMs:1000,maxBytes:10000};
+  const roster=['http://evaluator-0.evaluator:19913/','http://evaluator-1.evaluator:19913/','http://evaluator-2.evaluator:19913/'];
+  for(let ordinal=0;ordinal<3;ordinal++){
+   const value=assigned.hostAssignment({NS_EVALUATOR_SLICES:'3'},receiver,'evaluator-'+ordinal);
+   assert.deepEqual({...value,receivers:[...value.receivers]},{count:3,ordinal,receivers:roster,receiver:roster[ordinal]});
+   // The same profile the explicit parser accepts for the same process.
+   assert.deepEqual(assigned.processProfile(JSON.stringify({count:3,ordinal,receivers:roster}),{...receiver,url:value.receiver}).receivers,roster);
+  }
+  assert.equal(assigned.hostAssignment({},receiver,'evaluator-1'),undefined);
+  assert.equal(assigned.hostAssignment({NS_EVALUATOR_SLICES:'1'},receiver,'3f2a9c1d0b7e'),undefined);
+  // Ordinal >= K: not refused, owns nothing, absent from the roster.
+  const idle=assigned.hostAssignment({NS_EVALUATOR_SLICES:'2'},receiver,'evaluator-5');
+  assert.equal(idle.ordinal,5);assert.deepEqual([...idle.receivers],roster.slice(0,2));assert.equal(idle.receiver,'http://evaluator-5.evaluator:19913/');
+  const none=assigned.configure({slice:{count:2,ordinal:5},roster:()=>[],currentGeneration:()=>1},{namespace:'synthetic_checkpoint',consumer:'evaluator-static'});
+  assert.deepEqual(none.tenants,[]);assert.throws(()=>none.tenant(A),/FOREIGN_TENANT/);assert.equal(none.filter([]).sql,' AND FALSE');
+  const gate=require('../lib/pgstream/static-gate').create({shape:{count:2,ordinal:5},tenants:[],available:()=>true});
+  assert.equal(gate.admits(A)||gate.admits(B),false);
+  for(const [env,host] of [[{NS_EVALUATOR_SLICES:'2'},'3f2a9c1d0b7e'],[{NS_EVALUATOR_SLICES:'0'},'evaluator-0'],[{NS_EVALUATOR_SLICES:'x'},'evaluator-0'],
+    [{NS_EVALUATOR_SLICES:'2'},'evaluator-01'],[{NS_EVALUATOR_SLICES:'2',NS_PGSTREAM_EVALUATOR_SLICE:'{}'},'evaluator-0'],[{NS_PGSTREAM_EVALUATOR_SLICE:'{}'},'evaluator-0']])
+   assert.throws(()=>assigned.hostAssignment(env,receiver,host),/ASSIGNMENT_CONFIG/,JSON.stringify([env,host]));
+ });
  it('uses full-width canonical hash at K3/K7 and updates its bounded active roster without changing owner identity',()=>{
   const ids=Array.from({length:100},(_,i)=>crypto.createHash('sha256').update(String(i)).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
   for(const k of [3,7])for(let ordinal=0;ordinal<k;ordinal++){
@@ -40,7 +62,7 @@ describe('static evaluator ingress and process assignment',()=>{
   const filter=worker.filter(params);
   assert.equal(filter.values,params);
   assert.equal(filter.sql,' AND '+slice.sqlPredicate(7,3));
-  assert.throws(()=>slice.sqlPredicate(2,2),/Pool slice/);
+  assert.equal(slice.sqlPredicate(2,2),'FALSE','an ordinal at or above K owns nothing');assert.throws(()=>slice.sqlPredicate(2,-1),/Pool slice/);
  });
  it('preserves original boundary/source/count while validating increasing projected gaps and its own rows',()=>{
   const rows=[native.row('a',123,'I',A),native.row('b',130,'I',B),native.row('c',140,'I',A)];

@@ -38,7 +38,9 @@ describe('pool membership primitive', function () {
     it('refuses non-canonical ids and impossible shapes', function () {
       assert.throws(() => bucket('11111111-1111-4111-8111-11111111111A', 2), /Canonical tenant/);
       assert.throws(() => bucket('not-a-tenant', 2), /Canonical tenant/);
-      for (const [members, ordinal] of [[0, 0], [2, 2], [2, -1], [1.5, 0], [1025, 0]]) assert.throws(() => predicate(members, ordinal), /Pool slice/);
+      for (const [members, ordinal] of [[0, 0], [2, -1], [1.5, 0], [1025, 0], [2, 1024]]) assert.throws(() => predicate(members, ordinal), /Pool slice/);
+      // An ordinal at or above the count owns nothing and is not refused (statefulset-ordinal-scaling).
+      assert.equal(predicate(2, 2)('11111111-1111-4111-8111-111111111111'), false);
     });
   });
 
