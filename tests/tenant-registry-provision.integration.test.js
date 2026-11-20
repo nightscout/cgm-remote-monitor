@@ -272,6 +272,68 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.deepEqual(committed, [request.id]);
   });
 
+  // Decision deployment-signing-secret: the per-tenant signing version in
+  // PostgreSQL is the rotation and revocation lever. One rotation retires every
+  // token kind's old kid at once and moves issuance to the new version.
+  it('PV_ROTATE: rotating the signing version refuses old-kid data JWTs, management keys and human sessions, and new issuance verifies', async function () {
+    const fixture = require('./fixtures/signing-secret');
+    const request = spec('rotate', { bootstrap: BOOTSTRAP() }), other = spec('rotate-other', { bootstrap: BOOTSTRAP() });
+    const result = await provisioning.provision(request), bystander = await provisioning.provision(other);
+    const principal = { kind: 'subject', subjectId: result.bootstrap.subject, credentialVersion: 1, rootVersion: 1 };
+    const connection = await connect({ connectionString: lab.urls.api, max: 1 });
+    try {
+      const reader = registry.create({ connection, namespace: lab.namespaces.registry });
+      const human = require('../lib/human-session/registry-access').createRegistryHumanAccess({
+        source: { OIDC_ACCESS_CONFIG: JSON.stringify({ version: 1, registry: true, issuer: 'https://human.example.test',
+          audiences: { data: 'human-data', management: 'human-management' } }), ...fixture.env() },
+        registry: { maxTenants: 4, entry: tenant => reader.entry(tenant) } });
+      const at = Math.floor(Date.now() / 1000);
+      const humanToken = () => human.issue({ tenant: request.id, purpose: 'data', subject: 'synthetic', session: 'synthetic-session', credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
+      // The management keys the session authority hands the issuer: registry rows with an active access grant.
+      const managementKeys = async () => (await lab.admin.query(`SELECT k.kid, k.public_key FROM "${lab.namespaces.registry}".tenant_registry_keys k
+        JOIN "${lab.namespaces.access}".access_keys a ON a.tenant_id = k.tenant_id AND a.kid = k.kid AND a.purpose = 'management' AND a.active
+        WHERE k.tenant_id = $1 AND k.purpose = 'management' ORDER BY k.kid`, [request.id])).rows;
+      const managementSource = require('../lib/management-sessions/keys').createDerivedKeySource({ signing: fixture.signing });
+
+      // Before: version 1 everywhere.
+      const oldHuman = await humanToken();
+      assert.equal((await human.verify({ tenant: request.id, token: oldHuman })).kid, 'human-data-1');
+      assert.deepEqual(await verifyDataJwt(request.id, result.bootstrap.jwt), principal);
+      assert.equal((await managementSource.select({ tenant: request.id, keys: await managementKeys() })).kid, 'management-1');
+      const revision = await reader.revision();
+
+      const rotated = await provisioning.rotateSigning(request.id);
+      assert.deepEqual(rotated, { id: request.id, outcome: 'rotated', signingVersion: 2 });
+      assert.notEqual(await reader.revision(), revision, 'the registry revision moves, so serving caches refresh');
+      assert.equal((await provisioning.get(request.id)).signingVersion, 2);
+
+      // After: every old kid is refused.
+      assert.equal(await verifyDataJwt(request.id, result.bootstrap.jwt), null, 'old data JWT');
+      await assert.rejects(human.verify({ tenant: request.id, token: oldHuman }), { code: 'HUMAN_SESSION_REFUSED' });
+      await assert.rejects(managementSource.select({ tenant: request.id, keys: await managementKeys(), expected: { kid: 'management-1', key_version: 1 } }),
+        { code: 'MANAGEMENT_SESSION_KEY_REFUSED' });
+      const access = (await lab.admin.query(`SELECT kid, active FROM "${lab.namespaces.access}".access_keys WHERE tenant_id = $1 ORDER BY kid`, [request.id])).rows;
+      assert.deepEqual(access.filter(row => row.active).map(row => row.kid), ['human-data-2', 'human-management-2', 'management-2']);
+      assert.ok(access.filter(row => !row.active).every(row => row.kid.endsWith('-1')));
+
+      // New issuance uses version 2 and verifies.
+      const retry = await provisioning.provision(request);
+      assert.equal(retry.outcome, 'existing');
+      assert.equal(JSON.parse(Buffer.from(retry.bootstrap.jwt.split('.')[0], 'base64url')).kid, 'data-2');
+      assert.deepEqual(await verifyDataJwt(request.id, retry.bootstrap.jwt), principal);
+      const freshHuman = await humanToken();
+      assert.equal((await human.verify({ tenant: request.id, token: freshHuman })).kid, 'human-data-2');
+      assert.equal((await managementSource.select({ tenant: request.id, keys: await managementKeys() })).kid, 'management-2');
+
+      // Another tenant is untouched; a second rotation moves on; an unknown id refuses.
+      assert.deepEqual(await verifyDataJwt(other.id, bystander.bootstrap.jwt), { ...principal, subjectId: bystander.bootstrap.subject });
+      assert.equal((await provisioning.rotateSigning(request.id)).signingVersion, 3);
+      assert.equal(await verifyDataJwt(request.id, retry.bootstrap.jwt), null);
+      const unknown = randomUUID();
+      assert.deepEqual(await provisioning.rotateSigning(unknown), { id: unknown, outcome: 'refused', code: 'TENANT_NOT_FOUND' });
+    } finally { await connection.end(); }
+  });
+
   it('PV_BOOTSTRAP_REFUSED: a malformed, out-of-catalogue or mismatched bootstrap writes nothing', async function () {
     const plainTenant = spec('boot-plain'); assert.equal((await provisioning.provision(plainTenant)).outcome, 'created');
     assert.deepEqual(await provisioning.provision({ ...plainTenant, bootstrap: BOOTSTRAP() }),

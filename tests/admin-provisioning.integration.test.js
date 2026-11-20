@@ -125,6 +125,27 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.equal(invalid.status, 422); assert.equal(invalid.body.code, 'TENANT_PROVISION_BOOTSTRAP_INVALID');
   });
 
+  it('AP_ROTATE: `admin rotate-signing` rotates one tenant through the REST resource; the data JWT moves to the new kid; refusals carry stable codes', async function () {
+    const bootstrap = { owner: { consumer: 'lab-owner' }, subject: { name: 'Synthetic uploader', role: { name: 'demo', permissions: ['api:*:read'] } } };
+    const id = randomUUID(), spec = { id, hosts: ['rotate.example.test'], bootstrap };
+    const created = await request('POST', '/v1/tenants', spec);
+    assert.equal(created.status, 201);
+    const kid = jwt => JSON.parse(Buffer.from(jwt.split('.')[0], 'base64url')).kid;
+    assert.equal(kid(created.body.bootstrap.jwt), 'data-1');
+    const rotated = await cli(['admin', 'rotate-signing', '--id', id, '--url', base]);
+    assert.equal(rotated.code, 0, rotated.stderr); assert.equal(rotated.stdout, id + ' rotated 2\n');
+    assert.equal((await request('GET', '/v1/tenants/' + id)).body.signingVersion, 2);
+    assert.equal(kid((await request('POST', '/v1/tenants', spec)).body.bootstrap.jwt), 'data-2');
+    const again = await request('POST', '/v1/tenants/' + id + '/signing-version');
+    assert.deepEqual({ status: again.status, body: again.body }, { status: 200, body: { id, outcome: 'rotated', signingVersion: 3 } });
+    const unknown = randomUUID(), missing = await cli(['admin', 'rotate-signing', '--id', unknown, '--url', base]);
+    assert.equal(missing.code, 1); assert.equal(missing.stdout, unknown + ' refused TENANT_NOT_FOUND\n');
+    assert.equal((await request('GET', '/v1/tenants/' + id + '/signing-version')).status, 405);
+    assert.equal((await cli(['admin', 'rotate-signing', '--id', 'not-a-uuid', '--url', base])).code, 64);
+    assert.ok(/"operation":"rotate-signing","outcome":"rotated","signingVersion":2/.test(role.out.stdout), 'counts and codes only in the role log');
+    assert.ok((await request('GET', '/v1/openapi.json')).body.paths['/v1/tenants/{id}/signing-version'].post);
+  });
+
   for (const format of ['csv', 'json']) it('AP_CLI_SEED_' + format.toUpperCase() + ': the CLI provisions a seed in bounded batches, one line per tenant, secrets only to --secrets-out (0600); a re-run is all existing', async function () {
     const tenants = Array.from({ length: 7 }, (_, i) => ({ id: randomUUID(), hosts: [format + '-' + i + '.example.test', format + '-' + i + '-b.example.test'], ref: format + '-lab-' + i }));
     const seed = path.join(dir, 'seed.' + format);
