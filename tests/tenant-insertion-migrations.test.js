@@ -5,17 +5,17 @@ const crypto = require('node:crypto');
 const { checksum, validateCatalogue, renderMigration, operationTables, INSERTION_NAMESPACE } = require('../lib/migrations/catalogue');
 const builder = require('../lib/tenant-lifecycle/tenant-insertion-sql');
 const PREFIX = {
-  entries: [2, '07540566ffe72fcc1856d47cc84b86c7f8911a356f70888e7fd83252dde8536a'],
+  entries: [2, '0707bff85d8cfb45dacdb0a9875980206dba93027315475b01b47e409299d0af'],
   food: [1, '6783c5523388b27baee6f1e74174fbb270ce418e852e9fed178b0d8c8315ce38'],
-  treatments: [2, '4247649289c4418130b4a7ce9dbb68c77c4edd5765195abd3021487a012383a2'],
-  devicestatus: [2, '139bcd14c75841267e8c6c46cb9bed15a563b4e8163b6f4e5d4faa0555193655'],
+  treatments: [2, '2d8ba9fceeee0a5b24172fd462e4561dc6471c69be310d0b39c172c8f092acda'],
+  devicestatus: [2, 'e9015d9042434d4f9cf8847272d65c4e0f3e95c9ad8efeb87a16e47c931388fb'],
   profile: [2, '919166cd5fdfa5608e4a178766b1cf2e6f1c101cd24bededc59d02a1d88853d0']
 };
 const CONVERSION_PREFIX = {
-  entries: '4425dcf6a570194ca8c47717ebbb086357a34e35fae744083bb7e4c34b71f9a9',
+  entries: '2a1ada1d27cd60f808d19173c67a6942bb7fa1e9c491c54ccf91d311dde8ed1b',
   food: 'e7e3f1750325c449cfa8a52953217e78b591a8ae1594df779c6be0d20f5b3e27',
-  treatments: '0ae7b112d1d63e2c0d16a7dc079e69bbc75c24814ca7ff9626a8d9739d3d1744',
-  devicestatus: '5b5ddb36ae11a4aeead56c1b81bcb3248fd61e3461910153cbc7e68a9be40c9f',
+  treatments: '9925301c536a31e2b0b0d377a296fad8cbe64354ded5fb9201bc65cdf94f1b66',
+  devicestatus: '9cfa53326a7f98543acb080f17b745f985ad3710aeb53afb0611b1a73dd93376',
   profile: '1392378ac0e969f8dbd0f4787d1e1525af0e703d61abfbe2dea7e87f67ca80e2'
 };
 const CANDIDATES = {
@@ -25,6 +25,9 @@ const CANDIDATES = {
   devicestatus: require('../migrations/candidates/postgres-devicestatus-socket-order-v1.json'),
   profile: require('../migrations/candidates/postgres-profile-socket-order-v1.json')
 };
+// Spike S1b (maintainer 2026-11-20: no production multitenant database; migrations
+// may change in place): entries, treatments and devicestatus 0001 now store the
+// window time columns, so their prefix hashes were recomputed.
 // These immutable prefix controls address insertion conversion/binding. The later
 // clinical-size projection is append-only and has its own catalogue controls.
 const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!['clinical-storage-size-v1','storage-event-identity-v1'].includes(m.operation?.kind))});

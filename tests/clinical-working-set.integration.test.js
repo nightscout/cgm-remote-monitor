@@ -14,6 +14,19 @@ const at = Date.UTC(2026, 10, 16, 12), DAY = 86400000, env = { extendedSettings:
 const brokenModule = require('./lib/clinical-working-set/control');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const enabled = !!process.env.CLINICAL_WINDOW_PG_SOCKET || process.env.NS_CLINICAL_WINDOW_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
+
+// Spike S1b: the stored time columns from the reviewed catalogues, so this
+// synthetic table carries what the window predicates read.
+function timeColumns (domain) {
+  const cat = name => require('../migrations/candidates/postgres-' + name + '-v1.json').migrations[0].up;
+  const column = (up, name) => up.find(sql => sql.startsWith('CREATE TABLE')).match(new RegExp('(' + name + ' (?:bigint|text(?: COLLATE "C")?) GENERATED ALWAYS AS \\((?:[^()]|\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))*\\) STORED)'))[1];
+  const entries = cat('entries'), treatments = cat('treatments');
+  if (domain === 'entries') return [entries[0], 'ALTER TABLE t ADD COLUMN ' + column(entries, '"date"')];
+  if (domain === 'devicestatus' || domain === 'treatments') return [treatments[0], 'ALTER TABLE t ADD COLUMN ' + column(treatments, 'created_at'),
+    ...(domain === 'treatments' ? ['ALTER TABLE t ADD COLUMN ' + column(treatments, '"eventType"')] : [])];
+  return [];
+}
+
 optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('native clinically sufficient bounded bootstrap/recovery', function () {
   this.timeout(20000);
   let db, connection, handle, previous, recovery, source, config, queries = [], domains, oldRows, sourceCount;
@@ -36,6 +49,9 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     for (const [domain, table] of Object.entries(domains)) {
       const schema = 'synthetic_window_' + domain;
       await db.query('CREATE SCHEMA ' + schema + '; CREATE TABLE ' + table + ' (tenant_id uuid NOT NULL,id_kind text NOT NULL,"_id" text NOT NULL,doc jsonb NOT NULL,insertion_ordinal bigint NOT NULL,storage_bytes bigint NOT NULL,PRIMARY KEY(tenant_id,id_kind,"_id")); ALTER TABLE ' + table + ' ENABLE ROW LEVEL SECURITY; CREATE POLICY tenant ON ' + table + " USING (tenant_id=current_setting('synthetic.tenant')::uuid); GRANT USAGE ON SCHEMA " + schema + ' TO synthetic_window_reader; GRANT SELECT ON ' + table + ' TO synthetic_window_reader');
+      // The window reads the catalogue's stored time columns (spike S1b): the same
+      // functions and generated columns as migration 0001 of each windowed table.
+      for (const sql of timeColumns(domain)) await db.query(sql.split('window_time_').join(schema + '.window_time_').replace(/^ALTER TABLE \S+/, 'ALTER TABLE ' + table));
     }
     await db.query('CREATE SCHEMA synthetic_window_work; CREATE TABLE ' + checkpoint + ' (tenant_id uuid,consumer text,checkpoint bigint,contract_digest text,projection jsonb,PRIMARY KEY(tenant_id,consumer)); GRANT USAGE ON SCHEMA synthetic_window_work TO synthetic_window_reader; GRANT SELECT,UPDATE ON ' + checkpoint + ' TO synthetic_window_reader');
     oldRows = Array.from({ length: 2000 }, (_, i) => ({ _id: 'history-' + i, date: at - 500 * DAY - i, type: 'sgv', sgv: 200, srvModified: 10, isValid: i % 2 === 0 }));
