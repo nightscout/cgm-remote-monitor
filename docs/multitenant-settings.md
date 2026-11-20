@@ -51,6 +51,7 @@ their contract digests are keyed by them.
 | `NS_VCPOOL_API_URL` | vcpool | none (required) | the api origin vcpool writes to |
 | `NS_VCPOOL_ALLOW_HOSTS` | vcpool | none (required) | comma list of source host names |
 | `NS_VCPOOL_ALLOW_INSECURE_HTTP` | vcpool | `false` | admit `http://` sources |
+| `NS_METRICS` | api, evaluator, realtime, tenant-admin, vcpool | `false` | `true` serves Prometheus metrics at `GET /metrics` on the private listener ([below](#metrics)) |
 
 Settings that existed before and keep their meaning and defaults: listeners
 (`<ROLE>_HOSTNAME`, `<ROLE>_PORT`, `NS_SERVE_INTERNAL_*`, `NS_<ROLE>_INTERNAL_*`,
@@ -60,6 +61,70 @@ Settings that existed before and keep their meaning and defaults: listeners
 (`NS_DATASTORE_*`), evaluator residency (`NS_EVALUATOR_RESIDENT_MAX`,
 `NS_EVALUATOR_RETRY_MS`), realtime and evaluator slices (lane S), vcpool egress
 (`MULTITENANT_VCPOOL_EGRESS_PROXY`) and the opt-in diagnostics.
+
+## Metrics
+
+`NS_METRICS=true` turns on Prometheus metrics for a role process (decision
+`prometheus-metrics-narrow`). The default is off. Off, nothing is registered,
+the metrics library is not loaded and no request, pool or socket is touched.
+The setting means the same with one tenant or many. Any value other than
+`true`, `false` or empty refuses start-up (`METRICS_CONFIG_REFUSED`).
+
+**Where.** `GET /metrics` on the process's private listener (serve.internal),
+beside `/healthz/*`, never on the public api port. Give the listener a network
+address so Prometheus can reach it: `NS_SERVE_INTERNAL_HOST` and
+`NS_SERVE_INTERNAL_PORT` ([internal-service-api.md](internal-service-api.md)).
+With metrics on, the listener opens even for a role with no internal contract.
+Left unset it is a Unix socket, which Prometheus cannot scrape directly. Like
+the health endpoints, it has no credential of its own: keep it off the internet
+with the deployment's network policy. The admin role has no private listener
+and serves no metrics.
+
+**Series.** Every series carries `role` (the process's roles, sorted and
+joined with `+`, for example `api` or `api+realtime`).
+
+| series | type | labels | what it measures |
+|---|---|---|---|
+| `process_*`, `nodejs_*` | default | role | prom-client defaults: CPU, resident memory, heap, event-loop lag, GC, handles |
+| `nightscout_pgstream_receipt_seconds` | histogram | slice, outcome (`ack`, `refused`) | evaluator: a pgstream webhook from arrival to its 204 acknowledgement or 503 refusal |
+| `nightscout_evaluator_phase_seconds` | histogram | slice, phase | evaluator wall time per phase, with awaited I/O: `receive` (parse and accept a delivery), `begin` (durable receipt read), `settings` (metadata and current configuration), `acquisition` or `time` (the evaluation), `completion` (durable completion, including its recheck), `consumers` (one notification delivery pass) |
+| `nightscout_evaluator_pending_oldest_age_seconds` | gauge | slice | age of the oldest input the evaluator still owes a completion for, 0 when none |
+| `nightscout_evaluator_pending_tenants` | gauge | slice | tenants with input pending completion |
+| `nightscout_evaluator_queued_cycles` | gauge | slice | tenants with a cycle queued or running (backlog) |
+| `nightscout_evaluator_tenants` | gauge | slice | tenants the evaluator holds state for |
+| `nightscout_pg_statements_total` | counter | application_name, outcome (`ok`, `error`) | SQL statements through each core pool |
+| `nightscout_pg_statement_seconds_total` | counter | application_name | client-side statement time summed, from the query call to its result; divided by the statement count it gives the mean. Statements are accumulated in plain numbers and published at scrape time; a per-statement histogram cost too much at about 170 statements per write. For statement latency distributions, use `postgres_exporter` |
+| `nightscout_http_request_seconds` | histogram | method, route, status_class | api request duration by Express route template, refused requests included |
+| `nightscout_realtime_connected_sockets` | gauge | namespace (`/`, `/storage`, `/alarm`) | connected Socket.IO sockets |
+
+`slice` is the evaluator's configured slice ordinal, or `all` for an unsliced
+evaluator. The evaluator gauges are read from memory at scrape time. A cycle
+that has just finished can still count as queued in the scrape that follows it.
+
+**No tenant labels.** Every label value comes from a fixed set: a role, slice,
+phase, outcome, HTTP method or status class, a socket namespace, a pool's
+source-owned `nightscout-*` `application_name` (at most 48; anything else is
+`other`), or an Express route template. In a template, any path segment that
+is not a short word or a `:parameter` becomes `:value`, and there are at most
+128 templates (then `other`). A per-tenant label would make the series count
+grow with the tenant population, and a scrape or retained snapshot would then
+carry tenant identifiers. Per-tenant questions are answered by the per-input
+events and the evaluator inspection contract, not by metrics.
+`tests/metrics.test.js` fails if any label value looks like a tenant id.
+
+**Cost.** The hooks are explicit `performance.now()` spans and pool-level
+statement counting, with no async hooks and no global `pg` patch.
+
+Measured offline (Node 22.23.4, one pinned core of an i7-11800H), with a
+stand-in client and no PostgreSQL:
+
+- **evaluator:** about 27 µs added per accepted write (one receipt, seven phase
+  spans, 170 statements). That is roughly 0.25% of the evaluator's main-thread
+  time per write at 83 writes/s.
+- **api:** about 1.5 µs added per request.
+
+These figures do not include scraping. The on/off pair under live load is
+measured separately on Kubernetes.
 
 ## Secrets
 
