@@ -132,6 +132,7 @@
         "tests/realtime-api-client.test.js",
         "tests/serve-internal-listener.test.js",
         "tests/internal-api-contracts.test.js",
+        "tests/internal-hints.test.js",
         "tests/internal-api-composition.test.js",
         "tests/tenant-ownership.test.js",
         "tests/internal-api-transport.test.js",
