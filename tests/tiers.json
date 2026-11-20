@@ -498,6 +498,7 @@
         "tests/s1b-window-rows.integration.test.js",
         "tests/writer-driven-pending.integration.test.js",
         "tests/read-statement-read-only.integration.test.js",
+        "tests/writer-driven-schema.integration.test.js",
         "tests/role-readiness.integration.test.js",
         "tests/clinical-working-set.integration.test.js",
         "tests/postgres-imported-snapshot.test.js",
