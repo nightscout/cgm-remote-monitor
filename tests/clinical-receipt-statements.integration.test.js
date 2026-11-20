@@ -61,7 +61,9 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('stream receipt statement count', 
     const three = await receipt(T, 'b');
     assert.equal(three.statements.length, EXPECTED.three, 'THREE_TENANT_RECEIPT_STATEMENTS:\n' + three.statements.join('\n'));
     console.log('      statements per receipt: one-tenant %d, three-tenant %d', one.statements.length, three.statements.length);
-    for (const [t, floor, revision] of [[T[0], '3', '2'], [T[1], '2', '1'], [T[2], '2', '1']]) {
+    // No storage-event journal (S2): a clinical receipt owes no raw delivery, so
+    // the delivery revision moves only for control work, which these rows lack.
+    for (const [t, floor, revision] of [[T[0], '3', '0'], [T[1], '2', '0'], [T[2], '2', '0']]) {
       const input = await cohort.read(t), output = await cohort.output(t);
       assert.equal(input.checkpoint, floor); assert.equal(input.projection[0].floor, Number(floor));
       assert.equal(output.work_observed[5], floor, 'WORK_STATE_WRITTEN_WITH_INPUT'); assert.equal(output.delivery_revision, revision, 'RAW_DELIVERY_REVISION');
@@ -73,6 +75,6 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('stream receipt statement count', 
     // Same commit position again: no new input, the work-state observation is unchanged.
     position -= 16; const again = await receipt(T, 'b');
     assert.equal(again.statements.length, EXPECTED.three - 1, 'DUPLICATE_SKIPS_THE_WRITE:\n' + again.statements.join('\n'));
-    assert.equal((await cohort.output(T[1])).delivery_revision, '1');
+    assert.equal((await cohort.output(T[1])).delivery_revision, '0');
   });
 });
