@@ -451,7 +451,7 @@ const pgstreamEnabled=true;describe('maintained clinical startup independent of 
  it('detects a removed safe startup observation and restores the original refusal',async()=>{
   const input={startupError:Object.assign(Error('PRIVATE_ORIGINAL'),{code:'ECONNRESET'}),phase:'WRITER_SOURCE_OPEN',causeCode:'CONNECTION_RESET'};
   const remove=source=>{
-   const needle="    try { console.error('Evaluator startup refused', JSON.stringify(startupDiagnostic || diagnostics.classify(error, 'evaluator', startupPhase))); } catch { /* observation cannot replace refusal */ }";
+   const needle="    try { console.error('Evaluator startup refused', JSON.stringify(diagnostics.classify(error, 'evaluator', startupPhase))); } catch { /* observation cannot replace refusal */ }";
    assert.equal(source.split(needle).length,2);return source.replace(needle,'');
   };
   await startupDiagnosticCriterion(input);
