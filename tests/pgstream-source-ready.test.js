@@ -16,7 +16,7 @@ const envelope=()=>native.envelope([marker]);
 const standalone={Data:marker};
 let sendDuringOpen;
 const sendDuring=async()=>sendDuringOpen;
-async function fixture({accept=async()=>[],recover=async()=>{},ready,change=source=>source,baseline={},holdAdmission}={}){
+async function fixture({accept=async()=>[],recover=async()=>{},ready,change=source=>source,baseline={},holdAdmission,parsed}={}){
   let handler,loss,closed=0,terminal;
   const config={consumer:'evaluator-source-ready',maxBytes:4096,timeIntervalMs:1000,tenants:new Map([[A,{}]]),
     namespaces:{...Object.fromEntries(require('../lib/storage/clinical-stream-state').DOMAINS.map(domain=>[domain,'test_'+domain])),clock:'test_clock',checkpoint:'test_work'},
@@ -33,12 +33,13 @@ async function fixture({accept=async()=>[],recover=async()=>{},ready,change=sour
   }};
   const output={exports:{}};
   vm.runInThisContext('(function(require,module,exports){'+change(fs.readFileSync(file,'utf8'))+'\n})',{filename:file})(name=>
-    name==='node:http'?{createServer:fn=>{handler=fn;sendDuringOpen=body=>send(body);return server;}}:name==='./checkpoint'?{create:()=>store}:local(name),output,output.exports);
+    name==='node:http'?{createServer:fn=>{handler=fn;sendDuringOpen=body=>send(body);return server;}}:name==='./checkpoint'?{create:()=>store}:name==='./receiver'&&parsed?{...receiver,parse:text=>{const event=receiver.parse(text);parsed(event);return event;}}:local(name),output,output.exports);
   const opened=await output.exports.open({config,connection,onInput:()=>{},onRecovered:recover,onSourceReady:ready,
     onUnavailable:async()=>{},onTerminal:code=>{terminal=code;},clinical:{maxTransactionRows:100,maxTransactionBytes:8192,acceptTransaction:accept}});
-  async function send(body=envelope(),{onEnd}={}){
+  async function send(body=envelope(),{onEnd,split=[]}={}){
     let status;
-    const req={method:'POST',url:'/pgstream',async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify(body));}};
+    const bytes=Buffer.from(JSON.stringify(body)),cuts=[0,...split,bytes.length];
+    const req={method:'POST',url:'/pgstream',async *[Symbol.asyncIterator](){for(let i=1;i<cuts.length;i++)yield bytes.subarray(cuts[i-1],cuts[i]);}};
     const res={writeHead(value){status=value;return this;},end(){onEnd?.();}};
     await handler(req,res);return status;
   }
@@ -46,6 +47,17 @@ async function fixture({accept=async()=>[],recover=async()=>{},ready,change=sour
 }
 
 describe('post-receive source readiness',function(){
+  it('decodes a webhook body split inside a multi-byte UTF-8 character exactly once',async()=>{
+    const seen=[];const f=await fixture({parsed:event=>seen.push(event)});
+    try{
+      const note='雪😀é',body=native.envelope([{...marker,content:JSON.stringify({schema_name:'test_clock',objects:[],note})}]);
+      const bytes=Buffer.from(JSON.stringify(body)),at=bytes.indexOf(Buffer.from('😀'));assert(at>0);
+      // Split inside the 4-byte character and inside the 3-byte one before it.
+      assert.equal(await f.send(body,{split:[at-2,at+2]}),204);
+      assert.equal(seen.length,1);assert.deepEqual(seen[0],JSON.parse(bytes.toString('utf8')),'SPLIT_UTF8_BODY_MUST_DECODE_EXACTLY');
+      assert.equal(JSON.parse(seen[0].Transaction[1].content).note,note);
+    }finally{await f.opened.close();}
+  });
   it('publishes initial readiness only after recovery and validates the optional callback',async()=>{
     const entered=hold(),release=hold();let wakes=0,recovered=false;
     const opening=fixture({recover:async()=>{entered.resolve();await release.promise;recovered=true;},ready:()=>{assert(recovered);wakes++;}});
