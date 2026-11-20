@@ -6,7 +6,6 @@ const { randomBytes } = require('node:crypto');
 const { COOKIE, createHumanHTTP } = require('../lib/human-session/http');
 const streamAuthority = require('./fixtures/human-stream-authority');
 const accessFixture = require('./fixtures/human-access-issuer');
-const { createVerifier, createAuthentication } = require('../lib/tenant-authorization/access-token');
 const socketHelper = require('../lib/human-session/socket');
 const { create: createAuthority } = require('../lib/server/realtime/authority');
 const { create: createProtocol } = require('../lib/server/realtime/protocol');
@@ -199,15 +198,10 @@ describe('human current authority on consumed socket factories (no listeners)', 
     protocol.close();
   });
 
-  function multiAuthority (multi, machine) {
+  function multiAuthority (multi) {
     const counts = { legacy: 0, machine: 0 };
     const authority = createAuthority({ humanSessions: multi?.worker(),
       secrets: { async verifyLegacyCredential () { counts.legacy++; throw new Error('Unexpected legacy fallback'); } },
-      accessTokens: { async authenticate (input) {
-        counts.machine++;
-        if (machine) return machine(input);
-        throw new Error('Unexpected headless fallback');
-      } },
       authority: { subjectAuthorizationSnapshot: async () => null, permissionSnapshot: async () => ({ allows: () => false }) },
       verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
     return { authority, counts };
@@ -241,26 +235,25 @@ describe('human current authority on consumed socket factories (no listeners)', 
     assert.deepEqual(f.counts, { legacy: 0, machine: 0 });
   });
 
-  it('keeps valid headless ns-access verification separate from the human issuer and audiences', async function () {
+  it('refuses a headless ns-access data token on sockets (verifier retired) and never routes a human marker elsewhere', async function () {
+    // Decision deployment-signing-secret: nothing issues an ns-access+jwt data
+    // token and the api verifies none; the token reaches only the legacy DATA
+    // verifier, which refuses it. A human marker never reaches either.
     const multi = streamAuthority({ tenant }), machine = accessFixture({ tenant, issuer: 'synthetic-headless-access',
       audiences: { data: 'synthetic-headless-data', management: 'synthetic-headless-management' } });
     const at = Math.floor(Date.now() / 1000);
     const machineToken = await machine.access.issue({ tenant, subject: 'synthetic-machine', session: 'machine-session',
       purpose: 'data', credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
-    const verifyToken = createVerifier({ issuer: machine.issuer, audience: machine.audiences.data, purpose: 'data',
-      maxLifetimeSeconds: 28800, resolveKey: (tenant, kid) => {
-        const key = machine.keys.find(key => key.tenant === tenant && key.kid === kid);
-        return key && { ...key, issuer: machine.issuer };
-      } });
-    const authenticate = createAuthentication({ verifyToken, snapshot: async () => ({ active: true, sessionActive: true,
-      keyActive: true, credentialVersion: 1, sessionExpiresAt: at + 600, allows: permission => permission === 'api:*:read' }) });
-    const f = multiAuthority(multi, authenticate);
+    let legacy = 0;
+    const authority = createAuthority({ humanSessions: multi.worker(),
+      secrets: { async verifyLegacyCredential () { legacy++; return null; } },
+      authority: { subjectAuthorizationSnapshot: async () => null, permissionSnapshot: async () => ({ allows: () => false }) },
+      verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
     assert.equal(multi.engine.accepts(machineToken), false);
-    const accepted = await f.authority.verify({ tenant, namespace: '/', credential: { token: machineToken } });
-    assert.equal(accepted.principal.subjectId, 'synthetic-machine');
-    assert.deepEqual(f.counts, { legacy: 0, machine: 1 });
-    await assert.rejects(f.authority.verify({ tenant, namespace: '/', credential: { humanToken: machineToken } }), { code: 'HUMAN_SESSION_REFUSED' });
-    assert.deepEqual(f.counts, { legacy: 0, machine: 1 }, 'a cookie/explicit human marker cannot switch to the successful machine verifier');
+    await assert.rejects(authority.verify({ tenant, namespace: '/', credential: { token: machineToken } }), { code: 'SOCKET_AUTHORITY_REFUSED' });
+    assert.equal(legacy, 1);
+    await assert.rejects(authority.verify({ tenant, namespace: '/', credential: { humanToken: machineToken } }), { code: 'HUMAN_SESSION_REFUSED' });
+    assert.equal(legacy, 1, 'a cookie/explicit human marker never reaches another verifier');
   });
 
   it('forces wrong-issuer and provider-shaped cookie JWTs through the human verifier even when metadata selection refuses', async function () {

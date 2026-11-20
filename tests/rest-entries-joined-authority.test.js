@@ -59,7 +59,6 @@ async function fixture (kind = 'legacy-subject', mutate) {
   const createAccess = accessImplementation(mutate);
   const access = createAccess({ authority, readConnection: connection,
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), legacyCollections: ['entries'],
-    accessTokens: { authenticate: async () => { events.push('access-current-authority'); return { claims: { sub: 'subject' }, state: { allows: () => true } }; } },
     humanSessions: { credential: () => kind === 'human' ? { cookie: true, token: 'synthetic-human' } : null,
       accepts: () => false, authenticate: async () => { events.push('human-current-authority'); return { actor: { subject: 'subject', allows: () => true } }; } },
     secrets: { async verifyLegacyCredential () {
@@ -71,7 +70,6 @@ async function fixture (kind = 'legacy-subject', mutate) {
     const req = { method: 'GET', path: '/entries/sgv.json', rawHeaders: [], query: {} };
     if (kind === 'legacy-subject') req.query.token = 'synthetic';
     else if (['root', 'api-secret-subject'].includes(kind)) req.rawHeaders = ['api-secret', 'synthetic'];
-    else if (kind === 'access') req.rawHeaders = ['authorization', 'Bearer ' + Buffer.from(JSON.stringify({ typ: 'ns-access+jwt' })).toString('base64url') + '.synthetic.signature'];
     Object.assign(req, overrides);
     createAccess.registerRawRead(req, { tenant, logical: 'entries', connection: overrides.foreignConnection ? { ...connection, query: () => {} } : connection,
       async load () { events.push('load'); await connection.query('SELECT clinical_entries'); return { tenant }; },
@@ -168,14 +166,15 @@ describe('private joined entries authority coverage', function () {
         secrets: { verifyLegacyCredential: async () => null }, verifierContext: async () => null }), /must own the same connection/);
     } finally { await f.close(); }
   });
-  it('excludes writes, v3, OPTIONS, access-token and human-session snapshot authorities', async function () {
+  // The ns-access+jwt data token authority is retired (decision deployment-signing-secret).
+  it('excludes writes, v3, OPTIONS and human-session snapshot authorities', async function () {
     for (const [kind, method, version, path] of [['root', 'POST', 1, '/entries'], ['root', 'GET', 3, '/entries'],
-      ['root', 'OPTIONS', 1, '/entries'], ['human', 'GET', 1, '/entries'], ['access', 'GET', 2, '/entries']]) {
+      ['root', 'OPTIONS', 1, '/entries'], ['human', 'GET', 1, '/entries']]) {
       const f = await fixture(kind), req = f.request(A, { method, path });
       try {
         assert(await f.access({ tenant: A, request: req, version }));
         assert(!f.events.includes('load')); assert.equal(req.frame, undefined);
-        if (['human', 'access'].includes(kind)) {
+        if (kind === 'human') {
           assert.equal(f.calls.length, 0, 'operation-local token/session authority retained');
           assert.deepEqual(f.events, [kind + '-current-authority']);
         }

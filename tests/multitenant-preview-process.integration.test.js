@@ -38,7 +38,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       assert.deepEqual(sessions.rows, [], 'role shutdown releases every application pool');
     }
 
-    it('new-format actual API reads and writes use local keys and current PostgreSQL across processes', async function () {
+    it('data JWT actual API reads and writes use derived keys and current PostgreSQL across processes', async function () {
       const first = start(), second = start();
       await ready(first); await ready(second);
       const a = await localToken(A), b = await localToken(B);
@@ -54,19 +54,19 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
         assert.equal((await http(worker, A, 'PATCH', '/api/v3/entries/local-' + worker.port, a, { sgv: 143 })).status, 200);
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-' + worker.port, a)).body.result.modifiedBy, 'Synthetic Viewer 0');
         const foreign = await http(worker, B, 'GET', '/api/v3/entries', a);
-        assert.equal(foreign.status, 401); assert.equal(foreign.body.error, 'TOKEN_SIGNATURE');
+        assert.equal(foreign.status, 401, 'a data JWT for A fails signature and tenant checks on B (D14)');
         assert.equal((await http(worker, A, 'GET', '/api/v1/entries', a)).status, 200);
         assert.equal((await http(worker, A, 'GET', '/api/v2/authorization/permissions', a)).status, 401);
       }
       assert.equal(Number((await admin.query('SELECT count(*) FROM preview_secrets.secret_audit')).rows[0].count), auditBefore,
-        'new-format requests must never call the audited secrets component');
+        'data JWT requests must never call the audited secrets component');
       const exchanged = await exchange(first, A);
       assert.equal(exchanged.status, 200); assert.equal(exchanged.body.exp - exchanged.body.iat, 28800);
       assert.equal((await http(first, A, 'GET', '/api/v3/entries', exchanged.body.token)).status, 200);
       await stop(first); await stop(second);
     });
 
-    it('new-format signature and audience controls refuse before any handler effect', async function () {
+    it('data JWT signature, audience, tenant, kid and expiry controls refuse before any handler effect', async function () {
       const worker = start(); await ready(worker);
       const token = await localToken(A), parts = token.split('.');
       const signature = Buffer.from(parts[2], 'base64url'); signature[0] ^= 1;
@@ -84,7 +84,10 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(worker);
     });
 
-    it('new-format same-token grant and session revocation are current across independent API processes', async function () {
+    // Decision deployment-signing-secret: the data JWT is revoked by the subject's
+    // credential version, the tenant's root version and the data key row; the
+    // retired ns-access sessions and credentials no longer apply to DATA.
+    it('data JWT same-token grant and credential revocation are current across independent API processes', async function () {
       const first = start(), second = start();
       await ready(first); await ready(second);
       const token = await localToken(A);
@@ -98,28 +101,28 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       } finally {
         await admin.query("UPDATE preview_authorization.tenant_authorization_roles SET permissions=ARRAY['api:entries:read','api:entries:create','api:entries:update'] WHERE tenant_id=$1", [A]);
       }
-      for (const [table, change, restore] of [
-        ['access_sessions', 'active=false', 'active=true'],
-        ['access_credentials', 'generation=2', 'generation=1'],
-        ['access_keys', 'active=false', 'active=true'],
-        ['access_tenants', 'active=false', 'active=true']
+      for (const [table, change, restore, where] of [
+        ['legacy_credential_subjects', 'credential_version=2', 'credential_version=1', ' AND subject_id=$2'],
+        ['legacy_credential_config', 'root_version=2', 'root_version=1', ''],
+        ['legacy_data_keys', 'active=false, signing=false', 'active=true, signing=true', " AND kid='data-1'"]
       ]) {
+        const values = where.includes('$2') ? [A, SUBJECT] : [A];
         for (const worker of [first, second]) assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200);
-        await admin.query('UPDATE preview_access.' + table + ' SET ' + change + ' WHERE tenant_id=$1', [A]);
+        await admin.query('UPDATE preview_legacy.' + table + ' SET ' + change + ' WHERE tenant_id=$1' + where, values);
         try {
           for (const worker of [first, second]) {
-            assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403, table);
+            assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 401, table);
             assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
               identifier: 'local-revoked-' + table, date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
-            })).status, 403, table + ' write');
+            })).status, 401, table + ' write');
           }
           assert.equal((await admin.query("SELECT count(*)::int n FROM preview_entries.entries WHERE doc->>'identifier'=$1", ['local-revoked-' + table])).rows[0].n, 0);
-        } finally { await admin.query('UPDATE preview_access.' + table + ' SET ' + restore + ' WHERE tenant_id=$1', [A]); }
+        } finally { await admin.query('UPDATE preview_legacy.' + table + ' SET ' + restore + ' WHERE tenant_id=$1' + where, values); }
       }
       await stop(first); await stop(second);
     });
 
-    it('new-format preserves default-role validation from the current authority', async function () {
+    it('data JWT preserves default-role validation from the current authority', async function () {
       const worker = start(); await ready(worker);
       const local = await localToken(A), exchanged = (await exchange(worker, A)).body.token;
       await admin.query("UPDATE preview_authorization.tenant_authorization_config SET anonymous_roles=ARRAY['readable','readable'] WHERE tenant_id=$1", [A]);
@@ -130,7 +133,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(worker);
     });
 
-    it('new-format preserves incomplete-name reads and refuses unattributed writes', async function () {
+    it('data JWT preserves incomplete-name reads and refuses unattributed writes', async function () {
       const worker = start(); await ready(worker);
       const local = await localToken(A), exchanged = (await exchange(worker, A)).body.token;
       assert.equal((await http(worker, A, 'POST', '/api/v3/entries', local, {
@@ -147,11 +150,11 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(worker);
     });
 
-    it('the registry rejects sharing a tenant access key at the PostgreSQL write boundary', async function () {
+    it('the registry rejects sharing a tenant signing key at the PostgreSQL write boundary', async function () {
       const keys = 'preview_registry.tenant_registry_keys';
       await assert.rejects(admin.query(`UPDATE ${keys} SET public_key =
-        (SELECT public_key FROM ${keys} WHERE tenant_id=$1 AND purpose='access')
-        WHERE tenant_id=$2 AND purpose='access'`, [A, B]), { code: '23505' });
+        (SELECT public_key FROM ${keys} WHERE tenant_id=$1 AND purpose='management')
+        WHERE tenant_id=$2 AND purpose='management'`, [A, B]), { code: '23505' });
       const worker = start(); await ready(worker);
       for (const tenant of [A, B]) {
         assert.equal((await http(worker, tenant, 'GET', '/api/v3/entries', await localToken(tenant))).status, 200);
@@ -159,7 +162,7 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       await stop(worker);
     });
 
-    it('serves headless and exchanged DATA tokens during Vault outage and refuses an unavailable PostgreSQL authority', async function () {
+    it('serves data JWTs (fixture-signed and exchanged) during Vault outage and refuses an unavailable PostgreSQL authority', async function () {
       const worker = start(); await ready(worker);
       const token = await localToken(A), exchanged = await exchange(worker, A);
       assert.equal(exchanged.status, 200);
@@ -169,9 +172,9 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
           identifier: 'local-vault-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 142, app: 'synthetic-local'
         })).status, 201);
         assert.equal((await http(worker, A, 'GET', '/api/v3/entries', exchanged.body.token)).status, 200);
-        await admin.query('UPDATE preview_access.access_sessions SET active=false WHERE tenant_id=$1', [A]);
-        try { assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 403); }
-        finally { await admin.query('UPDATE preview_access.access_sessions SET active=true WHERE tenant_id=$1', [A]); }
+        await admin.query('UPDATE preview_legacy.legacy_credential_subjects SET credential_version=2 WHERE tenant_id=$1 AND subject_id=$2', [A, SUBJECT]);
+        try { assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 401); }
+        finally { await admin.query('UPDATE preview_legacy.legacy_credential_subjects SET credential_version=1 WHERE tenant_id=$1 AND subject_id=$2', [A, SUBJECT]); }
       });
       assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 200, 'established registry tenant is admitted immediately before PostgreSQL outage');
       process.stdout.write('PREVIEW_OUTAGE_STAGE PG_PREWARM_CONFIRMED\n');

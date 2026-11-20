@@ -98,27 +98,9 @@ describe('explicit realtime preview source contracts', function () {
     enabled = false; await assert.rejects(auth.verify({ tenant: A, namespace: '/', credential: { secret: 'root-' + A } }));
     assert.ok(inputs.some(input => input.token === 'jwt'));
   });
-  it('uses actual asymmetric token verification/current state without any legacy provider call', async function () {
-    const crypto = require('node:crypto'), access = require('../lib/tenant-authorization/access-token');
-    const key = crypto.generateKeyPairSync('ed25519'), time = Math.floor(Date.now() / 1000); let active = true, snapshots = 0;
-    const header = Buffer.from(JSON.stringify({ alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify({ iss: 'synthetic', aud: 'data', tid: A, purpose: 'data', sub: 'subject', sid: 'session', cv: 1,
-      iat: time, nbf: time, exp: time + 1000 })).toString('base64url');
-    const input = header + '.' + payload, token = input + '.' + crypto.sign(null, Buffer.from(input), key.privateKey).toString('base64url');
-    const auth = authorityFactory.create({ admission: { allows: async () => true }, verifierContext: tenant => ({ tenant }),
-      secrets: { verifyLegacyCredential: async () => assert.fail('current token must not require Vault/decrypt') },
-      authority: { subjectAuthorizationSnapshot: async () => assert.fail('token uses one current access snapshot'), permissionSnapshot: async () => assert.fail('token uses one current access snapshot') },
-      accessTokens: { authenticate: access.createAuthentication({ verifyToken: access.createVerifier({ issuer: 'synthetic', audience: 'data', purpose: 'data', maxLifetimeSeconds: 28800,
-        resolveKey: tenant => tenant === A ? { tenant: A, kid: 'key1', issuer: 'synthetic', purpose: 'data', publicKey: key.publicKey } : null }),
-      snapshot: async () => { snapshots++; return { active, sessionActive: true, keyActive: true, credentialVersion: 1, sessionExpiresAt: time + 2000,
-        allows: permission => permission.endsWith(':read') || permission === 'notifications:*:ack' }; } }) } });
-    for (const [namespace, credential] of [['/', { token }], ['/storage', { accessToken: token }], ['/alarm', { jwtToken: token }]]) {
-      assert.equal((await auth.verify({ tenant: A, namespace, credential })).permissions.read, true);
-    }
-    assert.equal(snapshots, 3, 'RT_LOCAL_CURRENT_STATE one fresh authority snapshot per operation');
-    await assert.rejects(auth.verify({ tenant: B, namespace: '/', credential: { token } }), /TOKEN_KEY/);
-    active = false; await assert.rejects(auth.verify({ tenant: A, namespace: '/', credential: { token } }), /AUTHORITY_FORBIDDEN/);
-  });
+  // The socket ns-access+jwt data verifier is retired (decision deployment-signing-secret).
+  // Data JWTs on every socket carrier, verified locally with current authority, are
+  // covered by tests/tenant-local-credentials.test.js.
   it('disconnects restored A sockets and discards A projection while retaining B sockets/output', async function () {
     const f = await fixture();
     try {
