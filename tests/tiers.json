@@ -491,6 +491,7 @@
         "tests/connection-pool-bound.test.js",
         "tests/clinical-ack-tenant-independent.integration.test.js",
         "tests/clinical-stream-born.integration.test.js",
+        "tests/clinical-receipt-statements.integration.test.js",
         "tests/role-readiness.integration.test.js",
         "tests/clinical-working-set.integration.test.js",
         "tests/postgres-imported-snapshot.test.js",
