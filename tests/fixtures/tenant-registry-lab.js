@@ -128,7 +128,9 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
       const evaluator = layout.namespaces.eval_checkpoint;
       if (!extraSchemas.includes(evaluator)) {
         await q(`CREATE SCHEMA "${evaluator}"`);
-        await run('up', { direct: true, connectionString: ADMIN, namespace: evaluator, catalogue: CATALOGUES.checkpoint() });
+        // The deployment's evaluator checkpoint catalogue (lib/server/serve/evaluator-readiness.js):
+        // provisioning writes the completed-work row typed and pending in every input transport.
+        await run('up', { direct: true, connectionString: ADMIN, namespace: evaluator, catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') });
         for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [evaluator])).rows) await q(`ALTER TABLE "${evaluator}"."${row.tablename}" OWNER TO "${owner}"`);
         await q(`ALTER SCHEMA "${evaluator}" OWNER TO "${owner}"`);
         extraSchemas.push(evaluator);
