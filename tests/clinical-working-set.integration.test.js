@@ -55,7 +55,9 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
         const cancel=()=>{const c=new Client(config);c.connect().then(()=>c.query('SELECT pg_cancel_backend($1)',[db.processID])).finally(()=>c.end()).catch(()=>{});};signal?.addEventListener('abort',cancel,{once:true});
         await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try{await db.query("SET TRANSACTION SNAPSHOT '"+name+"'");await db.query("SELECT set_config('statement_timeout',$1,true)",[String(timeoutMs)]);if(signal?.aborted)throw signal.reason;const result=await fn();if(signal?.aborted)throw signal.reason;await db.query('COMMIT');return result;}catch(error){await db.query('ROLLBACK');throw error;}finally{signal?.removeEventListener('abort',cancel);}
       },
-      async snapshotTransaction(fn) { await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try { const result = await fn();await db.query('COMMIT');return result; } catch (error) { await db.query('ROLLBACK');throw error; } }
+      async snapshotTransaction(fn) { await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ');try { const result = await fn();await db.query('COMMIT');return result; } catch (error) { await db.query('ROLLBACK');throw error; } },
+      // The stream warm read's port (lib/storage/postgres-connection.js READ_ONLY_SNAPSHOT).
+      async readOnlyTransaction(fn) { await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');try { const result = await fn();await db.query('COMMIT');return result; } catch (error) { await db.query('ROLLBACK');throw error; } }
     };
     await db.query("SELECT * FROM pg_create_logical_replication_slot('synthetic_window_main','wal2json')");
     recovery=recoveryFactory.create({connection,createReplicationClient:()=>new Client({...config,replication:'database'}),createLockClient:()=>new Client(config),namespace:'synthetic_window_work',consumer:'evaluator-synthetic',mainSource:source,generation:async()=> 'fixture:1',timeoutMs:5000,maxQueued:4});
@@ -76,7 +78,8 @@ optInSuite(enabled, 'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with
     assert.equal(durable.rows[0].projection[0].ready,false,'SQL_METADATA_ALONE_CANNOT_EVALUATE');
   });
   it('warm/default engine answers match unbounded-source engine and expiry performs no source range/census reacquisition', async () => {
-    const safeEnv = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
+    // dbsize enabled: the evaluator reads statistics only for an enabled dbsize pill (3b4b3adc9), and the parity below includes them.
+    const safeEnv = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow', 'dbsize'] } });
     const language = require('../lib/language')(), stats = () => tenantStats({ connection, tables: domains }).read(A);
     const component = evaluator({ tenant: A, replay: handle, connection, env: safeEnv, language, dbstats: stats, maxRows: limits.maxRows, maxBytes: limits.maxBytes, includeFrame: true });
     const clock = require('./lib/views-replay/clock');clock.install();clock.pin(at);
