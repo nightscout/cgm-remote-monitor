@@ -259,7 +259,9 @@ describe('projected owner catalogue and next-cycle source consumers', function (
       date: at - 60000, sgv: 190, direction: 'Flat' } }];
     const immutableClinical = structuredClone(clinical); let acquisitions = 0, statistics = 0, created = 0;
     const base = { tenant: A, identity: 'a'.repeat(64), env: environment() };
-    await f.service.replace(actor, 1, { enable: ['bgnow', 'simplealarms'], ...thresholds, ...(change === 'enable' ? { bgTargetTop: 180 } : {}) });
+    // dbsize enabled: the evaluator reads statistics only for an enabled dbsize
+    // pill, and the count below checks that only acquisitions read them.
+    await f.service.replace(actor, 1, { enable: ['bgnow', 'simplealarms', 'dbsize'], ...thresholds, ...(change === 'enable' ? { bgTargetTop: 180 } : {}) });
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const runtime = await runtimeFactory({ tenants: [A, B], readCurrent: async tenant => evaluatorConfig.applySettings(
       { ...base, tenant, identity: (tenant === A ? 'a' : 'b').repeat(64) }, await f.service.read({ ...actor, tenant })),
@@ -279,7 +281,7 @@ describe('projected owner catalogue and next-cycle source consumers', function (
       } });
     try {
       const first = runtime.last(A), beforeB = JSON.stringify(runtime.last(B)); assert.equal(first.result.emitted.length, change === 'enable' ? 1 : 0);
-      await f.service.replace(actor, 2, { DISPLAY_UNITS: 'mmol', enable: ['bgnow', 'simplealarms'],
+      await f.service.replace(actor, 2, { DISPLAY_UNITS: 'mmol', enable: ['bgnow', 'simplealarms', 'dbsize'],
         ...thresholds, bgTargetTop: 180, ...(change === 'enable' ? { alarmHigh: false } : {}) });
       assert.equal(await runtime.isCurrent(A, first.identity), false, 'old output loses current authority before next cycle');
       await runtime.tick(A); const current = runtime.last(A);

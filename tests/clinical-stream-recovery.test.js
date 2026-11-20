@@ -35,12 +35,15 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
  const boundary={...native.boundary,generation:sameGeneration?'epoch:1':'epoch:2',snapshot_position:'0/80'};
  const initial=cold?stream.empty():stream.bootstrap(null,{checkpoint:floor,signature:{stamp:floor,deleted:0},stream:{...native.boundary,generation:'epoch:1'},rows:[]},limits);
  if(rebuild){initial.ready=false;initial.rows=[];initial.gap='history';}
- const descriptor={consumer:outputConsumer,digest};let handle,active=null,recoveries=0;
+ const descriptor={consumer:outputConsumer,digest};let handle,active=null,recoveries=0,readOnlyActive=false;
  let durable={input:{checkpoint:floor,projection:[stream.compact(initial),journal.empty()]},output:{tenant:A,contract_digest:badDigest?'c'.repeat(64):digest,work_version:2,work_observed:work.array(observed===undefined?{}:{bootstrap:observed}),work_completed:work.array(completed===undefined?{}:{bootstrap:completed}),work_observed_at:work.array(observed===undefined?{}:{bootstrap:'1'}),work_pending_at:observed!==undefined&&(completed===undefined||BigInt(observed)>BigInt(completed))?1:null,work_due_at:dueAt,work_completed_at:null,work_enabled:true,work_activity_enabled:true,work_lifecycle_enabled:true,delivery_revision:'0',delivery_ack_revision:'0',output_identity:null,output_digest:null,output_revision:'0',output_restore_generation:null,projection:[{kind:'evaluator-work-v2',output:null}]}};
  const queries=[];
  let canonicalRows=Array.from({length:sourceRows},(_,i)=>({domain:'entries',id_kind:'string',doc:{_id:'snapshot-'+i,date:1,sgv:123},stamp:null,ordinal:i+1,storage_bytes:80}));
  const connection={async query(text,args=[]){
   queries.push(text);
+  // PostgreSQL's READ ONLY transaction refuses every write and row lock (SQLSTATE 25006).
+  if(readOnlyActive&&(/^(UPDATE|INSERT|DELETE)\s/.test(text)||/^WITH\s[\s\S]*\b(UPDATE|INSERT|DELETE)\s/.test(text)||/\sFOR (UPDATE|NO KEY UPDATE|SHARE|KEY SHARE)\b/.test(text)))
+   throw Object.assign(new Error('cannot execute '+(/\sFOR /.test(text)&&text.startsWith('SELECT')?'SELECT FOR UPDATE':text.split(/\s/)[0])+' in a read-only transaction'),{code:'25006'});
   if(text==='BEGIN' || text==='BEGIN ISOLATION LEVEL READ COMMITTED'){assert.equal(active,null);active=structuredClone(durable);return {};}
   if(text==='ROLLBACK'){active=null;return {};}
   if(text==='COMMIT'){durable=active;active=null;return {command:'COMMIT'};}
@@ -63,7 +66,10 @@ function recoveryFixture({factory=replay,floor=4,observed='4',completed='4',cold
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision=')){current.output.delivery_revision=String(BigInt(current.output.delivery_revision)+1n);return {rowCount:1};}
   if(text.startsWith('UPDATE ')&&text.includes('SET checkpoint=$3,work_completed=')){Object.assign(current.output,{work_completed:args[3],work_due_at:args[4],work_pending_at:args[5],work_completed_at:args[6],output_identity:args[7],output_digest:args[8],output_revision:String(args[9]),output_restore_generation:args[10]});if(args[12])current.output.projection=JSON.parse(args[12]);return {rowCount:1};}
   throw new Error('UNEXPECTED_RECOVERY_PROTOCOL_SQL:'+text);
- },async readOnly(text,args){return connection.query(text,args);},async acceptClinicalTransaction(options){return require('../lib/storage/clinical-stream-sql').acceptTransaction({...options,pool:{connect:async()=>({...connection,release(){}})},observeBackend:async()=>{}});},async snapshotTransaction(fn){assert.equal(active,null);active=structuredClone(durable);try{const value=await fn();durable=active;active=null;return value;}catch(error){active=null;throw error;}},async holdAdvisoryLock(){return {available:true,withTenant:(tenant,fn)=>connection.snapshotTransaction(fn),close:async()=>{}};}};
+ },async readOnly(text,args){return connection.query(text,args);},async acceptClinicalTransaction(options){return require('../lib/storage/clinical-stream-sql').acceptTransaction({...options,pool:{connect:async()=>({...connection,release(){}})},observeBackend:async()=>{}});},async snapshotTransaction(fn){assert.equal(active,null);active=structuredClone(durable);try{const value=await fn();durable=active;active=null;return value;}catch(error){active=null;throw error;}},
+ // The stream warm read's port (postgres-connection READ_ONLY_SNAPSHOT): one
+ // snapshot, nothing it does is kept, and a write inside it is refused.
+ async readOnlyTransaction(fn){assert.equal(active,null);active=structuredClone(durable);readOnlyActive=true;try{return await fn();}finally{active=null;readOnlyActive=false;}},async holdAdvisoryLock(){return {available:true,withTenant:(tenant,fn)=>connection.snapshotTransaction(fn),close:async()=>{}};}};
  function restart(){handle=factory({connection,checkpointTable:'synthetic_work.tenant_consumer_checkpoint',clockTable:'unused_clock.tenant_write_clock',domains:{entries:'synthetic_entries.entries'},consumer,projectionVersion:'clinical-current-rows-v1',pageSize:3,maxRows:10,stream:true});
  handle.configureStream({expectedSource:native.source,generation:()=>boundary.generation,assertFence:async()=>boundary.generation,lockKey:()=>'123',maxBytes:limits.maxBytes,completed:()=>descriptor,recovery:{async withSnapshot({fn}){recoveries++;const result=await connection.snapshotTransaction(()=>fn(boundary));if(uncertainOnce){uncertainOnce=false;throw new Error('RECOVERY_COMMIT_REPLY_LOST');}return result;}}});}
  restart();
