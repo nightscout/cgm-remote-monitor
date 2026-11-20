@@ -39,7 +39,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
   'NS_S1_LEVEL_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')(
   'S1 level-triggered transport: every accepted write reaches durable output on time', function () {
     this.timeout(DEADLINE_MS * 2 + 120000);
-    const lab = createLab({ tenants: 2 });
+    const lab = createLab({ tenants: 2, audit: true });
     before(() => lab.open());
     beforeEach(() => lab.reset());
     after(() => lab.close());
@@ -120,7 +120,10 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       evaluator.hint({ tenant: A, generation: '1' });
       await sleep(1500);
       const final = (await lab.outputs()).find(row => row.tenant === A);
-      console.log('S1_C3', JSON.stringify({ generation, revisionAtRestore, after, final, crossed, stats: evaluator.stats }));
+      // Every revision committed after the restore, from the audit trigger.
+      const committed = await lab.audit(A, revisionAtRestore);
+      crossed.push(...committed.filter(row => row.generation !== generation));
+      console.log('S1_C3', JSON.stringify({ generation, revisionAtRestore, after, final, committed, crossed, stats: evaluator.stats }));
       assert.deepEqual(crossed, [], 'S1_C3_OUTPUT_CROSSED_RESTORE');
       assert.equal(after.generation, generation, 'S1_C3_NEW_GENERATION_OUTPUT_MISSING');
       assert.equal(Number(after.last), first.date, 'S1_C3_RESTORED_STATE_NOT_EVALUATED');

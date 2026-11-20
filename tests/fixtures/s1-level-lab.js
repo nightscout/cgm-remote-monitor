@@ -25,7 +25,7 @@ const IDENTITY = 'synthetic-s1-identity';
 const NULLS = '{NULL,NULL,NULL,NULL,NULL,NULL}';
 const EXTRA = ['33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444'];
 
-module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100 } = {}) {
+module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, audit = false } = {}) {
   const base = evaluatorLab();
   const lab = { base, CONSUMER, COMPLETED, IDENTITY, pageSize };
   const workNs = base.name + '_work', controlNs = base.name + '_control';
@@ -68,8 +68,15 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100 } = 
         // api's operation-window view (no statement).
         return lab.evaluator?.hint({ tenant, generation: lab.api.generations.get(tenant), stamp });
       } } });
+    if (audit) {
+      // Test-only oracle: every committed output revision, with its generation.
+      await admin.query('CREATE TABLE "' + controlNs + '".output_audit (tenant_id uuid, revision bigint, generation bigint, at timestamptz DEFAULT clock_timestamp())');
+      await admin.query('CREATE FUNCTION "' + controlNs + '".s1_audit() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN IF NEW.output_revision IS DISTINCT FROM OLD.output_revision OR NEW.output_restore_generation IS DISTINCT FROM OLD.output_restore_generation THEN INSERT INTO "' + controlNs + '".output_audit(tenant_id,revision,generation) VALUES (NEW.tenant_id,NEW.output_revision,NEW.output_restore_generation); END IF; RETURN NEW; END $$');
+      await admin.query('CREATE TRIGGER s1_audit AFTER UPDATE ON ' + lab.workTable + ' FOR EACH ROW EXECUTE FUNCTION "' + controlNs + '".s1_audit()');
+    }
     await lab.reset();
   };
+  lab.audit = async (tenant, afterRevision) => (await lab.admin.query('SELECT revision::text,generation::text FROM "' + controlNs + '".output_audit WHERE tenant_id=$1 AND revision>$2 ORDER BY revision', [tenant, afterRevision])).rows;
 
   lab.reset = async () => {
     await lab.evaluator?.close(); lab.evaluator = null;
