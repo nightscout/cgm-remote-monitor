@@ -91,6 +91,37 @@ describe('D3 chart interaction compatibility', function () {
       assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [437.5, 662.5]);
     });
   });
+  it('scrolls the context window with a horizontal or Shift+vertical mouse wheel', function () {
+    const overlay = client.chart.theBrush.select('.overlay').node();
+    function wheel(init) {
+      const event = new env.window.WheelEvent('wheel', Object.assign({
+        bubbles: true, cancelable: true, view: env.window
+      }, init));
+      overlay.dispatchEvent(event);
+      return event.defaultPrevented;
+    }
+    mouse(overlay, 'mousedown', 450, 50, 1);
+    mouse(env.window, 'mouseup', 450, 50);
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [337.5, 562.5]);
+
+    // plain vertical wheel leaves the page scroll alone
+    assert.strictEqual(wheel({deltaY: 100}), false);
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [337.5, 562.5]);
+
+    assert.strictEqual(wheel({deltaX: -100}), true);
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [237.5, 462.5]);
+
+    assert.strictEqual(wheel({deltaY: 50, shiftKey: true}), true);
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [287.5, 512.5]);
+
+    wheel({deltaX: -1000});
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [0, 225]);
+    assert.strictEqual(client.chart.inRetroMode(), true);
+
+    wheel({deltaX: 1000});
+    assert.deepStrictEqual(d3.brushSelection(client.chart.theBrush.node()), [675, 900]);
+    assert.strictEqual(client.chart.inRetroMode(), false);
+  });
   ['mouse', 'touch'].forEach(function (input) {
     it('drags the context window back to now after the chart was drawn before layout, using ' + input, function () {
       client = makeChart(d3, env.window, 'mg/dl', {width: 880});
