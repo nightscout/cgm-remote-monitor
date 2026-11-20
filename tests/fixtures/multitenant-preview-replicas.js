@@ -297,11 +297,10 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
         await admin.query("INSERT INTO preview_authorization.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
       }
       // The api role's one Vault credential: decrypt with any tenant's data key,
-      // HMAC and verify with any tenant's signing key; no other purpose or mount.
-      await vault('sys/policies/acl/preview-api', { policy: [
-        'path "preview_transit/decrypt/tenant-data-*" { capabilities = ["update"] }',
-        'path "preview_transit/hmac/tenant-signing-*" { capabilities = ["update"] }',
-        'path "preview_transit/verify/tenant-signing-*" { capabilities = ["update"] }'].join('\n') });
+      // nothing else (decision deployment-signing-secret: signing keys are
+      // derived in process; the deployment's api policy is the same one rule).
+      await vault('sys/policies/acl/preview-api', { policy:
+        'path "preview_transit/decrypt/tenant-data-*" { capabilities = ["update"] }' });
       roleToken = (await vault('auth/token/create', { policies: ['preview-api'], no_default_policy: true, ttl: '15m', renewable: false })).auth.client_token;
     }
     async function restartDatabase (whileDown) {
