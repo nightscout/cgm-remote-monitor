@@ -190,6 +190,82 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.deepEqual(await lab.rowsFor(request.id), COMPLETE);
   });
 
+  // Decision one-call-usable-provisioning: a bootstrap block makes the tenant
+  // usable on return, in the provisioning transaction.
+  const BOOTSTRAP = () => ({ owner: { consumer: 'lab-owner', name: 'Synthetic lab owner' },
+    subject: { name: 'Synthetic lab uploader', role: { name: 'lab', permissions: ['api:*:read', 'api:*:create,update,delete'] } } });
+  const BOOTSTRAP_ROWS = { 'authorization.tenant_authorization_roles': 1, 'authorization.tenant_authorization_subjects': 2,
+    'authorization.tenant_authorization_subject_roles': 1, 'authorization.tenant_owner_actors': 1, 'authorization.tenant_subject_admin_audit': 4,
+    'legacy.legacy_credential_subjects': 2, 'ownerConfiguration.tenant_owner_configuration_authority': 1 };
+  async function verifyAccessToken (tenant, token) {
+    const ns = lab.namespaces.legacy, who = '"' + lab.roles.api + '"';
+    await lab.admin.query('GRANT USAGE ON SCHEMA "' + ns + '" TO ' + who);
+    await lab.admin.query('GRANT SELECT ON "' + ns + '".legacy_credential_config,"' + ns + '".legacy_credential_subjects,"' + ns + '".legacy_data_keys TO ' + who);
+    const reader = await require('../lib/secrets/legacy-postgres')({ connectionString: lab.urls.api, namespace: ns, localVerification: true });
+    try {
+      const codec = require('../lib/tenant-authorization/legacy-data-token').create({ issuer: 'native-lab', audience: 'native-data' });
+      return await require('../lib/secrets/legacy-verifiers').create({ read: reader.readVerification, verifyToken: codec.verify })
+        .verifyLegacyCredential({ tenant }, { apiSecret: token });
+    } finally { await reader.close(); }
+  }
+
+  it('PV_BOOTSTRAP: one call writes the role, owner, subject and credential rows and returns a working subject access token', async function () {
+    const request = spec('boot', { issueRootSecret: true, bootstrap: BOOTSTRAP() });
+    const committed = [];
+    const hooked = createProvisioning(lab.provisioningOptions({ afterCommit: tenant => committed.push(tenant) }));
+    let result;
+    try { result = await hooked.provision(request); await new Promise(resolve => setImmediate(resolve)); } finally { await hooked.close(); }
+    assert.equal(result.outcome, 'created');
+    assert.deepEqual(committed, [request.id], 'one post-commit call');
+    assert.match(result.bootstrap.ownerSubject, /^[0-9a-f]{32}$/); assert.match(result.bootstrap.subject, /^[0-9a-f]{32}$/);
+    assert.match(result.bootstrap.accessToken, /^syntheticl-[0-9a-f]{16}$/);
+    assert.deepEqual(await lab.rowsFor(request.id), { ...COMPLETE, ...BOOTSTRAP_ROWS });
+    const principal = await verifyAccessToken(request.id, result.bootstrap.accessToken);
+    assert.equal(principal.kind, 'subject'); assert.equal(principal.subjectId, result.bootstrap.subject);
+    assert.equal(await verifyAccessToken(request.id, result.rootSecret.slice(0, 11) + '-0123456789abcdef'), null);
+    const a = lab.namespaces.authorization;
+    const owner = (await lab.admin.query(`SELECT a.principal, a.consumer, a.active, a.can_update, a.delegable, s.display_name FROM "${a}".tenant_owner_actors a
+      JOIN "${a}".tenant_authorization_subjects s ON s.tenant_id = a.tenant_id AND s.subject_id = a.principal WHERE a.tenant_id = $1`, [request.id])).rows;
+    assert.deepEqual(owner, [{ principal: result.bootstrap.ownerSubject, consumer: 'lab-owner', active: true, can_update: true, delegable: ['*'], display_name: 'Synthetic lab owner' }]);
+    const links = (await lab.admin.query(`SELECT subject_id, role_name FROM "${a}".tenant_authorization_subject_roles WHERE tenant_id = $1`, [request.id])).rows;
+    assert.deepEqual(links, [{ subject_id: result.bootstrap.subject, role_name: 'lab' }]);
+    // Retry: the same ids, no token, nothing written, no post-commit call.
+    const rows = await lab.rowsFor(request.id);
+    const retry = createProvisioning(lab.provisioningOptions({ afterCommit: tenant => committed.push(tenant) }));
+    try {
+      assert.deepEqual(await retry.provision(request), { id: request.id, outcome: 'existing',
+        bootstrap: { ownerSubject: result.bootstrap.ownerSubject, subject: result.bootstrap.subject } });
+    } finally { await retry.close(); }
+    assert.deepEqual(await lab.rowsFor(request.id), rows);
+    assert.deepEqual(committed, [request.id]);
+  });
+
+  it('PV_BOOTSTRAP_REFUSED: a malformed, out-of-catalogue or mismatched bootstrap writes nothing', async function () {
+    const plainTenant = spec('boot-plain'); assert.equal((await provisioning.provision(plainTenant)).outcome, 'created');
+    assert.deepEqual(await provisioning.provision({ ...plainTenant, bootstrap: BOOTSTRAP() }),
+      { id: plainTenant.id, outcome: 'refused', code: 'TENANT_PROVISION_BOOTSTRAP_CONFLICT' });
+    assert.deepEqual(await lab.rowsFor(plainTenant.id), COMPLETE);
+    const bad = spec('boot-bad', { bootstrap: { owner: { consumer: 'lab-owner' }, subject: { name: 'x', role: { name: 'bad name', permissions: [] } } } });
+    assert.equal((await provisioning.provision(bad)).code, 'TENANT_PROVISION_BOOTSTRAP_INVALID');
+    assert.deepEqual(await lab.rowsFor(bad.id), {});
+    const narrow = createProvisioning(lab.provisioningOptions({ ownerCatalogue: ['api:*:read'] }));
+    const wide = spec('boot-wide', { bootstrap: BOOTSTRAP() });
+    try { assert.deepEqual(await narrow.provision(wide), { id: wide.id, outcome: 'refused', code: 'TENANT_PROVISION_BOOTSTRAP_FORBIDDEN' }); }
+    finally { await narrow.close(); }
+    assert.deepEqual(await lab.rowsFor(wide.id), {});
+  });
+
+  it('PV_PARTIAL_BOOTSTRAP: a failure after the bootstrap rows leaves no partial tenant; a re-run converges', async function () {
+    const request = spec('p-bootstrap', { bootstrap: BOOTSTRAP() });
+    const failing = createProvisioning(lab.provisioningOptions({ inject: async step => { if (step === 'bootstrap') throw Object.assign(new Error('injected'), { code: 'TENANT_PROVISION_INJECTED' }); } }));
+    try { assert.deepEqual(await failing.provision(request), { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_INJECTED' }); }
+    finally { await failing.close(); }
+    assert.deepEqual(await lab.rowsFor(request.id), {});
+    const created = await provisioning.provision(request);
+    assert.equal(created.outcome, 'created'); assert.ok(created.bootstrap.accessToken);
+    assert.deepEqual(await lab.rowsFor(request.id), { ...COMPLETE, ...BOOTSTRAP_ROWS });
+  });
+
   it('PV_BATCH: one result per tenant in request order; a retried batch is all "existing"; bounded at ' + MAX_BATCH, async function () {
     const requests = Array.from({ length: 6 }, (_, i) => spec('b' + i, { ref: 'batch-' + i }));
     requests.splice(3, 0, { id: 'not-a-uuid', hosts: ['x.example.test'], ref: 'bad' });

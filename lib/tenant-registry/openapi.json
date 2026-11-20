@@ -259,7 +259,8 @@
           "hosts": { "type": "array", "maxItems": 16, "items": { "$ref": "#/components/schemas/Host" }, "description": "Public aliases; at least one in direct-alias mode." },
           "internalHost": { "$ref": "#/components/schemas/Host", "description": "The canonical internal name; required in canonical-internal mode, refused otherwise." },
           "ref": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,64}$", "description": "An opaque caller label echoed in the result." },
-          "issueRootSecret": { "type": "boolean", "description": "Return the tenant's root secret once, on 'created'." }
+          "issueRootSecret": { "type": "boolean", "description": "Return the tenant's root secret once, on 'created'." },
+          "bootstrap": { "$ref": "#/components/schemas/Bootstrap" }
         }
       },
       "TenantResult": {
@@ -269,7 +270,45 @@
           "ref": { "type": "string" },
           "outcome": { "enum": ["created", "existing", "refused"] },
           "code": { "$ref": "#/components/schemas/Code" },
-          "rootSecret": { "type": "string", "description": "Present only on 'created' with issueRootSecret." }
+          "rootSecret": { "type": "string", "description": "Present only on 'created' with issueRootSecret." },
+          "bootstrap": { "$ref": "#/components/schemas/BootstrapResult" }
+        }
+      },
+      "Bootstrap": {
+        "type": "object", "additionalProperties": false, "required": ["owner", "subject"],
+        "description": "Optional, written in the tenant's provisioning transaction: an initial role, an owner subject and owner actor, and one data subject holding the role. Every grant must fit the deployment owner catalogue (TENANT_PROVISION_BOOTSTRAP_FORBIDDEN otherwise).",
+        "properties": {
+          "owner": {
+            "type": "object", "additionalProperties": false, "required": ["consumer"],
+            "properties": {
+              "consumer": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,128}$" },
+              "principal": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,128}$", "description": "The owner subject id; generated when omitted." },
+              "name": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "The owner subject's display name; default 'owner'." },
+              "delegable": { "type": "array", "maxItems": 256, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 }, "description": "What the owner may delegate; default the deployment catalogue." }
+            }
+          },
+          "subject": {
+            "type": "object", "additionalProperties": false, "required": ["name", "role"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 1024 },
+              "role": {
+                "type": "object", "additionalProperties": false, "required": ["name", "permissions"],
+                "properties": {
+                  "name": { "type": "string", "pattern": "^[a-zA-Z0-9_-]{1,128}$" },
+                  "permissions": { "type": "array", "maxItems": 256, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BootstrapResult": {
+        "type": "object", "additionalProperties": false, "required": ["ownerSubject", "subject"],
+        "description": "The bootstrap's subject ids. accessToken, the data subject's access token, appears only on 'created'. A retry answers 'existing' with the same ids and no token: provisioning cannot decrypt the root secret the token derives from, so it never returns a token twice or mints a second one.",
+        "properties": {
+          "ownerSubject": { "type": "string" },
+          "subject": { "type": "string" },
+          "accessToken": { "type": "string" }
         }
       },
       "Tenant": {
@@ -318,7 +357,7 @@
       },
       "Code": {
         "enum": ["TENANT_PROVISION_INVALID", "TENANT_PROVISION_HOST_INVALID", "TENANT_PROVISION_IDEMPOTENCY_KEY_MISMATCH", "TENANT_PROVISION_BATCH_INVALID",
-          "TENANT_PROVISION_BATCH_DUPLICATE", "TENANT_PROVISION_CONFLICT", "TENANT_PROVISION_INCOMPLETE", "TENANT_PROVISION_REMOVED", "TENANT_PROVISION_LOCK_COLLISION",
+          "TENANT_PROVISION_BATCH_DUPLICATE", "TENANT_PROVISION_BOOTSTRAP_INVALID", "TENANT_PROVISION_BOOTSTRAP_FORBIDDEN", "TENANT_PROVISION_BOOTSTRAP_CONFLICT", "TENANT_PROVISION_CONFLICT", "TENANT_PROVISION_INCOMPLETE", "TENANT_PROVISION_REMOVED", "TENANT_PROVISION_LOCK_COLLISION",
           "TENANT_PROVISION_VAULT_KEY_MISMATCH", "TENANT_REMOVAL_REQUIRES_DELETION", "TENANT_PROVISION_STORE_UNPREPARED", "TENANT_PROVISION_VAULT_REFUSED", "TENANT_PROVISION_VAULT_UNAVAILABLE", "TENANT_PROVISION_FAILED",
           "TENANT_NOT_FOUND", "ROUTE_NOT_FOUND", "METHOD_NOT_ALLOWED", "UNSUPPORTED_MEDIA_TYPE", "PAYLOAD_TOO_LARGE", "BODY_INVALID", "SERVICE_CLOSED",
           "CONNECTOR_DEFINITION_INVALID", "CONNECTOR_GENERATION_CONFLICT", "CONNECTOR_SECRET_REFERENCE_REFUSED", "CONNECTOR_TENANT_REFUSED", "CONNECTOR_SOURCE_NOT_FOUND", "LIFECYCLE_WINDOW_SUSPENDED", "CONNECTOR_DEFINITION_UNAVAILABLE", "CONNECTOR_DEFINITION_UNSAFE"]

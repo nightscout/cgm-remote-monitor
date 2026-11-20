@@ -23,10 +23,11 @@ const CATALOGUES = {
   control: () => require('../../lib/tenant-lifecycle/postgres-candidate.json'),
   settings: () => require('../../lib/tenant-settings/postgres-candidate.json'),
   operatorPolicy: () => require('../../lib/operator-policy/postgres-candidate.json'),
-  checkpoint: () => require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json')
+  checkpoint: () => require('../../migrations/candidates/postgres-consumer-checkpoint-v1.json'),
+  ownerConfiguration: () => require('../../lib/tenant-settings/owner-authority-candidate.json')
 };
 // Lab kinds whose deployment layout kind differs.
-const LAYOUT_KIND = { settings: 'display_settings', operatorPolicy: 'operator_policy', checkpoint: 'rt_checkpoint' };
+const LAYOUT_KIND = { settings: 'display_settings', operatorPolicy: 'operator_policy', checkpoint: 'rt_checkpoint', ownerConfiguration: 'owner_configuration' };
 const enabled = () => !!process.env.NS_TEST_POSTGRES_ADMIN_URI && /test/i.test(new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI || 'postgres://x/none').pathname) &&
   (process.env.NS_VAULT_DOCKER_TEST === '1' || !!process.env.NS_TEST_VAULT_ADDR);
 

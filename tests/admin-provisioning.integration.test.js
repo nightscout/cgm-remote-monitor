@@ -95,6 +95,29 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.ok(!role.out.stdout.includes(first.body.rootSecret) && !role.out.stderr.includes(first.body.rootSecret), 'role output never carries a secret');
   });
 
+  it('AP_REST_BOOTSTRAP: a batch with bootstrap returns each tenant usable once; a retry returns the same ids and no token; nothing is logged', async function () {
+    const bootstrap = { owner: { consumer: 'lab-owner' }, subject: { name: 'Synthetic uploader', role: { name: 'demo', permissions: ['api:*:read', 'api:*:create,update,delete'] } } };
+    const tenants = Array.from({ length: 3 }, (_, i) => ({ id: randomUUID(), hosts: ['boot-' + i + '.example.test'], bootstrap }));
+    const first = await request('POST', '/v1/tenants/batch', { tenants });
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.body.results.map(row => row.outcome), ['created', 'created', 'created']);
+    for (const row of first.body.results) {
+      assert.deepEqual(Object.keys(row.bootstrap).sort(), ['accessToken', 'ownerSubject', 'subject']);
+      assert.match(row.bootstrap.accessToken, /^syntheticu-[0-9a-f]{16}$/);
+      assert.ok(!role.out.stdout.includes(row.bootstrap.accessToken) && !role.out.stderr.includes(row.bootstrap.accessToken), 'a token reached the role output');
+      const configure = (await lab.admin.query(`SELECT principal, consumer, active, can_configure FROM "${lab.namespaces.ownerConfiguration}".tenant_owner_configuration_authority WHERE tenant_id=$1`, [row.id])).rows;
+      assert.deepEqual(configure, [{ principal: row.bootstrap.ownerSubject, consumer: 'lab-owner', active: true, can_configure: true }]);
+    }
+    const again = await request('POST', '/v1/tenants/batch', { tenants });
+    assert.deepEqual(again.body.results, first.body.results.map(row => ({ id: row.id, outcome: 'existing',
+      bootstrap: { ownerSubject: row.bootstrap.ownerSubject, subject: row.bootstrap.subject } })));
+    const one = { id: randomUUID(), hosts: ['boot-one.example.test'], bootstrap };
+    const single = await request('POST', '/v1/tenants', one);
+    assert.equal(single.status, 201); assert.ok(single.body.bootstrap.accessToken);
+    const invalid = await request('POST', '/v1/tenants', { id: randomUUID(), hosts: ['boot-bad.example.test'], bootstrap: { owner: {} } });
+    assert.equal(invalid.status, 422); assert.equal(invalid.body.code, 'TENANT_PROVISION_BOOTSTRAP_INVALID');
+  });
+
   for (const format of ['csv', 'json']) it('AP_CLI_SEED_' + format.toUpperCase() + ': the CLI provisions a seed in bounded batches, one line per tenant, secrets only to --secrets-out (0600); a re-run is all existing', async function () {
     const tenants = Array.from({ length: 7 }, (_, i) => ({ id: randomUUID(), hosts: [format + '-' + i + '.example.test', format + '-' + i + '-b.example.test'], ref: format + '-lab-' + i }));
     const seed = path.join(dir, 'seed.' + format);
