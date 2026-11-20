@@ -100,8 +100,10 @@ async function main () {
     if (info.type !== 'ed25519' || info.exportable !== false || info.allow_plaintext_backup !== false) throw new Error('VAULT_KEY_PROFILE ' + name);
     signerKeys[name] = info.keys['1'].public_key;
   }
-  for (const i of [0, 1]) for (const kind of ['encrypt', 'sign']) {
-    await vault(vaultOrigin, root, 'transit/keys/owner-' + kind + '-' + i, { method: 'POST', body: { type: 'aes256-gcm96', exportable: false } });
+  // Per tenant, Vault holds only the key that encrypts tenant data (the root
+  // secret); no owner signing key exists (decision deployment-signing-secret).
+  for (const i of [0, 1]) {
+    await vault(vaultOrigin, root, 'transit/keys/owner-encrypt-' + i, { method: 'POST', body: { type: 'aes256-gcm96', exportable: false } });
   }
   const policy = async (name, rules) => vault(vaultOrigin, root, 'sys/policies/acl/' + name, { method: 'PUT', body: { policy: rules.join('\n') } });
   const token = async (name) => { const r = await vault(vaultOrigin, root, 'auth/token/create', { method: 'POST', body: { policies: [name], no_default_policy: true, ttl: '3h', renewable: false } }); secrets.add(r.auth.client_token); return r.auth.client_token; };
@@ -109,13 +111,14 @@ async function main () {
   const signToken = await token('oidc-matrix-sign');
   const ownerTokens = [];
   for (const i of [0, 1]) {
-    await policy('oidc-matrix-owner-' + i, [...['encrypt', 'decrypt', 'rewrap'].map(op => `path "transit/${op}/owner-encrypt-${i}" { capabilities = ["update"] }`),
-      ...['hmac', 'verify'].map(op => `path "transit/${op}/owner-sign-${i}" { capabilities = ["update"] }`)]);
+    await policy('oidc-matrix-owner-' + i, ['encrypt', 'decrypt', 'rewrap'].map(op => `path "transit/${op}/owner-encrypt-${i}" { capabilities = ["update"] }`));
     ownerTokens.push(await token('oidc-matrix-owner-' + i));
   }
   // Single site signs through its bound Transit keys; multitenant signs with
-  // the tenant's derived human keys from a synthetic deployment signing secret
-  // (decision deployment-signing-secret), so its config names no Vault signer.
+  // the tenant's derived keys from a synthetic deployment signing secret
+  // (decision deployment-signing-secret): human sessions here, and the data JWT
+  // that the consumer journey's local exchange issues (prepare.cjs writes its
+  // public key). No multitenant config names a Vault signer.
   const signingSecretFile = path.join(STATE, 'signing-secret');
   fs.writeFileSync(signingSecretFile, secret(32), { mode: 0o600 });
   const derivedKeys = req('./lib/secrets/derived-signing').load({}, { file: signingSecretFile });
@@ -138,7 +141,7 @@ async function main () {
   }
   // Headless owner management trust anchors (public keys only; no stage signs with them).
   const managementPublicKeys = TENANTS.map(() => Buffer.from(crypto.generateKeyPairSync('ed25519').publicKey.export({ format: 'jwk' }).x, 'base64url').toString('base64'));
-  note('vault provisioned: transit mount, 2 ed25519 single-site signer keys, 4 aes256-gcm96 owner keys, 3 scoped tokens; multitenant signer derived');
+  note('vault provisioned: transit mount, 2 ed25519 single-site signer keys, 2 aes256-gcm96 owner encryption keys, 3 scoped tokens; multitenant signers derived');
   // 3. PostgreSQL identities (admin = container superuser; seven NOSUPERUSER NOBYPASSRLS roles).
   const pgPassword = fs.readFileSync(path.join(STATE, 'pg-password'), 'utf8').trim(); secrets.add(pgPassword);
   const pgBase = (user, password, db) => { const url = new URL('postgres://127.0.0.1:' + args['pg-port'] + '/' + db); url.username = user; url.password = password; return url.toString(); };

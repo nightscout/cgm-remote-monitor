@@ -103,10 +103,13 @@ function makeFactory ({ config, env = process.env } = {}) {
       resources.push({ close: () => admin.end() });
       const setup = await require('./prepare.cjs')({ req, admin, config, parsed, nativeStore, env });
       resources.push(setup);
+      // As lib/server/serve/owner-preview.js composes it: a created or renamed
+      // subject gets its one-way verifiers in the same store transaction, so
+      // the local DATA verifier accepts its credential.
+      const issuer = await req('./lib/server/serve/owner-credential-runtime')(parsed.ownerCredentials); resources.push(issuer);
       const store = await req('./lib/subject-admin/postgres')({ connectionString: parsed.writerConnectionString,
         namespace: parsed.namespaces.authorization, credentialNamespace: parsed.namespaces.credentials,
-        ownerPolicy: parsed.ownerPolicy }); resources.push(store);
-      const issuer = await req('./lib/server/serve/owner-credential-runtime')(parsed.ownerCredentials); resources.push(issuer);
+        ownerPolicy: parsed.ownerPolicy, prepareCredential: issuer.prepareCredential }); resources.push(store);
       const subjects = req('./lib/subject-admin/component').createSubjectAdmin({ store,
         issueCredential: issuer.issueCredential, authorizeManagement: async actor => actor.consumer === parsed.consumer });
       const chosen = parsed.ownerSettings;

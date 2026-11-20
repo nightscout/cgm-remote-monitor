@@ -2,6 +2,13 @@
 
 // Test-private operator setup; called only after complete admission and shared
 // nativeStore creation. No Docker, role creation, implicit schema reuse or logs.
+// Local DATA authentication is seeded as provisioning writes it
+// (lib/tenant-registry/provision.js): one-way root and subject verifiers and the
+// tenant's data public key in legacy_data_keys (public only; the issuer derives
+// the private key from the deployment signing secret, NS_SIGNING_SECRET_FILE;
+// decision deployment-signing-secret). The matrix serves a static tenant list on
+// the shared human-session store, so the registry's batch provisioning call does
+// not apply here.
 const assert = require('node:assert/strict');
 const { randomBytes, randomUUID } = require('node:crypto');
 const q = value => '"' + value.replaceAll('"', '""') + '"';
@@ -11,6 +18,9 @@ module.exports = async function prepare ({ req, admin, config, parsed, nativeSto
   let closing;
   const ns = parsed.namespaces;
   const selected = parsed.ownerSettings.namespaces;
+  // Read before any schema is created: no deployment signing secret, no setup.
+  const signing = req('./lib/secrets/derived-signing').load(env);
+  const verifiers = req('./lib/secrets/legacy-verifiers');
   const own = [ns.credentials, selected.settings, selected.operatorPolicy, selected.authority, parsed.ownerCredentials.namespace];
   const profiles = [
     ['owner', parsed.writerConnectionString], ['legacy', parsed.accessConnectionString],
@@ -82,12 +92,15 @@ module.exports = async function prepare ({ req, admin, config, parsed, nativeSto
     const metadata = table(ns.credentials, 'legacy_credential_subjects'), legacy = table(ns.credentials, 'legacy_credential_config');
     const policy = table(ns.authorization, 'tenant_owner_policy'), actors = table(ns.authorization, 'tenant_owner_actors');
     const defaults = table(ns.authorization, 'tenant_authorization_config');
+    const dataKeys = table(ns.credentials, 'legacy_data_keys');
     await grant('SELECT,INSERT,UPDATE,DELETE', [subjects, metadata], role.owner);
     await grant('SELECT,INSERT', [roles], role.owner);
     await grant('SELECT,INSERT,DELETE', [links], role.owner);
     await grant('INSERT', [audit], role.owner);
     await grant('SELECT,UPDATE(owner_fence)', [roles, policy, actors, defaults], role.owner);
-    await grant('SELECT', [legacy, metadata], role.legacy);
+    // The api's local verifier and exchange read the data public key with the
+    // verifiers (legacy-postgres localVerification: readVerification, signingKey).
+    await grant('SELECT', [legacy, metadata, dataKeys], role.legacy);
     await grant('SELECT', [subjects, roles, links, defaults].concat(['tenants', 'credentials', 'sessions', 'keys'].map(name => table(ns.access, 'access_' + name))), role.legacy);
     await grant('SELECT,INSERT', [table(parsed.ownerCredentials.namespace, 'secret_records')], role.secrets);
     await grant('INSERT', [table(parsed.ownerCredentials.namespace, 'secret_audit')], role.secrets);
@@ -106,10 +119,13 @@ module.exports = async function prepare ({ req, admin, config, parsed, nativeSto
       const root = randomBytes(32); roots.push(root);
       const rootText = Buffer.from(root.toString('hex'));
       const reference = 'fixture_root_' + index;
-      let ciphertext;
-      try { ciphertext = await parsed.ownerCredentials.providers.get(tenant).encrypt(Buffer.from(JSON.stringify({
-        tenant, id: reference, data: rootText.toString('base64') }))); }
-      finally { rootText.fill(0); }
+      let ciphertext, material;
+      try {
+        ciphertext = await parsed.ownerCredentials.providers.get(tenant).encrypt(Buffer.from(JSON.stringify({
+          tenant, id: reference, data: rootText.toString('base64') })));
+        material = verifiers.prepare(rootText, [{ subjectId: principal, tokenPrefix: 'synthetic' }]);
+      } finally { rootText.fill(0); }
+      const dataKey = signing.key(tenant, 'data', 1);
       await bound(tenant, async client => {
         if (index === 0) {
           const before = (await client.query('SELECT catalogue_digest,ceiling FROM ' + policy + ' WHERE tenant_id=$1 FOR UPDATE', [tenant])).rows[0];
@@ -126,8 +142,12 @@ module.exports = async function prepare ({ req, admin, config, parsed, nativeSto
         }
         await req('./lib/subject-admin/provision-default-roles')(client, { namespace: ns.authorization, tenant });
         await client.query('INSERT INTO ' + links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [tenant, principal, 'readable']);
-        await client.query('INSERT INTO ' + legacy + ' (tenant_id,root_reference_id) VALUES ($1,$2)', [tenant, reference]);
-        await client.query('INSERT INTO ' + metadata + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3)', [tenant, principal, 'synthetic']);
+        await client.query('INSERT INTO ' + legacy + ' (tenant_id,root_reference_id,verifier_root_reference_id,root_verifiers) VALUES ($1,$2,$2,$3)',
+          [tenant, reference, material.rootVerifiers]);
+        await client.query('INSERT INTO ' + dataKeys + ' (tenant_id,kid,public_key,active,signing) VALUES ($1,$2,$3,true,true)',
+          [tenant, dataKey.kid, dataKey.spki]);
+        await client.query('INSERT INTO ' + metadata + ' (tenant_id,subject_id,token_prefix,verifiers,verifier_token_prefix) VALUES ($1,$2,$3,$4,$3)',
+          [tenant, principal, 'synthetic', material.subjects[0].verifiers]);
         await client.query('INSERT INTO ' + table(parsed.ownerCredentials.namespace, 'secret_records') + ' VALUES ($1,$2,1,$3)', [tenant, reference, ciphertext]);
         await client.query('INSERT INTO ' + audit + ' (event_id,tenant_id,principal,consumer,subject_id,operation,event_time) VALUES ($1,$2,$3,$4,$3,$5,$6)', [randomUUID(), tenant, principal, parsed.consumer, 'create', Date.now()]);
         await client.query('INSERT INTO ' + settings + ' (tenant_id,version,values) VALUES ($1,1,$2)', [tenant, {}]);
