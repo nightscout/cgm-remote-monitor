@@ -5,17 +5,17 @@ const crypto = require('node:crypto');
 const { checksum, validateCatalogue, renderMigration, operationTables, INSERTION_NAMESPACE } = require('../lib/migrations/catalogue');
 const builder = require('../lib/tenant-lifecycle/tenant-insertion-sql');
 const PREFIX = {
-  entries: [2, '0707bff85d8cfb45dacdb0a9875980206dba93027315475b01b47e409299d0af'],
+  entries: [2, '4194af3d3b573d8802b44b6c6dc572725e8115cec540473eb5091afe5d03e24a'],
   food: [1, '6783c5523388b27baee6f1e74174fbb270ce418e852e9fed178b0d8c8315ce38'],
-  treatments: [2, '2d8ba9fceeee0a5b24172fd462e4561dc6471c69be310d0b39c172c8f092acda'],
-  devicestatus: [2, 'e9015d9042434d4f9cf8847272d65c4e0f3e95c9ad8efeb87a16e47c931388fb'],
+  treatments: [2, 'd4c05fcfc04a11b732df4b11747ce35dd95a236c9c0ec6f8606a11964039c8b7'],
+  devicestatus: [2, 'a0625ebb5ddf0e938c94e4abe8b07f39ac00108ca441c0afd7bb22b98da64c03'],
   profile: [2, '919166cd5fdfa5608e4a178766b1cf2e6f1c101cd24bededc59d02a1d88853d0']
 };
 const CONVERSION_PREFIX = {
-  entries: '2a1ada1d27cd60f808d19173c67a6942bb7fa1e9c491c54ccf91d311dde8ed1b',
+  entries: '081db90cb044621717701fed54585a7f9ee3db90b1c7f3cb598a95268b19dfda',
   food: 'e7e3f1750325c449cfa8a52953217e78b591a8ae1594df779c6be0d20f5b3e27',
-  treatments: '9925301c536a31e2b0b0d377a296fad8cbe64354ded5fb9201bc65cdf94f1b66',
-  devicestatus: '9cfa53326a7f98543acb080f17b745f985ad3710aeb53afb0611b1a73dd93376',
+  treatments: '5d03cb6722f33989842f7403b5c9b227c99421dc89abbd6ab53b82b9322229de',
+  devicestatus: '2429bb675ab82769dc016de0f73f30c08052f604dfa510da4acfbe5ca6d732ff',
   profile: '1392378ac0e969f8dbd0f4787d1e1525af0e703d61abfbe2dea7e87f67ca80e2'
 };
 const CANDIDATES = {

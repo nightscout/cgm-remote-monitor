@@ -35,7 +35,9 @@ function insertionGrants({namespace,domain,role,mode='serving'}) {
   if (!['serving','reader','restore'].includes(mode)) throw new TypeError('Explicit grant mode required');
   const isOrdered=ordered.includes(domain);
   if (mode==='reader') return ['GRANT SELECT ON '+table+' TO '+who,...(isOrdered?['GRANT SELECT ON '+quote(namespace)+'.tenant_insertion_ordinal TO '+who]:[])];
-  const base=['GRANT SELECT,INSERT,UPDATE,DELETE ON '+table+' TO '+who];
+  const windowFunction={entries:'window_time_ms',devicestatus:'window_time_text',treatments:'window_time_text'}[domain];
+  const base=['GRANT SELECT,INSERT,UPDATE,DELETE ON '+table+' TO '+who,
+    ...(windowFunction?['GRANT EXECUTE ON FUNCTION '+quote(namespace)+'.'+windowFunction+'(jsonb) TO '+who]:[])];
   if (!isOrdered) return base;
   const built=require('../../lib/tenant-lifecycle/tenant-insertion-sql').build({namespace,domain});
   return [...base,...(mode==='restore'?built.restoreGrants(role):built.servingGrants(role)),
