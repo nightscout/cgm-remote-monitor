@@ -15,6 +15,8 @@ const createAuthority = require('../lib/tenant-authorization/postgres');
 const createLegacy = require('../lib/secrets/legacy-postgres');
 const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
+const localCredentials = require('./fixtures/local-data-credentials');
+const legacyVerifiers = require('../lib/secrets/legacy-verifiers');
 const scope = require('../lib/storage/tenant-scope');
 const { optInSuite } = require('./support/opt-in');
 
@@ -42,6 +44,9 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
   const cryptoProvider = provider();
   const encrypted = new Map();
   let originalCredential, issuedJWT;
+  // The api's DATA verifier over PostgreSQL verifiers and derived data keys
+  // (decision deployment-signing-secret); the Vault-backed verifier is retired.
+  const signing = localCredentials.signer();
   const verifierContext = tenant => ({ tenant, principal: 'verifier', consumer: 'api' });
   async function snapshot () {
     const result = {};
@@ -52,7 +57,8 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     return result;
   }
   async function protectedOperation (worker, tenant, credential) {
-    const principal = await worker.secrets.verifyLegacyCredential(verifierContext(tenant), credential);
+    const verified = await worker.verifier.verifyLegacyCredential(verifierContext(tenant), credential);
+    const principal = verified && verified.kind === 'subject' ? { kind: 'subject', subjectId: verified.subjectId } : verified;
     return principal !== null && await worker.authority.authorize({ tenant, principal, permission: 'api:entries:create' });
   }
   before(async function () {
@@ -96,7 +102,7 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     await admin.query(`GRANT SELECT, UPDATE (owner_fence) ON ${namespace}.tenant_authorization_config, ${R},
       ${namespace}.tenant_owner_policy, ${namespace}.tenant_owner_actors TO subject_writer`);
     await admin.query(`GRANT SELECT ON ${S}, ${R}, ${L}, ${namespace}.tenant_authorization_config,
-      ${C}, ${credentialNamespace}.legacy_credential_config TO subject_reader`);
+      ${C}, ${credentialNamespace}.legacy_credential_config, ${credentialNamespace}.legacy_data_keys TO subject_reader`);
     await admin.query(`INSERT INTO ${namespace}.tenant_authorization_config VALUES ($1, ARRAY['denied']), ($2, ARRAY['denied'])`, [A, B]);
     for (const tenant of [A, B]) {
       await admin.query(`INSERT INTO ${namespace}.tenant_owner_policy (tenant_id,catalogue_digest,ceiling) VALUES ($1,$2,ARRAY['*'])`,
@@ -107,17 +113,20 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     await admin.query(`INSERT INTO ${credentialNamespace}.legacy_credential_config VALUES ($1,'root'),($2,'root')`, [A, B]);
     await admin.query(`INSERT INTO ${R} VALUES ($1,'uploader',ARRAY['api:entries:create']),
       ($2,'uploader',ARRAY['api:treatments:create']), ($2,'foreign-only',ARRAY['*'])`, [A, B]);
-    store = await createStore({ connectionString: writerURI, namespace, credentialNamespace, ownerPolicy });
+    // As the api composes it: subject writes prepare the subject's one-way verifiers from the root.
+    store = await createStore({ connectionString: writerURI, namespace, credentialNamespace, ownerPolicy,
+      prepareCredential: async (actor, subject) => (await workers[0].secrets.deriveLegacyVerifiers(verifierContext(actor.tenant), [subject])).subjects[0].verifiers });
     // Synthetic management authorization only, deliberately separate from data root/subject authority.
     service = createSubjectAdmin({ store, authorizeManagement: async actor => actor.principal === 'manager' });
     for (let i = 0; i < 2; i++) {
       const worker = { authority: await createAuthority({ connectionString: readerURI, namespace }),
-        legacy: await createLegacy({ connectionString: readerURI, namespace: credentialNamespace }) };
+        legacy: await createLegacy({ connectionString: readerURI, namespace: credentialNamespace, localVerification: true }) };
       worker.secrets = createSecrets({ providerFor: async () => cryptoProvider,
         store: { async get (tenant, id) { return encrypted.get(tenant + ':' + id); },
           async insert (record) { encrypted.set(record.tenant + ':' + record.id, record); } },
         authorize: async () => true, audit: async () => {}, maxTokenLifetimeSeconds: 28800,
         legacyAuthorityFor: tenant => worker.legacy.read(tenant) });
+      worker.verifier = localCredentials.postgres({ legacy: worker.legacy, signing }).verifier;
       workers.push(worker);
     }
     for (const tenant of [A, B]) {
@@ -126,7 +135,8 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     const enclave = require('../lib/server/enclave')();
     enclave.setApiKey(roots.get(A));
     originalCredential = 'original-' + enclave.getSubjectHash(SUBJECT).substring(0, 16);
-    issuedJWT = await workers[0].secrets.signJWT(verifierContext(A), originalCredential, 60);
+    for (const tenant of [A, B]) await localCredentials.seed(admin, { namespace: credentialNamespace, tenant, root: roots.get(tenant), subjects: [], signing });
+    issuedJWT = localCredentials.issue(A, SUBJECT, { signing });
   });
   beforeEach(async function () {
     await admin.query('DELETE FROM ' + L);
@@ -136,6 +146,11 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     await admin.query(`INSERT INTO ${S} (tenant_id,subject_id,display_name,notes,created_at) VALUES
       ($1,$3,'Original','preserved','2026-01-01T00:00:00.000Z'),($2,$3,'Foreign','foreign notes','2026-02-01T00:00:00.000Z')`, [A, B, SUBJECT]);
     await admin.query(`INSERT INTO ${C} VALUES ($1,$3,'original'),($2,$3,'foreign')`, [A, B, SUBJECT]);
+    // Provisioned subjects carry their one-way verifiers (decision deployment-signing-secret).
+    for (const [tenant, prefix] of [[A, 'original'], [B, 'foreign']]) {
+      const verifiers = legacyVerifiers.prepare(Buffer.from(roots.get(tenant)), [{ subjectId: SUBJECT, tokenPrefix: prefix }]).subjects[0].verifiers;
+      await admin.query(`UPDATE ${C} SET verifiers=$3, verifier_token_prefix=token_prefix WHERE tenant_id=$1 AND subject_id=$2`, [tenant, SUBJECT, verifiers]);
+    }
     await admin.query(`INSERT INTO ${L} VALUES ($1,$3,'uploader'),($2,$3,'uploader')`, [A, B, SUBJECT]);
   });
   after(async function () {
@@ -197,7 +212,7 @@ optInSuite(process.env.NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST === '1',
     for (const worker of workers) {
       assert.equal(await protectedOperation(worker, A, { token: issuedJWT }), false);
       assert.equal(await protectedOperation(worker, A, { apiSecret: originalCredential }), false);
-      assert.equal((await worker.secrets.verifyLegacyCredential(verifierContext(A), { token: issuedJWT })).subjectId, SUBJECT);
+      assert.equal((await worker.verifier.verifyLegacyCredential(verifierContext(A), { token: issuedJWT })).subjectId, SUBJECT);
     }
     assert.equal((await admin.query('SELECT * FROM ' + L + ' WHERE tenant_id = $1', [B])).rows.length, 1);
   });

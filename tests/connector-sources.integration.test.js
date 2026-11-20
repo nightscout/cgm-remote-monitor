@@ -34,7 +34,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     // component and Vault. The private fixture persists them as its owner.
     for (const tenant of [A, B]) {
       const provider = require('../lib/secrets/vault-transit').createVaultTransit({ ...lab.vault,
-        encryptionKey: require('../lib/tenant-registry/rules').vaultKey(tenant, 'data'), signingKey: require('../lib/tenant-registry/rules').vaultKey(tenant, 'signing'), signingVersion: 1 });
+        encryptionKey: require('../lib/tenant-registry/rules').vaultKey(tenant, 'data') });
       const secrets = require('../lib/secrets/component').createSecrets({ maxTokenLifetimeSeconds: 1, providerFor: async () => provider,
         authorize: async () => true, audit: async () => {}, store: { get: async () => null,
           insert: async row => lab.admin.query(`INSERT INTO "${ns.secrets}".secret_records (tenant_id,id,format,ciphertext) VALUES ($1,$2,$3,$4)`, [row.tenant, row.id, row.format, row.ciphertext]) } });

@@ -60,6 +60,10 @@ module.exports = function settingsFixture () {
     const roots = [random(), random()];
     const credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
     const workers = [], providers = [];
+    // The api's DATA verifier reads one-way verifiers and the derived data public
+    // key from PostgreSQL (decision deployment-signing-secret); Vault keeps only
+    // the root secret's custody, as provisioning does.
+    const localCredentials = require('./local-data-credentials'), signing = localCredentials.signer();
     const mongoCollections = {};
     let mode, admin, mongo, uri, referenceApp, mongoGrants = GRANTS, mongoName = 'Exact Synthetic Name';
     let writeFault = false;
@@ -151,13 +155,14 @@ module.exports = function settingsFixture () {
           ? Object.assign(new Error('synthetic storage failure'), { code: storageFault }) : storageFault)
         : query(text, values);
       worker.authority = await createAuthority({ connectionString: uri, namespace: schemas.auth });
-      worker.legacy = await createLegacyAuthority({ connectionString: uri, namespace: schemas.identity });
+      worker.legacy = await createLegacyAuthority({ connectionString: uri, namespace: schemas.identity, localVerification: true });
       worker.persistence = await createPostgresSecrets({ connectionString: uri, namespace: schemas.secrets });
       worker.secrets = createSecrets({
         ...worker.persistence, providerFor: async tenant => providers[tenant === A ? 0 : 1],
         authorize: async identity => identity.consumer === 'api',
         maxTokenLifetimeSeconds: 28800, legacyAuthorityFor: tenant => worker.legacy.read(tenant)
       });
+      worker.verifier = localCredentials.postgres({ legacy: worker.legacy, signing }).verifier;
       const originalTransaction = worker.connection.transaction.bind(worker.connection);
       worker.connection.transaction = fn => originalTransaction(async () => {
         const result = await fn();
@@ -176,7 +181,7 @@ module.exports = function settingsFixture () {
       worker.server = createTenantApp({
         resolver: createResolver({ aliases: [{ host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }] }),
         dataAccess: createDataAccess({
-          secrets: worker.secrets, authority: worker.authority,
+          secrets: worker.verifier, authority: worker.authority,
           verifierContext: async tenant => ({ tenant, principal: 'verifier', consumer: 'api' }),
           collections: ['settings']
         }),
@@ -261,10 +266,10 @@ module.exports = function settingsFixture () {
       await vault('sys/mounts/' + transitMount, { type: 'transit' });
       ownsTransitMount = true;
       for (const [i, tenant] of [A, B].entries()) {
-        for (const purpose of ['data', 'signing']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
+        for (const purpose of ['data']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
         providers.push(createVaultTransit({
           address: process.env.NS_SETTINGS_VAULT_ADDRESS, mount: transitMount,
-          encryptionKey: `${name}-${i}-data`, signingKey: `${name}-${i}-signing`, signingVersion: 1,
+          encryptionKey: `${name}-${i}-data`,
           getToken: async () => process.env.NS_SETTINGS_VAULT_TOKEN, allowInsecureLoopback: true
         }));
         await admin.query(`INSERT INTO "${schemas.identity}".legacy_credential_config VALUES ($1, 'synthetic-import')`, [tenant]);
@@ -278,6 +283,8 @@ module.exports = function settingsFixture () {
       await makeWorker();
       for (const [i, tenant] of [A, B].entries()) {
         await workers[0].secrets.encrypt({ tenant, principal: 'issuer', consumer: 'api' }, 'synthetic-import', Buffer.from(roots[i]));
+        await localCredentials.seed(admin, { namespace: schemas.identity, tenant, root: roots[i],
+          subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }], signing });
       }
       await makeWorker();
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);

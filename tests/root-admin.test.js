@@ -134,12 +134,13 @@ describe('preview root subject administration configuration', function () {
   function parse (subjectAdmin, extra = {}) {
     return require('../lib/server/serve/preview-config').parse({ version: 1, writeClock: true,
       postgres: { connectionEnv: 'RA_API_PG', readinessConnectionEnv: 'RA_READINESS_PG',
-        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock' } },
+        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock', access: 'ra_access' } },
       vault: { address: 'http://127.0.0.1:8200', mount: 'ra_transit', allowInsecureLoopback: true, tokenEnv: 'RA_VAULT' },
+      localDataAuthentication: 'node', accessTokens: { issuer: 'ra-data', audience: 'ra-api' },
       resolution: { mode: 'direct-alias' }, registry: { namespace: 'ra_registry' },
       tenantSettings: { connectionEnv: 'RA_SETTINGS_PG', namespaces: { settings: 'ra_settings', operatorPolicy: 'ra_policy' } },
       ...(subjectAdmin === undefined ? {} : { subjectAdmin }) },
-    { RA_API_PG: url('api'), RA_READINESS_PG: url('readiness'), RA_SETTINGS_PG: url('settings'), RA_VAULT: 'synthetic', ...extra });
+    { RA_API_PG: url('api'), RA_READINESS_PG: url('readiness'), RA_SETTINGS_PG: url('settings'), RA_VAULT: 'synthetic', ...require('./fixtures/signing-secret').env(), ...extra });
   }
 
   it('is absent by default and selects a separate writer identity on the same database', function () {
@@ -183,7 +184,7 @@ describe('preview API boot composes root subject administration only when select
           list: async () => [], listRoles: async () => [], create: async () => ({}), createRole: async () => ({}),
           updateRole: async () => ({}), removeRole: async () => true, update: async () => ({}), remove: async () => true };
       },
-      '../tenant-app/data-access': () => () => null, '../tenant-app/exchange': () => async () => null,
+      '../tenant-app/data-access': () => () => null, '../tenant-app/local-exchange': () => async () => null, '../../secrets/legacy-verifiers': { create: () => ({ verifyLegacyCredential: async () => null }) }, '../../tenant-authorization/legacy-data-token': { create: () => ({ verify () {}, issue () {} }) },
       '../tenant-app': { createTenantApp: options => { seen.rootAdmin = options.rootAdmin; return express.Router(); } },
       './role-readiness': require('./fixtures/role-readiness')(),
       './preview-domains': async () => ({ data: express.Router(), v3Names: [], legacyNames: [], safeRoutes: {}, prepareTenant: async () => {}, invalidateTenant () {}, invalidateAll () {} })
@@ -203,7 +204,9 @@ describe('preview API boot composes root subject administration only when select
     const absent = await boot();
     assert.deepEqual(absent.stores, []); assert.equal(absent.rootAdmin, undefined);
     const selected = await boot({ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', ownerPolicy: { catalogue: ['*'] } });
-    assert.deepEqual(selected.stores, [{ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', namespace: 'ra_authorization',
+    // Local DATA authentication always prepares verifiers for new credentials.
+    assert.equal(typeof selected.stores[0].prepareCredential, 'function');
+    assert.deepEqual(selected.stores.map(store => { const copy = { ...store }; delete copy.prepareCredential; return copy; }), [{ connectionString: 'postgres://synthetic-root:synthetic@127.0.0.1/ra', namespace: 'ra_authorization',
       credentialNamespace: 'ra_legacy', ownerPolicy: { catalogue: ['*'] }, plane: 'root', roleAdmitted: true }]);
     for (const method of ['authenticate', 'list', 'listRoles', 'create', 'createRole', 'updateRole', 'removeRole', 'update', 'remove']) {
       assert.equal(typeof selected.rootAdmin[method], 'function', method);

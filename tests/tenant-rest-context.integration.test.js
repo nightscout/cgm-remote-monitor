@@ -22,13 +22,15 @@ const connect = require('../lib/storage/postgres-connection');
 const authorityFor = require('../lib/tenant-authorization/postgres');
 const legacyFor = require('../lib/secrets/legacy-postgres');
 const { createPostgresSecrets } = require('../lib/secrets/postgres');
-const { createSecrets } = require('../lib/secrets/component');
 const { createVaultTransit } = require('../lib/secrets/vault-transit');
 const Collection = require('../lib/api3/generic/collection');
 const MongoCollection = require('../lib/api3/storage/mongoCollection');
 const writeIntent = require('../lib/storage/write-intent');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
-const createExchange = require('../lib/server/tenant-app/exchange');
+// The api's DATA composition (decision deployment-signing-secret): one-way
+// verifiers and the derived data key in PostgreSQL, the local exchange; Vault
+// keeps only each tenant's root secret custody.
+const localCredentials = require('./fixtures/local-data-credentials');
 const statusAuthorization = require('../lib/server/tenant-app/status-authorization');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -108,7 +110,8 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
   const providers = new Map(), apps = {}, mongoStores = {}, collections = {}, oracleJWT = {};
   const settingsFlags = {};
   const tokens = [], events = [];
-  let mode, admin, connection, authority, legacy, persistence, secrets, exchange, mongo, vaultOwned, address, appURI;
+  let mode, admin, connection, authority, legacy, persistence, exchange, verifier, mongo, vaultOwned, address, appURI;
+  const signing = localCredentials.signer();
   const docker = args => execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 }).trim();
   const identity = tenant => ({ tenant, principal: 'verifier', consumer: 'api' });
   const http = (backend, tenant, path, credential, method = 'get', body) => {
@@ -182,13 +185,12 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
     }
     await vault('sys/mounts/transit', { type: 'transit' });
     for (const [i, tenant] of [A, B].entries()) {
-      for (const purpose of ['data', 'signing']) await vault('transit/keys/tenant-' + i + '-' + purpose, { type: 'aes256-gcm96' });
-      const policy = `path "transit/decrypt/tenant-${i}-data" { capabilities=["update"] }\n` +
-        ['hmac', 'verify'].map(op => `path "transit/${op}/tenant-${i}-signing" { capabilities=["update"] }`).join('\n');
+      await vault('transit/keys/tenant-' + i + '-data', { type: 'aes256-gcm96' });
+      const policy = `path "transit/decrypt/tenant-${i}-data" { capabilities=["update"] }`;
       await vault('sys/policies/acl/tenant-' + i, { policy });
       const credential = (await vault('auth/token/create', { policies: ['tenant-' + i], no_default_policy: true, ttl: '15m' })).auth.client_token;
       providers.set(tenant, createVaultTransit({ address, mount: 'transit', encryptionKey: 'tenant-' + i + '-data',
-        signingKey: 'tenant-' + i + '-signing', signingVersion: 1, allowInsecureLoopback: true, getToken: () => credential }));
+        allowInsecureLoopback: true, getToken: () => credential }));
       const envelope = Buffer.from(JSON.stringify({ tenant, id: 'root-' + i, data: Buffer.from(roots[i]).toString('base64') }));
       const encrypted = await vault('transit/encrypt/tenant-' + i + '-data', { plaintext: envelope.toString('base64') });
       await admin.query(`INSERT INTO ${namespaces.secrets}.secret_records (tenant_id,id,format,ciphertext) VALUES ($1,$2,1,$3)`,
@@ -196,13 +198,15 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
     }
     connection = await connect({ connectionString: appURI, max: 2 });
     authority = await authorityFor({ connectionString: appURI, namespace: namespaces.auth });
-    legacy = await legacyFor({ connectionString: appURI, namespace: namespaces.identity });
+    legacy = await legacyFor({ connectionString: appURI, namespace: namespaces.identity, localVerification: true });
+    for (const [i, tenant] of [A, B].entries()) {
+      await localCredentials.seed(admin, { namespace: namespaces.identity, tenant, root: roots[i],
+        subjects: [{ subjectId: SUBJECT, tokenPrefix: 'sameviewer' }], signing });
+    }
     persistence = await createPostgresSecrets({ connectionString: appURI, namespace: namespaces.secrets });
-    secrets = createSecrets({ ...persistence, providerFor: async tenant => providers.get(tenant),
-      authorize: async (who, action) => who.consumer === 'api' && who.principal === 'verifier' &&
-        ['decrypt', 'verify', 'sign'].includes(action.operation),
-      maxTokenLifetimeSeconds: 28800, legacyAuthorityFor: tenant => legacy.read(tenant) });
-    exchange = createExchange({ secrets, authority, verifierContext: identity });
+    const local = localCredentials.postgres({ legacy, signing });
+    verifier = local.verifier;
+    exchange = local.exchange({ authority, verifierContext: identity, audit: persistence.audit });
     mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);
     await mongo.connect();
     for (const backend of ['pg', 'mongo']) {
@@ -235,7 +239,7 @@ optInSuite(enabled, 'NS_REST_CONTEXT_HTTP_TEST=1 with disposable PG/Mongo/Docker
           }) });
         col.mapRoutes();
         collections[backend][tenant] = col;
-        const accessOptions = { secrets, authority, verifierContext: identity, collections: ['settings'],
+        const accessOptions = { secrets: verifier, authority, verifierContext: identity, collections: ['settings'],
           safeRoutes: { 1: ['/status','/verifyauth'], 2: ['/status','/verifyauth','/authorization/permissions','/authorization/permissions/trie'],
             3: ['/status','/version','/lastModified','/versions'] } };
         const dataAccess = createDataAccess(accessOptions);

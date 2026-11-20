@@ -113,7 +113,7 @@ describe('Vault credential source for human access signing and owner credential 
       legacyNamespace: 'legacy', existingConnections: ['postgres://writer:synthetic@localhost/test', 'postgres://reader:synthetic@localhost/test'],
       existingNamespaces: ['auth', 'legacy', 'access'] };
     const make = sources => ({ connectionEnv: 'TS_OWNER_SECRETS', namespace: 'secrets', vault: { address: origin, mount: 'transit', allowInsecureLoopback: true },
-      tenants: [A, B].map((id, i) => ({ id, encryptionKey: 'tenant-' + i + '-data', signingKey: 'tenant-' + i + '-sign', signingVersion: 1, ...sources[i] })) });
+      tenants: [A, B].map((id, i) => ({ id, encryptionKey: 'tenant-' + i + '-data', ...sources[i] })) });
     const env = extra => ({ TS_OWNER_SECRETS: 'postgres://issuer:synthetic@localhost/test', ...extra });
 
     it('refuses a tenant that names both tokenEnv and tokenFile, and one that names neither', function () {

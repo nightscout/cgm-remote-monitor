@@ -201,8 +201,10 @@ optInSuite(!!ADMIN && /test/i.test(new URL(ADMIN || 'postgres://x/none').pathnam
 
   it('TR_RULES: Vault key names and lock keys derive from the tenant id alone', function () {
     assert.equal(rules.vaultKey(A, 'data'), 'tenant-data-' + A);
-    assert.notEqual(rules.vaultKey(A, 'signing'), rules.vaultKey(B, 'signing'));
+    assert.notEqual(rules.vaultKey(A, 'data'), rules.vaultKey(B, 'data'));
     assert.throws(() => rules.vaultKey(A, 'root'));
+    // Signing keys are derived, not Transit keys (decision deployment-signing-secret).
+    for (const retired of ['signing', 'access', 'management', 'human-data', 'human-management']) assert.throws(() => rules.vaultKey(A, retired), TypeError, retired);
     assert.throws(() => rules.vaultKey(rules.METADATA_TENANT, 'data'));
     const lock = BigInt(rules.lockKey(A));
     assert.ok(lock >= 1n && lock <= 9223372036854775807n);

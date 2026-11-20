@@ -8,7 +8,6 @@ const management = require('../lib/human-session/management');
 const { credential, COOKIE, MANAGEMENT_COOKIE } = require('../lib/human-session/http');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const tenantAuthentication = require('../lib/api3/tenant-authentication');
-const { createVerifier, createAuthentication } = require('../lib/tenant-authorization/access-token');
 
 describe('human sessions consumed by existing authentication factories (source doubles)', function () {
   const tenant = '11111111-1111-4111-8111-111111111111';
@@ -185,35 +184,27 @@ describe('human sessions consumed by existing authentication factories (source d
     assert.deepEqual(sent, [{ synthetic: true }]);
   });
 
-  it('preserves a real signed-machine verifier for direct data access but never falls back to it from a human cookie', async function () {
+  it('refuses a signed-machine ns-access data token (verifier retired) and never routes a human cookie to another verifier', async function () {
+    // Decision deployment-signing-secret: the api's ns-access+jwt data verifier
+    // is retired; such a token reaches only the legacy DATA verifier, which refuses it.
     const machine = humanAccessFixture({ tenant, issuer: 'synthetic-machine-access',
       audiences: { data: 'synthetic-machine-data', management: 'synthetic-machine-management' } });
     const at = Math.floor(Date.now() / 1000);
     const machineToken = await machine.access.issue({ tenant, subject: 'machine-reader', session: 'machine-session',
       purpose: 'data', credentialVersion: 1, issuedAt: at, expiresAt: at + 600 });
-    const authenticate = createAuthentication({ verifyToken: createVerifier({ issuer: machine.issuer,
-      audience: machine.audiences.data, purpose: 'data', maxLifetimeSeconds: 28800,
-      resolveKey: (tenant, kid) => {
-        const key = machine.keys.find(key => key.tenant === tenant && key.kid === kid);
-        return key && { ...key, issuer: machine.issuer };
-      } }), snapshot: async () => ({ active: true, sessionActive: true, keyActive: true,
-      credentialVersion: 1, sessionExpiresAt: at + 600, name: 'machine-reader', permissionGroups: [['api:entries:read']],
-      allows: permission => permission === 'api:entries:read' }) });
-    const counts = { human: 0, machine: 0, legacy: 0 };
+    const counts = { human: 0, legacy: 0 };
     const access = createDataAccess({
       humanSessions: { credential, accepts: value => profile.access.accepts(value), async authenticate (input) {
         counts.human++;
         profile.access.verify({ tenant: input.tenant, token: input.credential });
         throw new Error('Foreign machine profile must refuse in the human verifier');
       } },
-      accessTokens: { authenticate: input => { counts.machine++; return authenticate(input); } },
-      secrets: { verifyLegacyCredential: async () => { counts.legacy++; throw new Error('Unexpected legacy fallback'); } },
+      secrets: { verifyLegacyCredential: async () => { counts.legacy++; return null; } },
       authority: { authorize: async () => false }, verifierContext: async tenant => ({ tenant, consumer: 'api' }) });
     assert.equal(profile.access.accepts(machineToken), false);
-    const direct = await access({ tenant, request: request({ authorization: 'Bearer ' + machineToken }) });
-    assert.equal(direct.principal, 'machine-reader');
+    assert.equal(await access({ tenant, request: request({ authorization: 'Bearer ' + machineToken }) }), null);
     await assert.rejects(access({ tenant, request: request({ cookie: COOKIE + '=' + machineToken }) }), { code: 'HUMAN_SESSION_REFUSED' });
-    assert.deepEqual(counts, { human: 1, machine: 1, legacy: 0 });
+    assert.deepEqual(counts, { human: 1, legacy: 1 });
   });
 
   it('refuses an unrecognized signed profile in a management cookie without calling headless legacy management', async function () {

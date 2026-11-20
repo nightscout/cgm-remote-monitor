@@ -19,8 +19,6 @@ const previewDomains = require('../lib/server/serve/preview-domains');
 const dataAccess = require('../lib/server/tenant-app/data-access');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const authorityFor = require('../lib/tenant-authorization/postgres');
-const { createSecrets } = require('../lib/secrets/component');
-const provider = require('./fixtures/tenant-credential-provider');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 const { optInSuite } = require('./support/opt-in');
 
@@ -49,7 +47,7 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
     const namespaces = Object.fromEntries(catalogue.names.map(n => [n, name + '_' + n]));
     namespaces.authorization = name + '_auth';
     const role = name + '_app';
-    const roots = [random(), random()], providers = [provider(), provider()], records = new Map();
+    const roots = [random(), random()], local = require('./fixtures/local-data-credentials').memory();
     const credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
     const stores = {}, workers = [];
     let admin, mongo, mode, uri, reference, oracleGrants = ['api:*:read'];
@@ -88,12 +86,8 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
       workers.push(worker);
       worker.connection = await connect({ connectionString: uri, max: 2 });
       worker.authority = await authorityFor({ connectionString: uri, namespace: namespaces.authorization });
-      worker.secrets = createSecrets({ providerFor: async tenant => providers[tenant === A ? 0 : 1],
-        store: { async get (tenant, id) { return records.get(tenant + ':' + id); },
-          async insert (record) { records.set(record.tenant + ':' + record.id, record); } },
-        maxTokenLifetimeSeconds: 28800, audit: async () => {}, authorize: async identity => identity.consumer === 'api',
-        legacyAuthorityFor: async tenant => ({ reference: { tenant, id: 'synthetic-import' },
-          subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] }) });
+      // The api's DATA verifier (one-way verifiers, decision deployment-signing-secret).
+      worker.secrets = local.verifier;
       const config = { domains: [...catalogue.names], legacyEnabled: true, contextEnabled: false, namespaces,
         bindings: new Map([[A, {}], [B, {}]]),
         environments: new Map([[A, environment({ settings })], [B, environment({ settings })]]) };
@@ -178,8 +172,7 @@ optInSuite(process.env.NS_REST_DERIVED_HTTP_TEST === '1' &&
       reference.use('/api/v2/ddata', require('../lib/data/endpoints')(env, ctx));
       reference.use('/api/v2/summary', require('../lib/api2/summary')(env, ctx));
       await makeWorker();
-      for (const [i, tenant] of [A, B].entries()) await workers[0].secrets.encrypt(
-        { tenant, principal: 'issuer', consumer: 'api' }, 'synthetic-import', Buffer.from(roots[i]));
+      for (const [i, tenant] of [A, B].entries()) local.set(tenant, { root: roots[i], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
     });
     beforeEach(async () => { await grants(['api:*:read']); });
     after(async function () {

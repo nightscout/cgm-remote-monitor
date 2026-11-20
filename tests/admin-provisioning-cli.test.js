@@ -45,12 +45,17 @@ describe('admin provisioning client and configuration', function () {
   it('admits a provisioning-only admin configuration and refuses a partial one', function () {
     const namespaces = Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, 'nsadm_' + kind.toLowerCase()]));
     const provisioning = { connectionEnv: 'NS_PROVISIONER_PG', namespaces, checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'realtime-lab', digest: 'a'.repeat(64) }],
-      vault: { address: 'https://vault.example.test/', mount: 'transit', tokenFile: '/run/vault/token' }, operator: { principal: 'operator', consumer: 'admin' } };
-    const source = { NS_PROVISIONER_PG: 'postgres://prov:synthetic@db.example.test/ns' };
+      vault: { address: 'https://vault.example.test/', mount: 'transit', tokenFile: '/run/vault/token' }, accessTokens: { issuer: 'synthetic-data', audience: 'synthetic-api' },
+      operator: { principal: 'operator', consumer: 'admin' } };
+    const source = { NS_PROVISIONER_PG: 'postgres://prov:synthetic@db.example.test/ns', ...require('./fixtures/signing-secret').env() };
     const parsed = adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning }, source);
     assert.equal(parsed.provisioning.namespaces.registry, 'nsadm_registry');
     assert.deepEqual(parsed.provisioning.ownerCatalogue, ['*']);
-    for (const bad of [{ ...provisioning, vault: { ...provisioning.vault, tokenEnv: 'X' } }, { ...provisioning, namespaces: { ...namespaces, control: 'nsadm_registry' } },
+    assert.equal(typeof parsed.provisioning.signing.key, 'function');
+    // The provisioning role issues data JWTs: it does not start without the signing secret.
+    assert.throws(() => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning }, { NS_PROVISIONER_PG: source.NS_PROVISIONER_PG }), /NS_SIGNING_SECRET_FILE/);
+    const noRealm = { ...provisioning }; delete noRealm.accessTokens;
+    for (const bad of [noRealm, { ...provisioning, vault: { ...provisioning.vault, tokenEnv: 'X' } }, { ...provisioning, namespaces: { ...namespaces, control: 'nsadm_registry' } },
       { ...provisioning, checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'r', digest: 'short' }] }, { ...provisioning, tenants: [] }]) {
       assert.throws(() => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning: bad }, source));
     }

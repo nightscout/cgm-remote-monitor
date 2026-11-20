@@ -2,9 +2,7 @@
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
 const { EventEmitter, once } = require('node:events');
-const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
 const { MongoClient, ObjectId } = require('mongodb');
 const express = require('express');
@@ -14,9 +12,6 @@ const connect = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 const createAuthority = require('../lib/tenant-authorization/postgres');
-const { createSecrets } = require('../lib/secrets/component');
-const { createVaultTransit } = require('../lib/secrets/vault-transit');
-const { createPostgresSecrets } = require('../lib/secrets/postgres');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
@@ -51,9 +46,6 @@ const EVENTS = ['storage-intent-committed', 'storage-socket-create', 'storage-so
   'storage-socket-delete', 'data-update', 'data-received'];
 const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 const random = () => crypto.randomBytes(16).toString('hex');
-const docker = args => execFileSync('docker', args, {
-  encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000
-}).trim();
 const json = value => JSON.parse(JSON.stringify(value));
 function comparable (value) {
   if (Array.isArray(value)) return value.map(comparable);
@@ -64,7 +56,7 @@ function comparable (value) {
 
 optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
   !!process.env.NS_TEST_POSTGRES_ADMIN_URI && !!process.env.CUSTOMCONNSTR_mongo,
-'NS_REST_DEVICE_ACTIVITY_TEST=1 with disposable PostgreSQL/MongoDB and Docker Vault')(
+'NS_REST_DEVICE_ACTIVITY_TEST=1 with disposable PostgreSQL/MongoDB')(
   'tenant device/activity actual shipping HTTP differential', function () {
     this.timeout(60000);
     const name = 'device_' + random();
@@ -75,22 +67,11 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
     const tables = Object.fromEntries(domains.map(domain => [domain, schemas[domain] + '.' + domain]));
     const roots = [random(), random()];
     const credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
-    const providers = [];
+    const local = require('./fixtures/local-data-credentials').memory();
     const contexts = new Map();
     const mongoEvents = [], pgEvents = [];
-    const vaultName = 'ns-rest-device-vault-' + random();
-    const vaultRoot = random();
-    let vaultOwned = false, vaultAddress, admin, mongo, connection, authority, server, oracle, mode, appURI, secrets, persistence;
+    let admin, mongo, connection, authority, server, oracle, mode, appURI, secrets;
     let mongoContext, mongoCollections;
-
-    async function vault (resource, body) {
-      const response = await fetch(vaultAddress + '/v1/' + resource, {
-        method: 'POST', headers: { 'X-Vault-Token': vaultRoot, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body), signal: AbortSignal.timeout(3000)
-      });
-      assert.equal(response.ok, true, 'operator Vault preparation HTTP ' + response.status);
-      return response.status === 204 ? undefined : response.json();
-    }
 
     function bus (events, tenant) {
       const value = new EventEmitter();
@@ -258,44 +239,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         await admin.query(`INSERT INTO "${auth}".tenant_authorization_roles VALUES ($1,'writer',$2)`, [tenant, GRANTS]);
         await admin.query(`INSERT INTO "${auth}".tenant_authorization_subject_roles VALUES ($1,$2,'writer')`, [tenant, SUBJECT]);
       }
-      execFileSync('docker', ['run', '--name', vaultName, '-d', '-p', '127.0.0.1::8200',
-        '-e', 'VAULT_DEV_ROOT_TOKEN_ID', 'hashicorp/vault:latest', 'server', '-dev', '-dev-listen-address=0.0.0.0:8200'],
-      { env: { ...process.env, VAULT_DEV_ROOT_TOKEN_ID: vaultRoot }, stdio: 'pipe', timeout: 30000 });
-      vaultOwned = true;
-      vaultAddress = 'http://127.0.0.1:' + docker(['port', vaultName, '8200/tcp']).split(':').pop();
-      const deadline = Date.now() + 20000;
-      for (;;) {
-        try {
-          const response = await fetch(vaultAddress + '/v1/sys/health', { signal: AbortSignal.timeout(1000) });
-          await response.body.cancel();
-          if (response.ok) break;
-        } catch { /* Wait for this owned provider only. */ }
-        if (Date.now() > deadline) throw new Error('Owned Vault did not become ready');
-        await delay(100);
-      }
-      await vault('sys/mounts/transit', { type: 'transit' });
-      for (let i = 0; i < 2; i++) {
-        for (const kind of ['data', 'signing']) await vault(`transit/keys/tenant-${i}-${kind}`, { type: 'aes256-gcm96' });
-        const policy = ['encrypt', 'decrypt'].map(operation =>
-          `path "transit/${operation}/tenant-${i}-data" { capabilities = ["update"] }`).concat(
-          ['hmac', 'verify'].map(operation =>
-            `path "transit/${operation}/tenant-${i}-signing" { capabilities = ["update"] }`)).join('\n');
-        await vault(`sys/policies/acl/tenant-${i}`, { policy });
-        const token = (await vault('auth/token/create', {
-          policies: [`tenant-${i}`], no_default_policy: true, ttl: '15m', renewable: false
-        })).auth.client_token;
-        providers.push(createVaultTransit({ address: vaultAddress, mount: 'transit',
-          encryptionKey: `tenant-${i}-data`, signingKey: `tenant-${i}-signing`, signingVersion: 1,
-          getToken: async () => token, allowInsecureLoopback: true }));
-      }
-      persistence = await createPostgresSecrets({ connectionString: appURI, namespace: secretNamespace });
-      secrets = createSecrets({ providerFor: async tenant => providers[tenant === A ? 0 : 1],
-        store: persistence.store,
-        authorize: async identity => identity.consumer === 'api', audit: persistence.audit, maxTokenLifetimeSeconds: 28800,
-        legacyAuthorityFor: async tenant => ({ reference: { tenant, id: 'synthetic-import' },
-          subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] }) });
-      for (const [i, tenant] of [A, B].entries()) await secrets.encrypt(
-        { tenant, principal: 'issuer', consumer: 'api' }, 'synthetic-import', Buffer.from(roots[i]));
+      // The api's DATA verifier: one-way verifiers prepared from each root
+      // (decision deployment-signing-secret); no Vault on DATA.
+      for (const [i, tenant] of [A, B].entries()) local.set(tenant, { root: roots[i], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
+      secrets = local.verifier;
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);
       await mongo.connect();
       mongoCollections = Object.fromEntries(domains.map(domain => [domain, mongo.db().collection(name + '_' + domain)]));
@@ -353,7 +300,6 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
     after(async function () {
       try {
         await stop();
-        if (persistence) await persistence.close();
         if (mongo) {
           for (const collection of Object.values(mongoCollections || {})) await collection.drop();
           for (const kind of ['roles', 'subjects']) await mongo.db().collection(name + '_oracle_' + kind).drop();
@@ -365,7 +311,6 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
           await admin.end();
         }
       } finally {
-        if (vaultOwned) docker(['rm', '-f', '-v', vaultName]);
         if (mode !== undefined) scope.setTenancyMode(mode);
       }
     });

@@ -16,7 +16,7 @@ describe('exact recommission writer admission', function () {
     let effects = 0;
     const forbidden = async () => { effects++; throw new Error('Unexpected effect'); };
     const restore = writer.create({ intakeProfile: profile, registryNamespace: 'synthetic_registry', currentConfiguration: forbidden, providerFor: forbidden,
-      signersFor: forbidden, authorize: forbidden, verifyDurableArtifact: forbidden, admissionCheck: forbidden });
+      signing: require('./fixtures/signing-secret').signing, authorize: forbidden, verifyDurableArtifact: forbidden, admissionCheck: forbidden });
     await assert.rejects(restore({ transaction: fn => fn(), query: forbidden }, captured(), { tenant: A, ledgerNamespace: profile.binding.lifecycleNamespace, maintenanceClaim: {} }), { code: 'LIFECYCLE_RESTORE_CLAIM_INVALID' });
     assert.equal(effects, 0);
   });

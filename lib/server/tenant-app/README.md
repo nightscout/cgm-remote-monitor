@@ -38,9 +38,10 @@ The tenant constructor requires:
   global-context API3 implementation or make it multitenant-safe.
 
 Credential verification is deliberately an injected port, not a new token
-issuer, token format, human-login system or principal mapping. An adapter using
-`secrets.verifyJWT` must supply its trusted verifier service identity, map the
-verified access-token subject, and check its current authority. The existing
+issuer, token format, human-login system or principal mapping. An adapter
+verifying data JWTs (the api's local verifiers, `lib/secrets/legacy-verifiers.js`;
+the HS256 `secrets.verifyJWT` path is retired, decision deployment-signing-secret)
+must map the verified subject and check its current authority. The existing
 subject-policy `authorize` method covers **secrets operations only**, not
 data/owner HTTP permissions; it must not be used as a substitute HTTP ACL.
 

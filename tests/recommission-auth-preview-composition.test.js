@@ -13,11 +13,14 @@ function compiled (filename, imports, mutate = source => source) {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Exact require.resolve source paths above.
   module._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return module.exports;
 }
-async function composition (localVerification, { mutatePreview, unsafeMetadata = false } = {}) {
+// Local DATA verification is the only api mode (decision deployment-signing-secret);
+// the HS256 session-epoch port into the secrets component is retired with HS256.
+async function composition ({ mutatePreview, unsafeMetadata = false } = {}) {
+  const localVerification = true;
   const previous = scope.getTenancyMode();
   let window;
   try {
-    let legacyOptions, epochRead, legacyFailure, constructed = 0, sharedOpens = 0, screens = 0, epochQueries = 0;
+    let legacyOptions, legacyInstance, secretsOptions, legacyFailure, constructed = 0, sharedOpens = 0, screens = 0, epochQueries = 0;
     const noIO = () => { throw new Error('Unexpected physical I/O'); };
     // The real legacy constructor now screens its supplied shared connection.
     // Keep metadata reads tenant-bound; no extra authority pool is opened.
@@ -49,13 +52,12 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
       // Admin-certified tenant floors are read per request, not at boot; outside this criterion.
      
       './registry-tenants': { create: async () => ({ bindings: new Map(), providers: new Map(), environments: new Map(), close: async () => {} }) },
-      '../../secrets/legacy-postgres': async options => { legacyOptions = options; try { return await legacy(options); } catch (error) { legacyFailure = error; throw error; } },
+      '../../secrets/legacy-postgres': async options => { legacyOptions = options; try { return (legacyInstance = await legacy(options)); } catch (error) { legacyFailure = error; throw error; } },
       '../../secrets/postgres': { createPostgresSecrets: async () => ({ store: { get: noIO, insert: noIO }, audit: async () => {}, close: async () => {} }) },
       '../../storage/postgres-connection': async () => { sharedOpens++; return metadata; },
       '../../tenant-authorization/postgres': async () => ({ close: async () => {} }),
       '../../secrets/component': { createSecrets: options => {
-        require('../lib/secrets/component').createSecrets(options); constructed++;
-        epochRead = options.legacySessionEpochFor(A);
+        require('../lib/secrets/component').createSecrets(options); constructed++; secretsOptions = options;
         throw new Error('Recording constructor boundary complete');
       } }
     }, mutatePreview);
@@ -73,8 +75,9 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
       // constructor and exact epoch assertions below prove the reached stage.
       await assert.rejects(boot);
       assert.equal(legacyFailure, undefined);
-      assert.equal(constructed, 1, 'actual legacy constructor must succeed in both supported modes');
-      assert.deepEqual(await epochRead, { tenant: A, version: 9, enforced: true });
+      assert.equal(constructed, 1, 'actual legacy constructor must succeed');
+      assert.equal(secretsOptions.legacySessionEpochFor, undefined, 'no HS256 session epoch port');
+      assert.deepEqual((await legacyInstance.read(A)).sessionEpoch, { tenant: A, version: 9, enforced: true });
       assert.equal(epochQueries, 1, 'current recommission epoch comes from the tenant-bound authority');
     }
     assert.equal(sharedOpens, 1);assert.equal(legacyOptions.roleAdmitted, true, 'admitted API skips the adapter screen');
@@ -89,25 +92,10 @@ async function composition (localVerification, { mutatePreview, unsafeMetadata =
 
 describe('selected recommission authentication preview composition', function () {
   it('constructs selected-v2 legacy and Node authentication with the same current tenant epoch authority', async function () {
-    for (const localVerification of [false, true]) await composition(localVerification);
+    await composition();
   });
   it('control: unsafe shared metadata is refused by the standalone constructor, then safe metadata restores', async function () {
-    for (const localVerification of [false, true]) {
-      await composition(localVerification, { unsafeMetadata: true });
-      await composition(localVerification);
-    }
-  });
-  it('control: a stale epoch substitution is caught through the actual preview constructor, then restores', async function () {
-    const mutatePreview = source => {
-      const actual = 'legacySessionEpochFor: async tenant => (await legacy.read(tenant)).sessionEpoch';
-      assert.equal(source.split(actual).length, 2, 'the actual epoch accessor exists exactly once');
-      return source.replace(actual, 'legacySessionEpochFor: async tenant => ({ tenant, version: 8, enforced: true })');
-    };
-    for (const localVerification of [false, true]) {
-      await assert.rejects(composition(localVerification, { mutatePreview }), error => {
-        assert.equal(error.code, 'ERR_ASSERTION');assert.equal(error.actual.version, 8);assert.equal(error.expected.version, 9);return true;
-      });
-      await composition(localVerification);
-    }
+    await composition({ unsafeMetadata: true });
+    await composition();
   });
 });

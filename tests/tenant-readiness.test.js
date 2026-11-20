@@ -49,7 +49,7 @@ function apiBoot ({ display, proof = true, transform } = {}) {
     '../../secrets/postgres': { createPostgresSecrets: async () => resource({ store: { get: async () => ({}) } }) },
     '../../secrets/component': { createSecrets: () => ({}) },
     './preview-domains': async () => ({ prepareTenant: async tenant => { await new Promise(resolve => setImmediate(resolve)); initialized.add(tenant); }, invalidateTenant () {}, invalidateAll () {}, data: () => {}, safeRoutes: {} }),
-    '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
+    '../tenant-app/local-exchange': () => () => {}, '../../secrets/legacy-verifiers': { create: () => ({ verifyLegacyCredential: async () => null }) }, '../../tenant-authorization/legacy-data-token': { create: () => ({ verify () {}, issue () {} }) }, '../tenant-app/data-access': () => () => {},
     '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } }
   }, transform);
   const config = { bindings: new Map(TENANTS.map(tenant => [tenant, {}])), providers: new Map(), namespaces: { clock: 'synthetic_clock' }, ...(display ? { tenantSettings: {} } : {}) };

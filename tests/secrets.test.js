@@ -9,9 +9,7 @@ const { createVaultTransit } = require('../lib/secrets/vault-transit');
 // Test-only provider: never a production built-in backend or persisted key store.
 function memoryProvider () {
   const encryption = crypto.randomBytes(32);
-  const keys = [null, crypto.randomBytes(32), crypto.randomBytes(32)];
   return {
-    signingVersion: 1,
     async encrypt (input) {
       const iv = crypto.randomBytes(12);
       const cipher = crypto.createCipheriv('aes-256-gcm', encryption, iv);
@@ -23,11 +21,6 @@ function memoryProvider () {
       decipher.setAuthTag(bytes.subarray(-16));
       return Buffer.concat([decipher.update(bytes.subarray(12, -16)), decipher.final()]);
     },
-    async sign (input) { return crypto.createHmac('sha256', keys[this.signingVersion]).update(input).digest(); },
-    async verify (version, input, signature) {
-      return !!keys[version] && crypto.timingSafeEqual(
-        crypto.createHmac('sha256', keys[version]).update(input).digest(), signature);
-    }
   };
 }
 
@@ -87,8 +80,10 @@ describe('provider-neutral secrets boundary', function () {
     const secondWorker = createSecrets(options);
     grants.delete('tenant-a:issuer');
     await assert.rejects(secondWorker.decrypt(a, ref), { code: 'SECRETS_FORBIDDEN' });
-    await assert.rejects(component.signJWT(a, 'subject-token', 30), { code: 'SECRETS_FORBIDDEN' });
+    await assert.rejects(component.encrypt(a, 'other', Buffer.from('x')), { code: 'SECRETS_FORBIDDEN' });
     assert.equal(events.length, 1);
+    // Token signing is not a secrets operation (decision deployment-signing-secret).
+    for (const retired of ['signJWT', 'verifyJWT', 'exchangeLegacyCredential']) assert.equal(component[retired], undefined, retired);
     await assert.rejects(component.decrypt({ ...a, consumer: 'other' }, ref), { code: 'SECRETS_FORBIDDEN' });
   });
 
@@ -119,45 +114,6 @@ describe('provider-neutral secrets boundary', function () {
     await assert.rejects(outage.decrypt(a, ref), /authorization unavailable/);
     providers.get(a.tenant).decrypt = async () => { throw new Error('provider unavailable'); };
     await assert.rejects(component.decrypt(a, ref), /provider unavailable/);
-  });
-
-  it('mints bounded tenant-bound HS256 JWTs and preserves the legacy accessToken claim', async function () {
-    const token = await component.signJWT(a, 'subject-token', 30);
-    const payload = await component.verifyJWT(a, token);
-    assert.equal(payload.accessToken, 'subject-token');
-    assert.equal(payload.exp - payload.iat, 30);
-    await assert.rejects(component.verifyJWT(b, token), { code: 'SECRETS_TOKEN_INVALID' });
-    await assert.rejects(component.signJWT(a, 'subject-token', 61), { code: 'SECRETS_TOKEN_LIFETIME' });
-    await assert.rejects(component.signJWT(a, 'subject-token', 0), { code: 'SECRETS_TOKEN_LIFETIME' });
-    time += 30000;
-    await assert.rejects(component.verifyJWT(a, token), { code: 'SECRETS_TOKEN_INVALID' });
-    assert.doesNotMatch(JSON.stringify(events), /subject-token/);
-  });
-
-  it('verifies earlier key versions after rotation and refuses tampering or unsupported algorithms', async function () {
-    const first = await component.signJWT(a, 'subject-token', 30);
-    providers.get(a.tenant).signingVersion = 2;
-    const second = await component.signJWT(a, 'subject-token', 30);
-    assert.equal((await component.verifyJWT(a, first)).accessToken, 'subject-token');
-    assert.equal((await component.verifyJWT(a, second)).accessToken, 'subject-token');
-    assert.equal(JSON.parse(Buffer.from(second.split('.')[0], 'base64url')).kid, '2');
-    for (const token of ['bad', 'null.e30.Zm9v', first.replace(/.$/, '!'),
-      Buffer.from('{"alg":"none","typ":"JWT","kid":"1"}').toString('base64url') + '.' + first.split('.').slice(1).join('.')]) {
-      await assert.rejects(component.verifyJWT(a, token), { code: 'SECRETS_TOKEN_INVALID' });
-    }
-  });
-
-  it('enforces tenant audience even if an operator accidentally binds two tenants to one signing key', async function () {
-    providers.set(b.tenant, providers.get(a.tenant));
-    const token = await component.signJWT(a, 'subject-token', 30);
-    await assert.rejects(component.verifyJWT(b, token), { code: 'SECRETS_TOKEN_INVALID' });
-  });
-
-  it('does not turn a verified JWT into authorization after grant removal', async function () {
-    const token = await component.signJWT(a, 'subject-token', 30);
-    await component.verifyJWT(a, token);
-    grants.delete('tenant-a:issuer');
-    await assert.rejects(component.verifyJWT(a, token), { code: 'SECRETS_FORBIDDEN' });
   });
 
   it('audits a rewrap target, never decrypts, and refuses a concurrent ciphertext change', async function () {
@@ -201,8 +157,7 @@ describe('provider-neutral secrets boundary', function () {
 describe('Vault adapter transport refusal', function () {
   let server, address, handler;
   const config = () => ({
-    address, mount: 'transit', encryptionKey: 'tenant-a-data', signingKey: 'tenant-a-signing',
-    signingVersion: 1, getToken: async () => 'synthetic-provider-credential', allowInsecureLoopback: true
+    address, mount: 'transit', encryptionKey: 'tenant-a-data', getToken: async () => 'synthetic-provider-credential', allowInsecureLoopback: true
   });
 
   before(async function () {
@@ -215,9 +170,11 @@ describe('Vault adapter transport refusal', function () {
   it('rejects insecure non-loopback origins, embedded credentials and caller-controlled key paths', function () {
     for (const overrides of [
       { address: 'http://example.test' }, { address: 'https://user:password@example.test' },
-      { address: 'https://example.test/path' }, { encryptionKey: '../tenant-b' }, { timeoutMs: 0 },
-      { encryptionKey: 'same', signingKey: 'same' }
+      { address: 'https://example.test/path' }, { encryptionKey: '../tenant-b' }, { timeoutMs: 0 }
     ]) assert.throws(() => createVaultTransit({ ...config(), ...overrides }), TypeError);
+    // Encryption only: no HMAC or signing operation (decision deployment-signing-secret).
+    assert.equal(createVaultTransit(config()).sign, undefined);
+    assert.equal(createVaultTransit(config()).verify, undefined);
   });
 
   it('does not follow redirects or disclose provider error bodies or credentials', async function () {
@@ -235,11 +192,10 @@ describe('Vault adapter transport refusal', function () {
     assert.equal(calls, 1);
   });
 
-  it('redacts malformed responses and rejects wrong-version or short HMACs', async function () {
-    for (const body of ['plaintext-sensitive-not-json', '{"data":{"hmac":"vault:v2:YWJj"}}',
-      '{"data":{"hmac":"vault:v1:YWJj"}}']) {
+  it('redacts malformed responses and rejects malformed ciphertexts', async function () {
+    for (const body of ['plaintext-sensitive-not-json', '{"data":{"ciphertext":"plaintext-sensitive"}}', '{"data":{}}']) {
       handler = (req, res) => { res.end(body); };
-      await assert.rejects(createVaultTransit(config()).sign(Buffer.from('input')), error => {
+      await assert.rejects(createVaultTransit(config()).encrypt(Buffer.from('input')), error => {
         assert.match(error.code, /^SECRETS_PROVIDER_/);
         assert.doesNotMatch(String(error), /plaintext-sensitive/);
         return true;

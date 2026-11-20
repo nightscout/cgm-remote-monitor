@@ -33,7 +33,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
     async function token (tenant = A, override = {}, header = {}) {
       const now = Math.floor(Date.now() / 1000);
       return registryLab.signToken(tenant, { purpose: 'management',
-        header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'management1', ...header },
+        header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'management-1', ...header },
         claims: { iss: settings.IDENTITY.managementIssuer, aud: settings.IDENTITY.managementAudience, tid: tenant, purpose: 'management', sub: MANAGER, sid: 'session', cv: 1,
           iat: now, nbf: now, exp: now + 600, ...override } });
     }
@@ -151,7 +151,7 @@ optInSuite(process.env.NS_OWNER_PREVIEW_TEST === '1',
       for (const [table, column, disabled, restored] of [['credentials', 'enabled', false, true], ['credentials', 'generation', 2, 1],
         ['sessions', 'active', false, true], ['sessions', 'generation', 2, 1], ['sessions', 'expires_at', 1, Math.floor(Date.now() / 1000) + 3600],
         ['keys', 'active', false, true], ['tenants', 'active', false, true]]) {
-        const match = { credentials: " AND credential_id='management-credential'", sessions: " AND session_id='session'", keys: " AND kid='management1'", tenants: '' }[table];
+        const match = { credentials: " AND credential_id='management-credential'", sessions: " AND session_id='session'", keys: " AND kid='management-1'", tenants: '' }[table];
         const change = value => admin.query(`UPDATE ${a(table)} SET "${column}"=$2 WHERE tenant_id=$1` + match, [A, value]);
         assert.equal((await change(disabled)).rowCount, 1);
         try { for (const worker of workers) await refused(worker, credential); }

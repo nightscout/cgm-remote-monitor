@@ -18,10 +18,14 @@ const evaluatorPlan = planFixture.documents({ layout: evaluatorLayout, urls: pla
 const evaluatorDocument = () => ({ ...structuredClone(evaluatorPlan.configs.evaluator), registry: { namespace: 'ns_registry' } });
 
 const SOURCE = { APP_PG: 'postgres://app:synthetic@db.example.test/ns', CHECK_PG: 'postgres://check:synthetic@db.example.test/ns',
-  SETTINGS_PG: 'postgres://settings:synthetic@db.example.test/ns', VAULT_TOKEN: 'synthetic-token', LIFE_PG: 'postgres://life:synthetic@db.example.test/ns' };
+  SETTINGS_PG: 'postgres://settings:synthetic@db.example.test/ns', VAULT_TOKEN: 'synthetic-token', LIFE_PG: 'postgres://life:synthetic@db.example.test/ns',
+  ...require('./fixtures/signing-secret').env() };
+// The api always authenticates DATA locally and issues data JWTs in process
+// (decision deployment-signing-secret): its realm and access namespace are required.
 function apiConfig (extra = {}) {
   return { version: 1, writeClock: true, postgres: { connectionEnv: 'APP_PG', readinessConnectionEnv: 'CHECK_PG',
-    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy', clock: 'ns_clock' } },
+    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy', clock: 'ns_clock', access: 'ns_access' } },
+  localDataAuthentication: 'node', accessTokens: { issuer: 'data', audience: 'api' },
   vault: { address: 'https://vault.example.test/', mount: 'transit', tokenEnv: 'VAULT_TOKEN' }, resolution: { mode: 'direct-alias' },
   registry: { namespace: 'ns_registry', refreshMs: 1000 },
   tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'ns_tsettings', operatorPolicy: 'ns_tpolicy' } }, ...extra };
@@ -63,10 +67,9 @@ describe('registry-mode role configuration', function () {
   });
 
   it('RC_TENANTS_REFUSED: a registry configuration that still carries a tenants list is refused', function () {
-    const tenants = [{ id: randomUUID(), aliases: ['one.example.test'], vault: { tokenEnv: 'VAULT_TOKEN', encryptionKey: 'a', signingKey: 'b', signingVersion: 1 } }];
+    const tenants = [{ id: randomUUID(), aliases: ['one.example.test'], vault: { tokenEnv: 'VAULT_TOKEN', encryptionKey: 'a' } }];
     assert.throws(() => load(apiConfig({ tenants })), /registry configuration refuses a tenants list/);
     const withAccess = apiConfig({ accessTokens: { issuer: 'i', audience: 'a', keys: [] } });
-    withAccess.postgres.namespaces.access = 'ns_access';
     assert.throws(() => load(withAccess), /registry configuration refuses a tenants list/, 'per-tenant access-token keys are a tenant list too');
     delete withAccess.accessTokens.keys;
     assert.deepEqual(Object.keys(load(withAccess).accessTokens).sort(), ['audience', 'issuer', 'maxLifetimeSeconds', 'purpose']);
@@ -82,13 +85,19 @@ describe('registry-mode role configuration', function () {
     assert.throws(() => load(apiConfig({ socketForwarding: {} })), /invalid preview/);
   });
 
-  it('selects local Node data authentication only with an explicit registry data realm', function () {
-    const config = apiConfig({ localDataAuthentication: 'node', accessTokens: { issuer: 'data', audience: 'api' } });
-    config.postgres.namespaces.access = 'ns_access';
-    assert.equal(load(config).localDataAuthentication, true);
-    assert.equal(load(apiConfig()).localDataAuthentication, false);
-    assert.throws(() => load(apiConfig({ localDataAuthentication: 'node' })), /localDataAuthentication requires/);
-    assert.throws(() => load(apiConfig({ localDataAuthentication: 'cache' })), /localDataAuthentication requires/);
+  it('requires local Node data authentication, its data realm and the deployment signing secret', function () {
+    const loaded = load(apiConfig());
+    assert.equal(loaded.localDataAuthentication, true);
+    assert.equal(typeof loaded.signing.matching, 'function');
+    // The Vault-backed HS256 mode is retired: no other value, and no omission.
+    const noMode = apiConfig(); delete noMode.localDataAuthentication;
+    assert.throws(() => load(noMode), /requires localDataAuthentication: node/);
+    const noRealm = apiConfig(); delete noRealm.accessTokens;
+    assert.throws(() => load(noRealm), /requires localDataAuthentication: node/);
+    assert.throws(() => load(apiConfig({ localDataAuthentication: 'cache' })), /requires localDataAuthentication: node/);
+    // The api issues data JWTs: it does not start without the signing secret.
+    const noSecret = { ...SOURCE }; delete noSecret.NS_SIGNING_SECRET_FILE;
+    assert.throws(() => previewConfig.parse(apiConfig(), noSecret), /NS_SIGNING_SECRET_FILE/);
   });
 
   it('RC_LOCK_RULE: the operation lease names the registry instead of a lock list; the window derives keys by the tenant-id rule', function () {

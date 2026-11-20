@@ -603,7 +603,6 @@
     {"file": "tests/mongodb-migrations.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
     {"file": "tests/postgres-secrets.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
     {"file": "tests/vault-secrets.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
-    {"file": "tests/tenant-runtime-vault.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
     {"file": "tests/tenant-entries-http.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
     {"file": "tests/tenant-credential-http.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},
     {"file": "tests/tenant-authorization-postgres.integration.test.js", "scope": "supporting-control-plane/domain/startup-suite-not-a-blanket-entries-proof"},

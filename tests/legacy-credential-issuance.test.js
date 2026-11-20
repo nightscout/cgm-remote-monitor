@@ -52,9 +52,14 @@ describe('tenant legacy credential issuance boundary', function () {
     assert.deepEqual(f.events.map(event => event.operation), ['issue-legacy']);
     assert.equal(JSON.stringify(f.events).includes(result.token), false);
     assert.equal(JSON.stringify(f.events).includes(rootHash), false);
-    const worker = createSecrets(f.options);
-    const verified = await f.fenced(() => worker.verifyLegacyCredential(actor, { apiSecret: result.token }));
-    assert.deepEqual(verified, { kind: 'subject', subjectId });
+    // The api's one-way verifiers, prepared from the same root, accept the issued token.
+    const verifiers = require('../lib/secrets/legacy-verifiers');
+    const prepared = verifiers.prepare(f.roots.get(actor.tenant), [{ subjectId, tokenPrefix: 'synthetic' }]);
+    const verifier = verifiers.create({ verifyToken: () => { throw new Error('no JWT here'); }, read: async () => ({
+      rootVerifiers: prepared.rootVerifiers, rootVersion: 1, keys: [],
+      subjects: prepared.subjects.map(subject => ({ ...subject, credentialVersion: 1 })) }) });
+    const verified = await verifier.verifyLegacyCredential(actor, { apiSecret: result.token });
+    assert.deepEqual({ kind: verified.kind, subjectId: verified.subjectId }, { kind: 'subject', subjectId });
   });
 
   it('keeps equal subject IDs bound to each tenant root', async function () {

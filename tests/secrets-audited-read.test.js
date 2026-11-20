@@ -154,16 +154,18 @@ describe('durable secret audit and record read', function () {
       } finally { await f.close(); }
     }
   });
-  it('composes root verification with the fused receipt and decrypts only after physical COMMIT', async function () {
+  // Root custody reads (admin-tools token listing) compose the fused receipt; the
+  // Vault-backed DATA verifier that also used it is retired (deployment-signing-secret).
+  it('composes root custody with the fused receipt and decrypts only after physical COMMIT', async function () {
     const f = await fixture(), c = component(f); let entered, release;
     const committing = new Promise(resolve => { entered = resolve; });
     const blocked = new Promise(resolve => { release = resolve; });
     try {
       f.action(async (client, text) => { if (text === 'COMMIT') { entered(); await blocked; } });
-      const pending = c.secrets.verifyLegacyCredential(c.context, c.credential);
+      const pending = c.secrets.rootLegacyTokens(c.context, c.credential);
       await committing;
       assert.deepEqual(c.calls, { authority: 1, authorize: 1, provider: 0, decrypt: 0 });
-      release(); assert.deepEqual(await pending, { kind: 'root' });
+      release(); assert.ok(await pending instanceof Map, 'the root secret was verified after the decrypt');
       assert.deepEqual(c.calls, { authority: 1, authorize: 1, provider: 1, decrypt: 1 });
       assert.deepEqual(budget(f), { begins: 1, commits: 1, durableSettings: 1 });
       assert.equal(f.durable.length, 1);
@@ -174,7 +176,7 @@ describe('durable secret audit and record read', function () {
     const f = await fixture(), c = component(f);
     try {
       f.action(async (client, text) => { if (text === 'COMMIT') throw new Error('synthetic commit failure'); });
-      await assert.rejects(c.secrets.verifyLegacyCredential(c.context, c.credential), { code: 'SECRETS_STORE_UNAVAILABLE' });
+      await assert.rejects(c.secrets.rootLegacyTokens(c.context, c.credential), { code: 'SECRETS_STORE_UNAVAILABLE' });
       assert.equal(c.calls.provider, 0); assert.equal(c.calls.decrypt, 0); assert.equal(f.durable.length, 0);
     } finally { await f.close(); }
   });
@@ -182,14 +184,14 @@ describe('durable secret audit and record read', function () {
     const f = await fixture(), c = component(f);
     try {
       c.authority({ reference: { tenant: B, id: 'root' }, subjects: [] });
-      await assert.rejects(c.secrets.verifyLegacyCredential(c.context, c.credential), { code: 'SECRETS_REFERENCE_MISMATCH' });
+      await assert.rejects(c.secrets.rootLegacyTokens(c.context, c.credential), { code: 'SECRETS_REFERENCE_MISMATCH' });
       assert.equal(f.calls.length, 0); assert.equal(c.calls.decrypt, 0);
       c.authority({ reference: { tenant: A, id: 'root' }, subjects: [] });
       f.records.set(A, { ...f.records.get(A), tenant: B });
-      await assert.rejects(c.secrets.verifyLegacyCredential(c.context, c.credential), { code: 'SECRETS_RECORD_INVALID' });
+      await assert.rejects(c.secrets.rootLegacyTokens(c.context, c.credential), { code: 'SECRETS_RECORD_INVALID' });
       assert.equal(c.calls.authority, 2); assert.equal(c.calls.decrypt, 0); assert.equal(f.durable.length, 1);
       c.authority({ reference: { tenant: A, id: 'replacement' }, subjects: [] });
-      await assert.rejects(c.secrets.verifyLegacyCredential(c.context, c.credential), { code: 'SECRETS_NOT_FOUND' });
+      await assert.rejects(c.secrets.rootLegacyTokens(c.context, c.credential), { code: 'SECRETS_NOT_FOUND' });
       assert.equal(c.calls.authority, 3); assert.equal(c.calls.decrypt, 0); assert.equal(f.durable.length, 2);
     } finally { await f.close(); }
   });

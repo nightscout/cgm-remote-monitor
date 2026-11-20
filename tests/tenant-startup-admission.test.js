@@ -140,7 +140,7 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../../secrets/component': { createSecrets: () => ({}) },
       './role-readiness': require('./fixtures/role-readiness')(),
       './preview-domains': async () => ({ prepareTenant: async tenant => reads.push(['build', tenant]), invalidateTenant: tenant => reads.push(['invalidate', tenant]), invalidateAll () {}, data: () => {}, safeRoutes: {} }),
-      '../tenant-app/exchange': () => () => {}, '../tenant-app/data-access': () => () => {},
+      '../tenant-app/local-exchange': () => () => {}, '../../secrets/legacy-verifiers': { create: () => ({ verifyLegacyCredential: async () => null }) }, '../../tenant-authorization/legacy-data-token': { create: () => ({ verify () {}, issue () {} }) }, '../tenant-app/data-access': () => () => {},
       '../tenant-app': { createTenantApp: input => { calls.http = input.prepareTenant; return (req, res, next) => next(); } },
       '../realtime/private-api': { boot: async input => { calls.socket = input.prepareTenant; return { close: async () => {} }; } }
     });

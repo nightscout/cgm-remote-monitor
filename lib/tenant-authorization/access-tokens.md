@@ -1,5 +1,13 @@
 # Explicit multitenant local access-token verification
 
+> **Scope after decision `deployment-signing-secret` (2026-11-20, amendment 2).**
+> The api role no longer verifies an `ns-access+jwt` token as a DATA credential:
+> nothing issued one and no key was provisioned for it. The format and this
+> verifier remain for management sessions (owner role) and human OIDC sessions.
+> DATA tokens are the data JWT (`ns-legacy-data+jwt`, `legacy-data-token.js`),
+> signed with the tenant's derived data key and verified against
+> `legacy_data_keys`. The api text below describes the retired DATA use.
+
 New-format tokens use Ed25519 signatures and `typ: ns-access+jwt`. The explicit
 API preview accepts them through the same `data-access` admission, permission and
 handler flow as legacy credentials. Default single and existing eight-hour

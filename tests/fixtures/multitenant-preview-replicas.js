@@ -76,7 +76,7 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
         API_HOSTNAME: '127.0.0.1', API_PORT: '0',
         NS_API_PG: appURI, NS_READINESS_PG: checkURI, NS_DISPLAY_PG: settingsURI,
         NS_ALARM_PG: platform.urls.alarm, NS_API_ROOT_WRITER_PG: platform.urls.root_writer,
-        NS_REGISTRY_REFRESH_MS: '500'
+        NS_REGISTRY_REFRESH_MS: '500', ...require('./signing-secret').env()
       };
       for (const key of ['NS_PREVIEW_REPLICA_CONTROL', 'NS_PREVIEW_REPLICA_CLOCK_MS']) {
         if (process.env[key] !== undefined) env[key] = process.env[key];
@@ -206,20 +206,24 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
       return require('../../lib/server/serve/deployment-settings').configuration('api', environment());
     }
 
+    // Management tokens are signed with the tenant's derived management key and
+    // DATA tokens are the api's data JWT (`ns-legacy-data+jwt`) signed with the
+    // tenant's derived data key, as the exchange and provisioning issue them
+    // (decision deployment-signing-secret). The api verifies no `ns-access+jwt`
+    // data token, so no headless key is installed.
     async function signToken (tenant, { purpose, header, claims }) {
-      assert([A, B].includes(tenant) && ['access', 'management'].includes(purpose), 'fixed synthetic tenant and signing purpose required');
+      assert([A, B].includes(tenant) && ['data', 'management'].includes(purpose), 'fixed synthetic tenant and signing purpose required');
       const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-      const input = encode(header) + '.' + encode(claims);
-      const signed = await vault(platform.mount + '/sign/' + require('../../lib/tenant-registry/rules').vaultKey(tenant, purpose), {
-        input: Buffer.from(input).toString('base64'), key_version: 1
-      });
-      return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
+      const input = Buffer.from(encode(header) + '.' + encode(claims));
+      const signature = require('./signing-secret').signing.key(tenant, purpose, 1).sign(input);
+      return input.toString() + '.' + signature.toString('base64url');
     }
+    // A current subject's eight-hour data JWT; overrides make invalid variants.
     async function localToken (tenant, overrides = {}, headerOverrides = {}) {
-      const now = Math.floor(Date.now() / 1000);
-      return signToken(tenant, { purpose: 'access', header: { alg: 'EdDSA', typ: 'ns-access+jwt', kid: 'key1', ...headerOverrides },
-        claims: { iss: require('../../lib/server/serve/deployment-settings').IDENTITY.accessIssuer, aud: 'nightscout-data', tid: tenant, purpose: 'data', sub: SUBJECT, sid: 'local-session', cv: 1,
-          iat: now, nbf: now, exp: now + 28800, ...overrides } });
+      const now = Math.floor(Date.now() / 1000), IDENTITY = require('../../lib/server/serve/deployment-settings').IDENTITY;
+      return signToken(tenant, { purpose: 'data', header: { alg: 'EdDSA', typ: require('../../lib/tenant-authorization/legacy-data-token').TYPE, kid: 'data-1', ...headerOverrides },
+        claims: { iss: IDENTITY.accessIssuer, aud: IDENTITY.accessAudience, tid: tenant, sub: SUBJECT, cv: 1, rv: 1,
+          iat: now, exp: now + 28800, ...overrides } });
     }
 
 
@@ -278,7 +282,7 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
       } finally { await provisioning.close(); }
       provisioned = { namespaces: platform.namespaces,
         registryGrants: roles => require('../../lib/tenant-registry/postgres').grants({ namespace: platform.namespaces.registry, ...roles }) };
-      // Lab priming beyond provisioning: a subject, its role and legacy name, an access credential and session.
+      // Lab priming beyond provisioning: a subject, its role and legacy name.
       for (const [i, tenant] of [A, B].entries()) {
         const { subjects } = require('../../lib/secrets/legacy-verifiers').prepare(Buffer.from(roots[i]), [
           { subjectId: SUBJECT, tokenPrefix: 'sameviewer' }
@@ -291,11 +295,6 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
         await admin.query(`INSERT INTO preview_authorization.tenant_authorization_roles VALUES
           ($1, 'viewer', ARRAY['api:entries:read','api:entries:create','api:entries:update'])`, [tenant]);
         await admin.query("INSERT INTO preview_authorization.tenant_authorization_subject_roles VALUES ($1, $2, 'viewer')", [tenant, SUBJECT]);
-      }
-      for (const tenant of [A, B]) {
-        await admin.query('INSERT INTO preview_access.access_credentials VALUES ($1,$2,$2,1,true)', [tenant, SUBJECT]);
-        await admin.query(`INSERT INTO preview_access.access_sessions VALUES ($1,'local-session',$2,$2,1,$3,true,'data')`,
-          [tenant, SUBJECT, Math.floor(Date.now() / 1000) + 86400]);
       }
       // The api role's one Vault credential: decrypt with any tenant's data key,
       // HMAC and verify with any tenant's signing key; no other purpose or mount.

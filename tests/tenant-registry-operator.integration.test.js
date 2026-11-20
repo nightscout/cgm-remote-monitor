@@ -93,15 +93,15 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     await assert.rejects(provisioning.inspect('not-a-uuid'), { code: 'TENANT_PROVISION_INVALID' });
   });
 
-  it('PO_VAULT_CREATE_REFUSED: Vault refuses the fourth key creation; nothing is admitted, the inspection names the residue, a retry adopts it and completes', async function () {
+  // One Transit key per tenant (`data`); signing keys are derived (decision deployment-signing-secret).
+  it('PO_VAULT_CREATE_REFUSED: Vault refuses the data key creation; nothing is admitted or left, the inspection says absent, a retry completes', async function () {
     const request = spec();
-    const narrow = withToken(await token('three', [`path "${lab.mount}/keys/tenant-*" { capabilities = ["read"] }`,
-      ...['data', 'signing', 'access'].map(purpose => `path "${lab.mount}/keys/tenant-${purpose}-*" { capabilities = ["create", "read", "update"] }`)]));
+    const narrow = withToken(await token('readonly', [`path "${lab.mount}/keys/tenant-*" { capabilities = ["read"] }`]));
     try { assert.deepEqual(await narrow.provision(request), { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_VAULT_REFUSED' }); } finally { await narrow.close(); }
     await nothingAdmitted(request.id);
     const residue = await provisioning.inspect(request.id);
-    assert.equal(residue.provisioning, 'residue'); assert.equal(residue.action, 'provision');
-    assert.deepEqual(residue.vault.keys, keyStates(['data', 'signing', 'access']));
+    assert.equal(residue.provisioning, 'absent'); assert.equal(residue.action, 'provision');
+    assert.deepEqual(residue.vault.keys, keyStates([]));
     assert.deepEqual(residue.findings, []);
     assert.equal((await provisioning.provision(request)).outcome, 'created');
     assert.equal((await provisioning.inspect(request.id)).provisioning, 'complete');
@@ -136,14 +136,14 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
 
   it('PO_VAULT_KEY_MISMATCH: an existing key of the wrong type is never adopted; refused for an operator on every retry, nothing admitted', async function () {
     const request = spec();
-    await lab.vaultRequest(lab.mount + '/keys/' + rules.vaultKey(request.id, 'access'), { type: 'aes256-gcm96' });
+    await lab.vaultRequest(lab.mount + '/keys/' + rules.vaultKey(request.id, 'data'), { type: 'ed25519' });
     for (let attempt = 0; attempt < 2; attempt++) {
       assert.deepEqual(await provisioning.provision(request), { id: request.id, outcome: 'refused', code: 'TENANT_PROVISION_VAULT_KEY_MISMATCH' });
     }
     await nothingAdmitted(request.id);
     const report = await provisioning.inspect(request.id);
     assert.equal(report.provisioning, 'incomplete'); assert.equal(report.action, 'operator');
-    assert.equal(report.vault.keys.access, 'mismatch'); assert.deepEqual(report.findings, ['vault:access:mismatch']);
+    assert.equal(report.vault.keys.data, 'mismatch'); assert.deepEqual(report.findings, ['vault:data:mismatch']);
   });
 
   it('PO_UNREGISTERED_ROWS: tenant rows with no registry entry are refused as incomplete (not as a retryable failure) and are left as found', async function () {
@@ -223,16 +223,16 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     const request = spec(); assert.equal((await provisioning.provision(request)).outcome, 'created');
     await lab.admin.query(`DELETE FROM "${lab.namespaces.settings}".tenant_settings WHERE tenant_id = $1`, [request.id]);
     await lab.admin.query(`DELETE FROM "${lab.namespaces.legacy}".legacy_data_keys WHERE tenant_id = $1`, [request.id]);
-    await lab.admin.query(`DELETE FROM "${lab.namespaces.access}".access_keys WHERE tenant_id = $1 AND kid = 'management1'`, [request.id]);
-    const name = rules.vaultKey(request.id, 'signing');
+    await lab.admin.query(`DELETE FROM "${lab.namespaces.access}".access_keys WHERE tenant_id = $1 AND kid = 'management-1'`, [request.id]);
+    const name = rules.vaultKey(request.id, 'data');
     await lab.vaultRequest(lab.mount + '/keys/' + name + '/config', { deletion_allowed: true });
     await lab.vaultRequest(lab.mount + '/keys/' + name, undefined, 'DELETE');
     const before = await lab.rowsFor(request.id);
     const report = await provisioning.inspect(request.id);
     assert.equal(report.provisioning, 'incomplete'); assert.equal(report.action, 'operator');
-    assert.deepEqual(report.findings, ['record:localDataKey:missing', 'record:accessKeys:partial', 'record:settings:missing', 'vault:signing:missing']);
+    assert.deepEqual(report.findings, ['record:localDataKey:missing', 'record:accessKeys:partial', 'record:settings:missing', 'vault:data:missing']);
     assert.equal(report.records.localDataKey, 'absent');
-    assert.equal(report.records.accessKeys, 'partial'); assert.equal(report.records.settings, 'absent'); assert.equal(report.vault.keys.signing, 'absent');
+    assert.equal(report.records.accessKeys, 'partial'); assert.equal(report.records.settings, 'absent'); assert.equal(report.vault.keys.data, 'absent');
     assert.deepEqual(await lab.rowsFor(request.id), before, 'inspection writes nothing');
     assert.equal(await lab.vaultRequest(lab.mount + '/keys/' + name), null, 'inspection creates no key');
   });

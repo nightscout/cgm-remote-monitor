@@ -25,7 +25,9 @@ module.exports = function ownerConfigurationFixture () {
   function spawnRole (role, env) {
     const child = spawn(process.execPath, [path.resolve(__dirname, '../../bin/nightscout.js'), 'multitenant', role], {
       env: { PATH: process.env.PATH, NS_PG_PREFIX: lab.prefix, NS_SECRETS_DIR: dir, NS_VAULT_ADDR: lab.vault.address,
-        NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_REGISTRY_REFRESH_MS: '250', ...env },
+        NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_REGISTRY_REFRESH_MS: '250',
+        // The issuing roles derive tenant signing keys from the deployment secret (decision deployment-signing-secret).
+        ...require('./signing-secret').env(), ...env },
       cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
     const worker = { child, exit: null, stdout: '', stderr: '' };
     child.stdout.on('data', bytes => { worker.stdout += bytes; });
@@ -109,9 +111,8 @@ module.exports = function ownerConfigurationFixture () {
     const [hdr, payload] = ownerTokens[tenant].split('.');
     const claims = { ...JSON.parse(Buffer.from(payload, 'base64url')), ...overrides };
     const input = hdr + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
-    const key = require('../../lib/tenant-registry/rules').vaultKey(tenant, 'management');
-    const signed = await lab.vaultRequest(lab.mount + '/sign/' + key, { input: Buffer.from(input).toString('base64'), key_version: 1 });
-    return input + '.' + Buffer.from(signed.data.signature.split(':')[2], 'base64').toString('base64url');
+    // The tenant's derived management key (decision deployment-signing-secret); no Transit sign key exists.
+    return input + '.' + require('./signing-secret').signing.key(tenant, 'management', 1).sign(Buffer.from(input)).toString('base64url');
   }
   async function start ({ extra = {}, refused = false } = {}) {
     const queryAudit = path.join(dir, random() + '.json');

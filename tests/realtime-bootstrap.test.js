@@ -51,7 +51,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
     const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,RT_BOOTSTRAP_API_PG:url('api'),
-      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role'};
+      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role',...require('./fixtures/signing-secret').env()};
     const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
     const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,RT_BOOTSTRAP_RT_PG:url('realtime')};
     // The lab's documents through each role's own validator (parse); roles read their
@@ -128,44 +128,9 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.deepEqual(credentialFor('/alarm',JSON.parse(status.RT_BOOTSTRAP_EPOCH_STATUS_JSON)),{accessToken:'synthetic-status-token'});
     assert.deepEqual(credentialFor('/alarm',JSON.parse(current[plan.phaseConfiguration('joined-consumer-plugin-ack').credentialEnv])),{accessToken:'synthetic-wire-token'});
   });
-  it('verifies signed status credentials through actual token/access-SQL/socket authority modules and current revocation (source protocol only)',async function(){
-    const connectionPath=require.resolve('../lib/storage/postgres-connection'),accessPath=require.resolve('../lib/tenant-authorization/access-postgres');
-    require(connectionPath);const priorConnect=require.cache[connectionPath].exports,priorAccess=require.cache[accessPath];
-    const scope=require('../lib/storage/tenant-scope'),oldMode=scope.getTenancyMode();let current=true,authority;
-    // Synthetic query-row protocol, not a PostgreSQL or native permission claim.
-    const connection={withTenant:async(tenant,fn)=>fn(),end:async()=>{},query:async(sql,args)=>{
-      if(sql.includes('FROM pg_class'))return {rows:Array.from({length:8},()=>({secured:true,owns:false,reads:true,writes:false}))};
-      assert(sql.includes('JOIN')&&sql.includes('tenant_authorization_roles'));assert.equal(args[0],plan.A);
-      const subject=plan.subjects.find(row=>row.id===args[1]);assert(subject);
-      return {rows:[{active:current,credential_enabled:true,generation:1,session_active:true,session_generation:1,expires_at:2000,
-        key_active:true,display_name:'Synthetic status actor',anonymous_roles:['denied'],role_name:subject.role,found_role:subject.role,permissions:plan.rolePermissions[subject.role]}]};
-    }};
-    try {
-      require.cache[connectionPath].exports=async()=>connection;delete require.cache[accessPath];scope.setTenancyMode('multi');
-      authority=await require(accessPath)({namespace:'synthetic_access',authorityNamespace:'synthetic_auth'});
-      const pair=crypto.generateKeyPairSync('ed25519'),tokens=require('../lib/tenant-authorization/access-token');
-      const verifyToken=tokens.createVerifier({issuer:'synthetic-source',audience:'synthetic-data',purpose:'data',maxLifetimeSeconds:3600,now:()=>1000,
-        resolveKey:(tenant,kid)=>({tenant,kid,issuer:'synthetic-source',purpose:'data',publicKey:pair.publicKey})});
-      const authenticate=tokens.createAuthentication({verifyToken,snapshot:authority.snapshot,now:()=>1000});
-      const socket=require('../lib/server/realtime/authority').create({accessTokens:{authenticate},admission:{allows:async()=>true},
-        verifierContext:async tenant=>({tenant}),secrets:{verifyLegacyCredential(){throw new Error('NO_LEGACY_FALLBACK');}},
-        authority:{subjectAuthorizationSnapshot(){throw new Error('NO_SNAPSHOT_BYPASS');},permissionSnapshot(){throw new Error('NO_PERMISSION_BYPASS');}}});
-      const signed=subject=>{const header=Buffer.from(JSON.stringify({alg:'EdDSA',typ:'ns-access+jwt',kid:'key1'})).toString('base64url');
-        const body=Buffer.from(JSON.stringify({iss:'synthetic-source',aud:'synthetic-data',tid:plan.A,purpose:'data',sub:subject,sid:'session-'+subject,cv:1,iat:1000,nbf:1000,exp:2000})).toString('base64url');
-        return header+'.'+body+'.'+crypto.sign(null,Buffer.from(header+'.'+body),pair.privateKey).toString('base64url');};
-      const full=await socket.verify({tenant:plan.A,namespace:'/',credential:{token:signed(plan.SUBJECT)}});
-      assert.deepEqual(full.permissions,{read:true,write:true,write_treatment:true,ack:true},'BOOTSTRAP_FULL_WRITER_SEPARATE_FROM_STATUS');
-      for(const namespace of ['/','/alarm']) {
-        const credential=require('../lib/server/realtime/authority').credentialFor(namespace,JSON.parse(plan.credentials(0,plan.STATUS,signed(plan.STATUS)).RT_BOOTSTRAP_EPOCH_STATUS_JSON));
-        const admitted=await socket.verify({tenant:plan.A,namespace,credential});
-        assert.deepEqual(admitted.permissions,{read:false,write:false,write_treatment:false,ack:false});assert.deepEqual(admitted.collections,[]);
-        current=false;await assert.rejects(socket.verify({tenant:plan.A,namespace,credential}),error=>error.code==='AUTHORITY_FORBIDDEN');current=true;
-      }
-    } finally {
-      if(authority)await authority.close();require.cache[connectionPath].exports=priorConnect;
-      if(priorAccess)require.cache[accessPath]=priorAccess;else delete require.cache[accessPath];scope.setTenancyMode(oldMode);
-    }
-  });
+  // The socket ns-access+jwt status-credential check is retired with that verifier
+  // (decision deployment-signing-secret); the native bootstrap's credential port is
+  // recorded in the KEYS2 handoff.
 
   it('preflights the explicit owned reset against every actual selected catalogue table and FK edge',function(){
     const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');

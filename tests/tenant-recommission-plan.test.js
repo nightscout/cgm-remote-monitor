@@ -13,7 +13,10 @@ const verifiers = require('../lib/secrets/legacy-verifiers');
 const clinical = require('../lib/tenant-lifecycle/clinical-catalogue').CLINICAL;
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const ROOT = Buffer.from('synthetic-recommission-root');
-const key = localTokens.generateKey(), material = verifiers.prepare(ROOT, [{ subjectId: 'subject_a', tokenPrefix: 'a' }]);
+// The captured data signing key: the synthetic deployment's derivation at version 1
+// (decision deployment-signing-secret); rows hold public keys only.
+const signing = require('./fixtures/signing-secret').signing;
+const key = signing.key(A, 'data', 1), material = verifiers.prepare(ROOT, [{ subjectId: 'subject_a', tokenPrefix: 'a' }]);
 const clone = value => JSON.parse(JSON.stringify(value));
 const typed = (kind, n) => ({ tenant_id: A, id_kind: 'string',
   doc: { _id: kind + '-' + n, identifier: kind + '-' + n, srvCreated: 1000, srvModified: 1200,
@@ -31,7 +34,7 @@ function input () {
     root_verifiers: [...material.rootVerifiers], verifier_root_reference_id: 'root_a' }];
   rows['legacy.legacy_credential_subjects'] = [{ tenant_id: A, subject_id: 'subject_a', token_prefix: 'a',
     credential_version: 9, verifiers: [...material.subjects[0].verifiers], verifier_token_prefix: 'a' }];
-  rows['legacy.legacy_data_keys'] = [{ tenant_id: A, kid: key.kid, public_key: key.publicKey, private_key: key.privateKey, active: true, signing: true }];
+  rows['legacy.legacy_data_keys'] = [{ tenant_id: A, kid: key.kid, public_key: key.spki, active: true, signing: true }];
   rows['access.access_credentials'] = [
     { tenant_id: A, credential_id: 'identity_a', subject_id: 'subject_a', generation: 4, enabled: true },
     { tenant_id: A, credential_id: 'identity_disabled', subject_id: 'subject_a', generation: 8, enabled: false },
@@ -71,7 +74,7 @@ function capture (rows = input()) {
   return artifacts.buildArtifact({ tenant: A, sourceCommit: 'a'.repeat(40), exportedAt: 3000,
     catalogues: [...kinds].map(([kind, tables]) => ({ kind, namespace: 'synthetic_' + kind, ledger: [], tables })) });
 }
-const plan = artifact => planner.plan(artifact, { tenant: A, artifactDigest: artifact.digest });
+const plan = artifact => planner.plan(artifact, { tenant: A, artifactDigest: artifact.digest, signing });
 function altered (guard, replacement) {
   const file = path.resolve(__dirname, '../lib/tenant-lifecycle/recommission-plan.js');
   const source = fs.readFileSync(file, 'utf8');
@@ -82,7 +85,7 @@ function altered (guard, replacement) {
 function currentVerifier (planned, { permitOldKey = false } = {}) {
   const config = planned.tables['legacy.legacy_credential_config'][0];
   const subjects = planned.tables['legacy.legacy_credential_subjects'];
-  const keys = planned.tables['legacy.legacy_data_keys'].map(row => ({ kid: row.kid, publicKey: row.public_key, privateKey: row.private_key,
+  const keys = planned.tables['legacy.legacy_data_keys'].map(row => ({ kid: row.kid, publicKey: row.public_key,
     active: row.active || permitOldKey && row.kid === key.kid }));
   const codec = localTokens.create({ issuer: 'synthetic', audience: 'synthetic', now: () => 1000 });
   return { codec, keys, authority: verifiers.create({ verifyToken: codec.verify, read: async () => ({ rootVerifiers: config.root_verifiers,
@@ -140,8 +143,10 @@ describe('exact artifact recommission reconstruction plan', function () {
   it('recovers long-lived legacy credentials, retires captured key authority and rejects old DATAJWT through the real verifier', async function () {
     const artifact = capture(), result = plan(artifact), fresh = result.tables['legacy.legacy_data_keys'].find(row => row.signing);
     const retired = result.tables['legacy.legacy_data_keys'].find(row => row.kid === key.kid);
-    assert.deepEqual([retired.active, retired.signing, retired.private_key], [false, false, null]);
-    assert(fresh && fresh.kid !== key.kid && fresh.private_key);
+    assert.deepEqual([retired.active, retired.signing, Object.hasOwn(retired, 'private_key')], [false, false, false]);
+    // The next version, derived: data-2, public key only.
+    assert(fresh && fresh.kid === 'data-2' && !Object.hasOwn(fresh, 'private_key'));
+    assert.equal(fresh.public_key, signing.key(A, 'data', 2).spki);
     const verify = currentVerifier(result), codec = verify.codec;
     const old = codec.issue(A, { kind: 'subject', subjectId: 'subject_a', credentialVersion: 9, rootVersion: 7 }, key).token;
     assert.equal(await verify.authority.verifyLegacyCredential({ tenant: A }, { token: old }, async () => true), null);
@@ -150,7 +155,7 @@ describe('exact artifact recommission reconstruction plan', function () {
     const digest = crypto.createHash('sha1').update(sha1 + 'subject_a').digest('hex');
     const principal = await verify.authority.verifyLegacyCredential({ tenant: A }, { apiSecret: digest });
     assert.equal(principal.credentialVersion, 10); assert.equal(principal.rootVersion, 8);
-    const issued = codec.issue(A, principal, { kid: fresh.kid, publicKey: fresh.public_key, privateKey: fresh.private_key });
+    const issued = codec.issue(A, principal, signing.matching(A, 'data', { kid: fresh.kid, publicKey: fresh.public_key }));
     assert.equal((await verify.authority.verifyLegacyCredential({ tenant: A }, { token: issued.token }, async () => true)).subjectId, 'subject_a');
   });
 
@@ -165,10 +170,10 @@ describe('exact artifact recommission reconstruction plan', function () {
   it('refuses omitted/rehashed signer tables, omitted signer rows and tampered/mismatched key pairs', function () {
     for (const change of [
       rows => { delete rows['legacy.legacy_data_keys']; }, rows => { rows['legacy.legacy_data_keys'] = []; },
-      rows => { rows['legacy.legacy_data_keys'][0].private_key = null; },
       rows => { rows['legacy.legacy_data_keys'][0].private_key = 'tampered'; },
+      rows => { rows['legacy.legacy_data_keys'][0].active = false; },
       rows => { rows['legacy.legacy_data_keys'][0].kid = 123; },
-      rows => { rows['legacy.legacy_data_keys'][0].public_key = localTokens.generateKey().publicKey; },
+      rows => { rows['legacy.legacy_data_keys'][0].public_key = Buffer.alloc(44).toString('base64'); },
       rows => { rows['legacy.legacy_data_keys'][0].signing = false; }
     ]) { const rows = input(); change(rows); assert.throws(() => plan(capture(rows)), error => /^LIFECYCLE_RECOMMISSION_KEY_/.test(error.code)); }
     const rows = input(); rows['legacy.legacy_data_keys'].push({ ...rows['legacy.legacy_data_keys'][0], kid: 'other_signer' });
@@ -211,16 +216,16 @@ describe('exact artifact recommission reconstruction plan', function () {
   it('control: omitting the exact-artifact guard admits a different self-consistent snapshot; restored source refuses', function () {
     const broken = altered("if (typeof artifactDigest !== 'string' || artifact.digest !== artifactDigest) fail('ARTIFACT_MISMATCH');", '');
     const artifact = capture(), rows = input(); rows['clock.tenant_write_clock'][0].last_stamp = '1999'; const other = capture(rows);
-    assert.throws(() => assert.throws(() => broken.plan(other, { tenant: A, artifactDigest: artifact.digest }),
+    assert.throws(() => assert.throws(() => broken.plan(other, { tenant: A, artifactDigest: artifact.digest, signing }),
       { code: 'LIFECYCLE_RECOMMISSION_ARTIFACT_MISMATCH' }), /Missing expected exception/);
-    assert.throws(() => planner.plan(other, { tenant: A, artifactDigest: artifact.digest }), { code: 'LIFECYCLE_RECOMMISSION_ARTIFACT_MISMATCH' });
+    assert.throws(() => planner.plan(other, { tenant: A, artifactDigest: artifact.digest, signing }), { code: 'LIFECYCLE_RECOMMISSION_ARTIFACT_MISMATCH' });
   });
 
   it('control: omitted epoch advancement reactivates a captured DATAJWT if old verification key retirement is broken independently', async function () {
     const broken = altered('return value + 1;', 'return value;');
     const artifact = capture(), old = localTokens.create({ issuer: 'synthetic', audience: 'synthetic', now: () => 1000 })
       .issue(A, { kind: 'subject', subjectId: 'subject_a', credentialVersion: 9, rootVersion: 7 }, key).token;
-    const bad = currentVerifier(broken.plan(artifact, { tenant: A, artifactDigest: artifact.digest }), { permitOldKey: true });
+    const bad = currentVerifier(broken.plan(artifact, { tenant: A, artifactDigest: artifact.digest, signing }), { permitOldKey: true });
     const accepted = await bad.authority.verifyLegacyCredential({ tenant: A }, { token: old }, async () => true);
     assert.throws(() => assert.equal(accepted, null), assert.AssertionError, 'red: broken epochs plus permitted historical verification key accepts the old DATAJWT');
     const restored = currentVerifier(plan(artifact), { permitOldKey: true });

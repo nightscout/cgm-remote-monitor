@@ -12,8 +12,8 @@ process.once('message', async options => {
     scope.setTenancyMode('multi');
     persistence = await createPostgresSecretsMaintenance(options);
     const provider = createVaultTransit({
-      address: options.address, mount: 'transit', encryptionKey: 'tenant-a-data', signingKey: 'tenant-a-signing',
-      signingVersion: 1, getToken: async () => options.token, allowInsecureLoopback: true
+      address: options.address, mount: 'transit', encryptionKey: 'tenant-a-data',
+      getToken: async () => options.token, allowInsecureLoopback: true
     });
     async function checkpoint (name) {
       if (options.pauseAt !== name) return;

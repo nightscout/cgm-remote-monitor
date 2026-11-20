@@ -54,6 +54,7 @@ describe('operator checked-out lifetime: actual pg driver and Vault-await record
     const connect = require('node:test').mock.method(Pool.prototype, 'connect', callback => { checkouts++; callback(null, client); });
     const provisioning = require('../lib/tenant-registry/provision').createProvisioning({
       namespaces, actor: { principal: 'operator', consumer: 'test' },
+      signing: require('./fixtures/signing-secret').signing, accessTokens: require('./fixtures/signing-secret').DATA_REALM,
       vault: { address: 'http://127.0.0.1/', mount: 'transit', getToken: async () => 'synthetic', allowInsecureLoopback: true },
       fetchImpl: async (_url, options) => {
         requests.push(options.method);
