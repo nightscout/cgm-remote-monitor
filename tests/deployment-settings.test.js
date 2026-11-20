@@ -25,6 +25,8 @@ describe('deployment settings: the environment builds the deployment\'s document
     expected.evaluator.pgstream.generation = env.NS_PGSTREAM_GENERATION;
     // The api reads the evaluator's notification metadata from its own environment.
     expected.api.socketForwarding.consumerState = {};
+    // The api has no `access` namespace (deployment-signing-secret, amendment 4).
+    delete expected.api.postgres.namespaces.access;
     for (const role of ['api', 'realtime', 'evaluator', 'tenant-admin']) {
       assert.deepStrictEqual(settings.configuration(role, env), expected[role], role);
     }

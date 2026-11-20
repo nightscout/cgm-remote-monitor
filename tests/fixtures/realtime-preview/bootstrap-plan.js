@@ -149,7 +149,7 @@ function documents ({selected,layout: l,paths}) {
     registry,tenantSettings,trustedWorker,activity:{namespace:ns.control},completedOutput:{namespace:ns.eval_checkpoint,consumer:evaluator.consumer}};
   const api={version:1,domains:[...Object.keys(clinical),'settings'],legacy:true,context:true,writeClock:true,
     postgres:{connectionEnv:'RT_BOOTSTRAP_API_PG',readinessConnectionEnv:'RT_BOOTSTRAP_READINESS_PG',
-      namespaces:{...clinical,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
+      namespaces:{...clinical,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,clock:ns.clock}},
     vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
     registry,tenantSettings,activity:{namespace:ns.control},
     accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},localDataAuthentication:'node',

@@ -24,7 +24,7 @@ const SOURCE = { APP_PG: 'postgres://app:synthetic@db.example.test/ns', CHECK_PG
 // (decision deployment-signing-secret): its realm and access namespace are required.
 function apiConfig (extra = {}) {
   return { version: 1, writeClock: true, postgres: { connectionEnv: 'APP_PG', readinessConnectionEnv: 'CHECK_PG',
-    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy', clock: 'ns_clock', access: 'ns_access' } },
+    namespaces: { entries: 'ns_entries', authorization: 'ns_auth', secrets: 'ns_secrets', legacy: 'ns_legacy', clock: 'ns_clock' } },
   localDataAuthentication: 'node', accessTokens: { issuer: 'data', audience: 'api' },
   vault: { address: 'https://vault.example.test/', mount: 'transit', tokenEnv: 'VAULT_TOKEN' }, resolution: { mode: 'direct-alias' },
   registry: { namespace: 'ns_registry', refreshMs: 1000 },

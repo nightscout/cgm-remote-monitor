@@ -134,7 +134,7 @@ describe('preview root subject administration configuration', function () {
   function parse (subjectAdmin, extra = {}) {
     return require('../lib/server/serve/preview-config').parse({ version: 1, writeClock: true,
       postgres: { connectionEnv: 'RA_API_PG', readinessConnectionEnv: 'RA_READINESS_PG',
-        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock', access: 'ra_access' } },
+        namespaces: { entries: 'ra_entries', authorization: 'ra_authorization', secrets: 'ra_secrets', legacy: 'ra_legacy', clock: 'ra_clock' } },
       vault: { address: 'http://127.0.0.1:8200', mount: 'ra_transit', allowInsecureLoopback: true, tokenEnv: 'RA_VAULT' },
       localDataAuthentication: 'node', accessTokens: { issuer: 'ra-data', audience: 'ra-api' },
       resolution: { mode: 'direct-alias' }, registry: { namespace: 'ra_registry' },
