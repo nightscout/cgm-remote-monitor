@@ -9,12 +9,12 @@ class Socket extends EventEmitter{
  join(room){this.rooms.add(room);}leave(room){this.rooms.delete(room);}disconnect(){this.disconnected=true;super.emit('disconnect');}
  async receive(event,...args){await Promise.all(this.listeners(event).map(fn=>fn(...args)));}
 }
-function fixture(module=factory){
+function fixture(module=factory,bounds={maxRows:3,maxBytes:10000}){
  let tail=journal.empty(),allowed=true,held=false,failRead=false;
  const protocol=module.create({admission:{resolve:async req=>req.headers.host==='b.test'?B:A},
  api:{authorizeSocket:async()=>{if(held)throw new Error('temporarily unavailable');return {permissions:{read:allowed,write:false,write_treatment:false,ack:false},collections:allowed?['food','entries','activity']:[]};},executeSocketMutation:async()=>{}},readCurrent:async()=>({identity:'same'}),runtime:()=>({}),domains:['food','entries','activity'],retry:{minMs:5,maxMs:20},storageEvents:{read:async()=>{if(failRead){failRead=false;throw new Error('TRANSIENT_RAW_READ');}return tail;}}});
  return {protocol,failReadOnce:()=>{failRead=true;},get tail(){return tail;},set allowed(v){allowed=v;},set held(v){held=v;},reset(){tail=journal.reset(tail);},
- append(domain,action,id,extra={}){const doc={_id:id,identifier:'public-'+id,...extra},cols=Object.entries({id_kind:'string',doc}).map(([name,value])=>({name,value}));tail=journal.append(tail,domain,{xid:7,lsn:'0/'+(32+tail.head).toString(16),action,columns:action==='D'?null:cols,identity:action==='I'?null:cols},{maxRows:3,maxBytes:10000});},
+ append(domain,action,id,extra={}){const doc={_id:id,identifier:'public-'+id,...extra},cols=Object.entries({id_kind:'string',doc}).map(([name,value])=>({name,value}));tail=journal.append(tail,domain,{xid:7,lsn:'0/'+(32+tail.head).toString(16),action,columns:action==='D'?null:cols,identity:action==='I'?null:cols},bounds);},
  async socket(host){const socket=new Socket(host);await protocol.prepare(socket);protocol.bind(socket,'/storage');let answer;await socket.receive('subscribe',{},value=>{answer=value;});assert.equal(answer.success,true);return socket;},close:()=>protocol.close()};
 }
 describe('raw storage live-session delivery independent of clinical completion',()=>{
@@ -32,6 +32,22 @@ describe('raw storage live-session delivery independent of clinical completion',
  });
  it('retains held authority cursor until recheck, then catches up or removes revoked collections',async()=>{
   const f=fixture();try{const a=await f.socket();f.held=true;await f.protocol.recheckTenant(A);f.append('food','I','held');await f.protocol.storage({tenant:A,tail:f.tail});assert.deepEqual(a.sent,[]);f.held=false;await f.protocol.recheckTenant(A);assert.equal(a.sent.length,1);f.allowed=false;await f.protocol.recheckTenant(A);f.append('food','I','revoked');await f.protocol.storage({tenant:A,tail:f.tail});assert.equal(a.sent.length,1);}finally{f.close();}
+ });
+ it('at the production tail bound, a held socket catches up within it and is disconnected once it falls behind',async()=>{
+  const {maxRows}=journal.BOUNDS;
+  const f=fixture(factory,journal.BOUNDS);try{
+   const a=await f.socket(),b=await f.socket();
+   f.held=true;await f.protocol.recheckTenant(A);
+   for(let i=0;i<maxRows;i++)f.append('food','I','w'+i);
+   await f.protocol.storage({tenant:A,tail:f.tail});assert.deepEqual(a.sent,[]);assert.equal(f.tail.base,0,'TAIL_HOLDS_A_FULL_BOUND');
+   f.held=false;await f.protocol.recheckTenant(A);
+   assert.equal(a.sent.length,maxRows,'HELD_SOCKET_CATCHES_UP_WITHIN_BOUND');assert(!a.disconnected);
+   f.held=true;await f.protocol.recheckTenant(A);
+   for(let i=0;i<=maxRows;i++)f.append('food','I','x'+i);
+   assert(f.tail.base>a.sent.length,'CURSOR_NOW_BEHIND_BASE');
+   f.held=false;await f.protocol.recheckTenant(A);
+   assert(a.disconnected&&b.disconnected,'BEHIND_BOUND_MUST_DISCONNECT');assert.equal(a.sent.length,maxRows,'NO_SILENT_SKIP');
+  }finally{f.close();}
  });
  it('RED/restored control catches silent journal truncation',async()=>{
   const broken=require('./lib/clinical-working-set/control')('../lib/server/realtime/protocol',"retire(state,CAUSES.STORAGE_CONTINUITY);continue;","state.storageCursor=tail.base;");

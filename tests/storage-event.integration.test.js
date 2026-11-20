@@ -163,4 +163,26 @@ optInSuite(enabled,'CLINICAL_WINDOW_PG_SOCKET or NS_CLINICAL_WINDOW_TEST=1 with 
   assert(receipt.some(row=>row.tenant===A&&row.pendingAt!==null),'COMMITTED_ACCEPTANCE_MUST_REMAIN_RECOVERABLE');
  });
 
+ it('bounds the receipt tail by its own limit, not the clinical-input limits; RED when the clinical limits are passed through',async()=>{
+  // Seed a tail deeper than the journal bound, as an old-cap journal would be.
+  const seed=async()=>{
+   const current=journal.validate(await tail(B)),depth=journal.BOUNDS.maxRows+500,events=[];
+   for(let i=1;i<=depth;i++)events.push({event:'create',domain:'food',value:{colName:'food',doc:{identifier:'seed-'+i}},sequence:current.head+i});
+   const seeded=journal.validate({...current,base:current.head,head:current.head+depth,events,keys:[]});
+   await db.query("UPDATE "+table+" SET projection=jsonb_set(projection,'{1}',$3::jsonb) WHERE tenant_id=$1 AND consumer=$2",[B,consumer,JSON.stringify(seeded)]);
+   return seeded;
+  };
+  const insert=async id=>{await db.query('INSERT INTO synthetic_raw.food VALUES($1,\'string\',$2,$3)',[B,id,{_id:id,identifier:'public-'+id}]);return (await wal())[0];};
+  const first=await insert('bound-red'),second=await insert('bound-green');
+  let seeded=await seed();
+  const broken=control('../lib/storage/clinical-stream-sql','journal.BOUNDS);','{maxRows,maxBytes});');
+  await broken.acceptTransaction(options(first.cohort));
+  assert.equal((await tail(B)).events.length,limits.maxRows,'RED: clinical limits bound the tail');
+  seeded=await seed();
+  await accept(second);
+  const after=await tail(B);
+  assert.equal(after.head,seeded.head+1);assert.equal(after.events.length,journal.BOUNDS.maxRows,'TAIL_BOUND_IS_ITS_OWN');
+  assert.equal(after.base,after.head-journal.BOUNDS.maxRows);assert.equal(after.events.at(-1).value.doc.identifier,'public-bound-green');
+ });
+
 });

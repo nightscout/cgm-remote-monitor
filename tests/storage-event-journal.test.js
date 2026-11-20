@@ -42,6 +42,17 @@ describe('bounded raw storage mutation journal',()=>{
   assert.equal(large.base,large.head);assert.equal(large.events.length,0);assert(Buffer.byteLength(JSON.stringify(large))<=512);
   assert.equal(journal.reset(tail).base,101);
  });
+ it('has its own bound, separate from the clinical-input limits, and trims a tail written at the old cap',()=>{
+  assert.deepEqual(journal.BOUNDS,{maxRows:1000,maxBytes:524288});
+  // A legacy tail written under the clinical bounds (10,000 events / 8 MiB).
+  const events=Array.from({length:3000},(_,i)=>({event:'create',domain:'entries',value:{colName:'entries',doc:{_id:'legacy-'+i,identifier:'legacy-'+i,pad:'x'.repeat(2600)}},sequence:i+1}));
+  const legacy=journal.validate({...journal.empty(),head:3000,base:0,events,last:'0/10',keys:['k']});
+  assert(Buffer.byteLength(JSON.stringify(legacy))>7e6);
+  const next=journal.append(legacy,'food',event('I',{...doc,_id:'after',identifier:'after'},null,'0/11'));
+  assert.equal(next.head,3001);assert(next.events.length<=journal.BOUNDS.maxRows);
+  assert(Buffer.byteLength(JSON.stringify(next))<=journal.BOUNDS.maxBytes,'TRIMMED_TO_OWN_BYTE_BOUND');
+  assert.equal(next.events.at(-1).value.doc.identifier,'after');assert.equal(next.base,next.head-next.events.length);
+ });
  it('matches full JSON eviction at every byte boundary with Unicode, escapes, digit growth and equal-LSN keys',()=>{
   function reference(saved,data,bounds){
    const key=require('node:crypto').createHash('sha256').update(JSON.stringify(['food',data])).digest('hex');

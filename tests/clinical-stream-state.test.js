@@ -61,3 +61,37 @@ describe('complete native clinical cohorts',()=>{
   const bytes=Buffer.byteLength(JSON.stringify(next));assert.throws(()=>stream.bound(next,{...limits,maxBytes:bytes-1}),/BYTE_BOUND/);stream.bound(next,{...limits,maxBytes:bytes});
  });
 });
+describe('receipt CPU: one validation, measured row sizes',()=>{
+ it('keeps rowBytes exactly equal to the JSON array size across inserts, replacements, deletes and expiry; a stale-size control is red',()=>{
+  const policy={kind:'clinical-window-v1',at:1000000,devicestatusMs:86400000};
+  const big={maxRows:100,maxBytes:1000000};
+  let saved=stream.bootstrap(null,{checkpoint:10,signature:{stamp:10,deleted:0},stream:native.boundary,rows:[{domain:'entries',document:{_id:'a',date:999000,sgv:100,note:'é'},ordinal:1,storageBytes:10}],policy},big);
+  const exact=state=>Buffer.byteLength(JSON.stringify(state.rows));
+  assert.equal(saved.rowBytes,exact(saved));
+  const steps=[[native.row('b',120)],[native.row('a',140,'U')],[native.row('b',0,'D')],[native.row('c',130),native.row('d',131)]];
+  steps.forEach((rows,i)=>{for(const row of rows)for(const c of row.columns||[])if(c.name==='doc')c.value={...c.value,date:999500,text:'ü'.repeat(i+1)};
+   saved=stream.applyTransaction(saved,events(rows),native.coverage('0/'+(0x40+i*16).toString(16).toUpperCase()),big,999600);
+   assert.equal(saved.rowBytes,exact(saved),'ROW_BYTES_DRIFT_AFTER_STEP_'+i);});
+  const expired=stream.expire(saved,{...policy,at:1000000+2*86400000},big);
+  assert.equal(expired.rowBytes,exact(expired));assert.equal(stream.rowsBytes([]),2);
+  // Control: a size table that never measures a new row drifts at once.
+  const broken=control('../lib/storage/clinical-stream-state','if(size===undefined){size=Buffer.byteLength(JSON.stringify(row));rowSizes.set(row,size);}','if(size===undefined)size=0;');
+  const rows=[{a:1},{b:'two'}];assert.notEqual(broken.rowsBytes(rows),Buffer.byteLength(JSON.stringify(rows)));assert.equal(stream.rowsBytes(rows),Buffer.byteLength(JSON.stringify(rows)));
+ });
+ it('reuses a validation only for the same envelope object and bounds, and bounds by the received size when given',()=>{
+  const envelope=native.envelope([native.row('a')]),transaction=stream.validateTransaction(envelope,limits);
+  assert.equal(stream.revalidateTransaction(transaction,envelope,limits),transaction);
+  // Another envelope, other bounds or a forged result are validated in full.
+  const partial=structuredClone(envelope);partial.Transaction.splice(1,1);
+  assert.throws(()=>stream.revalidateTransaction(transaction,partial,limits),/COVERAGE/);
+  assert.throws(()=>stream.revalidateTransaction(transaction,envelope,{...limits,maxBytes:10}),/BYTE_BOUND/);
+  assert.throws(()=>stream.revalidateTransaction({...transaction},partial,limits),/COVERAGE/);
+  const size=Buffer.byteLength(JSON.stringify(envelope));
+  assert.throws(()=>stream.validateTransaction(envelope,{...limits,maxBytes:size,bytes:size+1}),/BYTE_BOUND/);
+  assert.equal(stream.validateTransaction(envelope,{...limits,maxBytes:size,bytes:size}).changes.length,1);
+  assert.throws(()=>stream.validateTransaction(envelope,{...limits,bytes:-1}),TypeError);
+  // Control: accepting any prior result skips validation of a partial envelope.
+  const broken=control('../lib/storage/clinical-stream-state','if(prior&&prior.envelope===envelope&&','if(prior||');
+  assert.doesNotThrow(()=>broken.revalidateTransaction(broken.validateTransaction(envelope,limits),partial,limits));
+ });
+});

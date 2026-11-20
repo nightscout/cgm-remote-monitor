@@ -93,10 +93,10 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('acknowledgement independent of an
   });
 
   it('stores a first-seen tenant\'s receipt durably without in-memory admission; removing in-receipt initialization is red', async function () {
-    const file = require.resolve('../lib/storage/clinical-stream-sql'), text = fs.readFileSync(file, 'utf8'), needle = ',rawDeliveryTenants,admit:true});';
+    const file = require.resolve('../lib/storage/clinical-stream-sql'), text = fs.readFileSync(file, 'utf8'), needle = ',rawDeliveryTenants,admit:true,defer:true});';
     assert.equal(text.split(needle).length, 2);
     const broken = { exports: {} };
-    vm.runInThisContext('(function(require,module,exports){' + text.replace(needle, ',rawDeliveryTenants});') + '\n})', { filename: file })(require('node:module').createRequire(file), broken, broken.exports);
+    vm.runInThisContext('(function(require,module,exports){' + text.replace(needle, ',rawDeliveryTenants,defer:true});') + '\n})', { filename: file })(require('node:module').createRequire(file), broken, broken.exports);
     await assert.rejects(receipt(C, 'c0', { module: broken.exports }), /EVALUATOR_TYPED_ADMISSION_REQUIRED/);
     assert.equal((await cohort.output(C)).work_observed[5], null, 'refused receipt leaves no partial row');
     await receipt(C, 'c1');
