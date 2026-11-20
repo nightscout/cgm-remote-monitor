@@ -75,6 +75,29 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('writer-driven pending mark', func
     assert.equal(String((await row(C)).work_observed[0]), 'null');
   });
 
+  it('provisioning from an admin configuration with no transport setting creates a row the api mark can use', async function () {
+    // The admin role gets no NS_INPUT_TRANSPORT in either deployment binding; its
+    // provisioning statement alone must leave the evaluator row typed and pending.
+    const prefix = 'synthetic_p' + suffix, ns = prefix + '_eval_checkpoint', D = '44444444-4444-4444-8444-444444444444';
+    await admin.query('CREATE SCHEMA "' + ns + '"');
+    try {
+      await require('../lib/migrations/postgres').run('up', { direct: true, connectionString: uri, namespace: ns,
+        catalogue: require('../migrations/candidates/postgres-evaluator-work-v2.json') });
+      for (const sql of writerDriven.grants({ namespace: ns, roles: [role] })) await admin.query(sql);
+      const config = require('../lib/server/serve/deployment-settings').configuration('admin',
+        { NS_PG_PREFIX: prefix, NS_VAULT_ADDR: 'http://vault.invalid', NS_PROVISIONER_PG: 'postgres://unused.invalid/db' }).provisioning;
+      assert.equal(Object.keys(config).includes('pendingConsumer'), true, 'TRANSPORT_FREE_ADMIN_NAMES_THE_PENDING_ROW');
+      const row = config.checkpoints.find(entry => entry.namespace === ns && entry.consumer === config.pendingConsumer?.consumer) ||
+        config.checkpoints.find(entry => entry.namespace === ns && entry.consumer.endsWith('-completed'));
+      const insert = require('../lib/tenant-registry/provision').checkpointInsert(row, config.pendingConsumer, D, Date.now());
+      await admin.query(insert.text, insert.values);
+      const binding = writerDriven.binding({ namespace: ns, consumer: row.consumer });
+      await bound(D, query => writerDriven.mark(query, binding, D, { source: 'clock', floor: 1 }));
+      const marked = (await admin.query('SELECT work_version,work_pending_at FROM "' + ns + '".tenant_consumer_checkpoint WHERE tenant_id=$1', [D])).rows[0];
+      assert.equal(marked.work_version, 2); assert.notEqual(marked.work_pending_at, null);
+    } finally { await admin.query('DROP SCHEMA "' + ns + '" CASCADE'); }
+  });
+
   it('RED control: without the pending-writer grants the mark is refused (42501)', async function () {
     await admin.query('REVOKE UPDATE(work_observed,work_observed_at,work_pending_at) ON "' + namespace + '".tenant_consumer_checkpoint FROM ' + role);
     try {
