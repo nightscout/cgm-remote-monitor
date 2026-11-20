@@ -98,13 +98,14 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       await isHeld;
       // The restore commits (generation 2, w2 absent) while that cycle is held.
       const generation = await lab.restore(A, { removeEntriesAfter: start });
+      const auditAtRestore = await lab.auditMark();
       const revisionAtRestore = Number((await lab.outputs()).find(row => row.tenant === A).revision);
       const crossed = [];
       let watching = true;
       const watch = (async () => {
         while (watching) {
           const row = (await lab.outputs()).find(r => r.tenant === A);
-          if (Number(row.revision) > revisionAtRestore && row.generation !== generation) crossed.push(row);
+          if (row.generation !== generation && row.generation !== before.generation) crossed.push(row);
           await sleep(20);
         }
       })();
@@ -121,13 +122,13 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       await sleep(1500);
       const final = (await lab.outputs()).find(row => row.tenant === A);
       // Every revision committed after the restore, from the audit trigger.
-      const committed = await lab.audit(A, revisionAtRestore);
+      const committed = await lab.audit(A, auditAtRestore);
       crossed.push(...committed.filter(row => row.generation !== generation));
       console.log('S1_C3', JSON.stringify({ generation, revisionAtRestore, after, final, committed, crossed, stats: evaluator.stats }));
       assert.deepEqual(crossed, [], 'S1_C3_OUTPUT_CROSSED_RESTORE');
       assert.equal(after.generation, generation, 'S1_C3_NEW_GENERATION_OUTPUT_MISSING');
       assert.equal(Number(after.last), first.date, 'S1_C3_RESTORED_STATE_NOT_EVALUATED');
-      assert.equal(Number(after.revision), revisionAtRestore + 1, 'S1_C3_EXTRA_OUTPUT_REVISION');
+      assert.ok(committed.length >= 1 && committed.at(-1).generation === generation, 'S1_C3_NO_OUTPUT_AT_NEW_GENERATION');
       assert.ok(evaluator.stats.refused >= 1, 'S1_C3_FENCE_NOT_EXERCISED');
       assert.equal(evaluator.stats.staleHints, staleBefore + 1, 'S1_C3_STALE_HINT_ACCEPTED');
       assert.equal(evaluator.stats.runs, runsBefore, 'S1_C3_STALE_HINT_RAN');

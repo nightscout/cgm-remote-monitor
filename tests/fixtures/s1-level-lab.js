@@ -70,13 +70,14 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
       } } });
     if (audit) {
       // Test-only oracle: every committed output revision, with its generation.
-      await admin.query('CREATE TABLE "' + controlNs + '".output_audit (tenant_id uuid, revision bigint, generation bigint, at timestamptz DEFAULT clock_timestamp())');
+      await admin.query('CREATE TABLE "' + controlNs + '".output_audit (id bigserial PRIMARY KEY, tenant_id uuid, revision bigint, generation bigint, at timestamptz DEFAULT clock_timestamp())');
       await admin.query('CREATE FUNCTION "' + controlNs + '".s1_audit() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN IF NEW.output_revision IS DISTINCT FROM OLD.output_revision OR NEW.output_restore_generation IS DISTINCT FROM OLD.output_restore_generation THEN INSERT INTO "' + controlNs + '".output_audit(tenant_id,revision,generation) VALUES (NEW.tenant_id,NEW.output_revision,NEW.output_restore_generation); END IF; RETURN NEW; END $$');
       await admin.query('CREATE TRIGGER s1_audit AFTER UPDATE ON ' + lab.workTable + ' FOR EACH ROW EXECUTE FUNCTION "' + controlNs + '".s1_audit()');
     }
     await lab.reset();
   };
-  lab.audit = async (tenant, afterRevision) => (await lab.admin.query('SELECT revision::text,generation::text FROM "' + controlNs + '".output_audit WHERE tenant_id=$1 AND revision>$2 ORDER BY revision', [tenant, afterRevision])).rows;
+  lab.auditMark = async () => (await lab.admin.query('SELECT COALESCE(max(id),0)::text AS id FROM "' + controlNs + '".output_audit')).rows[0].id;
+  lab.audit = async (tenant, afterId) => (await lab.admin.query('SELECT id::text,revision::text,generation::text FROM "' + controlNs + '".output_audit WHERE tenant_id=$1 AND id>$2 ORDER BY id', [tenant, afterId])).rows;
 
   lab.reset = async () => {
     await lab.evaluator?.close(); lab.evaluator = null;
@@ -84,6 +85,7 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     for (const tenant of EXTRA) await lab.admin.query(`INSERT INTO "${base.namespaces.clock}".tenant_write_clock VALUES ($1,$2) ON CONFLICT DO NOTHING`, [tenant, base.initial]);
     await lab.admin.query('DELETE FROM ' + lab.workTable);
     await lab.admin.query('DELETE FROM ' + lab.lifecycleTable);
+    if (audit) await lab.admin.query('DELETE FROM "' + controlNs + '".output_audit');
     const digest = crypto.createHash('sha256').update(require('../../lib/server/serve/evaluator-runtime').canonical(['evaluator-work-v2', workNs, CONSUMER])).digest('hex');
     for (const tenant of lab.tenants) {
       await lab.admin.query(`INSERT INTO ${lab.workTable} (tenant_id,consumer,contract_digest,checkpoint,projection,work_version,work_observed,work_completed,work_observed_at)
