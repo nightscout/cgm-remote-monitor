@@ -6,6 +6,8 @@ let held, release, armed = false, armedTenant, armedExpected, armedNonce, runnin
 // Count actual role queries without changing their result or timing contract.
 const clinicalReads={snapshots:0,statistics:0,catalogue:0,exports:0,imports:0};
 for(const key of Object.keys(clinicalReads))clinicalReads[key+'Completed']=0;
+// Every statement by pool application_name and leading SQL text (statement-cost harness).
+const statements=new Map();
 const pg=require('pg'),query=pg.Client.prototype.query;
 pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text,access=[];
   if(typeof sql==='string'){
@@ -16,6 +18,7 @@ pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?
     if(sql.includes('information_schema.columns'))access.push('catalogue');
   }
   for(const key of access)clinicalReads[key]++;
+  if(typeof sql==='string'){const pool=this.connectionParameters?.application_name||'unnamed',shape=pool+' | '+sql.replace(/\s+/g,' ').trim().slice(0,160);statements.set(shape,(statements.get(shape)||0)+1);}
   const completed=()=>{for(const key of access)clinicalReads[key+'Completed']++;};
   const callback=args[args.length-1];
   if(access.length&&typeof callback==='function')args[args.length-1]=function(error,...values){if(!error)completed();return callback.call(this,error,...values);};
@@ -74,6 +77,7 @@ process.on('message', async request => {
     else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }
     else if (request.action === 'last') value = await currentOutput(request.tenant);
     else if (request.action === 'queries') value = {...clinicalReads};
+    else if (request.action === 'statements') { value = Object.fromEntries(statements); if (request.reset) statements.clear(); }
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'current') value = await context.isCurrent(request.tenant, request.identity);
     else if (request.action === 'close') { await running.stop(); value = true; }

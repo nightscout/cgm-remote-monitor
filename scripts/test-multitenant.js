@@ -70,6 +70,8 @@ const INVENTORY = [
     note: 'native wal2json FULL identity/TOAST, equal-LSN cohorts, durable raw tail and populated identity migration' },
   { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1', NS_PGSTREAM_SELECTED_STARTUP_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
+  { file: 'tests/evaluator-statements.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'statements per accepted write and per time-only cycle on the actual evaluator role, by pool and kind' },
   { file: 'tests/native-operation-control-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native source-selected control reads and exact consumer-port operational re-admission; column/schema/identity and held-backend refusal controls' },
   { file: 'tests/realtime-completed-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
