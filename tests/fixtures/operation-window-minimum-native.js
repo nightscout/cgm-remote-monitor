@@ -81,12 +81,6 @@ function create ({ receiptPrefix = '' } = {}) {
         await admin.query('ALTER SCHEMA ' + q(namespace) + ' OWNER TO ' + q(l.owner));
       }
       for (const statement of plan.grants(l)) await admin.query(statement);
-      const streamRole = 'nswmin_stream', secret = crypto.randomBytes(24).toString('hex');
-      await admin.query('CREATE ROLE ' + q(streamRole) + " LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE REPLICATION NOINHERIT CONNECTION LIMIT 4 PASSWORD '" + secret + "'");
-      await admin.query('CREATE SCHEMA pgstream AUTHORIZATION ' + q(l.owner));
-      await admin.query('REVOKE ALL ON SCHEMA pgstream FROM PUBLIC');
-      await admin.query('GRANT USAGE,CREATE ON SCHEMA pgstream TO ' + q(streamRole));
-      const streamURL = new URL(bootstrapURI); streamURL.username = streamRole; streamURL.password = secret; urls.stream = streamURL.toString();
       for (const row of locks) await admin.query('INSERT INTO ' + control('tenant_lifecycle_windows') + "(tenant_id,lock_key,phase,generation) VALUES($1,$2,'active',1)", [row.tenant, row.key]);
     });
     lifetimePool = new Pool({ connectionString: urls.lifetime_api, max: 1, Client: counter.Client, options: '-c search_path=pg_catalog' });

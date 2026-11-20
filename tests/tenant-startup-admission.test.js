@@ -172,7 +172,7 @@ describe('independent tenant startup admission (source protocol)', function () {
     const scan=async()=>metadata;scan.state=()=>({available:true,generation:1});
     const reader={scan,current:tenant=>metadata.get(tenant),state:scan.state,health:()=>({available:true}),close:async()=>{}};
     const registry={tenants:entries,lookup:async tenant=>entries.get(tenant),isActive:tenant=>entries.has(tenant),onRemove(){},close:async()=>{},revision:()=>1,stats:()=>({})};
-    const store={admit:async()=>{},observeMany:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
+    const store={admit:async()=>{},observeMany:async()=>{},work:async()=>[],pending:async()=>[],nextDue:async()=>null,deliveries:async()=>[],begin:async()=>({clock:'1'}),complete:async(tenant,value)=>({output:{tenant,identity:value.identity,contentDigest:'d'.repeat(64),outputRevision:1,result:value.result},changed:true})};
     const boot=load('lib/server/serve/evaluator-preview.js',{
       ...nativeBoot.mocks({events:nativeEvents}),
       '../../storage/postgres-connection':async()=>({end:async()=>{}}), './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness':readiness,
@@ -182,13 +182,13 @@ describe('independent tenant startup admission (source protocol)', function () {
       '../../pool-membership':{member:async()=>({configured:{mode:'standalone'},register:async()=>{},close:async()=>{}})},
       './evaluator-pool':{create:()=>({partitioned:false,start(){},refresh:async()=>{},admits:()=>true,addTenant(){},close(){}})},
       '../../trusted-worker/postgres':{create:()=>reader},'../../trusted-worker/lifecycle':async()=>({version:()=>1,activateRefresh(){},close:async()=>{}}),
-      '../../pgstream/evaluator':{open:async()=>({store,ready:async()=>{},assertAvailable(){},close:async()=>{},health:()=>({})})},
+      '../../writer-driven/evaluator':{open:async()=>({store,ready:async()=>{},assertAvailable(){},close:async()=>{},health:()=>({})})},
       // Exercise the actual common scheduler; it now owns durable startup.
       '../../pgstream/activity-scheduler':require('../lib/pgstream/activity-scheduler'),
       '../internal-api/clients':{completedOutput:()=>({})},
       './evaluator-consumers':{prepare:async()=>null}
     });
-    const config={registry:{namespace:'synthetic_registry'},trustedWorker:{activity:'synthetic_activity'},pgstream:nativeBoot.config({bounds:{recoveryMs:1000,pendingMs:1000},outputPeer:{}}),maxTenants:2,maxRows:10,maxBytes:10000,pageSize:1,
+    const config={registry:{namespace:'synthetic_registry'},trustedWorker:{activity:'synthetic_activity'},pgstream:nativeBoot.config({bounds:{recoveryMs:1000,pendingMs:1000},outputPeer:{}}),writerDriven:nativeBoot.writer(),maxTenants:2,maxRows:10,maxBytes:10000,pageSize:1,
       namespaces:{clock:'synthetic_clock',checkpoint:'synthetic_checkpoint'},consumer:'evaluator-test',timeIntervalMs:100,
       schedule:()=>1,cancel:()=>{}};
     let role;try{
@@ -202,9 +202,9 @@ describe('independent tenant startup admission (source protocol)', function () {
       readiness.provisionTenant=async()=>{throw new Error('should not enter paused tenant');};
       role=await boot.boot(config,{operationWindow:f.window});assert.equal(role.health().tenants.some(row=>row.ready),false);
       await role.close();role=null;
-      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,2,'BOTH_BOOT_GENERATIONS_CLOSE_NATIVE_PORTS:'+event);
+      assert.equal(nativeEvents.filter(value=>value==='schema-checked').length,2,'BOTH_BOOT_GENERATIONS_CHECK_THE_SCHEMA_ONCE');
     }finally{if(role)await role.close();await f.window.close();}
-    const failed=load('lib/server/serve/evaluator-preview.js',{'./registry-tenant-set':{openDemand:async()=>registry},'./role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
+    const failed=load('lib/server/serve/evaluator-preview.js',{...nativeBoot.mocks(),'./registry-tenant-set':{openDemand:async()=>registry},'./role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness':async()=>{throw new Error('bad shared metadata');}});
     const shared=fixture({phase:'suspended'});
     try{await assert.rejects(failed.boot(config,{operationWindow:shared.window}),/readiness or initialization refused/);}
     finally{await shared.window.close();}

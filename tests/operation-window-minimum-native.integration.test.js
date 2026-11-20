@@ -44,21 +44,15 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
   const active = () => f.operation(f.A);
   const resetWindow = () => f.sql('UPDATE ' + f.control('tenant_lifecycle_windows') + " SET phase='active',claim_id=NULL,artifact_digest=NULL WHERE tenant_id=$1", [f.A]);
 
-  it('baseline capability matrix distinguishes restricted identities from pgstream owned DDL', async function () {
+  it('baseline capability matrix: every serving identity is restricted', async function () {
     const tableOID = (await f.sql('SELECT $1::regclass::oid AS oid', [f.control('tenant_lifecycle_windows')])).rows[0].oid;
-    for (const kind of ['api', 'lifetime_api', 'operator', 'suppression', 'stream']) {
+    for (const kind of ['api', 'lifetime_api', 'operator', 'suppression']) {
       const client = new Client({ connectionString: f.urls[kind] }); await client.connect();
       try {
         const role = (await client.query('SELECT rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,rolreplication,rolinherit FROM pg_roles WHERE rolname=current_user')).rows[0];
         assert.equal(role.rolsuper, false); assert.equal(role.rolbypassrls, false);
         assert.equal(role.rolcreatedb, false); assert.equal(role.rolcreaterole, false);
-        assert.equal(role.rolreplication, kind === 'stream');
-        if (kind === 'stream') {
-          assert.equal(role.rolinherit, false);
-          await client.query('CREATE TABLE pgstream.minimum_owned (n integer)');
-          await client.query('ALTER TABLE pgstream.minimum_owned ADD COLUMN label text');
-          await client.query('DROP TABLE pgstream.minimum_owned');
-        }
+        assert.equal(role.rolreplication, false);
         await assert.rejects(client.query('ALTER TABLE ' + f.control('tenant_lifecycle_windows') + ' NO FORCE ROW LEVEL SECURITY'), { code: '42501' });
         assert.equal((await client.query('SELECT has_table_privilege(current_user,$1::oid,$2) AS allowed', [tableOID, 'UPDATE WITH GRANT OPTION'])).rows[0].allowed, false);
         await assert.rejects(client.query('SET ROLE ' + f.q(f.l.owner)), { code: '42501' });

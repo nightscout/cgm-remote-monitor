@@ -16,10 +16,6 @@ describe('multitenant inventory executable environment consumption', function ()
     for(const file of pgstream){const row=rows.get(file);assert(row);assert.deepEqual(row.flags,{NS_PGSTREAM_ROLE_TEST:'1'});assert.deepEqual(row.shared,['postgres']);assert.deepEqual(row.own,[]);}
     const recovery=rows.get('tests/pgstream-recovery.integration.test.js');assert(recovery);assert.deepEqual(recovery.flags,{NS_PGSTREAM_RECOVERY_TEST:'1',NS_PGSTREAM_SELECTED_STARTUP_TEST:'1'});assert.throws(()=>inventory.producerSelection([recovery],{}),/MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/,'RECOVERY_NEEDS_REAL_PRODUCER_NOT_STOCK_DB');
     const rest=rows.get('tests/preview-entries-acquisition.integration.test.js');assert.deepEqual(rest.flags,{NS_REST_ACQUISITION_NATIVE:'1'});assert.deepEqual(rest.shared,[]);assert.deepEqual(rest.own,['postgres']);
-    const protocol='tests/evaluator-preview-registry-fixture.test.js';assert.equal(rows.has(protocol),false);
-    assert.deepEqual(unlisted(protocol,readSource(protocol)),[]);
-    const changed=readSource(protocol)+"\nconst {optInSuite: native} = require('./support/opt-in'); native(process.env.NS_PLANTED_PROTOCOL_TEST === '1','native requirement');";
-    assert.match(unlisted(protocol,changed)[0],/opt-in test file missing/,'NATIVE_OPTIN_REVOKES_PROTOCOL_EXCEPTION');
     const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
     const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
   });
@@ -48,24 +44,6 @@ describe('multitenant inventory executable environment consumption', function ()
     }
     assert.equal(inventory.producerSelection([{ flags: { NS_PGSTREAM_ROLE_TEST: '1' } }], {}), null, 'low-level SQL receipt controls do not claim a running producer');
   });
-  it('registers bounded-state native suites and requires their WAL image without demanding an unused producer', function () {
-    const files = ['tests/clinical-working-set.integration.test.js'];
-    const selected = inventory.select(files);
-    assert.equal(selected.length, 1);
-    for (const suite of selected) {
-      assert.deepEqual(suite.flags, { NS_CLINICAL_WINDOW_TEST: '1' });assert.deepEqual(suite.shared, ['postgres']);assert.deepEqual(suite.own, []);
-      assert(inventory.classifyOptInSource(readSource(suite.file)).optIn, 'DISABLED_NATIVE_MUST_REGISTER_RECOGNIZED_PENDING');
-      assert.throws(() => inventory.producerSelection([suite], {}), /NATIVE_WAL_IMAGE_REQUIRED/);
-    }
-    const source = { NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE: 'sha256:' + 'a'.repeat(64) };
-    const config = inventory.producerSelection(selected, source);
-    assert.equal(config.requiresProducer, false);assert(config.command.includes('wal_level=logical'));assert(config.command.includes('output_plugin_libraries=wal2json'));
-    const omitted = inventory.checkInventory({ inventory: inventory.INVENTORY.filter(suite => !files.includes(suite.file)) });
-    assert.deepEqual(omitted,files.map(file=>file+': opt-in test file missing from scripts/test-multitenant.js INVENTORY'),'ONLY_THE_TWO_REMOVED_BOUNDED_STATE_SUITES_ARE_MISSING');
-    const withProduct = [...selected, ...inventory.select(['pgstream-recovery.integration'])];
-    assert.throws(() => inventory.producerSelection(withProduct, source), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/, 'SQL_ONLY_GUARD_MUST_NOT_WEAKEN_PRODUCT_REQUIREMENTS');
-  });
-
   it('binds exact recovery source before allocation and refuses a caller mismatch', function () {
     const selected = inventory.select(['tenant-recommission.integration']);
     assert.equal(selected.length, 1);

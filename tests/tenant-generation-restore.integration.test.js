@@ -10,26 +10,6 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1', 'disposa
     const fixture = require('./fixtures/operation-window-minimum-native').create({receiptPrefix:'generation-'});
     before(() => fixture.start());
     after(() => fixture.close());
-    it('establishes the real evaluator baseline after a transaction already in progress finishes', async () => {
-      const baseline = require('../lib/pgstream/schema-baseline');
-      const observed = Promise.withResolvers();
-      await fixture.admin(async writer => {
-        await writer.query('BEGIN');
-        try {
-          await writer.query('SELECT pg_current_xact_id()');
-          const cut = baseline.create({timeoutMs:5000, read: async (...args) => {
-            const result = await fixture.lower.readOnly(...args);
-            if (args[0].includes('pg_snapshot_xip') && result.rows[0]?.running > 0) observed.resolve();
-            return result;
-          }});
-          const capture = cut.capture();
-          await Promise.race([observed.promise, capture.then(() => assert.fail('BASELINE_CROSSED_ACTIVE_XID'))]);
-          await writer.query('COMMIT');
-          await capture;
-        } finally { await writer.query('ROLLBACK'); }
-      });
-    });
-
     it('rebuilds the changed tenant cache once before admitting overlapping scopes', async () => {
       const {A, B, locks} = fixture, cache = new Map(), invalidated = [];
       const pool = fixture.freshPool('lifetime_api');

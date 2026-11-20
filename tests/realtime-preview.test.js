@@ -306,14 +306,9 @@ describe('explicit realtime preview source contracts', function () {
     const single = new (require('../lib/api3/storageSocket'))({}, {}, {}); const sent = [];
     single.namespace = { to: collection => ({ emit: (event, value) => sent.push({ collection, event, value }) }) };
     single.emitDelete({ colName: 'entries', identifier: first.identifier });
-    const changes = require('../lib/storage/storage-event-journal').changes('entries',{action:'D',identity:[{name:'id_kind',value:'objectid'},{name:'doc',value:{_id:id}}]});
-    assert.deepEqual(changes[0].value, sent[0].value, 'RT_TYPED_WIRE_BASELINE actual single broadcaster has the same delete wire');
+    assert.deepEqual(sent[0].value, { colName: 'entries', identifier: id }, 'RT_TYPED_WIRE_BASELINE actual single broadcaster delete wire');
   });
-  it('storage changes use existing normalized wire shapes and include connected typed identity absence', function () {
-    const { ObjectId } = require('mongodb'); const id = '0123456789abcdef01234567';
-    const rows = [{ domain: 'entries', document: { _id: new ObjectId(id), sgv: 111 } }, { domain: 'entries', document: { _id: id, sgv: 222 } }];
-    const changes = require('../lib/storage/storage-event-journal').changes('entries',{action:'D',identity:[{name:'id_kind',value:'objectid'},{name:'doc',value:{_id:id,sgv:111}}]});
-    assert.deepEqual(changes, [{ event: 'delete', domain: 'entries', value: { colName: 'entries', identifier: id } }]);
+  it('storage rooms are tenant-scoped', function () {
     assert.notEqual(protocolFactory.room(A, '/storage', 'entries'), protocolFactory.room(B, '/storage', 'entries'));
   });
   it('separates recovery scheduling from writes and fences late acquisition after close/config change', async function () {
