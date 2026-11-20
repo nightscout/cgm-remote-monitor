@@ -246,6 +246,8 @@ const INVENTORY = [
     note: 'index-bounded level window returns the rows single-tenant MongoDB queries return' },
   { file: 'tests/writer-driven-pending.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'pending mark under the work-v2 tenant isolation policy and the core pending-writer grants; provisioning typed row' },
+  { file: 'tests/writer-driven-schema.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'writer-driven evaluator start check: every ledger it reads, lifecycle included, equals the reviewed catalogue; one typed refusal' },
   { file: 'tests/read-statement-read-only.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'readStatement backends start read-only: PostgreSQL refuses writes with 25006, one statement per read' },
   { file: 'tests/realtime-socket-write-authority.integration.test.js', flags: { NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING,

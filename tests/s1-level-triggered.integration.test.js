@@ -67,6 +67,52 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
     beforeEach(() => lab.reset());
     after(() => lab.close());
 
+    it('S4_RESTART_UNDER_LOAD a killed evaluator leaves pending work that the next process completes from its startup sweep, inside the deadline', async function () {
+      // The restarted evaluator has no hints and no periodic sweep inside the
+      // deadline, so only its startup sweep can reach the pending tenants.
+      const first = await lab.startEvaluator({ sweepMs: FAST_SWEEP_MS, hints: true });
+      const writes = [];
+      let killedAt;
+      for (let i = 0; i < 12; i++) {
+        for (const tenant of lab.tenants) writes.push(await write(lab, tenant, 'restart-' + i + '-' + tenant.slice(0, 4), 100 + i));
+        if (i === 5) { first.kill(); killedAt = Date.now(); }
+        await sleep(150);
+      }
+      const pendingBefore = (await lab.outputs()).filter(row => row.pending !== null).length;
+      assert(pendingBefore > 0, 'KILL_LEFT_PENDING_WORK');
+      // RED within the run: a process without a startup sweep reaches nothing.
+      const blind = await lab.startEvaluator({ sweepMs: 600000, hints: false, startupSweep: false });
+      await sleep(3000);
+      assert.equal((await lab.outputs()).filter(row => row.pending !== null).length, pendingBefore, 'RED_NO_STARTUP_SWEEP_REACHES_NOTHING');
+      await blind.close(); lab.evaluator = null;
+      const restartedAt = Date.now();
+      await lab.startEvaluator({ sweepMs: 600000, hints: false, startupSweep: true });
+      const result = await awaitReflected(lab, writes.filter(row => row.committedAt >= killedAt - 1000));
+      console.log('S4_RESTART', JSON.stringify({ tenants: lab.tenants.length, pendingBefore, restartToLastMs: Date.now() - restartedAt, maxLatencyMs: result.maxLatencyMs, missing: result.missing.length }));
+      assert.equal(result.missing.length, 0, 'EVERY_WRITE_AFTER_THE_KILL_REACHES_OUTPUT');
+      assert((await lab.outputs()).every(row => row.pending === null), 'NO_PENDING_LEFT');
+    });
+
+    it('S4_CLASS_B_PAUSE an owner pause marks the tenant pending in its transaction and reaches durable completion; without the binding nothing is owed', async function () {
+      const evaluator = await lab.startEvaluator({ sweepMs: 600000, hints: true });
+      const tenant = lab.tenants[0], actor = { tenant, principal: 'synthetic-owner', consumer: 'synthetic-owner-consumer' };
+      const work = async () => (await lab.admin.query('SELECT work_observed[4]::text AS observed,work_completed[4]::text AS completed,work_pending_at::text AS pending FROM ' + lab.workTable + ' WHERE tenant_id=$1 AND consumer=$2', [tenant, lab.COMPLETED])).rows[0];
+      // RED: the same pause through a store with no pending binding owes nothing.
+      const unbound = await lab.ownerActivity({ pending: false });
+      try { await unbound.transition(actor, 'pause'); await sleep(2000); } finally { await unbound.close(); }
+      const red = await work();
+      assert.equal(red.observed, null, 'RED_UNBOUND_PAUSE_IS_NOT_OBSERVED');
+      const bound = await lab.ownerActivity();
+      try {
+        await bound.transition(actor, 'unpause');
+        const end = Date.now() + 30000; let row;
+        while (Date.now() < end) { row = await work(); if (row.observed !== null && row.completed === row.observed && row.pending === null) break; await sleep(100); }
+        console.log('S4_CLASS_B', JSON.stringify({ row, hints: evaluator.stats.hints, completed: evaluator.stats.completed }));
+        assert.equal(row.completed, row.observed, 'ACTIVITY_CHANGE_COVERED_BY_A_DURABLE_COMPLETION');
+        assert.equal(row.pending, null);
+      } finally { await bound.close(); }
+    });
+
     it('S1_C1_SWEEP_ALONE with every hint lost, the sweep delivers every write inside the deadline', async function () {
       await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: false });
       const track = tracker(lab);
