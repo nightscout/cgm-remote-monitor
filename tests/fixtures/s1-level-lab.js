@@ -147,8 +147,11 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     async function runTenant (tenant) {
       stats.runs++;
       const cpu = process.cpuUsage();
-      const observed = await store.begin(tenant);
-      const result = await evaluatorOf(tenant).evaluate({ at: Date.now() });
+      let observed, result;
+      try {
+        observed = await store.begin(tenant);
+        result = await evaluatorOf(tenant).evaluate({ at: Date.now() });
+      } catch (error) { stats.errors.push(error.code || error.message); throw error; }
       if (gate) await gate(tenant, result);
       let completed;
       try {
@@ -164,7 +167,11 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
       if (Number.isSafeInteger(completed.pendingAt)) work.wake(tenant, 'recovery');
       return completed;
     }
-    work = scheduler.start({ store, scan: async () => {}, run: runTenant, concurrency, retryMs, sweepMs });
+    // The in-process hint arrives inside the writer's tenant async scope. As in
+    // evaluator-preview (clinicalCallback), scheduler jobs run in the
+    // evaluator's own authority-free context, never the caller's.
+    const jobs = require('../../lib/server/serve/evaluator-job-context').create('clinical');
+    work = scheduler.start({ store, scan: async () => {}, run: runTenant, concurrency, retryMs, sweepMs, bind: jobs.bind });
     lab.api.hints = hints;
     const entry = {
       store, connection, stats, known,
@@ -177,7 +184,7 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
         work.wake(tenant, 'clock');
       },
       sweep: () => work.sweep(), sweepStats: () => work.sweepStats(), scheduler: work,
-      async close () { await work.close(); await store.close(); await connection.end(); for (const e of evaluators.values()) e.close(); }
+      async close () { await work.close(); await store.close(); await connection.end(); for (const e of evaluators.values()) e.close(); jobs.close(); }
     };
     lab.evaluator = entry;
     if (startupSweep) await work.sweep();
