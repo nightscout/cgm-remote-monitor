@@ -15,7 +15,13 @@ function statements ({ namespace, domain, role, catalogue, mode = 'serving' }) {
   const ordered = admission.isOrderedCatalogue(catalogue);
   if (mode === 'reader') return ['GRANT SELECT ON ' + table + ' TO ' + who,
     ...(ordered ? ['GRANT SELECT ON ' + quote(namespace) + '.tenant_insertion_ordinal TO ' + who] : [])];
-  const base = ['GRANT SELECT,INSERT,UPDATE,DELETE ON ' + table + ' TO ' + who];
+  // The catalogue's windowed time column calls a function migration 0001 revokes
+  // from PUBLIC; inserting and updating roles need EXECUTE on it (as production
+  // ordinary-deployment-grants insertionGrants grants).
+  const windowFunction = ['window_time_ms', 'window_time_text'].find(name =>
+    JSON.stringify(catalogue?.migrations || []).includes('CREATE FUNCTION ' + name + '('));
+  const base = ['GRANT SELECT,INSERT,UPDATE,DELETE ON ' + table + ' TO ' + who,
+    ...(windowFunction ? ['GRANT EXECUTE ON FUNCTION ' + quote(namespace) + '.' + windowFunction + '(jsonb) TO ' + who] : [])];
   if (ordered) {
     const built = proposal.build({ namespace, domain });
     return [...base, ...(mode === 'restore' ? built.restoreGrants(role) : built.servingGrants(role)),

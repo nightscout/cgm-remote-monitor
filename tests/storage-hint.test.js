@@ -141,7 +141,9 @@ optInSuite(process.env.NS_S2_STORAGE_HINT_PG_TEST === '1' && !!uri, 'NS_S2_STORA
     const role = ns + '_app', password = require('node:crypto').randomBytes(16).toString('hex');
     await admin.query('DROP ROLE IF EXISTS "' + role + '"');
     await admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + password + '\'');
-    for (const d of domains) { await admin.query('GRANT USAGE ON SCHEMA "' + ns + '_' + d + '" TO "' + role + '"'); await admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "' + ns + '_' + d + '" TO "' + role + '"'); }
+    for (const d of domains) { await admin.query('GRANT USAGE ON SCHEMA "' + ns + '_' + d + '" TO "' + role + '"'); await admin.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "' + ns + '_' + d + '" TO "' + role + '"');
+      // The windowed time column's function is not executable by PUBLIC (migration 0001).
+      await admin.query('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA "' + ns + '_' + d + '" TO "' + role + '"'); }
     await admin.query('GRANT USAGE ON SCHEMA "' + ns + '_clock" TO "' + role + '"'); await admin.query('GRANT SELECT, UPDATE(last_stamp, last_delete_stamp) ON "' + ns + '_clock".tenant_write_clock TO "' + role + '"');
     const url = new URL(uri); url.username = role; url.password = password;
     connection = await require('../lib/storage/postgres-connection')({ connectionString: url.toString(), max: 4 });
