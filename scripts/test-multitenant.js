@@ -55,6 +55,8 @@ const PENDING = 'pending opt-in';
 const CRUD = { NS_ENTRIES_CRUD_HTTP_TEST: '1' };
 const INVENTORY = [
   { file: 'tests/role-readiness.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING },
+  { file: 'tests/storage-hint.test.js', flags: { NS_S2_STORAGE_HINT_PG_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'spike S2: APIv3 /storage live events from the api post-commit hint, hint-removed and stale-generation controls, APIv1 parity' },
   { file: 'tests/api-tenant-lru.integration.test.js', flags: { NS_API_TENANT_LRU_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/connection-pool-bound.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'configured pool size bounds serving backends after connection admission retired (census C-06)' },
@@ -66,8 +68,6 @@ const INVENTORY = [
     note: 'exact exported snapshot import, source fencing, bounded exporter/importer loss and verified temporary-slot cleanup' },
   { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
-  { file: 'tests/storage-event.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'native wal2json FULL identity/TOAST, equal-LSN cohorts, durable raw tail and populated identity migration' },
   { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1', NS_PGSTREAM_SELECTED_STARTUP_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
   { file: 'tests/native-operation-control-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,

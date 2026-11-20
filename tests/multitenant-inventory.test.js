@@ -49,9 +49,9 @@ describe('multitenant inventory executable environment consumption', function ()
     assert.equal(inventory.producerSelection([{ flags: { NS_PGSTREAM_ROLE_TEST: '1' } }], {}), null, 'low-level SQL receipt controls do not claim a running producer');
   });
   it('registers bounded-state native suites and requires their WAL image without demanding an unused producer', function () {
-    const files = ['tests/clinical-working-set.integration.test.js', 'tests/storage-event.integration.test.js'];
+    const files = ['tests/clinical-working-set.integration.test.js'];
     const selected = inventory.select(files);
-    assert.equal(selected.length, 2);
+    assert.equal(selected.length, 1);
     for (const suite of selected) {
       assert.deepEqual(suite.flags, { NS_CLINICAL_WINDOW_TEST: '1' });assert.deepEqual(suite.shared, ['postgres']);assert.deepEqual(suite.own, []);
       assert(inventory.classifyOptInSource(readSource(suite.file)).optIn, 'DISABLED_NATIVE_MUST_REGISTER_RECOGNIZED_PENDING');
