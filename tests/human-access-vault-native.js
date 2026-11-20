@@ -4,9 +4,9 @@
 // created. URLs/tokens must name the explicitly reserved owned loopback Vault.
 // Required environment: HUMAN_SESSION_NATIVE_RESERVED=1, HUMAN_VAULT_RESERVED=1,
 // HUMAN_VAULT_URL (explicit HTTP/HTTPS loopback origin), HUMAN_VAULT_ADMIN_TOKEN,
-// HUMAN_VAULT_TENANT (exact private 'single' or canonical multitenant UUID).
-// Each invocation creates a new mount/profile for exactly that one binding;
-// separate sequential single/multitenant runs never reuse cross-scope configs.
+// HUMAN_VAULT_TENANT (exact private 'single'; multitenant human signing is
+// derived in process and has no Vault signer to prove).
+// Each invocation creates a new mount/profile for exactly that one binding.
 // HTTP stays an owned lab-only option; HTTPS uses normal trust, never bypassed.
 // Administrative calls are capped at 3 seconds and 64 KiB per response; serving
 // issuance uses the production signer's separate 5-second bound. Fixed loops,
@@ -40,12 +40,14 @@ function configuration (source) {
       url.pathname !== '/' || url.username || url.password || url.search || url.hash) {
     throw new Error('Reserved Vault must be a literal loopback origin without credentials, path or selectors');
   }
+  // Single site only: multitenant human sessions sign with derived keys and
+  // never call Vault (decision deployment-signing-secret).
   const tenant = source.HUMAN_VAULT_TENANT;
-  if (tenant !== 'single' && (typeof tenant !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(tenant))) {
-    throw new Error('Explicit HUMAN_VAULT_TENANT must be exact single or a canonical UUID; no implicit authentication scope');
+  if (tenant !== 'single') {
+    throw new Error('Explicit HUMAN_VAULT_TENANT must be exact single; no implicit authentication scope, and multitenant signing uses no Vault');
   }
   return { address: url.origin, adminToken: source.HUMAN_VAULT_ADMIN_TOKEN, tenant,
-    mode: tenant === 'single' ? 'single' : 'multi', allowInsecureLoopback: url.protocol === 'http:' };
+    mode: 'single', allowInsecureLoopback: url.protocol === 'http:' };
 }
 
 async function run ({ source = process.env, fetch: transport = globalThis.fetch, consume, nativeStage } = {}) {

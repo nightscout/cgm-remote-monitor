@@ -1,7 +1,7 @@
 'use strict';
 // Harness driver (called by run.sh after the containers are healthy).
 // Records the executed source commit, provisions the disposable services,
-// runs the nine stages sequentially in child processes with the contract's
+// runs the eight stages sequentially in child processes with the contract's
 // per-stage deadlines, optionally runs authored mutant controls (red, then
 // restored green), redacts every log and writes summary.json. No grant,
 // reservation, lead identity, attestation hash or freshness window exists.
@@ -94,7 +94,7 @@ async function main () {
   const root = init.root_token;
   await vault(vaultOrigin, root, 'sys/mounts/transit', { method: 'POST', body: { type: 'transit' } });
   const signerKeys = {};
-  for (const name of ['hs-single-data', 'hs-single-management', 'hs-multi-data', 'hs-multi-management']) {
+  for (const name of ['hs-single-data', 'hs-single-management']) {
     await vault(vaultOrigin, root, 'transit/keys/' + name, { method: 'POST', body: { type: 'ed25519', derived: false, exportable: false, allow_plaintext_backup: false } });
     const info = (await vault(vaultOrigin, root, 'transit/keys/' + name)).data;
     if (info.type !== 'ed25519' || info.exportable !== false || info.allow_plaintext_backup !== false) throw new Error('VAULT_KEY_PROFILE ' + name);
@@ -113,11 +113,24 @@ async function main () {
       ...['hmac', 'verify'].map(op => `path "transit/${op}/owner-sign-${i}" { capabilities = ["update"] }`)]);
     ownerTokens.push(await token('oidc-matrix-owner-' + i));
   }
+  // Single site signs through its bound Transit keys; multitenant signs with
+  // the tenant's derived human keys from a synthetic deployment signing secret
+  // (decision deployment-signing-secret), so its config names no Vault signer.
+  const signingSecretFile = path.join(STATE, 'signing-secret');
+  fs.writeFileSync(signingSecretFile, secret(32), { mode: 0o600 });
+  const derivedKeys = req('./lib/secrets/derived-signing').load({}, { file: signingSecretFile });
   const signerConfig = (mode, tenant) => ({ version: 1, issuer: 'synthetic-native-human-access-' + mode,
     audiences: { data: 'synthetic-native-data-' + mode, management: 'synthetic-native-management-' + mode },
-    vault: { addressEnv: 'HUMAN_VAULT_URL', tokenEnv: 'HUMAN_VAULT_SIGN_TOKEN', mount: 'transit' },
-    keys: ['data', 'management'].map(purpose => ({ tenant, purpose, kid: mode + '-' + purpose, publicKey: signerKeys['hs-' + mode + '-' + purpose],
-      current: true, signingKey: 'hs-' + mode + '-' + purpose, signingVersion: 1 })) });
+    ...(mode === 'single' ? {
+      vault: { addressEnv: 'HUMAN_VAULT_URL', tokenEnv: 'HUMAN_VAULT_SIGN_TOKEN', mount: 'transit' },
+      keys: ['data', 'management'].map(purpose => ({ tenant, purpose, kid: mode + '-' + purpose, publicKey: signerKeys['hs-' + mode + '-' + purpose],
+        current: true, signingKey: 'hs-' + mode + '-' + purpose, signingVersion: 1 }))
+    } : {
+      keys: ['data', 'management'].map(purpose => {
+        const key = derivedKeys.key(tenant, 'human-' + purpose, 1);
+        return { tenant, purpose, kid: key.kid, publicKey: key.raw, current: true };
+      })
+    }) });
   const signerFiles = {};
   for (const [mode, tenant] of [['single', 'single'], ['multi', TENANTS[0]]]) {
     signerFiles[mode] = path.join(STATE, 'signer-' + mode + '.json');
@@ -125,7 +138,7 @@ async function main () {
   }
   // Headless owner management trust anchors (public keys only; no stage signs with them).
   const managementPublicKeys = TENANTS.map(() => Buffer.from(crypto.generateKeyPairSync('ed25519').publicKey.export({ format: 'jwk' }).x, 'base64url').toString('base64'));
-  note('vault provisioned: transit mount, 4 ed25519 signer keys, 4 aes256-gcm96 owner keys, 3 scoped tokens');
+  note('vault provisioned: transit mount, 2 ed25519 single-site signer keys, 4 aes256-gcm96 owner keys, 3 scoped tokens; multitenant signer derived');
   // 3. PostgreSQL identities (admin = container superuser; seven NOSUPERUSER NOBYPASSRLS roles).
   const pgPassword = fs.readFileSync(path.join(STATE, 'pg-password'), 'utf8').trim(); secrets.add(pgPassword);
   const pgBase = (user, password, db) => { const url = new URL('postgres://127.0.0.1:' + args['pg-port'] + '/' + db); url.username = user; url.password = password; return url.toString(); };
@@ -147,7 +160,7 @@ async function main () {
     HUMAN_SESSION_NATIVE_RESERVED: '1', HUMAN_HTTPS_RESERVED: '1', HUMAN_VAULT_RESERVED: '1',
     HUMAN_VAULT_URL: vaultOrigin, HUMAN_VAULT_ADMIN_TOKEN: root, HUMAN_VAULT_SIGN_TOKEN: signToken,
     OWNER_TOKEN_A: ownerTokens[0], OWNER_TOKEN_B: ownerTokens[1],
-    OWNER_SINGLE_SIGNER_CONFIG: signerFiles.single, OWNER_MULTI_SIGNER_CONFIG: signerFiles.multi,
+    OWNER_SINGLE_SIGNER_CONFIG: signerFiles.single, OWNER_MULTI_SIGNER_CONFIG: signerFiles.multi, NS_SIGNING_SECRET_FILE: signingSecretFile,
     HUMAN_HTTPS_KEY: path.join(STATE, 'tls/fixture.key'), HUMAN_HTTPS_CERT: path.join(STATE, 'tls/fixture.crt'),
     HUMAN_BROWSER_EXECUTABLE: '/usr/bin/google-chrome',
     OWNER_PRIVATE_OPERATOR_TOKEN: secret(24), OWNER_SINGLE_API_SECRET: secret(24), OWNER_SINGLE_JWT_KEY: secret(24)

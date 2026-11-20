@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable native harness for the nine-stage owner/OIDC matrix.
+# Disposable native harness for the eight-stage owner/OIDC matrix.
 #
 #   tests/native/oidc-matrix/run.sh --out <report-dir> [--only <stage,...>] [--control <group>:<id>,...]
 #
