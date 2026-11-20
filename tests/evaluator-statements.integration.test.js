@@ -7,6 +7,7 @@
 // Synthetic tenants and readings only.
 const assert = require('node:assert/strict');
 const { optInSuite } = require('./support/opt-in');
+const { summarize } = require('./lib/statement-summary');
 const enabled = process.env.NS_PGSTREAM_RECOVERY_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
 const WRITES = Number(process.env.NS_EVALUATOR_STATEMENTS_WRITES || 5);
 const BOUND = process.env.NS_EVALUATOR_STATEMENTS_BOUND === undefined ? null : Number(process.env.NS_EVALUATOR_STATEMENTS_BOUND);
@@ -36,28 +37,6 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         const event = saved.projection?.[1]?.events.find(row => row.domain === 'entries' && row.value.doc?.identifier === id && row.value.doc.sgv === value);
         return input?.stream?.accepted_position && event ? floor(input.floor) : null;
       }, 10000, 'INPUT_NOT_ACCEPTED');
-    }
-    function classify (shape) {
-      const sql = shape.slice(shape.indexOf(' | ') + 3);
-      if (/^(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|START TRANSACTION|SET TRANSACTION)/i.test(sql)) return 'transaction';
-      if (/pg_column_size\(doc\)/.test(sql)) return 'dbstats';
-      if (/tenant_lifecycle|pg_postmaster_start_time|lifecycle_window|restore_generation|generation/i.test(sql) && !/tenant_consumer_checkpoint/.test(sql)) return 'fence';
-      if (/tenant_consumer_checkpoint/.test(sql)) return 'checkpoint';
-      if (/tenant_settings|tenant_operator_policy|tenant_activity|tenant_write_clock/.test(sql)) return 'trusted';
-      if (/notification|alarm_suppression/.test(sql)) return 'outbox';
-      return 'other';
-    }
-    function summarize (counts, writes) {
-      const byPool = {}, byClass = {};
-      for (const [shape, count] of Object.entries(counts)) {
-        const pool = shape.slice(0, shape.indexOf(' | '));
-        byPool[pool] = (byPool[pool] || 0) + count;
-        const key = pool + ':' + classify(shape);
-        byClass[key] = (byClass[key] || 0) + count;
-      }
-      const per = object => Object.fromEntries(Object.entries(object).sort().map(([key, value]) => [key, +(value / writes).toFixed(2)]));
-      return { writes, perWriteByPool: per(byPool), perWriteByClass: per(byClass),
-        shapes: Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([shape, count]) => [+(count / writes).toFixed(2), shape]) };
     }
     async function settle (worker) {
       // Quiescent when two consecutive 300 ms windows add no evaluator or receiver statement.

@@ -529,6 +529,7 @@
         "tests/pgstream-single-receipt.integration.test.js",
         "tests/pgstream-recovery.integration.test.js",
         "tests/evaluator-statements.integration.test.js",
+        "tests/evaluator-consumer-statements.integration.test.js",
         "tests/pgstream-checkpoint.integration.test.js",
         "tests/pgstream-typed-migration.integration.test.js",
         "tests/pgstream-typed-checkpoint.integration.test.js",
