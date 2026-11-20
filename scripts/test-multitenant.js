@@ -62,12 +62,6 @@ const INVENTORY = [
     note: 'configured pool size bounds serving backends after connection admission retired (census C-06)' },
   { file: 'tests/pgstream-assigned-worker.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent fixed-roster worker processes, native held-backend replacement and stale completion refusal' },
-  { file: 'tests/pgstream-receipt-authority.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'tenant-bound read-only native receipt authority, maintenance lock through COMMIT, active/suspended admission and ownership refusal' },
-  { file: 'tests/postgres-imported-snapshot.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'exact exported snapshot import, source fencing, bounded exporter/importer loss and verified temporary-slot cleanup' },
-  { file: 'tests/clinical-working-set.integration.test.js', flags: { NS_CLINICAL_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'native bounded clinical inputs, actual engine/frame parity, authoritative storage statistics and legitimate history recovery' },
   { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1', NS_PGSTREAM_SELECTED_STARTUP_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
   { file: 'tests/evaluator-statements.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -236,12 +230,6 @@ const INVENTORY = [
   { file: 'tests/tenant-entries-http.integration.test.js', flags: { NS_TENANT_HTTP_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-credential-http.integration.test.js', flags: { NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST: '1' }, shared: ['mongo'], own: ['postgres'], gate: PENDING,
     note: 'owns its PostgreSQL; its differential cases open CUSTOMCONNSTR_mongo' },
-  { file: 'tests/clinical-ack-tenant-independent.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'one tenant\'s exact recovery never holds another tenant\'s receipt; first-seen receipt durable; restore fence refuses (decision ack-path-tenant-independent)' },
-  { file: 'tests/clinical-stream-born.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'a tenant whose provisioning arrives through the stream evaluates its first input with no snapshot recovery (decision predictable-fixes-then-test)' },
-  { file: 'tests/clinical-receipt-statements.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'statements per stream receipt for one and for three tenants on the actual receiver and SQL receipt' },
   { file: 'tests/s1-level-triggered.integration.test.js', flags: { NS_S1_LEVEL_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'writer-driven level-triggered evaluator: sweep-only, lost hint recovered from the pending mark, restore generation fence, hard delete' },
   { file: 'tests/s1b-window-rows.integration.test.js', flags: { NS_S1_LEVEL_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -413,12 +401,7 @@ function checkInventory ({ inventory = INVENTORY, testFiles = tiers.listTestFile
     if (!/NS_TEST_POSTGRES_ADMIN_URI|optInSuite|process/.test(text)) continue;
     try {
       const classified = classifyOptInSource(text);
-      // This always-running unit protocol temporarily saves/restores a synthetic
-      // admin URI around recording dependencies. It opens no native resource.
-      // A real opt-in or another environment dependency revokes the exception.
-      const sourceProtocol = file === 'tests/evaluator-preview-registry-fixture.test.js' && !classified.optIn &&
-        !classified.unknownEnvironmentRead && classified.environmentReads.every(name => name === 'NS_TEST_POSTGRES_ADMIN_URI');
-      if (classified.needed && !sourceProtocol) problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
+      if (classified.needed) problems.push(file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY');
     } catch {
       problems.push(file + ': cannot classify opt-in source; inventory validation refuses a parse failure');
     }
@@ -479,11 +462,10 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
 // never pulls or substitutes an ordinary PostgreSQL image after a refusal.
 function producerSelection (suites, source) {
   const requiresProducer = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
-  const requiresWal = suites.some(suite => suite.flags?.NS_CLINICAL_WINDOW_TEST === '1' || suite.file === 'tests/postgres-imported-snapshot.test.js');
-  if (!requiresProducer && !requiresWal) return null;
+  if (!requiresProducer) return null;
   const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
   if (requiresProducer && !fields.every(key => typeof source[key] === 'string' && source[key].length)) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
-  if (!/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error((requiresProducer ? 'MAINTAINED_PRODUCER_CAPABILITY_REQUIRED' : 'NATIVE_WAL_IMAGE_REQUIRED') + ': provide the exact owned PostgreSQL wal2json image');
+  if (!/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned PostgreSQL wal2json image');
   return { image: source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE, requiresProducer, command: ['-c', 'wal_level=logical', '-c', 'max_replication_slots=4', '-c', 'max_wal_senders=4', '-c', 'max_slot_wal_keep_size=256MB', '-c', 'output_plugin_libraries=wal2json'] };
 }
 

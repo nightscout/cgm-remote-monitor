@@ -10,7 +10,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 function fixture (count, selected, ordinal = 0, change = text => text, realLifecycle = false, lifecycleChange = text => text, clinicalOnly = false) {
   const ids = Array.from({ length: count }, (_, i) => '11111111-1111-4111-8111-' + String(i).padStart(12, '0'));
   const tenants = new Map(ids.map(id => [id, {}]));
-  const calls = { native:[],scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [], streamInvalidated: [] };
+  const calls = { native:[],scans: [], pages: [], invalidated: [], wakes: [], readiness: 0, verify: 0, timers: [], deliveryRecovery: 0, startup: [] };
   const state = { secured: true, holdReadiness: null, holdSettings: null, failPage: false, settings: 1, policy: 1, paused: false, suspended: false };
   const connection = { async readOnly (text, values) {
     if (/FROM pg_class/.test(text)) { calls.verify++; return { rows: values[0].map(() => ({ secured: state.secured, owns: false, writes: false })) }; }
@@ -29,7 +29,7 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const runtime = { async close () {}, async invalidateTenant (id) { calls.invalidated.push(id); }, health: () => ({ tenants: [] }) };
   const profile = { digest: 'synthetic-profile', binding: { tenants: ids, lifecycleNamespace: 'work_activity', namespace: 'work_checkpoint', consumer: 'work', members: 2, membershipNamespace: 'work_membership', revision: 1, role: 'intake' }, assignment: { owner: tenant => ids.indexOf(tenant) % 2 } };
   const peers = [0,1].map(id => ({ id: String(id), roles: ['evaluator'], endpoint: {} }));
-  const config = { tenants, registry: {}, pgstream:nativeBoot.config({slot:'work_stream',bounds:{recoveryMs:30000,stepMs:5000,pendingMs:30000}}),
+  const config = { tenants, registry: {}, pgstream:nativeBoot.config({bounds:{recoveryMs:30000,stepMs:5000,pendingMs:30000}}),writerDriven:nativeBoot.writer('work_activity'),
     trustedWorker: { activity: 'work_activity', clock: 'work_clock', settings: 'work_settings', operatorPolicy: 'work_policy' },
     namespaces: { checkpoint: 'work_checkpoint' }, connectionString: 'postgres://worker:synthetic@localhost/test', consumer: 'work', consumers: clinicalOnly ? undefined : {realtime:{}}, maxTenants: 20000,maxRows:10000,maxBytes:10000,pageSize:64 };
   if (selected) Object.assign(config, { partition: { partitioned: true, ordinal, namespace: 'work_membership', leaseMs: 3000 },
@@ -42,9 +42,8 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
   const mocks = {
     ...nativeBoot.mocks({events:calls.native}),
     '../../storage/postgres-connection': connect,
-    // Stream recovery now invalidates accepted input before the existing bounded
-    // metadata bootstrap; this source-only schema fixture has no clinical DB.
-    '../../storage/postgres-durable-replay': () => ({configureStream(binding){nativeBoot.replay({events:calls.native}).configureStream(binding);calls.nativeBinding=binding;},async invalidateStream(tenant){calls.streamInvalidated.push(tenant);},async acceptTransaction(){throw Error('CLINICAL_INPUT_NOT_IN_SCHEMA_FIXTURE');}}),
+    // This source-only schema fixture has no clinical DB.
+    '../../storage/postgres-durable-replay': () => nativeBoot.replay({events:calls.native}),
     '../../data/tenant-projection-evaluator': { domains: [] },
     './evaluator-runtime': async options => { runtimeOptions=options; return runtime; },
     './evaluator-config': { registryEntry () {}, async withSettings(base,entry,tenant) { const row=reader.current(tenant);return {tenant,identity:String(row.settings)+':'+String(row.policy)}; } },
@@ -63,10 +62,10 @@ function fixture (count, selected, ordinal = 0, change = text => text, realLifec
       loaded._compile("'use strict'; const setInterval=require('synthetic-interval');\n"+lifecycleChange(fs.readFileSync(filename,'utf8')),filename);
       return loaded.exports(value,options);
     } : async value => { await value.verify(); return { verify: () => value.verify(), async close () {} }; },
-    '../../pgstream/evaluator': { async open (options) { callbacks = options; return { store, async ready () { await state.atReady(); }, async close () {}, assertAvailable () {}, health: () => ({ healthy: true }) }; } },
+    '../../writer-driven/evaluator': { async open (options) { callbacks = options; return { store, async ready () { await state.atReady(); }, async close () {}, assertAvailable () {}, health: () => ({ healthy: true }) }; } },
     './tenant-startup': { create: () => ({ async warm () {}, async close () {}, isReady: () => true }) },
     './evaluator-consumers': { async prepare () { return { start () {}, async recover () { calls.deliveryRecovery++; }, async close () {} }; } },
-    '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, wakeDelivery () {}, wake: (...args) => (args[1]==='startup'?calls.startup:calls.wakes).push(args), async close () {} }); } },
+    '../../pgstream/activity-scheduler': { start: options => { schedulerOptions=options; return ({ async recover () {}, async sweep () {}, wakeDelivery () {}, wake: (...args) => (args[1]==='startup'?calls.startup:calls.wakes).push(args), async close () {} }); } },
     '../internal-api/clients': { completedOutput: () => ({ hintCompletedOutput () {} }) },
     './evaluator-inspection': () => () => ({}),
     '../../pgstream/intake-profile': { validate: () => profile },
@@ -119,7 +118,7 @@ describe('evaluator schema work bounds', function () {
         assert.equal(Object.hasOwn(f.callbacks(), 'onSchema'), false, 'NO_IN_PLACE_SCHEMA_CALLBACK');
         assert.equal(f.calls.readiness, 1, 'ONE_PLATFORM_CHECK_AT_START');
         await f.callbacks().onRecovered(f.store);
-        assert.equal(f.calls.readiness, 1, 'NO_PLATFORM_RECHECK_AFTER_STREAM_RECOVERY');
+        assert.equal(f.calls.readiness, 1, 'NO_PLATFORM_RECHECK_AFTER_SOURCE_RECOVERY');
         console.log(JSON.stringify({ entry: name, cohort: count, scans: f.calls.scans.length, tenantVisits: f.calls.scans.flat().length, durableRows: f.calls.pages.flat().length }));
         // Demand discovery (16768f18f): stream recovery admits tenants with pending durable
         // work; it neither scans nor bootstraps the roster.
@@ -128,8 +127,7 @@ describe('evaluator schema work bounds', function () {
       });
       await service.close();
       if(!selected){
-        for(const event of ['identify-created','identify-connected','identify-closed','native-configured','native-recovery-created','native-recovery-closed'])
-          assert.equal(f.calls.native.filter(value=>value===event).length,1,'NATIVE_BOOT_CAPABILITY_'+event);
+        assert.equal(f.calls.native.filter(value=>value==='schema-checked').length,1,'ONE_START_SCHEMA_CHECK');
       }
     });
     for (const count of [1, 65, 500]) it(name + ' live acquisition rereads metadata after a restore invalidation in scheduler pages at cohort ' + count, async () => {
@@ -152,7 +150,7 @@ describe('evaluator schema work bounds', function () {
         assert.equal(f.calls.scans.flat().length, f.ownIds.length);
       } finally { await scheduler?.close(); await service.close(); }
     });
-    it(name + ' reconciles durable notification work on the next turn after stream recovery acknowledges', async () => {
+    it(name + ' reconciles durable notification work on the next turn after source recovery', async () => {
       const f = fixture(2, selected), service = await f.boot();
       try {
         await f.callbacks().onRecovered(f.store);

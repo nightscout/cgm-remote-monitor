@@ -137,7 +137,7 @@ function documents ({selected,layout: l,paths}) {
     consumer:'evaluator-joined-fixture',pageSize:o.pageSize,maxRows:o.evaluatorMaxRows,maxBytes:o.maxBytes,maxTenants:2,timeIntervalMs:o.timeIntervalMs,
     socketOrderDomains:['treatments','devicestatus','profile'],registry,tenantSettings,trustedWorker,
     activity:{connectionEnv:'RT_BOOTSTRAP_ACTIVITY_PG',namespace:ns.control},
-    pgstream:require('../pgstream-native').configuration({prefix:l.prefix,capability:selected.pgstream}),
+    pgstream:{bounds:{stepMs:5000,recoveryMs:30000,pendingMs:30000}},writerDriven:{sweepMs:5000,lifecycleNamespace:ns.control},
     consumers:{realtime:{outbox:{connectionEnv:'RT_BOOTSTRAP_OUTBOX_PG',namespace:ns.outbox,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       suppression:{connectionEnv:'RT_BOOTSTRAP_SUPPRESSION_PG',namespace:ns.alarm,maxRows:o.maxRows,maxBytes:o.maxBytes,maxConnections:o.maxConnections},
       route:{id:'realtime-joined-fixture',maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs},

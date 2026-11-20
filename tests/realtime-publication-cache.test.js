@@ -23,8 +23,8 @@ function evaluatorConfig () {
     tenantSettings: { connectionEnv: 'SETTINGS_PG', namespaces: { settings: 'hot_settings', operatorPolicy: 'hot_policy' } },
     activity: { connectionEnv: 'ACTIVITY_PG', namespace: 'hot_control' },
     trustedWorker: { activity: 'hot_control', clock: 'hot_clock', settings: 'hot_settings', operatorPolicy: 'hot_policy' },
-    pgstream: { receiver:{url:'http://127.0.0.1:'+19913+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:16777216,timeoutMs:5000}, slot: 'hot_stream', streamRole: 'hot_stream',
-      bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } } };
+    pgstream: { bounds: { stepMs: 5000, recoveryMs: 30000, pendingMs: 30000 } },
+    writerDriven: { sweepMs: 5000, lifecycleNamespace: 'hot_control' } };
 }
 function isolatedModule (relative, overrides = {}, mutate = source => source) {
   const filename = require.resolve(relative), original = require('node:module').createRequire(filename), output = { exports: {} };
@@ -60,7 +60,7 @@ describe('evaluator registry boot reads current settings, never a configuration 
       '../../trusted-worker/lifecycle': async () => ({ close: async () => {} }),
       './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness': async () => {},
       './registry-tenant-set': { openDemand: async () => ({ tenants, isActive: tenant => tenant === A, close: async () => {} }) },
-      '../../pgstream/evaluator': { open: async ({ config: current }) => {
+      '../../writer-driven/evaluator': { open: async ({ config: current }) => {
         testingCurrent = true; reached = true; fs.unlinkSync(file); let prior;
         for (let i = 0; i < 200; i++) {
           const value = await current.readCurrent(A); assert.equal(value.revision, 'registry');
@@ -79,7 +79,7 @@ describe('evaluator registry boot reads current settings, never a configuration 
       assert.equal(reached, true); assert.equal(counts.reads, 200); assert.equal(assertionsReached, true);
       assert.equal(observed.reads, 0); assert.equal(enumerations, 0);
       assert.deepEqual(counts, { reads: 200, factories: 1, refreshes: 0, closes: 1, legacy: 0, finite: 0 });
-      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,1,'REGISTRY_FOCUSED_EXIT_CLOSES_NATIVE_PORT:'+event);
+      assert.equal(nativeEvents.filter(value=>value==='schema-checked').length,1,'REGISTRY_FOCUSED_EXIT_AFTER_ONE_SCHEMA_CHECK');
     } finally {
       try { inspect({ ...counts, reached, assertionsReached }); }
       finally { observed.restore(); scope.setTenancyMode(previous); }

@@ -15,14 +15,18 @@ const settings = require('../lib/server/serve/deployment-settings');
 const golden = require('./fixtures/deployment-documents-8d4475e.json');
 
 const url = name => 'postgres://nsdemo_' + name + ':synthetic@postgres:5432/nightscout';
-const env = { NS_VAULT_ADDR: 'https://vault.example.test:8200', NS_EVALUATOR_PG: url('evaluator'), NS_ALARM_PG: url('alarm'), NS_LIFETIME_PG: url('lifetime_api'), NS_PGSTREAM_GENERATION: '9108fc77cf01fd6bfeaec109e03808ea',
+const env = { NS_VAULT_ADDR: 'https://vault.example.test:8200', NS_EVALUATOR_PG: url('evaluator'), NS_ALARM_PG: url('alarm'), NS_LIFETIME_PG: url('lifetime_api'),
   NS_PROVISIONER_PG: url('provisioner'), NS_OWNERSHIP_PG: url('ownership_operator'), NS_CONNECTOR_SOURCES_PG: url('connector_writer'), NS_MANAGEMENT_SESSIONS_PG: url('management_issuer') };
 
 describe('deployment settings: the environment builds the deployment\'s documents', function () {
   it('DS_LAYOUT: every role configuration equals the deployment document for the default prefix', function () {
     const expected = structuredClone(golden.configs);
-    // The stream incarnation is seeded by the deployment as NS_PGSTREAM_GENERATION.
-    expected.evaluator.pgstream.generation = env.NS_PGSTREAM_GENERATION;
+    // Writer-driven input is the only transport (lib/writer-driven): the evaluator
+    // keeps only its clinical bounds, and the api marks the evaluator work row.
+    const ns = settings.layout(env).namespaces;
+    expected.evaluator.pgstream = { bounds: expected.evaluator.pgstream.bounds };
+    expected.evaluator.writerDriven = { sweepMs: 5000, lifecycleNamespace: ns.control };
+    expected.api.writerDriven = { pending: { namespace: ns.eval_checkpoint, consumer: settings.IDENTITY.evaluatorConsumer + '-completed' } };
     // The api reads the evaluator's notification metadata from its own environment.
     expected.api.socketForwarding.consumerState = {};
     for (const role of ['api', 'realtime', 'evaluator', 'tenant-admin']) {
@@ -37,7 +41,7 @@ describe('deployment settings: the environment builds the deployment\'s document
     // The deployment replaced this digest with the native selection's when it
     // attached the selection at bootstrap; the role now computes it itself.
     completed.digest = settings.nativeSelection(settings.layout(env)).contractDigest;
-    // Provisioning creates this row typed and pending in both input transports (lib/writer-driven).
+    // Provisioning creates this row typed and pending (lib/writer-driven).
     expected.provisioning.pendingConsumer = { namespace: completed.namespace, consumer: completed.consumer };
     assert.deepStrictEqual(built, expected);
     // Each admin service is composed when the process has its connection secret.
@@ -79,25 +83,20 @@ describe('deployment settings: the environment builds the deployment\'s document
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('DS_EVALUATOR_SLICE: the hostname ordinal and NS_EVALUATOR_SLICES give the evaluator its slice and its own receiver', function () {
+  it('DS_EVALUATOR_SLICE: the hostname ordinal and NS_EVALUATOR_SLICES give the evaluator its slice', function () {
     const os = require('node:os'), hostname = os.hostname;
     const plan = require('./fixtures/multitenant-plan');
     const layout = plan.layout('nstest');
     const base = { ...plan.documents({ layout, urls: plan.syntheticUrls(layout) }).environments.evaluator };
-    delete base.NS_PGSTREAM_RECEIVER_URL; delete base.NS_PGSTREAM_EVALUATOR_SLICE;
     const config = require('../lib/server/serve/evaluator-config');
     try {
       os.hostname = () => 'evaluator-1';
       const sliced = config.load({ ...base, NS_EVALUATOR_SLICES: '2' });
-      assert.deepStrictEqual({ ...sliced.processAssignment, receivers: [...sliced.processAssignment.receivers] },
-        { count: 2, ordinal: 1, receivers: ['http://evaluator-0.evaluator:19913/', 'http://evaluator-1.evaluator:19913/'] });
-      assert.strictEqual(sliced.pgstream.receiver.url, 'http://evaluator-1.evaluator:19913/');
+      assert.deepStrictEqual({ ...sliced.processAssignment }, { count: 2, ordinal: 1 });
       const single = config.load(base);
       assert.strictEqual(single.processAssignment, undefined);
-      assert.strictEqual(single.pgstream.receiver.url, 'http://evaluator:19913/');
       os.hostname = () => 'evaluator-4';
       assert.strictEqual(config.load({ ...base, NS_EVALUATOR_SLICES: '2' }).processAssignment.ordinal, 4, 'an ordinal >= K starts and owns nothing');
-      assert.throws(() => config.load({ ...base, NS_PGSTREAM_EVALUATOR_SLICE: '{"count":1,"ordinal":0,"receivers":["http://evaluator:19913/"]}' }), /invalid explicit evaluator/);
     } finally { os.hostname = hostname; }
   });
 
@@ -110,13 +109,6 @@ describe('deployment settings: the environment builds the deployment\'s document
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir, NS_API_PG_FILE: path.join(dir, 'other') }).NS_API_PG, url('other'));
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir, NS_API_PG: url('inline') }).NS_API_PG, url('inline'));
       assert.strictEqual(settings.withSecrets({ NS_SECRETS_DIR: dir }).NS_REALTIME_PG, undefined);
-      const stream = { ...env, NS_SECRETS_DIR: dir };
-      delete stream.NS_PGSTREAM_GENERATION;
-      const generationFile = path.join(dir, 'ns_pgstream_generation');
-      fs.writeFileSync(generationFile, env.NS_PGSTREAM_GENERATION + '\n');
-      assert.strictEqual(settings.configuration('evaluator', stream).pgstream.generation, env.NS_PGSTREAM_GENERATION);
-      fs.writeFileSync(generationFile, 'f'.repeat(32));
-      assert.strictEqual(settings.configuration('evaluator', stream).pgstream.generation, 'f'.repeat(32));
       assert.strictEqual(settings.configuration('api', { ...env, NS_SECRETS_DIR: dir }).vault.tokenFile, path.join(dir, 'vault-token'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

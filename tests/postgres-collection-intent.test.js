@@ -41,8 +41,8 @@ describe('trusted PostgreSQL collection translation', function () {
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
-      const tails = catalogues[logical].migrations.filter(m => ['0099_'+logical+'_storage_bytes','0100_'+logical+'_storage_identity'].includes(m.name));
-      assert.deepEqual(tails.map(m=>m.operation),[{kind:'clinical-storage-size-v1',domain:logical},{kind:'storage-event-identity-v1',domain:logical}]);
+      const tails = catalogues[logical].migrations.filter(m => m.name === '0099_'+logical+'_storage_bytes');
+      assert.deepEqual(tails.map(m=>m.operation),[{kind:'clinical-storage-size-v1',domain:logical}]);
       const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m)) };
       const next = selected.catalogues[logical];
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);

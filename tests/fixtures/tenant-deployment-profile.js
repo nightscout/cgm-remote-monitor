@@ -20,11 +20,12 @@ function profileInputs ({ writerRole, readerRole, realtimeRole, legacy = false }
   };
   if (legacy) return historical;
   return {
-    // Current shared storage-size/backfill and identity tails are part of the
-    // exact reviewed successor. Historical recovery input above stays frozen.
-    sourceCommit: '83a5cca02728d5751cd056961e7a8f31666a7d3c',
-    sourceSha256: 'd9f3ba4be453a304f72efbe1e25673249a18b98d1fd959a530b45d04fea0f59e',
-    candidateDigest: 'c1d8238fafb19aa7024edb6051316aa74e16cab3a99ea7b497756f94f5e1a08d',
+    // The current shared storage-size/backfill tail is part of the exact
+    // reviewed successor (its storage identity tail is retired with pgstream,
+    // in place). Historical recovery input above stays frozen.
+    sourceCommit: 'abfb36dfb27288fb06c94b9bb1a30a9586f3f2bb',
+    sourceSha256: '60bb63d53357dcf14013859517d82a76fc12bc0ed027795c237154d4a35d1a28',
+    candidateDigest: '1a886ab1df7ccd9203fee9ccb0ac0f96252b69096aedd05c08bb1821525e9edc',
     selection: { profile: FILE }, counter: 'tenant_insertion_ordinal',
     acl: {
       grants: [
