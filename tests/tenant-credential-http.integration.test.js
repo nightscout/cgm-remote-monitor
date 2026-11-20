@@ -19,13 +19,10 @@ const createLegacyAuthority = require('../lib/secrets/legacy-postgres');
 const { createPostgresSecrets } = require('../lib/secrets/postgres');
 const { createSecrets } = require('../lib/secrets/component');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
-// Retired composition (decision deployment-signing-secret, 2026-11-20): this
-// suite drives the Vault-backed DATA verifier with HS256 exchange JWTs, which no
-// api composition builds any more. Its REST behaviours are to be ported to the
-// local composition (local verifiers, derived data keys); until then an opted-in
-// run refuses with this reason rather than testing a removed path.
-const RETIRED = 'HS256 exchange and Vault-on-DATA composition retired (deployment-signing-secret); port to the local composition pending';
-const createExchange = () => { throw new Error(RETIRED); };
+// The api's DATA composition (decision deployment-signing-secret): one-way
+// verifiers and the derived data key in PostgreSQL and the local exchange with
+// durable audit. The Vault-backed verifier and the HS256 exchange are retired.
+const localCredentials = require('./fixtures/local-data-credentials');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
 const Api3Collection = require('../lib/api3/generic/collection');
@@ -85,7 +82,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   const roots = [crypto.randomBytes(24).toString('hex'), crypto.randomBytes(24).toString('hex')];
   const providers = [provider(), provider()];
   const workers = [], shippingSources = [];
-  let owned = false, admin, previousMode, adminURI, appURI, time = Date.now(), subjectTokens, jwt, signingUnavailable = false;
+  let owned = false, admin, previousMode, adminURI, appURI, time = Date.now(), subjectTokens, jwt;
+  const signing = localCredentials.signer(), seconds = () => Math.floor(time / 1000);
   const schemas = [
     ['credential_data', require('../migrations/candidates/postgres-entries-v1.json')],
     ['credential_auth', require('../lib/tenant-authorization/postgres-candidate.json')],
@@ -102,6 +100,15 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     return call;
   }
   const bearer = token => ({ Authorization: 'Bearer ' + token });
+  // The local verifier's principal also carries credential and root versions.
+  const verifyAs = async (worker, tenant, input) => {
+    const principal = await workers[worker].local.verifier.verifyLegacyCredential(ctx(tenant), input);
+    return principal && principal.kind === 'subject' ? { kind: 'subject', subjectId: principal.subjectId } : principal;
+  };
+  const claimsOf = token => JSON.parse(Buffer.from(token.split('.')[1], 'base64url'));
+  // As subject management does: a changed prefix or a replaced row gets current verifiers.
+  const reprepare = (tenant, index, subjects = [{ subjectId: SUBJECT, tokenPrefix: 'sameviewer' }, { subjectId: OTHER, tokenPrefix: 'sameviewer' }]) =>
+    localCredentials.seed(admin, { namespace: 'credential_identity', tenant, root: roots[index], signing, subjects });
   const secret = value => ({ 'api-secret': value });
   async function rows () {
     return (await admin.query('SELECT tenant_id, doc FROM credential_data.entries ORDER BY tenant_id, "_id"')).rows;
@@ -110,7 +117,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
   async function makeWorker () {
     const worker = {};
     workers.push(worker);
-    worker.legacy = await createLegacyAuthority({ connectionString: appURI, namespace: 'credential_identity' });
+    worker.legacy = await createLegacyAuthority({ connectionString: appURI, namespace: 'credential_identity', localVerification: true });
     worker.authority = await createAuthority({ connectionString: appURI, namespace: 'credential_auth' });
     worker.persistence = await createPostgresSecrets({ connectionString: appURI, namespace: 'credential_secrets' });
     worker.secrets = createSecrets({
@@ -118,10 +125,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       providerFor: async tenant => {
         assert.ok([A, B].includes(tenant));
         const current = providers[tenant === A ? 0 : 1];
-        return { ...current, async sign (input) {
-          if (signingUnavailable) throw new Error('synthetic signer unavailable');
-          return current.sign(input);
-        } };
+        return current;
       },
       // These are synthetic trusted service capabilities, not user/data grants.
       // User permissions below always come from the real authority repository.
@@ -132,6 +136,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       now: () => time,
       legacyAuthorityFor: tenant => worker.legacy.read(tenant)
     });
+    worker.local = localCredentials.postgres({ legacy: worker.legacy, signing, now: seconds });
     worker.connection = await connect({ connectionString: appURI, max: 1 });
     const data = express.Router();
     data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
@@ -168,8 +173,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       resolver: createResolver({ aliases: [
         { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
       ] }),
-      dataAccess: createDataAccess({ secrets: worker.secrets, authority: worker.authority, verifierContext: ctx }),
-      exchange: createExchange({ secrets: worker.secrets, authority: worker.authority, verifierContext: ctx }),
+      dataAccess: createDataAccess({ secrets: worker.local.verifier, authority: worker.authority, verifierContext: ctx }),
+      exchange: worker.local.exchange({ authority: worker.authority, verifierContext: ctx, audit: worker.persistence.audit, now: () => time }),
       verifyCredential: async () => null,
       authorizeRequest: async () => false,
       tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
@@ -268,8 +273,12 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     }
     subjectTokens = shippingSources.map(source =>
       source.subjects.find(subject => subject._id.toHexString() === SUBJECT).accessToken);
-    jwt = await Promise.all([A, B].map((tenant, index) =>
-      workers[0].secrets.signJWT(ctx(tenant, 'issuer'), subjectTokens[index], 300)));
+    // Provisioned verifiers and data key, as provisioning writes them.
+    for (const [index, tenant] of [A, B].entries()) {
+      await localCredentials.seed(admin, { namespace: 'credential_identity', tenant, root: roots[index], signing,
+        subjects: shippingSources[index].subjects.map(subject => ({ subjectId: subject._id.toHexString(), tokenPrefix: subject.accessToken.split('-')[0] })) });
+    }
+    jwt = [A, B].map(tenant => localCredentials.issue(tenant, SUBJECT, { signing, now: seconds }));
     for (const worker of workers) await exposeWorker(worker);
     await http(0, A, bearer(jwt[0])).expect(200);
   });
@@ -305,8 +314,9 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       assert.equal(targetExchange.body.sub, sourceExchange.sub);
       assert.deepEqual(targetExchange.body.permissionGroups, sourceExchange.permissionGroups);
       const sourceClaims = source.enclave.verifyJWT(sourceExchange.token);
-      const targetClaims = await workers[0].secrets.verifyJWT(ctx(A), targetExchange.body.token);
-      assert.equal(targetClaims.accessToken, sourceClaims.accessToken);
+      const targetClaims = claimsOf(targetExchange.body.token);
+      assert.equal(sourceClaims.accessToken, subject.accessToken);
+      assert.equal(targetClaims.sub, subject._id.toHexString(), 'the data JWT names the stable subject');
       assert.equal(targetClaims.exp - targetClaims.iat, 28800);
       assert.equal(targetExchange.body.exp - targetExchange.body.iat, 28800);
 
@@ -357,10 +367,8 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     const alternateRoot = crypto.randomBytes(24).toString('hex');
     await assert.rejects(workers[0].secrets.encrypt(ctx(A, 'issuer'), 'operator-import-a',
       Buffer.from(alternateRoot)), { code: 'SECRETS_REFERENCE_EXISTS' });
-    assert.deepEqual(await workers[0].secrets.verifyLegacyCredential(ctx(A),
-      { apiSecret: hash(roots[0]) }), { kind: 'root' });
-    assert.equal(await workers[0].secrets.verifyLegacyCredential(ctx(A),
-      { apiSecret: hash(alternateRoot) }), null);
+    assert.deepEqual(await verifyAs(0, A, { apiSecret: hash(roots[0]) }), { kind: 'root' });
+    assert.equal(await verifyAs(0, A, { apiSecret: hash(alternateRoot) }), null);
     await http(0, A, secret(hash(roots[0]))).expect(200);
     await http(0, A, secret(hash(alternateRoot))).expect(401);
   });
@@ -379,8 +387,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       ];
       for (const form of forms) {
         assert.equal(enclave.isApiKey(form.value), form.status === 200, form.label);
-        assert.deepEqual(await workers[index].secrets.verifyLegacyCredential(ctx(tenant), { apiSecret: form.value }),
-          form.principal, form.label);
+        assert.deepEqual(await verifyAs(index, tenant, { apiSecret: form.value }), form.principal, form.label);
         await http(index, tenant, secret(form.value)).expect(form.status);
       }
     }
@@ -810,10 +817,11 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         assert.deepEqual(response.body.permissionGroups, [['api:entries:read'], []]);
         assert.equal(response.body.iat, Math.floor(time / 1000));
         assert.equal(response.body.exp - response.body.iat, 28800);
-        const decoded = await workers[1 - index].secrets.verifyJWT(ctx(tenant), response.body.token);
-        assert.deepEqual(Object.keys(decoded).sort(), ['accessToken', 'aud', 'exp', 'iat']);
-        assert.equal(decoded.accessToken, subjectTokens[index]);
-        assert.equal(decoded.aud, tenant);
+        assert.deepEqual(await verifyAs(1 - index, tenant, { token: response.body.token }), { kind: 'subject', subjectId: SUBJECT });
+        const decoded = claimsOf(response.body.token);
+        assert.deepEqual(Object.keys(decoded).sort(), ['aud', 'cv', 'exp', 'iat', 'iss', 'rv', 'sub', 'tid']);
+        assert.equal(decoded.sub, SUBJECT);
+        assert.equal(decoded.tid, tenant);
         await http(1 - index, tenant, bearer(response.body.token)).expect(200);
         await http(index, tenant === A ? B : A, bearer(response.body.token)).expect(401);
         await exchange(response.body.token, 1 - index, tenant === A ? B : A).expect(401);
@@ -846,7 +854,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     const claims = JSON.parse(Buffer.from(parts[1], 'base64url'));
     claims.exp++;
     const input = parts[0] + '.' + Buffer.from(JSON.stringify(claims)).toString('base64url');
-    const overlong = input + '.' + (await providers[0].sign(Buffer.from(input))).toString('base64url');
+    const overlong = input + '.' + signing.key(A, 'data', 1).sign(Buffer.from(input)).toString('base64url');
     await exchange(overlong, 1).expect(401);
     await http(1, A, bearer(overlong)).expect(401);
     await admin.query(`UPDATE credential_auth.tenant_authorization_subjects SET display_name = NULL
@@ -865,15 +873,17 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
       await admin.query(`UPDATE credential_identity.legacy_credential_subjects SET token_prefix = 'newdisplay'
         WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+      await reprepare(A, 0, [{ subjectId: SUBJECT, tokenPrefix: 'newdisplay' }]);
       await admin.query('COMMIT');
       const current = await exchange(issued, 1).expect(200);
       assert.equal(current.body.sub, 'New Display Exact');
-      assert.equal((await workers[1].secrets.verifyJWT(ctx(A), current.body.token)).accessToken,
-        'newdisplay-' + hash(hash(roots[0]) + SUBJECT).slice(0, 16));
+      assert.equal(claimsOf(current.body.token).sub, SUBJECT);
+      assert.deepEqual(await verifyAs(1, A, { apiSecret: 'newdisplay-' + hash(hash(roots[0]) + SUBJECT).slice(0, 16) }), { kind: 'subject', subjectId: SUBJECT });
       await http(0, A, bearer(current.body.token)).expect(200);
     } finally {
       await admin.query(`UPDATE credential_identity.legacy_credential_subjects SET token_prefix = 'sameviewer'
         WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
+      await reprepare(A, 0);
     }
     await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
       WHERE tenant_id = $1 AND subject_id = $2`, [A, SUBJECT]);
@@ -905,6 +915,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     } finally {
       await admin.query(`INSERT INTO credential_identity.legacy_credential_subjects VALUES ($1, $2, 'sameviewer')`,
         [A, SUBJECT]);
+      await reprepare(A, 0);
     }
     await http(1, A, bearer(issued)).expect(200);
     await admin.query(`DELETE FROM credential_auth.tenant_authorization_subject_roles
@@ -932,7 +943,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
         assert.deepEqual(response.body.permissionGroups, [['api:entries:read'],
           mode === 'readable' ? ['*:*:read'] : mode === 'status-only' ? ['api:status:read'] : []]);
         await http(0, A).expect(mode === 'readable' ? 200 : 403);
-        for (const value of ['invalid', 'null', await workers[0].secrets.signJWT(ctx(A, 'issuer'), 'unknown', 60)]) {
+        for (const value of ['invalid', 'null', localCredentials.issue(A, 'unknown', { signing, now: seconds })]) {
           await exchange(value, 1).expect(401);
         }
         await http(0, A, { Authorization: 'Bearer' }).expect(401);
@@ -950,20 +961,14 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     } finally {
       time = previous;
     }
-    await assert.rejects(workers[0].secrets.signJWT(ctx(A, 'issuer'), subjectTokens[0], 28801),
-      { code: 'SECRETS_TOKEN_LIFETIME' });
     await exchange(subjectTokens[0], 1).expect(200);
   });
 
-  it('fails exchange closed during signing, durable-audit, credential metadata and current authority outages', async function () {
-    signingUnavailable = true;
-    try {
-      const response = await exchange(subjectTokens[0]).expect(503);
-      assert.deepEqual(response.body, { error: 'AUTHORITY_UNAVAILABLE' });
-    } finally {
-      signingUnavailable = false;
-    }
+  // Signing is in process from the deployment secret (decision deployment-signing-secret):
+  // the data key row stands in for the retired Transit signer outage.
+  it('fails exchange closed during data-key, durable-audit, credential metadata and current authority outages', async function () {
     for (const [privilege, table] of [
+      ['SELECT', 'credential_identity.legacy_data_keys'],
       ['INSERT', 'credential_secrets.secret_audit'],
       ['SELECT', 'credential_identity.legacy_credential_subjects'],
       ['SELECT', 'credential_auth.tenant_authorization_subjects'],
@@ -1118,9 +1123,7 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       const uploader = 'sameviewer-' + hash(hash(roots[index]) + OTHER).slice(0, 16);
       await http(index, tenant, secret(uploader)).expect(403);
       await http(index, tenant, secret(hash(roots[1 - index]))).expect(401);
-      const verified = await workers[index].secrets.verifyLegacyCredential(ctx(tenant),
-        { apiSecret: hash(roots[index]) });
-      assert.deepEqual(verified, { kind: 'root' });
+      assert.deepEqual(await verifyAs(index, tenant, { apiSecret: hash(roots[index]) }), { kind: 'root' });
     }
   });
 
@@ -1130,13 +1133,14 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
       for (const [tenant, index] of [[A, 0], [B, 1]]) {
         await http(0, tenant, bearer(jwt[1 - index])).expect(401);
         await http(0, tenant, secret(subjectTokens[1 - index])).expect(401);
-        for (const token of ['malformed', await workers[0].secrets.signJWT(ctx(tenant, 'issuer'), 'root', 30)]) {
+        for (const token of ['malformed', localCredentials.issue(tenant, 'root', { signing, now: seconds })]) {
           await http(1, tenant, bearer(token)).expect(401);
         }
         await http(0, tenant, secret('')).expect(401);
-        const expired = await workers[0].secrets.signJWT(ctx(tenant, 'issuer'), subjectTokens[index], 1);
-        time += 1000;
-        await http(1, tenant, bearer(expired)).expect(401);
+        const expired = localCredentials.issue(tenant, SUBJECT, { signing, now: seconds });
+        const previous = time;
+        time += 28800 * 1000;
+        try { await http(1, tenant, bearer(expired)).expect(401); } finally { time = previous; }
       }
       await http(0, 'unknown', bearer(jwt[0])).expect(404);
       await http(0, A, { Authorization: 'Basic invalid' }).expect(401);
@@ -1195,22 +1199,29 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     await http(0, A, bearer(jwt[0])).expect(401);
     await http(1, A, secret(subjectTokens[0])).expect(401);
     await admin.query(`INSERT INTO credential_identity.legacy_credential_subjects VALUES ($1, $2, 'sameviewer')`, [A, SUBJECT]);
+    // A re-created row has no verifiers until management prepares them.
+    await http(0, A, bearer(jwt[0])).expect(401);
+    await reprepare(A, 0);
     await http(0, A, bearer(jwt[0])).expect(200);
     assert.deepEqual(await rows(), before);
   });
 
-  it('rechecks current root references without caching verified success', async function () {
+  it('rechecks current root verifiers without caching verified success', async function () {
     const before = await rows();
     const replacement = crypto.randomBytes(24).toString('hex');
-    await workers[0].secrets.encrypt(ctx(A, 'issuer'), 'operator-replacement', Buffer.from(replacement));
-    await admin.query(`UPDATE credential_identity.legacy_credential_config SET root_reference_id = 'operator-replacement'
-      WHERE tenant_id = $1`, [A]);
-    await http(1, A, secret(hash(roots[0]))).expect(401);
-    await http(0, A, bearer(jwt[0])).expect(401);
-    await http(1, A, secret(hash(replacement))).expect(200);
-    await admin.query(`UPDATE credential_identity.legacy_credential_config SET root_reference_id = 'operator-import-a'
-      WHERE tenant_id = $1`, [A]);
+    // A root rotation re-prepares the root verifiers and bumps the root version (decision deployment-signing-secret).
+    await localCredentials.seed(admin, { namespace: 'credential_identity', tenant: A, root: replacement, signing, rootVersion: 2,
+      subjects: [{ subjectId: SUBJECT, tokenPrefix: 'sameviewer' }, { subjectId: OTHER, tokenPrefix: 'sameviewer' }] });
+    try {
+      await http(1, A, secret(hash(roots[0]))).expect(401);
+      await http(0, A, bearer(jwt[0])).expect(401);
+      await http(1, A, secret(hash(replacement))).expect(200);
+    } finally {
+      await localCredentials.seed(admin, { namespace: 'credential_identity', tenant: A, root: roots[0], signing, rootVersion: 1,
+        subjects: [{ subjectId: SUBJECT, tokenPrefix: 'sameviewer' }, { subjectId: OTHER, tokenPrefix: 'sameviewer' }] });
+    }
     await http(0, A, secret(hash(roots[0]))).expect(200);
+    await http(0, A, bearer(jwt[0])).expect(200);
     assert.deepEqual(await rows(), before);
   });
 
@@ -1226,9 +1237,10 @@ optInSuite(process.env.NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST === '1',
     } finally {
       await admin.query(`GRANT SELECT ON credential_identity.legacy_credential_config TO ${role}`);
     }
+    // DATA authentication writes no secrets audit: one-way verifiers only.
     await admin.query(`REVOKE INSERT ON credential_secrets.secret_audit FROM ${role}`);
     try {
-      await http(0, A, bearer(jwt[0])).expect(503);
+      await http(0, A, bearer(jwt[0])).expect(200);
     } finally {
       await admin.query(`GRANT INSERT ON credential_secrets.secret_audit TO ${role}`);
     }

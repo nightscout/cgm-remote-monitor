@@ -13,14 +13,12 @@ const connect = require('../lib/storage/postgres-connection');
 const scope = require('../lib/storage/tenant-scope');
 const { encodeDocument } = require('../lib/storage/postgres-identity');
 const createAuthority = require('../lib/tenant-authorization/postgres');
-const { createSecrets } = require('../lib/secrets/component');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
 const Collection = require('../lib/api3/generic/collection');
 const authentication = require('../lib/api3/tenant-authentication');
 const treatmentsOptions = require('../lib/server/tenant-app/treatments');
-const provider = require('./fixtures/tenant-credential-provider');
 const defaults = require('../lib/api3/const.json');
 const { optInSuite } = require('./support/opt-in');
 const writeClock = require('./fixtures/native-write-clock');
@@ -61,8 +59,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
     const auth = name + '_auth';
     const role = name + '_app';
     const workers = [];
-    const providers = [provider(), provider()];
-    const records = new Map();
+    const local = require('./fixtures/local-data-credentials').memory();
     const roots = [A, B].map(() => crypto.randomBytes(24).toString('hex'));
     let mode, admin, mongo, mongoCollection, referenceApp, referenceEnv, tokens, jwt;
     let mongoName = 'Current Exact Name', mongoGrants = GRANTS;
@@ -214,19 +211,8 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         workers.push(worker);
         worker.connection = await connect({ connectionString: uri.toString(), max: 1 });
         worker.authority = { ...await createAuthority({ connectionString: uri.toString(), namespace: auth }) };
-        worker.secrets = createSecrets({
-          providerFor: async tenant => providers[tenant === A ? 0 : 1],
-          store: {
-            async get (tenant, id) { return records.get(tenant + ':' + id); },
-            async insert (record) { records.set(record.tenant + ':' + record.id, record); }
-          },
-          authorize: async identity => identity.consumer === 'api',
-          audit: async () => {},
-          maxTokenLifetimeSeconds: 28800,
-          legacyAuthorityFor: async tenant => ({
-            reference: { tenant, id: 'synthetic-import' }, subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }]
-          })
-        });
+        // The api's DATA verifier (one-way verifiers, decision deployment-signing-secret).
+        worker.secrets = local.verifier;
         const data = express.Router();
         data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
         const legacyRouter = express.Router();
@@ -270,12 +256,11 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         assert.equal(worker.server.address().address, '127.0.0.1');
       }
       for (const [index, tenant] of [A, B].entries()) {
-        await workers[0].secrets.encrypt({ tenant, principal: 'issuer', consumer: 'api' },
-          'synthetic-import', Buffer.from(roots[index]));
+        local.set(tenant, { root: roots[index], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
       }
       tokens = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
-      jwt = await Promise.all([A, B].map((tenant, index) =>
-        workers[0].secrets.signJWT({ tenant, principal: 'issuer', consumer: 'api' }, tokens[index], 300)));
+      // Eight-hour data JWTs signed with each tenant's derived data key, as the exchange issues them.
+      jwt = [A, B].map(tenant => local.jwt(tenant, SUBJECT));
       mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);
       await mongo.connect();
       mongoCollection = mongo.db().collection(name);

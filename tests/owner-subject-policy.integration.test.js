@@ -363,7 +363,19 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
       const hosts = new Map([[A, 'one.example.test'], [B, 'two.example.test']]);
       const consumer = 'tenant-api';
       const verifierContext = tenant => ({ tenant, principal: 'preview-api', consumer });
-      let legacy, secrets, authority, app, ownerCalls;
+      let legacy, secrets, authority, app, ownerCalls, verifier;
+      // The api's DATA verifier (one-way verifiers and derived data keys in
+      // PostgreSQL) authenticates the admin tools, as preview-api composes it
+      // (decision deployment-signing-secret); the component keeps root custody.
+      const localCredentials = require('./fixtures/local-data-credentials'), signing = localCredentials.signer();
+      async function prepareVerifiers () {
+        const rows = (await f.admin.query('SELECT tenant_id, subject_id, token_prefix FROM ' + f.tables.credentials + ' WHERE verifiers IS NULL OR verifier_token_prefix IS DISTINCT FROM token_prefix')).rows;
+        for (const row of rows) {
+          if (!roots.has(row.tenant_id)) continue;
+          const [prepared] = require('../lib/secrets/legacy-verifiers').prepare(Buffer.from(roots.get(row.tenant_id)), [{ subjectId: row.subject_id, tokenPrefix: row.token_prefix }]).subjects;
+          await f.admin.query('UPDATE ' + f.tables.credentials + ' SET verifiers=$3, verifier_token_prefix=token_prefix WHERE tenant_id=$1 AND subject_id=$2', [row.tenant_id, row.subject_id, prepared.verifiers]);
+        }
+      }
       // jQuery.param as the admin tools send it: arrays as key[]=v, empty arrays omitted.
       const form = value => Object.entries(value).flatMap(([key, item]) => Array.isArray(item)
         ? item.map(entry => encodeURIComponent(key + '[]') + '=' + encodeURIComponent(entry))
@@ -389,6 +401,7 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
           await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [A, principal, 'synthetic']);
         }
         await f.admin.query('INSERT INTO ' + f.tables.actors + ' (tenant_id,principal,consumer,active,can_update,delegable) VALUES ($1,$2,\'admin\',true,true,$3) ON CONFLICT DO NOTHING', [A, principal, CATALOGUE]);
+        await prepareVerifiers();
       }
       async function usableOwners () {
         return (await f.admin.query('SELECT a.principal FROM ' + f.tables.actors + ' a JOIN ' + f.tables.subjects +
@@ -399,9 +412,12 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         const pw = crypto.randomBytes(24).toString('hex');
         await f.admin.query(`CREATE ROLE root_legacy_reader LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${pw}'`);
         await f.admin.query(`GRANT USAGE ON SCHEMA ${f.CREDENTIAL_NS} TO root_legacy_reader`);
-        await f.admin.query(`GRANT SELECT ON ${f.CREDENTIAL_NS}.legacy_credential_config, ${f.tables.credentials} TO root_legacy_reader`);
+        await f.admin.query(`GRANT SELECT ON ${f.CREDENTIAL_NS}.legacy_credential_config, ${f.tables.credentials}, ${f.CREDENTIAL_NS}.legacy_data_keys TO root_legacy_reader`);
         const url = new URL(f.writerURI); url.username = 'root_legacy_reader'; url.password = pw;
-        legacy = await createLegacy({ connectionString: url.toString(), namespace: f.CREDENTIAL_NS });
+        legacy = await createLegacy({ connectionString: url.toString(), namespace: f.CREDENTIAL_NS, localVerification: true });
+        for (const tenant of [A, B]) await localCredentials.seed(f.admin, { namespace: f.CREDENTIAL_NS, tenant, root: roots.get(tenant), subjects: [], signing });
+        await prepareVerifiers();
+        verifier = localCredentials.postgres({ legacy, signing }).verifier;
         const provider = require('./fixtures/tenant-credential-provider')(), encrypted = new Map();
         secrets = createSecrets({ providerFor: async () => provider, maxTokenLifetimeSeconds: 28800,
           store: { async get (tenant, id) { return encrypted.get(tenant + ':' + id); },
@@ -423,9 +439,10 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
           dataRouter: (req, res) => res.status(404).json({ error: 'NOT_FOUND' }),
           tenantSettings: { read: record('settings.read'), replace: record('settings.replace'), rollback: record('settings.rollback') },
           subjectPolicy: { read: record('policy.read'), replace: record('policy.replace') },
-          rootAdmin: { ...service, authenticate: createRootAuthentication({ secrets, authority, verifierContext, tenants: [A, B] }) } });
+          rootAdmin: { ...service, authenticate: createRootAuthentication({ secrets: { ...secrets, verifyLegacyCredential: verifier.verifyLegacyCredential },
+            authority, verifierContext, tenants: [A, B] }) } });
       });
-      beforeEach(() => { ownerCalls = []; });
+      beforeEach(async () => { ownerCalls = []; await prepareVerifiers(); });
       after(async () => { if (legacy) await legacy.close(); if (authority) await authority.close(); });
 
       it('lists, creates, edits and deletes subjects and creates roles with the admin tools payloads', async function () {
@@ -433,7 +450,8 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
         assert.equal(listed.status, 200, JSON.stringify(listed.body));
         assert.deepEqual(listed.body, [{ _id: TARGET, name: 'Original', roles: ['reader'], notes: 'preserved', accessToken: token(A, TARGET, 'original') }]);
         // The listed token is the subject's own legacy credential on this tenant.
-        assert.deepEqual(await secrets.verifyLegacyCredential(verifierContext(A), { apiSecret: listed.body[0].accessToken }), { kind: 'subject', subjectId: TARGET });
+        const verified = await verifier.verifyLegacyCredential(verifierContext(A), { apiSecret: listed.body[0].accessToken });
+        assert.deepEqual({ kind: verified.kind, subjectId: verified.subjectId }, { kind: 'subject', subjectId: TARGET });
         const role = await call('post', '/roles', { body: { name: 'school', permissions: ['api:entries:read'], notes: '' } });
         assert.equal(role.status, 200, JSON.stringify(role.body));
         assert.deepEqual(role.body, { _id: 'school', name: 'school', permissions: ['api:entries:read'] });
@@ -603,11 +621,13 @@ optInSuite(process.env.NS_OWNER_SUBJECT_POLICY_DOCKER_TEST === '1',
           await f.admin.query('INSERT INTO ' + f.tables.subjects + ' (tenant_id,subject_id,display_name) VALUES ($1,$2,$3)', [tenant, id, prefix]);
           await f.admin.query('INSERT INTO ' + f.tables.credentials + ' (tenant_id,subject_id,token_prefix) VALUES ($1,$2,$3)', [tenant, id, prefix]);
           for (const role of roles) await f.admin.query('INSERT INTO ' + f.tables.links + ' (tenant_id,subject_id,role_name) VALUES ($1,$2,$3)', [tenant, id, role]);
+          await prepareVerifiers();
         }
+        // The subject's data JWT, as the local exchange issues it for its raw token.
         async function jwt (tenant, id, prefix) {
-          const issued = await secrets.exchangeLegacyCredential(verifierContext(tenant), token(tenant, id, prefix), async () => true);
-          assert.ok(issued && issued.token, 'synthetic subject exchange');
-          return issued.token;
+          const principal = await verifier.verifyLegacyCredential(verifierContext(tenant), { apiSecret: token(tenant, id, prefix) });
+          assert.equal(principal?.subjectId, id, 'synthetic subject verifies before issuance');
+          return localCredentials.issue(tenant, id, { signing, credentialVersion: principal.credentialVersion, rootVersion: principal.rootVersion });
         }
         beforeEach(async function () {
           for (const tenant of [A, B]) {

@@ -46,7 +46,10 @@ Token signing is not a secrets operation: tenant signing keys are derived in
 process from the deployment signing secret ([`derived-signing.js`](derived-signing.js),
 decision deployment-signing-secret, 2026-11-20). The HS256 `signJWT`,
 `verifyJWT` and `exchangeLegacyCredential` methods and the Transit HMAC key
-are retired.
+are retired. DATA credential verification is not a secrets operation either:
+the Vault-backed `verifyLegacyCredential` (a root decrypt per request) is retired
+(same decision, amendment 3); the api checks credentials against the one-way
+verifiers in PostgreSQL ([`legacy-verifiers.js`](legacy-verifiers.js)).
 
 | Method | Authority and result |
 |---|---|

@@ -131,7 +131,7 @@ inventory before starting a resource.
 | `tests/tenant-rest-derived.integration.test.js` | `NS_REST_DERIVED_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-treatments.integration.test.js` | `NS_REST_TREATMENTS_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-context.integration.test.js` | `NS_REST_CONTEXT_HTTP_TEST=1` | PostgreSQL, MongoDB | Vault | |
-| `tests/tenant-rest-device-activity.integration.test.js` | `NS_REST_DEVICE_ACTIVITY_TEST=1` | PostgreSQL, MongoDB | Vault | its Vault is `hashicorp/vault:latest`, unpinned |
+| `tests/tenant-rest-device-activity.integration.test.js` | `NS_REST_DEVICE_ACTIVITY_TEST=1` | PostgreSQL, MongoDB | | |
 | `tests/tenant-rest-profile-food.integration.test.js` | `NS_PROFILE_FOOD_HTTP_TEST=1` | PostgreSQL, MongoDB, Vault (`NS_PROFILE_FOOD_VAULT_ADDRESS`/`_TOKEN`) | | mounts transit at the fixed path `transit`: one run per Vault |
 | `tests/tenant-rest-settings-differential.integration.test.js` | `NS_SETTINGS_DIFFERENTIAL_TEST=1` | PostgreSQL, MongoDB, Vault (`NS_SETTINGS_VAULT_ADDRESS`/`_TOKEN`) | | |
 | `tests/postgres-migrations.integration.test.js` | `NS_MIGRATION_DOCKER_TEST=1` | | PostgreSQL | |
@@ -140,7 +140,6 @@ inventory before starting a resource.
 | `tests/vault-secrets.integration.test.js` | `NS_VAULT_DOCKER_TEST=1` | | Vault | |
 | `tests/tenant-key-retention.integration.test.js` | `NS_KEY_RETENTION_DOCKER_TEST=1` | | PostgreSQL, Vault | post-deletion 30-day key retention: destroys Transit keys in its own Vault dev |
 | `tests/tenant-recommission.integration.test.js` | `NS_TENANT_RECOMMISSION_PG_VAULT_TEST=1` | | PostgreSQL, Vault | exact artifact recovery; runner binds clean source HEAD through `NS_TENANT_RECOMMISSION_SOURCE_COMMIT` before resources start |
-| `tests/tenant-runtime-vault.integration.test.js` | `NS_TENANT_RUNTIME_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | |
 | `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
 | `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |
 | `tests/tenant-insertion-upgrade.integration.test.js` | `NS_TENANT_INSERTION_UPGRADE_TEST=1` | PostgreSQL | Populated five-domain runner upgrade, original ordinal preservation, tenant floors, old catalogue refusal and rollback |

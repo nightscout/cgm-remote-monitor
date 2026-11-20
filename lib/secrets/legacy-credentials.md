@@ -6,7 +6,12 @@
 > locally and issues data JWTs with per-tenant keys derived from the
 > deployment signing secret ([`derived-signing.js`](derived-signing.js));
 > `legacy_data_keys` holds public keys only. Statements below about HS256 or a
-> stored private key describe the retired design.
+> stored private key describe the retired design. Amendment 3 (same day): the
+> Vault-backed `secrets.verifyLegacyCredential` (decrypt the root per request) is
+> retired too; DATA credentials are checked only against the one-way verifiers in
+> [`legacy-verifiers.js`](legacy-verifiers.js). Statements below about the
+> verifier decrypting the root inside the secrets boundary describe that retired
+> path; root custody, admin-tools token listing and issuance keep it.
 
 This is the first credential/entries-GET bridge, not an enabled server role,
 owner/operator authenticator or complete API surface. The optional dormant

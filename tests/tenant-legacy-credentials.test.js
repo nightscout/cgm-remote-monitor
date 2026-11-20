@@ -5,10 +5,24 @@ const crypto = require('node:crypto');
 const { ObjectId } = require('mongodb');
 const { createSecrets } = require('../lib/secrets/component');
 const provider = require('./fixtures/tenant-credential-provider');
+const localCredentials = require('./fixtures/local-data-credentials');
+
+// Shipping parity of the api's DATA verifier (lib/secrets/legacy-verifiers.js,
+// one-way verifiers prepared from the root secret) against the shipping
+// authorization storage. The Vault-backed component verifier is retired
+// (decision deployment-signing-secret); the component keeps root custody,
+// issuance and the admin-tools token listings tested here.
 
 describe('tenant legacy credentials against shipping authentication', function () {
-  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset, authorityReads, authorizations, decryptions, auditUnavailable, verifyAllowed, componentOptions;
-  const context = { tenant: 'tenant-a', principal: 'verifier', consumer: 'api' };
+  let component, enclave, storage, root, subjects, metadata, events, records, unavailable, docs, clockOffset, authorizations, auditUnavailable, verifyAllowed, componentOptions, local;
+  const TENANT = '0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a', OTHER_TENANT = '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b';
+  const context = { tenant: TENANT, principal: 'verifier', consumer: 'api' };
+  // The verifier's principal also carries credential and root versions.
+  const verify = async (...args) => {
+    const principal = await local.verifier.verifyLegacyCredential(...args);
+    return principal && principal.kind === 'subject' ? { kind: 'subject', subjectId: principal.subjectId } : principal;
+  };
+  const prepare = () => local.set(TENANT, { root, subjects: metadata });
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 
   beforeEach(async function () {
@@ -35,10 +49,8 @@ describe('tenant legacy credentials against shipping authentication', function (
     records = new Map();
     events = [];
     unavailable = false;
-    clockOffset = 0; authorityReads = 0; authorizations = []; decryptions = 0; auditUnavailable = false; verifyAllowed = true;
+    clockOffset = 0; authorizations = []; auditUnavailable = false; verifyAllowed = true;
     const cryptoProvider = provider();
-    const decrypt = cryptoProvider.decrypt.bind(cryptoProvider);
-    cryptoProvider.decrypt = async value => { decryptions++; return decrypt(value); };
     componentOptions = {
       providerFor: async () => cryptoProvider,
       store: { async get (tenant, id) { return records.get(tenant + ':' + id); },
@@ -48,55 +60,14 @@ describe('tenant legacy credentials against shipping authentication', function (
       maxTokenLifetimeSeconds: 28800,
       now: () => Date.now() + clockOffset,
       async legacyAuthorityFor (tenant) {
-        authorityReads++;
         if (unavailable) throw new Error('authority unavailable');
         return { reference: { tenant, id: 'imported-root' }, subjects: metadata };
       }
     };
     component = createSecrets(componentOptions);
     await component.encrypt(context, 'imported-root', Buffer.from(root));
-  });
-
-  it('passes only fresh operation-local legacy metadata and keeps generic decrypt authorization independent', async function () {
-    const before = authorityReads;
-    await component.verifyLegacyCredential(context, { apiSecret: hash(root) });
-    const first = authorizations.at(-1).hint;
-    assert(first && first.reference.id === 'imported-root');
-    metadata = [];
-    await component.verifyLegacyCredential(context, { apiSecret: hash(root) });
-    const next = authorizations.at(-1).hint;
-    assert.notEqual(first, next);
-    assert.equal(next.subjects.length, 0);
-    assert.equal(authorityReads, before + 2);
-    await component.decrypt(context, { tenant: context.tenant, id: 'imported-root' });
-    assert.equal(authorizations.at(-1).hint, undefined, 'generic decrypt has no trusted legacy metadata');
-    unavailable = true;
-    await assert.rejects(component.verifyLegacyCredential(context, { apiSecret: hash(root) }), /authority unavailable/);
-  });
-
-  it('does not dispatch JWT verification for plain legacy credentials, while generic invalid attempts remain audited', async function () {
-    let start = events.length;
-    const token = subjects[0].accessToken;
-    assert(!token.includes('.'));
-    assert.equal((await component.verifyLegacyCredential(context, { token, apiSecret: token })).subjectId,
-      subjects[0]._id.toHexString());
-    assert.deepEqual(events.slice(start).map(x => x.operation), ['decrypt'], 'LEGACY_NO_FAKE_JWT_ATTEMPT');
-    // The HS256 profile is retired (decision deployment-signing-secret): a dotted
-    // candidate is never a credential here and dispatches no JWT operation.
-    assert.equal(component.verifyJWT, undefined);
-    start = events.length;
-    assert.equal(await component.verifyLegacyCredential(context, { token: 'invalid.jwt.shape', apiSecret: 'invalid.jwt.shape' }), null);
-    assert.deepEqual(events.slice(start).map(x => x.operation), ['decrypt'], 'dotted candidate adds no JWT attempt');
-  });
-
-  it('keeps mandatory decrypt audit before crypto for plain legacy routing', async function () {
-    const token = subjects[0].accessToken;
-    auditUnavailable = true;
-    await assert.rejects(component.verifyLegacyCredential(context, { token, apiSecret: token }), /audit unavailable/);
-    assert.equal(decryptions, 0, 'no root plaintext before durable decrypt audit');
-    auditUnavailable = false; verifyAllowed = false;
-    assert.equal((await component.verifyLegacyCredential(context, { token, apiSecret: token })).subjectId,
-      subjects[0]._id.toHexString(), 'plain routing needs no verify permission');
+    local = localCredentials.memory();
+    prepare();
   });
 
   it('lists the shipping admin tools accessToken for every subject only to the tenant root secret', async function () {
@@ -130,7 +101,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       crypto.createHash('sha512').update(root).digest('hex')];
     for (const apiSecret of rootForms) {
       assert.equal(enclave.isApiKey(apiSecret), true);
-      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret }), { kind: 'root' });
+      assert.deepEqual(await verify(context, { apiSecret }), { kind: 'root' });
     }
     for (const subject of subjects) {
       for (const apiSecret of [subject.accessToken, subject.digest, subject.digest.slice(0, 16),
@@ -138,14 +109,16 @@ describe('tenant legacy credentials against shipping authentication', function (
         'ignored-name-' + subject.digest.slice(0, 16)]) {
         const shipping = storage.findSubject(apiSecret);
         assert.ok(shipping);
-        assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret }),
+        assert.deepEqual(await verify(context, { apiSecret }),
           { kind: 'subject', subjectId: shipping._id.toHexString() });
       }
     }
     assert.notEqual(subjects[0]._id.toHexString(), subjects[1]._id.toHexString());
     assert.equal(subjects[0].name, subjects[1].name);
-    assert.equal(JSON.stringify(events).includes(root), false);
-    assert.doesNotMatch(JSON.stringify(events), /accessToken|tokenPrefix/);
+    // The verifier state holds no usable credential: no root, digest or token.
+    const stored = JSON.stringify(local.tenants.get(TENANT));
+    assert.equal(stored.includes(root) || stored.includes(hash(root)), false);
+    for (const subject of subjects) assert.equal([subject.accessToken, subject.digest, subject.accessTokenDigest].some(value => stored.includes(value)), false);
   });
 
   async function renameFirstSubject () {
@@ -153,6 +126,8 @@ describe('tenant legacy credentials against shipping authentication', function (
     await new Promise((resolve, reject) => storage.reload(error => error ? reject(error) : resolve()));
     const current = storage.subjects[0];
     metadata[0].tokenPrefix = current.name.toLowerCase().replace(/[\W]/g, '').substring(0, 10);
+    // Management re-prepares the subject's verifiers for its new prefix.
+    prepare();
     return current;
   }
 
@@ -164,7 +139,7 @@ describe('tenant legacy credentials against shipping authentication', function (
     assert.equal(current.digest, original.digest, 'suffix derives from immutable identity and root');
     for (const credential of [original.accessToken, current.accessToken, original.digest, original.digest.slice(0, 16)]) {
       assert.equal(storage.findSubject(credential).name, 'Renamed Display');
-      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+      assert.deepEqual(await verify(context, { apiSecret: credential }),
         { kind: 'subject', subjectId: original._id.toHexString() });
     }
     // Shipping JWT verification yields the old raw token. Current shipping
@@ -185,18 +160,18 @@ describe('tenant legacy credentials against shipping authentication', function (
     const original = { ...subjects[0] };
     for (const credential of [original.accessTokenDigest, original.accessTokenDigest.slice(0, 16)]) {
       assert.equal(storage.findSubject(credential)._id.toHexString(), original._id.toHexString());
-      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+      assert.deepEqual(await verify(context, { apiSecret: credential }),
         { kind: 'subject', subjectId: original._id.toHexString() });
     }
     const current = await renameFirstSubject();
     assert.notEqual(current.accessTokenDigest, original.accessTokenDigest);
     for (const credential of [original.accessTokenDigest, original.accessTokenDigest.slice(0, 16)]) {
       assert.equal(storage.findSubject(credential), null, 'old hash includes the old display prefix');
-      assert.equal(await component.verifyLegacyCredential(context, { apiSecret: credential }), null);
+      assert.equal(await verify(context, { apiSecret: credential }), null);
     }
     for (const credential of [current.accessTokenDigest, current.accessTokenDigest.slice(0, 16)]) {
       assert.equal(storage.findSubject(credential).name, 'Renamed Display');
-      assert.deepEqual(await component.verifyLegacyCredential(context, { apiSecret: credential }),
+      assert.deepEqual(await verify(context, { apiSecret: credential }),
         { kind: 'subject', subjectId: original._id.toHexString() });
     }
   });
@@ -207,7 +182,7 @@ describe('tenant legacy credentials against shipping authentication', function (
     const security = require('../lib/api3/security');
 
     function legacyAccess (authority) {
-      return createDataAccess({ secrets: component, authority,
+      return createDataAccess({ secrets: local.verifier, authority,
         verifierContext: async tenant => ({ ...context, tenant }), legacyCollections: ['entries'] });
     }
     const legacyRequest = token => ({ method: 'GET', path: '/entries/sgv.json', rawHeaders: [], query: { token } });
@@ -219,7 +194,7 @@ describe('tenant legacy credentials against shipping authentication', function (
       const req = legacyRequest(subjects[0].accessToken);
       assert.equal((await access({ tenant: context.tenant, request: req, version: 1 })).principal,
         subjects[0]._id.toHexString());
-      assert.deepEqual(events.slice(before).map(event => event.operation), ['decrypt']);
+      assert.equal(events.length, before, 'no secrets operation: one-way verifiers only');
       const selected = await security.authenticate({ req });
       assert.equal(security.checkPermission(selected, 'api:entries:read'), true);
       assert.equal(security.checkPermission(selected, 'api:entries:create'), false);
@@ -238,8 +213,8 @@ describe('tenant legacy credentials against shipping authentication', function (
         access({ tenant, request: legacyRequest(token), version: 1 });
       assert.equal(await authenticate(hash(root)), null, 'query roots do not acquire subject authority');
       assert.equal(await authenticate('invalid'), null);
-      await component.encrypt({ ...context, tenant: 'tenant-b' }, 'imported-root', Buffer.from('other-synthetic-root-secret'));
-      assert.equal(await authenticate(subjects[0].accessToken, 'tenant-b'), null);
+      local.set(OTHER_TENANT, { root: 'other-synthetic-root-secret', subjects: metadata });
+      assert.equal(await authenticate(subjects[0].accessToken, OTHER_TENANT), null);
       const token = subjects[0].accessToken;
       assert.ok(await authenticate(token));
       present = false;
@@ -268,14 +243,14 @@ describe('tenant legacy credentials against shipping authentication', function (
         secrets: { async verifyLegacyCredential () { return { kind: 'subject', subjectId: 'root' }; } },
         verifierContext: async tenant => ({ tenant, principal: 'verifier', consumer: 'api' }),
         authority: { async authorize (input) {
-          assert.deepEqual(input, { tenant: 'tenant-a', principal: { kind: 'subject', subjectId: 'root' },
+          assert.deepEqual(input, { tenant: TENANT, principal: { kind: 'subject', subjectId: 'root' },
             permission: 'api:entries:read' });
           await ready;
           verified = true;
           return true;
         } }
       });
-      const pending = access({ tenant: 'tenant-a', request: req });
+      const pending = access({ tenant: TENANT, request: req });
       assert.equal(authentication.get(req), undefined);
       release();
       assert.equal((await pending).principal, 'root');
@@ -301,33 +276,30 @@ describe('tenant legacy credentials against shipping authentication', function (
         ['Authorization', 'Bearer a,b'], ['Authorization', 'Basic a']
       ]) {
         const req = { method: 'GET', path: '/entries/shared', rawHeaders, tenantContext: { principal: 'root' } };
-        assert.equal(await access({ tenant: 'tenant-a', request: req }), null);
+        assert.equal(await access({ tenant: TENANT, request: req }), null);
         assert.equal(authentication.get(req), undefined);
       }
       assert.equal(verified, 0);
       for (const [method, path] of [['POST', '/entries/shared'], ['PUT', '/entries'], ['PATCH', '/entries'],
         ['DELETE', '/entries'], ['GET', '/entries/history/one/two']]) {
-        await assert.rejects(access({ tenant: 'tenant-a', request: { method, path, rawHeaders: [] } }),
+        await assert.rejects(access({ tenant: TENANT, request: { method, path, rawHeaders: [] } }),
           { code: 'TENANT_DATA_UNSUPPORTED' });
       }
       assert.equal(verified, 0);
     });
   });
 
-  it('keeps invalid supplied values out of anonymous and checks current metadata/reference every time', async function () {
-    assert.deepEqual(await component.verifyLegacyCredential(context), { kind: 'anonymous' });
+  it('keeps invalid supplied values out of anonymous and checks current verifier state every time', async function () {
+    assert.deepEqual(await verify(context), { kind: 'anonymous' });
     for (const apiSecret of ['', 'null', 'wrong', root, 'same-display', subjects[0].digest.slice(0, 15)]) {
-      assert.equal(await component.verifyLegacyCredential(context, { apiSecret }), null);
+      assert.equal(await verify(context, { apiSecret }), null);
     }
     const credential = { apiSecret: subjects[0].accessToken };
-    assert.equal((await component.verifyLegacyCredential(context, credential)).kind, 'subject');
-    metadata = metadata.slice(1);
-    assert.equal(await component.verifyLegacyCredential(context, credential), null);
-    records.clear();
-    await assert.rejects(component.verifyLegacyCredential(context, { apiSecret: hash(root) }),
-      { code: 'SECRETS_NOT_FOUND' });
-    unavailable = true;
-    await assert.rejects(component.verifyLegacyCredential(context, credential), /authority unavailable/);
+    assert.equal((await verify(context, credential)).kind, 'subject');
+    metadata = metadata.slice(1); prepare();
+    assert.equal(await verify(context, credential), null);
+    local.outage(true);
+    await assert.rejects(verify(context, { apiSecret: hash(root) }), { code: 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' });
   });
 
 });

@@ -29,10 +29,11 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     return response.status === 204 ? {} : response.json();
   }
 
-  function provider (tenant, signingVersion = 1, overrides = {}) {
+  // Vault holds per tenant only the data key (decision deployment-signing-secret).
+  function provider (tenant, overrides = {}) {
     return createVaultTransit({
-      address, mount: 'transit', encryptionKey: tenant + '-data', signingKey: tenant + '-signing',
-      signingVersion, getToken: async () => tokens.get(tenant), allowInsecureLoopback: true, ...overrides
+      address, mount: 'transit', encryptionKey: tenant + '-data',
+      getToken: async () => tokens.get(tenant), allowInsecureLoopback: true, ...overrides
     });
   }
 
@@ -58,13 +59,9 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     assert.equal(docker(['inspect', '--format', '{{.State.Running}}', name]), 'true');
     await api('sys/mounts/transit', { type: 'transit' });
     for (const tenant of ['tenant-a', 'tenant-b']) {
-      for (const purpose of ['data', 'signing']) {
-        await api('transit/keys/' + tenant + '-' + purpose, { type: 'aes256-gcm96', exportable: false });
-      }
+      await api('transit/keys/' + tenant + '-data', { type: 'aes256-gcm96', exportable: false });
       const policy = ['encrypt', 'decrypt'].map(op =>
-        `path "transit/${op}/${tenant}-data" { capabilities = ["update"] }`).concat(
-        ['hmac', 'verify'].map(op =>
-          `path "transit/${op}/${tenant}-signing" { capabilities = ["update"] }`)).join('\n');
+        `path "transit/${op}/${tenant}-data" { capabilities = ["update"] }`).join('\n');
       await api('sys/policies/acl/' + tenant, { policy });
       const result = await api('auth/token/create', {
         policies: [tenant], no_default_policy: true, ttl: '5m', renewable: false
@@ -103,115 +100,33 @@ optInSuite(process.env.NS_VAULT_DOCKER_TEST === '1', 'NS_VAULT_DOCKER_TEST=1')('
     await assert.rejects(component.decrypt(context('tenant-b'), ref), { code: 'SECRETS_REFERENCE_MISMATCH' });
   });
 
-  it('signs actual HS256 JWTs using versioned Transit HMAC without exporting keys', async function () {
-    const token = await component.signJWT(context('tenant-a'), 'synthetic-subject', 30);
-    assert.equal((await component.verifyJWT(context('tenant-a'), token)).accessToken, 'synthetic-subject');
-    await assert.rejects(component.verifyJWT(context('tenant-b'), token), { code: 'SECRETS_TOKEN_INVALID' });
-    const [header, payload, signature] = token.split('.');
-    const verified = await api('transit/verify/tenant-a-signing', {
-      input: Buffer.from(header + '.' + payload).toString('base64'),
-      hmac: 'vault:v1:' + Buffer.from(signature, 'base64url').toString('base64'),
-      hash_algorithm: 'sha2-256'
-    }, tokens.get('tenant-a'));
-    assert.equal(verified.data.valid, true);
-  });
+  // The HS256 profile, Transit HMAC signing and the Vault-backed DATA verifier
+  // and exchange are retired (decision deployment-signing-secret); their tests
+  // retired with them. DATA credentials are covered by the local verifier suites.
 
   it('enforces tenant-scoped provider ACLs even when a foreign key is configured', async function () {
-    const foreign = provider('tenant-a', 1, { encryptionKey: 'tenant-b-data', signingKey: 'tenant-b-signing' });
+    const foreign = provider('tenant-a', { encryptionKey: 'tenant-b-data' });
     await assert.rejects(foreign.encrypt(Buffer.from('synthetic-secret')), { code: 'SECRETS_PROVIDER_REFUSED' });
-    await assert.rejects(foreign.sign(Buffer.from('input')), { code: 'SECRETS_PROVIDER_REFUSED' });
   });
 
-  it('keeps old ciphertext and tokens usable through provider key rotation', async function () {
+  it('keeps old ciphertext usable through provider data key rotation', async function () {
     const ref = await component.encrypt(context('tenant-a'), 'rotation', Buffer.from('synthetic-rotation'));
-    const old = await component.signJWT(context('tenant-a'), 'synthetic-subject', 30);
     await api('transit/keys/tenant-a-data/rotate', {});
-    await api('transit/keys/tenant-a-signing/rotate', {});
-    providers.set('tenant-a', provider('tenant-a', 2));
-    const fresh = await component.signJWT(context('tenant-a'), 'synthetic-subject', 30);
-    assert.equal(JSON.parse(Buffer.from(fresh.split('.')[0], 'base64url')).kid, '2');
-    await component.verifyJWT(context('tenant-a'), old);
-    await component.verifyJWT(context('tenant-a'), fresh);
+    providers.set('tenant-a', provider('tenant-a'));
     assert.equal((await component.decrypt(context('tenant-a'), ref)).toString(), 'synthetic-rotation');
+    const fresh = await component.encrypt(context('tenant-a'), 'rotation-fresh', Buffer.from('synthetic-fresh'));
+    assert.equal((await component.decrypt(context('tenant-a'), fresh)).toString(), 'synthetic-fresh');
   });
 
   it('red control: overbroad provider credentials can decrypt another tenant outside the component', async function () {
     const a = providers.get('tenant-a');
     const ciphertext = await a.encrypt(Buffer.from('synthetic-control'));
-    const broad = provider('tenant-b', 1, { encryptionKey: 'tenant-a-data', getToken: async () => root });
+    const broad = provider('tenant-b', { encryptionKey: 'tenant-a-data', getToken: async () => root });
     assert.equal((await broad.decrypt(ciphertext)).toString(), 'synthetic-control');
   });
 
-  it('verifies imported legacy credentials inside the boundary using Transit decrypt, not Transit HMAC', async function () {
-    const rootSecret = crypto.randomBytes(24).toString('hex');
-    const subjectId = '000000000000000000000001';
-    const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
-    const digest = sha1(sha1(rootSecret) + subjectId);
-    await component.encrypt(context('tenant-a'), 'imported-authority', Buffer.from(rootSecret));
-    const verifier = createSecrets({
-      providerFor: async tenant => ({
-        ...providers.get(tenant),
-        async sign () { throw new Error('legacy verification must not call Transit HMAC'); }
-      }),
-      authorize: async c => c.principal === 'test-issuer' && c.consumer === 'test-runtime',
-      audit: async event => { events.push(event); },
-      store: { async get (tenant, id) { return records.get(JSON.stringify([tenant, id])); },
-        async insert () { throw new Error('verifier cannot provision'); } },
-      maxTokenLifetimeSeconds: 60,
-      legacyAuthorityFor: async tenant => ({
-        reference: { tenant, id: 'imported-authority' },
-        subjects: [{ subjectId, tokenPrefix: 'same_name' }]
-      })
-    });
-    assert.deepEqual(await verifier.verifyLegacyCredential(context('tenant-a'), { apiSecret: sha1(rootSecret) }),
-      { kind: 'root' });
-    assert.deepEqual(await verifier.verifyLegacyCredential(context('tenant-a'),
-      { apiSecret: 'same_name-' + digest.slice(0, 16) }), { kind: 'subject', subjectId });
-    assert.equal(await verifier.verifyLegacyCredential(context('tenant-a'), { apiSecret: 'invalid' }), null);
-    await assert.rejects(verifier.verifyLegacyCredential(context('tenant-b'), { apiSecret: sha1(rootSecret) }),
-      { code: 'SECRETS_NOT_FOUND' });
-    const transitHmac = await providers.get('tenant-a').sign(Buffer.from(subjectId));
-    assert.notEqual(transitHmac.toString('hex'), digest, 'Transit HMAC is not the legacy SHA1 construction');
-    assert.equal(events.at(-1).operation, 'decrypt');
-    assert.equal(JSON.stringify([...records.values(), ...events]).includes(rootSecret), false);
-  });
-
-  it('exchanges verified legacy subjects through real nonexportable Transit keys with an eight-hour bound', async function () {
-    const rootSecret = crypto.randomBytes(24).toString('hex');
-    const subjectId = '000000000000000000000001';
-    const sha1 = value => crypto.createHash('sha1').update(value).digest('hex');
-    const canonical = 'same_name-' + sha1(sha1(rootSecret) + subjectId).slice(0, 16);
-    await component.encrypt(context('tenant-a'), 'exchange-authority', Buffer.from(rootSecret));
-    const issuer = createSecrets({
-      providerFor: async tenant => providers.get(tenant),
-      authorize: async c => c.principal === 'test-issuer' && c.consumer === 'test-runtime',
-      audit: async event => { events.push(event); },
-      store: { async get (tenant, id) { return records.get(JSON.stringify([tenant, id])); },
-        async insert () { throw new Error('issuer cannot provision'); } },
-      maxTokenLifetimeSeconds: 28800,
-      legacyAuthorityFor: async tenant => ({
-        reference: { tenant, id: 'exchange-authority' },
-        subjects: [{ subjectId, tokenPrefix: 'same_name' }]
-      })
-    });
-    const issued = await issuer.exchangeLegacyCredential(context('tenant-a'), sha1(canonical), async principal => {
-      assert.deepEqual(principal, { kind: 'subject', subjectId });
-      return true;
-    });
-    assert.equal(issued.exp - issued.iat, 28800);
-    assert.equal((await issuer.verifyJWT(context('tenant-a'), issued.token)).accessToken, canonical);
-    // Tenant A rotated to v2 above; B has only v1. Transit refuses the
-    // unsupported version before the component can check the tenant audience.
-    await assert.rejects(issuer.verifyJWT(context('tenant-b'), issued.token), { code: 'SECRETS_PROVIDER_REFUSED' });
-    assert.equal(await issuer.exchangeLegacyCredential(context('tenant-a'), sha1(rootSecret), async () => true), null);
-    assert.equal((await api('transit/keys/tenant-a-signing')).data.exportable, false);
-    assert.equal(JSON.stringify([...records.values(), ...events]).includes(rootSecret), false);
-  });
-
-  it('refuses revoked provider credentials without plaintext or local-signer fallback', async function () {
+  it('refuses revoked provider credentials without plaintext', async function () {
     await api('auth/token/revoke', { token: tokens.get('tenant-b') });
-    await assert.rejects(component.signJWT(context('tenant-b'), 'synthetic-subject', 30),
-      { code: 'SECRETS_PROVIDER_REFUSED' });
     await assert.rejects(component.encrypt(context('tenant-b'), 'revoked', Buffer.from('synthetic-secret')),
       { code: 'SECRETS_PROVIDER_REFUSED' });
     assert.equal(records.has(JSON.stringify(['tenant-b', 'revoked'])), false);

@@ -177,16 +177,14 @@ describe('local Node/PostgreSQL multitenant data credentials', function () {
 
   it('keeps local DATA/socket/exchange working when the real old provider refuses every cryptographic call', async function () {
     const f = await fixture(); f.vaultUnavailable(true);
-    const context = await f.verifierContext(A);
-    await assert.rejects(f.secrets.verifyLegacyCredential(context, { apiSecret: hash(ROOT) }), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
+    // The outage is real: the provider refuses a decrypt (the Vault-backed DATA
+    // verifier that needed it is retired, decision deployment-signing-secret).
+    await assert.rejects(f.secrets.decrypt(await f.verifierContext(A), { tenant: A, id: 'root' }), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
     assert.equal(f.effects.decrypt, 1, 'CONTROL_VAULT_OUTAGE_WAS_EXERCISED'); f.reset();
     const issued = await f.exchange({ tenant: A, credential: credential('subject') });
     assert(await f.dataRead(issued.token));
     assert(await f.socket.verify({ tenant: A, namespace: '/', credential: { token: issued.token } }));
-    const oldComposition = createDataAccess({ secrets: f.secrets, authority: f.authority, verifierContext: f.verifierContext });
-    await assert.rejects(oldComposition({ tenant: A, request: { method: 'GET', path: '/entries', query: {},
-      rawHeaders: ['api-secret', hash(ROOT)] } }), { code: 'SECRETS_PROVIDER_UNAVAILABLE' });
-    assert.equal(f.effects.decrypt, 1, 'CONTROL_OLD_COMPOSITION_STILL_DEPENDS_ON_VAULT');
+    assert.deepEqual([f.effects.decrypt, f.effects.verify, f.effects.sign], [0, 0, 0], 'local DATA, socket and exchange make no provider call');
   });
 
   it('control: bypassing the local signature check permits a forged token and makes refusal red', async function () {

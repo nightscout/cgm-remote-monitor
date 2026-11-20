@@ -147,43 +147,25 @@ describe('REST request work budget', function () {
   });
 });
 
-// Compose the production secrets component and DATA entry point over a synthetic
-// encrypted store/provider. Crypto/audit counts are effects actually invoked,
-// not counts inferred from which branch a stub was expected to take.
-function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = true, tokenNamed = true,
+// Compose the api's DATA verifier (one-way verifiers, lib/secrets/legacy-verifiers.js)
+// and DATA entry point. Verifier-store reads and authority reads are counted as
+// actually invoked. The Vault-backed verifier and its decrypt-per-request cost
+// are retired (decision deployment-signing-secret): no secrets operation runs.
+function credentialFixture ({ root = false, tokenCurrent = true, tokenNamed = true,
   apiNamed = true, tokenKnown = true, allowed = true } = {}) {
   const crypto = require('node:crypto');
-  const { createSecrets } = require('../lib/secrets/component');
+  const verifiers = require('../lib/secrets/legacy-verifiers');
   const hash = value => crypto.createHash('sha1').update(value).digest('hex');
   const rootSecret = 'synthetic-root-secret', rootHash = hash(rootSecret);
   const derived = id => (id === 'token-subject' ? 'token' : 'api') + '-' + hash(rootHash + id).slice(0, 16);
-  const key = Buffer.alloc(32, 7), signing = Buffer.alloc(32, 9), records = new Map();
-  const counts = { decrypt: 0, sign: 0, verify: 0, audit: 0, metadata: 0, authority: 0 };
-  const provider = {
-    signingVersion: 1,
-    async encrypt (value) {
-      const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-      return Buffer.concat([iv, cipher.update(value), cipher.final(), cipher.getAuthTag()]).toString('base64');
-    },
-    async decrypt (ciphertext) {
-      counts.decrypt++;
-      const bytes = Buffer.from(ciphertext, 'base64'), decipher = crypto.createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 12));
-      decipher.setAuthTag(bytes.subarray(-16));
-      return Buffer.concat([decipher.update(bytes.subarray(12, -16)), decipher.final()]);
-    },
-    async sign (input) { counts.sign++; return crypto.createHmac('sha256', signing).update(input).digest(); },
-    async verify (version, input, signature) {
-      counts.verify++;
-      return version === 1 && crypto.timingSafeEqual(crypto.createHmac('sha256', signing).update(input).digest(), signature);
-    }
-  };
-  const component = createSecrets({ providerFor: async () => provider, authorize: async () => true,
-    audit: async () => { counts.audit++; }, maxTokenLifetimeSeconds: 28800, now: () => 1700000000000,
-    store: { insert: async record => records.set(record.id, record), get: async (tenant, id) => records.get(id) },
-    legacyAuthorityFor: async tenant => {
+  const counts = { secrets: 0, metadata: 0, authority: 0 };
+  const prepared = verifiers.prepare(Buffer.from(rootSecret), ['token-subject', 'api-subject'].map(subjectId =>
+    ({ subjectId, tokenPrefix: subjectId === 'token-subject' ? 'token' : 'api' })));
+  const verifier = verifiers.create({ verifyToken: () => { counts.secrets++; throw new Error('no JWT presented'); },
+    read: async () => {
       counts.metadata++;
-      return { reference: { tenant, id: 'root' }, subjects: ['token-subject', 'api-subject'].map(subjectId =>
-        ({ subjectId, tokenPrefix: subjectId === 'token-subject' ? 'token' : 'api' })) };
+      return { rootVerifiers: prepared.rootVerifiers, rootVersion: 1, keys: [],
+        subjects: prepared.subjects.map(subject => ({ ...subject, credentialVersion: 1 })) };
     } });
   const context = { tenant: A, principal: 'api', consumer: 'api' };
   const name = id => id === 'token-subject' ? (tokenCurrent && tokenNamed ? 'token-current-name' : null)
@@ -197,24 +179,10 @@ function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = 
       return sub ? { subject: { sub }, allows: () => allowed } : null;
     }
   };
-  const factory = implementation(oldExchange ? source => {
-    const start = source.indexOf('        // DATA authenticates credentials;');
-    const end = source.indexOf('\n      }\n      return !(!principal', start);
-    assert(start > 0 && end > start);
-    return source.slice(0, start) + `      if (credentials.tokenCarrier === 'legacy') {
-        const issued = await secrets.exchangeLegacyCredential(context, token,
-          async principal => await authority.subjectSnapshot({ tenant, principal }) !== null);
-        if (!issued && !credentials.apiSecret) return null;
-        token = issued && issued.token;
-      }
-      principal = await secrets.verifyLegacyCredential(context, { apiSecret: credentials.apiSecret, token });` + source.slice(end);
-  } : undefined);
-  const access = factory({ secrets: component, authority, verifierContext: async () => context, legacyCollections: ['entries'] });
+  const access = implementation()({ secrets: verifier, authority, verifierContext: async () => context, legacyCollections: ['entries'] });
   return {
     counts,
     async run () {
-      await component.encrypt(context, 'root', Buffer.from(rootSecret));
-      for (const key of Object.keys(counts)) counts[key] = 0;
       const request = { method: 'GET', path: '/entries', query: { token: tokenKnown ? derived('token-subject') : 'unknown-legacy-token' },
         rawHeaders: ['api-secret', root ? rootHash : hash(derived('api-subject'))] };
       try { const result = await access({ tenant: A, request, version: 1 }); return result ? result.principal : null; }
@@ -222,25 +190,18 @@ function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = 
     }
   };
 }
-describe('real component mixed-credential cost', function () {
-  it('authenticates DATA without exchange effects for root, token, missing/unnamed refusal and revocation outcomes', async function () {
-    // The former HS256 exchange-on-DATA baseline is retired with the HS256
-    // profile (decision deployment-signing-secret); its counts are kept as the
-    // record of what DATA no longer does. Only the current path runs.
+describe('local verifier mixed-credential cost', function () {
+  it('authenticates DATA with one verifier read and no secrets operation for root, token, missing/unnamed refusal and revocation outcomes', async function () {
     const cases = [
-      [{ root: true }, 'root', { decrypt: 2, sign: 1, verify: 0, audit: 4, metadata: 2, authority: 2 }, 2],
-      [{}, 'token-subject', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1],
-      [{ root: true, tokenCurrent: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
-      [{ root: true, tokenKnown: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 0 }, 0],
-      [{ tokenCurrent: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
-      [{ tokenNamed: false, apiNamed: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 1 }, 1],
-      [{ tokenKnown: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 0 }, 0],
-      [{ allowed: false }, 'TENANT_LEGACY_FORBIDDEN', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1]
+      [{ root: true }, 'root', 2], [{}, 'token-subject', 1],
+      [{ root: true, tokenCurrent: false }, null, 1], [{ root: true, tokenKnown: false }, null, 0],
+      [{ tokenCurrent: false }, null, 1], [{ tokenNamed: false, apiNamed: false }, null, 1],
+      [{ tokenKnown: false }, null, 0], [{ allowed: false }, 'TENANT_LEGACY_FORBIDDEN', 1]
     ];
-    for (const [options, outcome, , authority] of cases) {
+    for (const [options, outcome, authority] of cases) {
       const candidate = credentialFixture(options);
       assert.equal(await candidate.run(), outcome, 'CURRENT_DATA_CREDENTIAL_OUTCOME');
-      assert.deepEqual(candidate.counts, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority }, 'DATA_AUTHENTICATES_WITHOUT_ISSUANCE');
+      assert.deepEqual(candidate.counts, { secrets: 0, metadata: 1, authority }, 'DATA_AUTHENTICATES_WITHOUT_SECRETS');
     }
   });
 });

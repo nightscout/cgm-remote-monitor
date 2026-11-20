@@ -13,7 +13,6 @@ const connect = require('../../lib/storage/postgres-connection');
 const scope = require('../../lib/storage/tenant-scope');
 const { encodeDocument } = require('../../lib/storage/postgres-identity');
 const createAuthority = require('../../lib/tenant-authorization/postgres');
-const { createSecrets } = require('../../lib/secrets/component');
 const createDataAccess = require('../../lib/server/tenant-app/data-access');
 const { createTenantApp } = require('../../lib/server/tenant-app');
 const createResolver = require('../../lib/tenant-resolution');
@@ -23,7 +22,7 @@ const authentication = require('../../lib/api3/tenant-authentication');
 const entriesOptions = require('../../lib/server/tenant-app/entries');
 const writeClock = require('./native-write-clock');
 const purifier = require('../../lib/server/purifier');
-const provider = require('./tenant-credential-provider');
+const localCredentials = require('./local-data-credentials');
 const apiDefaults = require('../../lib/api3/const.json');
 
 const A = '11111111-1111-4111-8111-111111111111';
@@ -41,8 +40,9 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
   const auth = name + '_auth';
   const role = name + '_app';
   const roots = [A, B].map(() => crypto.randomBytes(24).toString('hex'));
-  const providers = [provider(), provider()];
-  const records = new Map();
+  // The api's DATA verifier over one-way verifiers prepared from each root
+  // (decision deployment-signing-secret); no secrets component on DATA.
+  const credentials = localCredentials.memory();
   const workers = [];
   const lab = { A, B, SUBJECT, GRANTS, workers, name, table: name + '.entries',
     mongoEvents: [], mongoGrants: GRANTS, mongoName: 'Current Exact Name' };
@@ -81,20 +81,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       workers.push(worker);
       worker.connection = await connect({ connectionString: uri.toString(), max: 1 });
       worker.authority = { ...await createAuthority({ connectionString: uri.toString(), namespace: auth }) };
-      worker.secrets = createSecrets({
-        providerFor: async tenant => providers[tenant === A ? 0 : 1],
-        store: {
-          async get (tenant, id) { return records.get(tenant + ':' + id); },
-          async insert (record) { records.set(record.tenant + ':' + record.id, record); }
-        },
-        authorize: async identity => identity.consumer === 'api',
-        audit: async () => {},
-        maxTokenLifetimeSeconds: 28800,
-        legacyAuthorityFor: async tenant => ({
-          reference: { tenant, id: 'synthetic-import' },
-          subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }]
-        })
-      });
+      worker.secrets = credentials.verifier;
       const data = express.Router();
       data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
       for (const tenant of [A, B]) {
@@ -147,8 +134,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       assert.equal(worker.server.address().address, '127.0.0.1');
     }
     for (const [index, tenant] of [A, B].entries()) {
-      await workers[0].secrets.encrypt({ tenant, principal: 'issuer', consumer: 'api' },
-        'synthetic-import', Buffer.from(roots[index]));
+      credentials.set(tenant, { root: roots[index], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
     }
     lab.credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
     lab.rootCredentials = roots.map(hash);
