@@ -16,11 +16,7 @@ npm run test:multitenant -- --record run.json  # also write the run record (ids,
 `scripts/test-multitenant.js` holds the inventory as data and refuses to run
 when a test file calls `optInSuite` with an `NS_` flag or reads
 `NS_TEST_POSTGRES_ADMIN_URI` without being listed, so a new opt-in suite is
-added there and in the table below. The one source-protocol exception is
-`tests/evaluator-preview-registry-fixture.test.js`, which always runs in the unit
-tier. It temporarily saves/restores a synthetic admin URI around recording
-setup dependencies and opens no PostgreSQL, Vault, network or child process.
-Adding a real opt-in or another environment dependency revokes the exception.
+added there and in the table below.
 
 ## What the command does
 
@@ -73,7 +69,6 @@ inventory before starting a resource.
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
 | `tests/native-operation-control-readiness.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | source-selected native control reads, exact consumer-port operational re-admission, refreshed grants and held-backend controls |
-| `tests/clinical-working-set.integration.test.js` | `NS_CLINICAL_WINDOW_TEST=1` | PostgreSQL | | bounded historical bootstrap, actual engine parity, settings expansion, expiry and warm-read refusal; also supports an explicit owned `CLINICAL_WINDOW_PG_SOCKET` |
 | `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded typed bootstrap receipts preserve completed/output/due/pending state |
 | `tests/pgstream-checkpoint.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | observed/completed/output/due atomicity, owner loss, retained-overdue cold serve boot without another clinical write |
 | `tests/pgstream-single-receipt.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | single typed receipt metadata patches, monotone control state, rollback and full-transfer RED |

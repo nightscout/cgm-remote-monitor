@@ -189,7 +189,7 @@ describe('selected evaluator role consumes notification composition', function (
     const sandbox = { module: { exports: {} }, structuredClone, setImmediate, console: { log () {} }, require (name) {
       if(Object.hasOwn(nativePorts,name))return nativePorts[name];
       if (name === '../../storage/postgres-durable-replay') return () => nativeBoot.replay({events:nativeEvents});
-      if (name === '../../storage/postgres-connection') return Object.assign(async options => options?.application_name === 'nightscout-evaluator-receiver' ? { end: async () => {} } : clinical,{readopt:async()=>{}});
+      if (name === '../../storage/postgres-connection') return Object.assign(async () => clinical,{readopt:async()=>{}});
       if (name === './registry-tenant-set') return {openDemand:async()=>{
         const tenants = new Map([[A,parse.registryEntry(A)]]);
         return {tenants,lookup:async tenant=>tenants.get(tenant),isActive:()=>true,revision:()=>1,stats:()=>({}),onRemove(){},close:async()=>{}};
@@ -198,7 +198,7 @@ describe('selected evaluator role consumes notification composition', function (
       if (name === './evaluator-pool') return {create:()=>({partitioned:false,start(){},addTenant(){},refresh:async()=>{},admits:()=>true,close(){}})};
       if (name === '../../trusted-worker/postgres') return {create:()=>({scan:async()=>new Map(),read:async()=>({version:1,effective:{},policyGeneration:1}),current:()=>null,state:()=>({available:true,generation:1}),health:()=>({available:true}),close:async()=>{}})};
       if (name === '../../trusted-worker/lifecycle') return async()=>({version:()=>1,activateRefresh(){},verify:async()=>{},close:async()=>{}});
-      if (name === '../../pgstream/evaluator') return {open:async()=>({store:{admit:async()=>{},work:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{}})};
+      if (name === '../../writer-driven/evaluator') return {open:async()=>({store:{admit:async()=>{},work:async()=>[],pending:async()=>[],nextDue:async()=>null,deliveries:async()=>[]},ready:async()=>{},assertAvailable(){},health:()=>({}),close:async()=>{nativeEvents.push('source-closed');}})};
       if (name === '../../migrations/postgres') return {run:async()=>{}};
       if (name === './tenant-startup') return {create:()=>({warm:async()=>{},addTenant(){},close:async()=>{},health:()=>({})})};
       // The role's one platform check is recorded as its startup readiness.
@@ -226,12 +226,12 @@ describe('selected evaluator role consumes notification composition', function (
       assert.equal(calls.filter(name => name === 'consumer-close').length, 1);
       assert.equal(calls.filter(name => name === 'clinical-end').length, 1);
       assert.ok(calls.indexOf('consumer-close') < calls.indexOf('clinical-close'));
-      for(const event of ['identify-created','identify-closed','native-recovery-created','native-recovery-closed','native-configured'])assert.equal(nativeEvents.filter(value=>value===event).length,1,'NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:'+event);
+      for(const event of ['schema-checked','source-closed'])assert.equal(nativeEvents.filter(value=>value===event).length,1,'NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:'+event);
     } finally { release(); if (role) await role.close(); await window.close();scope.setTenancyMode(previous); }
   }
   it('boots starts and wakes the actual selected composition without awaiting handoff latency and closes all owned resources',()=>criterion());
-  it('control: dropping the owned native recovery close is red and restored composition drains it',async()=>{
-    await assert.rejects(criterion(source=>{const needle='await snapshotRecovery?.close();';assert.equal(source.split(needle).length,2,'NATIVE_CLOSE_CONTROL_MUST_LAND');return source.replace(needle,'');}),/NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:native-recovery-closed/);
+  it('control: dropping the owned source close is red and restored composition drains it',async()=>{
+    await assert.rejects(criterion(source=>{const needle='await pgstream?.close();';assert.equal(source.split(needle).length,2,'SOURCE_CLOSE_CONTROL_MUST_LAND');return source.replace(needle,'');}),/NATIVE_BOOT_OWNS_AND_CLOSES_EACH_PORT_ONCE:source-closed/);
     await criterion();
   });
 });
