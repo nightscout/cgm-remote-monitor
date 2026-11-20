@@ -104,6 +104,19 @@ async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames
       }
       await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
     }
+    // Provisioning requires the evaluator's completed-work row (writer-driven is the only input
+    // transport): this fixture owns a work-v2 checkpoint namespace for it unless the suite's
+    // checkpoints already name a '-completed' row there.
+    let pendingRow = checkpoints.find(row => row.consumer.endsWith('-completed'));
+    if (!pendingRow) {
+      const namespace = 'pvt_evalcheckpoint_' + id;
+      await q(`CREATE SCHEMA "${namespace}"`); created.push(namespace);
+      await run('up', { direct: true, connectionString: adminURI, namespace, catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') });
+      for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [namespace])).rows) await q(`ALTER TABLE "${namespace}"."${row.tablename}" OWNER TO "${owner}"`);
+      await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
+      pendingRow = { namespace, consumer: 'evaluator-provisioned-completed', digest: 'b'.repeat(64) };
+      checkpoints = [...checkpoints, pendingRow];
+    }
     role = 'pvt_prov_' + id;
     const password = randomBytes(18).toString('hex');
     await q(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '${password}'`);
@@ -129,6 +142,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames
     const vaultOptions = { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => token };
     provisioning = createProvisioning({ connectionString: url.toString(), namespaces: { ...all }, checkpoints, vault: vaultOptions,
       actor: { principal: 'provisioned-tenants-operator', consumer: 'provisioned-tenants' },
+      pendingConsumer: { namespace: pendingRow.namespace, consumer: pendingRow.consumer },
       signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM });
     return {
       namespaces: Object.freeze({ ...all }), provisioner: role, provisioning, vaultRequest,

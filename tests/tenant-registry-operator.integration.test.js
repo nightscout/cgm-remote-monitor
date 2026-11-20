@@ -46,6 +46,8 @@ function cli (args) {
   });
 }
 
+// The evaluator's completed-work row the lab provisions typed and pending (writer-driven).
+const PENDING = require('../lib/server/serve/deployment-settings').IDENTITY.evaluatorConsumer + '-completed';
 optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER_TEST=1 (or NS_TEST_VAULT_ADDR)')('operator provisioning: inspect, partial failure and retry (actual PostgreSQL and Vault)', function () {
   this.timeout(180000);
   let lab, provisioning, prior, serial = 0;
@@ -77,13 +79,13 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
   it('PO_INSPECT: absent before, complete after; presence only, never the root secret or a key', async function () {
     const request = spec({ issueRootSecret: true });
     assert.deepEqual({ ...await provisioning.inspect(request.id) }, { id: request.id, provisioning: 'absent', action: 'provision', registry: { state: null, hosts: [] },
-      records: { ...Object.fromEntries(RECORDS.map(name => [name, 'absent'])), checkpoints: { 'realtime-registry-lab': 'absent' } },
+      records: { ...Object.fromEntries(RECORDS.map(name => [name, 'absent'])), checkpoints: { 'realtime-registry-lab': 'absent', [PENDING]: 'absent' } },
       vault: { status: 'read', keys: keyStates([]) }, findings: [] });
     const created = await provisioning.provision(request);
     assert.equal(created.outcome, 'created');
     const report = await provisioning.inspect(request.id);
     assert.deepEqual({ ...report }, { id: request.id, provisioning: 'complete', action: 'none', registry: { state: 'active', hosts: request.hosts },
-      records: { ...Object.fromEntries(RECORDS.map(name => [name, 'present'])), checkpoints: { 'realtime-registry-lab': 'present' } },
+      records: { ...Object.fromEntries(RECORDS.map(name => [name, 'present'])), checkpoints: { 'realtime-registry-lab': 'present', [PENDING]: 'present' } },
       vault: { status: 'read', keys: keyStates(PURPOSES) }, findings: [] });
     const text = JSON.stringify(report);
     assert.ok(!text.includes(created.rootSecret), 'the root secret is not in an inspection');

@@ -44,13 +44,16 @@ describe('admin provisioning client and configuration', function () {
 
   it('admits a provisioning-only admin configuration and refuses a partial one', function () {
     const namespaces = Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, 'nsadm_' + kind.toLowerCase()]));
-    const provisioning = { connectionEnv: 'NS_PROVISIONER_PG', namespaces, checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'realtime-lab', digest: 'a'.repeat(64) }],
+    const pendingConsumer = { namespace: 'nsadm_eval_checkpoint', consumer: 'evaluator-lab-completed' };
+    const provisioning = { connectionEnv: 'NS_PROVISIONER_PG', namespaces, pendingConsumer,
+      checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'realtime-lab', digest: 'a'.repeat(64) }, { ...pendingConsumer, digest: 'b'.repeat(64) }],
       vault: { address: 'https://vault.example.test/', mount: 'transit', tokenFile: '/run/vault/token' }, accessTokens: { issuer: 'synthetic-data', audience: 'synthetic-api' },
       operator: { principal: 'operator', consumer: 'admin' } };
     const source = { NS_PROVISIONER_PG: 'postgres://prov:synthetic@db.example.test/ns', ...require('./fixtures/signing-secret').env() };
     const parsed = adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning }, source);
     assert.equal(parsed.provisioning.namespaces.registry, 'nsadm_registry');
     assert.deepEqual(parsed.provisioning.ownerCatalogue, ['*']);
+    assert.equal(parsed.provisioning.pendingConsumer.consumer, 'evaluator-lab-completed');
     assert.equal(typeof parsed.provisioning.signing.key, 'function');
     // The provisioning role issues data JWTs: it does not start without the signing secret.
     assert.throws(() => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning }, { NS_PROVISIONER_PG: source.NS_PROVISIONER_PG }), /NS_SIGNING_SECRET_FILE/);
@@ -59,5 +62,26 @@ describe('admin provisioning client and configuration', function () {
       { ...provisioning, checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'r', digest: 'short' }] }, { ...provisioning, tenants: [] }]) {
       assert.throws(() => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning: bad }, source));
     }
+  });
+  it('ADMIN_PROVISIONING_PENDING_CONSUMER_REQUIRED: provisioning without its evaluator pending row refuses at start', function () {
+    // Writer-driven is the only input transport: a tenant provisioned without the typed
+    // pending row would refuse every write (EVALUATOR_PENDING_MARK_NOT_PROVISIONED).
+    const namespaces = Object.fromEntries(['registry', 'legacy', 'secrets', 'authorization', 'access', 'clock', 'control', 'settings', 'operatorPolicy'].map(kind => [kind, 'nsadm_' + kind.toLowerCase()]));
+    const pendingConsumer = { namespace: 'nsadm_eval_checkpoint', consumer: 'evaluator-lab-completed' };
+    const provisioning = { connectionEnv: 'NS_PROVISIONER_PG', namespaces, pendingConsumer,
+      checkpoints: [{ namespace: 'nsadm_checkpoint', consumer: 'realtime-lab', digest: 'a'.repeat(64) }, { ...pendingConsumer, digest: 'b'.repeat(64) }],
+      vault: { address: 'https://vault.example.test/', mount: 'transit', tokenFile: '/run/vault/token' }, accessTokens: { issuer: 'synthetic-data', audience: 'synthetic-api' },
+      operator: { principal: 'operator', consumer: 'admin' } };
+    const source = { NS_PROVISIONER_PG: 'postgres://prov:synthetic@db.example.test/ns', ...require('./fixtures/signing-secret').env() };
+    const parse = value => adminConfig.parse({ version: 1, maxBytes: 65536, timeoutMs: 10000, provisioning: value }, source);
+    assert.equal(parse(provisioning).provisioning.pendingConsumer.namespace, 'nsadm_eval_checkpoint');
+    const missing = { ...provisioning }; delete missing.pendingConsumer;
+    for (const bad of [missing, { ...provisioning, checkpoints: [provisioning.checkpoints[0]] },
+      { ...provisioning, pendingConsumer: { namespace: 'nsadm_eval_checkpoint', consumer: 'evaluator-lab' } }]) {
+      assert.throws(() => parse(bad), error => error.code === 'ADMIN_PROVISIONING_PENDING_CONSUMER_REQUIRED');
+    }
+    // The library refuses the same omission, so no caller provisions a tenant without the row.
+    assert.throws(() => require('../lib/tenant-registry/provision').createProvisioning({ namespaces: {}, checkpoints: [], actor: { principal: 'operator', consumer: 'test' } }),
+      error => error.code === 'TENANT_PROVISION_PENDING_CONSUMER_REQUIRED');
   });
 });

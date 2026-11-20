@@ -63,6 +63,7 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     : { provisioner: 'trl_prov_' + id, api: 'trl_api_' + id, realtime: 'trl_rt_' + id };
   const migrations = Object.fromEntries(Object.entries(CATALOGUES).map(([kind, build]) => [namespaces[kind], build()]));
   const extraSchemas = [];
+  let adminGranted = false;
   let layout;
   if (servingApi) {
     const plan = require('./multitenant-plan');
@@ -81,6 +82,13 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
       roles[kind] ||= prefix + '_' + kind;
     }
     layout = { owner, roles, namespaces: selected, native };
+  }
+  // Every lab carries the deployment's evaluator checkpoint namespace (work-v2): provisioning
+  // requires the evaluator's completed-work row (writer-driven is the only input transport).
+  const evaluatorCheckpoint = defaults.namespaces.eval_checkpoint;
+  if (!Object.hasOwn(migrations, evaluatorCheckpoint)) {
+    migrations[evaluatorCheckpoint] = require('../../migrations/candidates/postgres-evaluator-work-v2.json');
+    extraSchemas.push(evaluatorCheckpoint);
   }
   const urls = {};
   const admin = new Client({ connectionString: ADMIN }); await admin.connect();
@@ -101,12 +109,12 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     }
     await q(`ALTER SCHEMA "${namespace}" OWNER TO "${owner}"`);
   }
-  // A serving lab provisions the evaluator's completed-work row typed and pending, as the
+  // The lab provisions the evaluator's completed-work row typed and pending, as the
   // deployment's admin provisioning does (deployment-settings admin(): checkpoints(l) and
   // pendingConsumer), so the api's writer-driven pending mark finds it (lib/writer-driven).
-  const pendingRow = layout ? { namespace: defaults.namespaces.eval_checkpoint, consumer: deployment.IDENTITY.evaluatorConsumer + '-completed',
-    digest: deployment.nativeSelection(defaults).contractDigest } : null;
-  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }, ...(pendingRow ? [pendingRow] : [])];
+  const pendingRow = { namespace: evaluatorCheckpoint, consumer: deployment.IDENTITY.evaluatorConsumer + '-completed',
+    digest: deployment.nativeSelection(defaults).contractDigest };
+  const consumers = [{ namespace: namespaces.checkpoint, consumer: 'realtime-registry-lab', digest: 'a'.repeat(64) }, pendingRow];
   if (layout) for (const sql of require('../../lib/server/ordinary-deployment-grants').grants(layout, { nativeSelection: layout.native })) await q(sql);
   for (const sql of registry.grants({ namespace: namespaces.registry, resolvers: [roles.api], enumerators: [roles.realtime], readers: [roles.api] })) await q(sql);
   for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: consumers })) await q(sql);
@@ -130,16 +138,10 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     // checkpoint rows the admin role derives. The Vault token goes in dir.
     async adminEnvironment (dir) {
       const settings = require('../../lib/server/serve/deployment-settings'), layout = settings.layout({ NS_PG_PREFIX: prefix });
-      const evaluator = layout.namespaces.eval_checkpoint;
-      if (!extraSchemas.includes(evaluator)) {
-        await q(`CREATE SCHEMA "${evaluator}"`);
-        // The deployment's evaluator checkpoint catalogue (lib/server/serve/evaluator-readiness.js):
-        // provisioning writes the completed-work row typed and pending in every input transport.
-        await run('up', { direct: true, connectionString: ADMIN, namespace: evaluator, catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') });
-        for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [evaluator])).rows) await q(`ALTER TABLE "${evaluator}"."${row.tablename}" OWNER TO "${owner}"`);
-        await q(`ALTER SCHEMA "${evaluator}" OWNER TO "${owner}"`);
-        extraSchemas.push(evaluator);
+      // The deployment's checkpoint rows (the evaluator checkpoint schema exists in every lab).
+      if (!adminGranted) {
         for (const sql of provisionerGrants({ namespaces, role: roles.provisioner, checkpoints: settings.checkpoints(layout) })) await q(sql);
+        adminGranted = true;
       }
       const { writeFileSync } = require('node:fs');
       writeFileSync(require('node:path').join(dir, 'vault-token'), provisionToken, { mode: 0o600 });
@@ -149,13 +151,13 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
     vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
     vaultRequest,
     provisioningOptions: (extra = {}) => {
-      const selected = extra.checkpoints || consumers;
-      const pending = pendingRow && selected.some(row => row.namespace === pendingRow.namespace && row.consumer === pendingRow.consumer)
-        ? { pendingConsumer: { namespace: pendingRow.namespace, consumer: pendingRow.consumer } } : {};
-      return { connectionString: urls.provisioner, namespaces: { ...namespaces }, checkpoints: consumers,
+      const own = extra.checkpoints || consumers;
+      const checkpoints = own.some(row => row.namespace === pendingRow.namespace && row.consumer === pendingRow.consumer) ? own : [...own, pendingRow];
+      return { connectionString: urls.provisioner, namespaces: { ...namespaces },
         vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
         actor: { principal: 'registry-lab-operator', consumer: 'registry-lab' },
-        signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM, ...pending, ...extra };
+        signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM,
+        pendingConsumer: { namespace: pendingRow.namespace, consumer: pendingRow.consumer }, ...extra, checkpoints };
     },
     // Every row any provisioning table holds for a tenant (as the superuser).
     async rowsFor (tenant) {
