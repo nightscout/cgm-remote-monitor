@@ -42,8 +42,10 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     await admin.query('CREATE SCHEMA "' + workNs + '"'); await admin.query('CREATE SCHEMA "' + controlNs + '"'); owned = true;
     await migrate('up', { direct: true, connectionString: uri, namespace: workNs,
       catalogue: require('../../migrations/candidates/postgres-evaluator-work-v2.json') });
-    // Stand-in for the lifecycle row (the real one has FORCE RLS on the tenant).
-    await admin.query('CREATE TABLE ' + lab.lifecycleTable + ' (tenant_id uuid PRIMARY KEY, generation bigint NOT NULL, phase text NOT NULL)');
+    // The real lifecycle catalogue (tenant_lifecycle_windows with FORCE RLS and
+    // its tenant read policy; tenant_activity for the class (b) owner writer).
+    await migrate('up', { direct: true, connectionString: uri, namespace: controlNs,
+      catalogue: require('../../lib/tenant-lifecycle/postgres-candidate.json') });
     const reader = base.readerRole, writer = base.role;
     for (const ns of [workNs, controlNs]) await admin.query(`GRANT USAGE ON SCHEMA "${ns}" TO "${reader}"`);
     await admin.query(`GRANT SELECT, UPDATE ON ${lab.workTable} TO "${reader}"`);
@@ -54,10 +56,20 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     // The api marks pending: the core pending-writer grants (lib/writer-driven),
     // the same SQL ordinary deployment grants apply when writer-driven is selected.
     for (const sql of require('../../lib/writer-driven').grants({ namespace: workNs, roles: [writer] })) await admin.query(sql);
-    // Lab only: no operation window, so completion fences generation with FOR
-    // SHARE (typed-checkpoint generationFence), which needs an UPDATE privilege
-    // on some column. Production completion is fenced by the operation window.
-    await admin.query(`GRANT SELECT, UPDATE(phase) ON ${lab.lifecycleTable} TO "${reader}"`);
+    // The production evaluator grant on the lifecycle catalogue (ordinary
+    // deployment grants): SELECT only. The lab's completion fence takes the
+    // shared advisory lock on the tenant's lock key, then reads the generation
+    // (the restore-fence read path); no FOR SHARE, so no UPDATE privilege.
+    await admin.query(`GRANT SELECT ON "${controlNs}".schema_migrations, ${lab.lifecycleTable}, "${controlNs}".tenant_lifecycle_operations TO "${reader}"`);
+    // Class (b): an owner activity writer (pause/resume) with the activity grants
+    // and the core pending-writer grants, as ordinary deployment grants give.
+    const ownerPassword = crypto.randomBytes(24).toString('hex');
+    lab.ownerRole = base.name + '_owner';
+    await admin.query(`CREATE ROLE "${lab.ownerRole}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${ownerPassword}'`);
+    for (const sql of require('../../lib/tenant-activity/postgres').grants({ namespace: controlNs, owner: lab.ownerRole })) await admin.query(sql);
+    for (const sql of require('../../lib/writer-driven').grants({ namespace: workNs, roles: [lab.ownerRole] })) await admin.query(sql);
+    const ownerURL = new URL(uri); ownerURL.username = lab.ownerRole; ownerURL.password = ownerPassword;
+    lab.ownerURI = ownerURL.toString();
     const password = crypto.randomBytes(24).toString('hex');
     await admin.query(`ALTER ROLE "${reader}" PASSWORD '${password}'`);
     const url = new URL(uri); url.username = reader; url.password = password;
@@ -87,13 +99,16 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     await base.reset();
     for (const tenant of EXTRA) await lab.admin.query(`INSERT INTO "${base.namespaces.clock}".tenant_write_clock VALUES ($1,$2) ON CONFLICT DO NOTHING`, [tenant, base.initial]);
     await lab.admin.query('DELETE FROM ' + lab.workTable);
+    await lab.admin.query('DELETE FROM "' + controlNs + '".tenant_activity_audit');
+    await lab.admin.query('DELETE FROM "' + controlNs + '".tenant_activity');
     await lab.admin.query('DELETE FROM ' + lab.lifecycleTable);
     if (audit) await lab.admin.query('DELETE FROM "' + controlNs + '".output_audit');
     const digest = crypto.createHash('sha256').update(require('../../lib/server/serve/evaluator-runtime').canonical(['evaluator-work-v2', workNs, CONSUMER])).digest('hex');
     for (const tenant of lab.tenants) {
       await lab.admin.query(`INSERT INTO ${lab.workTable} (tenant_id,consumer,contract_digest,checkpoint,projection,work_version,work_observed,work_completed,work_observed_at)
         VALUES ($1,$2,$3,0,'[{"kind":"evaluator-work-v2","output":null}]'::jsonb,2,'${NULLS}','${NULLS}','${NULLS}')`, [tenant, COMPLETED, digest]);
-      await lab.admin.query('INSERT INTO ' + lab.lifecycleTable + " VALUES ($1,1,'active')", [tenant]);
+      await lab.admin.query('INSERT INTO ' + lab.lifecycleTable + " (tenant_id,lock_key,phase,generation) VALUES ($1,$2,'active',1)", [tenant, require('../../lib/tenant-registry/rules').lockKey(tenant)]);
+      await lab.admin.query('INSERT INTO "' + controlNs + '".tenant_activity (tenant_id,version,paused,suspended) VALUES ($1,1,false,false)', [tenant]);
       lab.api.generations.set(tenant, '1');
     }
     lab.api.hints = true; lab.api.drop.clear(); lab.api.sent = 0; lab.api.dropped = 0;
@@ -119,11 +134,15 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     const admin = lab.admin;
     await admin.query('BEGIN');
     try {
-      const row = (await admin.query('SELECT generation FROM ' + lab.lifecycleTable + ' WHERE tenant_id=$1 FOR UPDATE', [tenant])).rows[0];
+      // As the maintenance window: the exclusive advisory lock on the tenant's
+      // lock key excludes every fenced tenant transaction while data is replaced.
+      const row = (await admin.query('SELECT generation,lock_key::text AS lock_key FROM ' + lab.lifecycleTable + ' WHERE tenant_id=$1 FOR UPDATE', [tenant])).rows[0];
+      await admin.query('SELECT pg_advisory_xact_lock($1::bigint)', [row.lock_key]);
       const next = String(BigInt(row.generation) + 1n);
       await admin.query('UPDATE ' + lab.lifecycleTable + ' SET generation=$2 WHERE tenant_id=$1', [tenant, next]);
       if (removeEntriesAfter !== undefined) await admin.query(`DELETE FROM "${base.namespaces.entries}".entries WHERE tenant_id=$1 AND (doc->>'date')::bigint > $2`, [tenant, removeEntriesAfter]);
-      await admin.query(`UPDATE ${lab.workTable} SET work_observed[5]=$3::bigint,work_observed_at[5]=$4::bigint,work_pending_at=COALESCE(work_pending_at,$4::bigint) WHERE tenant_id=$1 AND consumer=$2`, [tenant, COMPLETED, next, Date.now()]);
+      // Class (c): the activation transaction's pending mark (maintenance-window ACTIVATION).
+      await require('../../lib/writer-driven').mark((text, values) => admin.query(text, values), { table: lab.workTable, consumer: COMPLETED }, tenant, { source: 'lifecycle', floor: Number(next) });
       await admin.query('COMMIT');
       lab.api.generations.set(tenant, next);
       return next;
@@ -146,7 +165,7 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
         dbstats: base.stats, maxRows: 10000, maxBytes: 8388608, includeFrame: true }));
       return evaluators.get(tenant);
     };
-    let work;
+    let work, killed = false;
     async function runTenant (tenant) {
       stats.runs++;
       const cpu = process.cpuUsage();
@@ -156,6 +175,8 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
         result = await evaluatorOf(tenant).evaluate({ at: Date.now() });
       } catch (error) { stats.errors.push(error.code || error.message); throw error; }
       if (gate) await gate(tenant, result);
+      // A killed process commits nothing more (as a crash between read and completion).
+      if (killed) throw new Error('EVALUATOR_KILLED');
       let completed;
       try {
         completed = await store.complete(tenant, { observed, identity: IDENTITY, result, restoreGeneration: result.generation });
@@ -187,6 +208,13 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
         work.wake(tenant, 'clock');
       },
       sweep: () => work.sweep(), sweepStats: () => work.sweepStats(), scheduler: work,
+      // Crash stand-in: stop committing at once and drop every resource without draining.
+      kill () {
+        killed = true; if (lab.evaluator === entry) lab.evaluator = null;
+        for (const step of [() => work.close(), () => store.close(), () => connection.end()]) Promise.resolve().then(step).catch(() => {});
+        for (const e of evaluators.values()) { try { e.close(); } catch { /* crash */ } }
+        jobs.close();
+      },
       async close () { await work.close(); await store.close(); await connection.end(); for (const e of evaluators.values()) e.close(); jobs.close(); }
     };
     lab.evaluator = entry;
@@ -200,9 +228,17 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
       (projection->0->'output'->'result'->'properties'->'bgnow'->>'mills')::bigint AS last
     FROM ${lab.workTable} WHERE consumer=$1`, [COMPLETED])).rows;
 
+  // ---- class (b): an owner pause/resume through the activity store, with the
+  // writer-driven pending binding (mark in its transaction, hint after COMMIT).
+  lab.ownerActivity = async ({ pending = true } = {}) => require('../../lib/tenant-activity/postgres').create({ connectionString: lab.ownerURI,
+    namespace: controlNs, capability: 'owner', applicationName: 's1-owner-activity',
+    ...(pending ? { pending: { table: lab.workTable, consumer: COMPLETED,
+      hint: tenant => lab.evaluator?.hint({ tenant }) } } : {}) });
+
   lab.close = async () => {
     await lab.evaluator?.close().catch(() => {});
-    if (owned && lab.admin) { await lab.admin.query(`DROP SCHEMA IF EXISTS "${workNs}" CASCADE`); await lab.admin.query(`DROP SCHEMA IF EXISTS "${controlNs}" CASCADE`); }
+    if (owned && lab.admin) { await lab.admin.query(`DROP SCHEMA IF EXISTS "${workNs}" CASCADE`); await lab.admin.query(`DROP SCHEMA IF EXISTS "${controlNs}" CASCADE`);
+      if (lab.ownerRole) await lab.admin.query(`DROP ROLE IF EXISTS "${lab.ownerRole}"`).catch(() => {}); }
     await base.close();
   };
   return lab;
