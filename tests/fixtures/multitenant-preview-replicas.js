@@ -76,7 +76,7 @@ module.exports = function createReplicaFixture ({ restartableDatabase = false } 
         API_HOSTNAME: '127.0.0.1', API_PORT: '0',
         NS_API_PG: appURI, NS_READINESS_PG: checkURI, NS_DISPLAY_PG: settingsURI,
         NS_ALARM_PG: platform.urls.alarm, NS_API_ROOT_WRITER_PG: platform.urls.root_writer,
-        NS_REGISTRY_REFRESH_MS: '500'
+        NS_REGISTRY_REFRESH_MS: '500', ...require('./signing-secret').env()
       };
       for (const key of ['NS_PREVIEW_REPLICA_CONTROL', 'NS_PREVIEW_REPLICA_CLOCK_MS']) {
         if (process.env[key] !== undefined) env[key] = process.env[key];

@@ -304,11 +304,13 @@
       },
       "BootstrapResult": {
         "type": "object", "additionalProperties": false, "required": ["ownerSubject", "subject"],
-        "description": "The bootstrap's subject ids. accessToken, the data subject's access token, appears only on 'created'. A retry answers 'existing' with the same ids and no token: provisioning cannot decrypt the root secret the token derives from, so it never returns a token twice or mints a second one.",
+        "description": "The bootstrap's subject ids and a data JWT for the data subject (jwt, 8 hours, expiring at jwtExpiresAt in epoch seconds; signed with the tenant's derived data key, as the api's exchange issues it), on 'created' and on 'existing'. accessToken, the data subject's access token, appears only on 'created': provisioning cannot decrypt the root secret the token derives from, so it never returns that token twice or mints a second one.",
         "properties": {
           "ownerSubject": { "type": "string" },
           "subject": { "type": "string" },
-          "accessToken": { "type": "string" }
+          "accessToken": { "type": "string" },
+          "jwt": { "type": "string" },
+          "jwtExpiresAt": { "type": "integer" }
         }
       },
       "Tenant": {

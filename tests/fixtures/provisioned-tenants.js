@@ -128,7 +128,8 @@ async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames
     const token = (await vaultRequest('auth/token/create', { policies: ['provision'], no_default_policy: true, ttl: '1h' })).auth.client_token;
     const vaultOptions = { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => token };
     provisioning = createProvisioning({ connectionString: url.toString(), namespaces: { ...all }, checkpoints, vault: vaultOptions,
-      actor: { principal: 'provisioned-tenants-operator', consumer: 'provisioned-tenants' } });
+      actor: { principal: 'provisioned-tenants-operator', consumer: 'provisioned-tenants' },
+      signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM });
     return {
       namespaces: Object.freeze({ ...all }), provisioner: role, provisioning, vaultRequest,
       vault: Object.freeze({ address: vault.address, mount, container: vault.name }),

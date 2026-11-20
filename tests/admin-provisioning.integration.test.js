@@ -95,25 +95,32 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.ok(!role.out.stdout.includes(first.body.rootSecret) && !role.out.stderr.includes(first.body.rootSecret), 'role output never carries a secret');
   });
 
-  it('AP_REST_BOOTSTRAP: a batch with bootstrap returns each tenant usable once; a retry returns the same ids and no token; nothing is logged', async function () {
+  it('AP_REST_BOOTSTRAP: a batch with bootstrap returns each tenant usable; a retry returns the same ids and a fresh data JWT, never the access token; nothing is logged', async function () {
     const bootstrap = { owner: { consumer: 'lab-owner' }, subject: { name: 'Synthetic uploader', role: { name: 'demo', permissions: ['api:*:read', 'api:*:create,update,delete'] } } };
     const tenants = Array.from({ length: 3 }, (_, i) => ({ id: randomUUID(), hosts: ['boot-' + i + '.example.test'], bootstrap }));
     const first = await request('POST', '/v1/tenants/batch', { tenants });
     assert.equal(first.status, 200);
     assert.deepEqual(first.body.results.map(row => row.outcome), ['created', 'created', 'created']);
     for (const row of first.body.results) {
-      assert.deepEqual(Object.keys(row.bootstrap).sort(), ['accessToken', 'ownerSubject', 'subject']);
+      assert.deepEqual(Object.keys(row.bootstrap).sort(), ['accessToken', 'jwt', 'jwtExpiresAt', 'ownerSubject', 'subject']);
       assert.match(row.bootstrap.accessToken, /^syntheticu-[0-9a-f]{16}$/);
-      assert.ok(!role.out.stdout.includes(row.bootstrap.accessToken) && !role.out.stderr.includes(row.bootstrap.accessToken), 'a token reached the role output');
+      // The data JWT (deployment-signing-secret): the api's own token, signed with the tenant's derived key.
+      const header = JSON.parse(Buffer.from(row.bootstrap.jwt.split('.')[0], 'base64url'));
+      assert.deepEqual(header, { alg: 'EdDSA', typ: 'ns-legacy-data+jwt', kid: 'data-1' });
+      assert.equal(JSON.parse(Buffer.from(row.bootstrap.jwt.split('.')[1], 'base64url')).exp, row.bootstrap.jwtExpiresAt);
+      for (const secret of [row.bootstrap.accessToken, row.bootstrap.jwt]) {
+        assert.ok(!role.out.stdout.includes(secret) && !role.out.stderr.includes(secret), 'a token reached the role output');
+      }
       const configure = (await lab.admin.query(`SELECT principal, consumer, active, can_configure FROM "${lab.namespaces.ownerConfiguration}".tenant_owner_configuration_authority WHERE tenant_id=$1`, [row.id])).rows;
       assert.deepEqual(configure, [{ principal: row.bootstrap.ownerSubject, consumer: 'lab-owner', active: true, can_configure: true }]);
     }
     const again = await request('POST', '/v1/tenants/batch', { tenants });
-    assert.deepEqual(again.body.results, first.body.results.map(row => ({ id: row.id, outcome: 'existing',
-      bootstrap: { ownerSubject: row.bootstrap.ownerSubject, subject: row.bootstrap.subject } })));
+    assert.deepEqual(again.body.results.map(row => ({ ...row, bootstrap: { ...row.bootstrap, jwt: typeof row.bootstrap.jwt, jwtExpiresAt: typeof row.bootstrap.jwtExpiresAt } })),
+      first.body.results.map(row => ({ id: row.id, outcome: 'existing',
+        bootstrap: { ownerSubject: row.bootstrap.ownerSubject, subject: row.bootstrap.subject, jwt: 'string', jwtExpiresAt: 'number' } })));
     const one = { id: randomUUID(), hosts: ['boot-one.example.test'], bootstrap };
     const single = await request('POST', '/v1/tenants', one);
-    assert.equal(single.status, 201); assert.ok(single.body.bootstrap.accessToken);
+    assert.equal(single.status, 201); assert.ok(single.body.bootstrap.accessToken); assert.ok(single.body.bootstrap.jwt);
     const invalid = await request('POST', '/v1/tenants', { id: randomUUID(), hosts: ['boot-bad.example.test'], bootstrap: { owner: {} } });
     assert.equal(invalid.status, 422); assert.equal(invalid.body.code, 'TENANT_PROVISION_BOOTSTRAP_INVALID');
   });
