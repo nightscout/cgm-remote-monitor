@@ -52,7 +52,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       PATH: process.env.PATH, API_HOSTNAME: '127.0.0.1', API_PORT: '0',
       NS_PG_PREFIX: lab.prefix, NS_REGISTRY_REFRESH_MS: String(REFRESH_MS), NS_SECRETS_DIR: dir,
       NS_SERVE_INTERNAL_SOCKET: path.join(dir, 'api.sock'),
-      NS_VAULT_ADDR: lab.vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_VAULT_TOKEN: apiToken,
+      NS_VAULT_ADDR: lab.vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_VAULT_TOKEN: apiToken, ...require('./fixtures/signing-secret').env(),
       NS_API_PG: lab.urls.api, NS_READINESS_PG: lab.urls.readiness, NS_API_ROOT_WRITER_PG: lab.urls.root_writer,
       NS_ALARM_PG: lab.urls.alarm, NS_DISPLAY_PG: lab.urls.display_reader
     });

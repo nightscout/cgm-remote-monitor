@@ -152,7 +152,7 @@ function documents ({selected,layout: l,paths}) {
       namespaces:{...clinical,settings:ns.settings,authorization:ns.authorization,secrets:ns.secrets,legacy:ns.legacy,access:ns.access,clock:ns.clock}},
     vault:{address:selected.vault.url.origin,mount:l.mount,allowInsecureLoopback:true,timeoutMs:o.timeoutMs,tokenEnv:'RT_BOOTSTRAP_VAULT_ROLE'},resolution:{mode:'direct-alias'},
     registry,tenantSettings,activity:{namespace:ns.control},
-    accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},
+    accessTokens:{issuer:'nightscout-joined-fixture',audience:'nightscout-data'},localDataAuthentication:'node',
     socketForwarding:{maxTenants:2,maxMessageBytes:o.maxMessageBytes,operationTimeoutMs:o.timeoutMs,alarm:{connectionEnv:'RT_BOOTSTRAP_ALARM_PG',namespace:ns.alarm}}};
   const owner=require('../multitenant-plan').documents({layout:l,urls:{},vaultAddress:selected.vault.url.origin,settings:{NS_VAULT_ALLOW_INSECURE_LOOPBACK:'true'}}).configs['tenant-admin'];
   const configs={api,evaluator,realtime,'tenant-admin':owner};

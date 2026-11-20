@@ -175,7 +175,7 @@ describe('REST admission in the production api composition', function () {
       './role-readiness': require('./fixtures/role-readiness')(),
       './preview-domains': async () => ({ data: router, v3Names: [], legacyNames: [], safeRoutes: {}, async prepareTenant () {}, invalidateTenant () {}, invalidateAll () {} }),
       '../tenant-app/data-access': () => async () => ({ tenant, principal: 'synthetic', consumer: 'api' }),
-      '../tenant-app/exchange': () => async () => null,
+      '../tenant-app/local-exchange': () => async () => null, '../../secrets/legacy-verifiers': { create: () => ({ verifyLegacyCredential: async () => null }) }, '../../tenant-authorization/legacy-data-token': { create: () => ({ verify () {}, issue () {} }) },
       '../../human-session/runtime': { multi: async () => null },
       '../realtime/private-api': { async boot () {
         listener = await transport.open(internalOptions, descriptor, () => ({

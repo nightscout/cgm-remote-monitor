@@ -223,9 +223,10 @@ function credentialFixture ({ oldExchange = false, root = false, tokenCurrent = 
   };
 }
 describe('real component mixed-credential cost', function () {
-  it('removes DATA exchange effects while matching root, token, missing/unnamed refusal and revocation outcomes', async function () {
-    // The restored DATA exchange path uses the current exchange implementation:
-    // issuance retains its verify audit but no longer calls provider.verify.
+  it('authenticates DATA without exchange effects for root, token, missing/unnamed refusal and revocation outcomes', async function () {
+    // The former HS256 exchange-on-DATA baseline is retired with the HS256
+    // profile (decision deployment-signing-secret); its counts are kept as the
+    // record of what DATA no longer does. Only the current path runs.
     const cases = [
       [{ root: true }, 'root', { decrypt: 2, sign: 1, verify: 0, audit: 4, metadata: 2, authority: 2 }, 2],
       [{}, 'token-subject', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1],
@@ -236,11 +237,9 @@ describe('real component mixed-credential cost', function () {
       [{ tokenKnown: false }, null, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority: 0 }, 0],
       [{ allowed: false }, 'TENANT_LEGACY_FORBIDDEN', { decrypt: 2, sign: 1, verify: 1, audit: 5, metadata: 2, authority: 2 }, 1]
     ];
-    for (const [options, outcome, oldCounts, authority] of cases) {
-      const baseline = credentialFixture({ ...options, oldExchange: true }), candidate = credentialFixture(options);
-      assert.equal(await baseline.run(), outcome, 'OLD_DATA_CREDENTIAL_OUTCOME ' + JSON.stringify(options) + ' counts=' + JSON.stringify(baseline.counts));
+    for (const [options, outcome, , authority] of cases) {
+      const candidate = credentialFixture(options);
       assert.equal(await candidate.run(), outcome, 'CURRENT_DATA_CREDENTIAL_OUTCOME');
-      assert.deepEqual(baseline.counts, oldCounts, 'OLD_EXCHANGE_EFFECTS_EXERCISED');
       assert.deepEqual(candidate.counts, { decrypt: 1, sign: 0, verify: 0, audit: 1, metadata: 1, authority }, 'DATA_AUTHENTICATES_WITHOUT_ISSUANCE');
     }
   });

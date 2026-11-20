@@ -1,54 +1,33 @@
 'use strict';
 
+// Tenant-bound data JWTs through HTTP authorization. Tokens are the api's local
+// data JWTs signed with per-tenant keys derived from the deployment signing
+// secret (decision deployment-signing-secret); each tenant verifies with its own
+// stored public key, so a token for A fails signature on B (D14).
 const assert = require('node:assert/strict');
-const { createHmac, randomBytes, timingSafeEqual } = require('node:crypto');
 const express = require('express');
 const request = require('supertest');
 const createResolver = require('../lib/tenant-resolution');
-const { createSecrets } = require('../lib/secrets/component');
 const { createTenantApp } = require('../lib/server/tenant-app');
+const tokens = require('../lib/tenant-authorization/legacy-data-token');
+const { signing } = require('./fixtures/signing-secret');
 
-const TENANTS = ['A', 'B'];
-
-function hmac (key, message) {
-  return createHmac('sha256', key).update(message).digest();
-}
+const A = '11111111-1111-4111-8111-111111111111';
+const B = '22222222-2222-4222-8222-222222222222';
+const TENANTS = [A, B];
 
 function fixture () {
-  const keys = new Map(TENANTS.map(tenant => [tenant, randomBytes(32)]));
   const access = new Map(TENANTS.map(tenant => [`${tenant}:device-${tenant}`, `subject-${tenant}`]));
   const grants = new Set(TENANTS.map(tenant => `${tenant}:subject-${tenant}:data`));
   const calls = [];
   let unavailable = false;
-  const secrets = createSecrets({
-    providerFor (tenant) {
-      const key = keys.get(tenant);
-      if (!key) throw Object.assign(new Error('unknown tenant'), { code: 'TENANT_UNKNOWN' });
-      return {
-        signingVersion: 1,
-        async sign (message) { return hmac(key, message); },
-        async verify (version, message, signature) {
-          if (version !== 1) return false;
-          const expected = hmac(key, message);
-          return signature.length === expected.length && timingSafeEqual(signature, expected);
-        }
-      };
-    },
-    store: { async get () { return undefined; }, async insert () {} },
-    async authorize (identity, action) {
-      return (action.operation === 'sign' && identity.principal === 'issuer' &&
-          identity.consumer === 'issuer') ||
-        (action.operation === 'verify' && identity.principal === 'http-verifier' &&
-          identity.consumer === 'api');
-    },
-    async audit (event) { calls.push(event); },
-    maxTokenLifetimeSeconds: 300,
-    now: () => 1800000000000
-  });
+  const codec = tokens.create({ issuer: 'synthetic-data', audience: 'synthetic-api', now: () => 1800000000 });
+  // The stored verification row: public key only.
+  const row = tenant => ({ kid: signing.key(tenant, 'data', 1).kid, publicKey: signing.key(tenant, 'data', 1).spki, active: true });
   const resolver = createResolver({
     aliases: [
-      { host: 'one.example.test', tenant: 'A' },
-      { host: 'two.example.test', tenant: 'B' }
+      { host: 'one.example.test', tenant: A },
+      { host: 'two.example.test', tenant: B }
     ]
   });
   const data = express.Router();
@@ -59,11 +38,10 @@ function fixture () {
   const app = createTenantApp({
     resolver,
     async verifyCredential ({ tenant, credential }) {
+      calls.push({ operation: 'verify', tenant });
       try {
-        const verified = await secrets.verifyJWT({
-          tenant, principal: 'http-verifier', consumer: 'api'
-        }, credential);
-        const principal = access.get(`${tenant}:${verified.accessToken}`);
+        const claims = codec.verify(credential, tenant, [row(tenant)]);
+        const principal = access.get(`${tenant}:${claims.sub}`);
         return principal ? { tenant, principal, consumer: 'api' } : null;
       } catch (error) {
         if (error.code === 'SECRETS_TOKEN_INVALID') return null;
@@ -84,9 +62,9 @@ function fixture () {
   return {
     app, calls, grants,
     setUnavailable (value) { unavailable = value; },
-    async token (tenant) {
-      return secrets.signJWT({ tenant, principal: 'issuer', consumer: 'issuer' },
-        `device-${tenant}`, 300);
+    token (tenant, signedFor = tenant) {
+      return codec.issue(tenant, { kind: 'subject', subjectId: `device-${tenant}`, credentialVersion: 1, rootVersion: 1 },
+        signing.key(signedFor, 'data', 1)).token;
     }
   };
 }
@@ -98,27 +76,30 @@ function get (app, host, token) {
 }
 
 describe('tenant-bound JWT through HTTP authorization', function () {
-  it('accepts each tenant token only on its own alias, with real secrets verification', async function () {
+  it('accepts each tenant token only on its own alias, with local signature verification', async function () {
     const state = fixture();
-    const [tokenA, tokenB] = await Promise.all([state.token('A'), state.token('B')]);
+    const [tokenA, tokenB] = [state.token(A), state.token(B)];
 
     await get(state.app, 'one.example.test', tokenA)
-      .expect(200, { tenant: 'A', principal: 'subject-A' });
+      .expect(200, { tenant: A, principal: 'subject-' + A });
     await get(state.app, 'two.example.test', tokenB)
-      .expect(200, { tenant: 'B', principal: 'subject-B' });
+      .expect(200, { tenant: B, principal: 'subject-' + B });
     await get(state.app, 'two.example.test', tokenA)
       .expect(401, { error: 'CREDENTIAL_REFUSED' });
     await get(state.app, 'one.example.test', tokenB)
       .expect(401, { error: 'CREDENTIAL_REFUSED' });
-    assert.equal(state.calls.filter(event => event.operation === 'verify').length, 4);
+    // D14: a token claiming B but signed with A's derived key fails on B.
+    await get(state.app, 'two.example.test', state.token(B, A))
+      .expect(401, { error: 'CREDENTIAL_REFUSED' });
+    assert.equal(state.calls.filter(event => event.operation === 'verify').length, 5);
   });
 
   it('uses current tenant grants after JWT verification and fails closed on authority outage', async function () {
     const state = fixture();
-    const tokenA = await state.token('A');
+    const tokenA = state.token(A);
 
     await get(state.app, 'one.example.test', tokenA).expect(200);
-    state.grants.delete('A:subject-A:data');
+    state.grants.delete(`${A}:subject-${A}:data`);
     await get(state.app, 'one.example.test', tokenA)
       .expect(403, { error: 'REQUEST_FORBIDDEN' });
     state.setUnavailable(true);

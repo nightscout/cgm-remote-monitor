@@ -69,9 +69,13 @@ describe('admin role: operator configuration', function () {
     const url = name => 'postgres://nsadm_' + name + ':synthetic-only@127.0.0.1:5432/nightscout_test';
     const env = { NS_PG_PREFIX: 'nsadm', NS_VAULT_ADDR: 'https://vault.example.test:8200', NS_SECRETS_DIR: '/run/ns-config',
       NS_OWNERSHIP_PG: url('ownership_operator'), NS_PROVISIONER_PG: url('provisioner'), NS_CONNECTOR_SOURCES_PG: url('connector_writer'),
-      NS_MANAGEMENT_SESSIONS_PG: url('management_issuer') };
+      NS_MANAGEMENT_SESSIONS_PG: url('management_issuer'), ...require('./fixtures/signing-secret').env() };
     assert.throws(() => adminConfig.load({ ...env, NS_VAULT_ADDR: '' }), /NS_VAULT_ADDR is required/);
+    // Provisioning and management sessions issue tokens: no signing secret, no start.
+    assert.throws(() => adminConfig.load({ ...env, NS_SIGNING_SECRET_FILE: '' }), /NS_SIGNING_SECRET_FILE/);
     const loaded = adminConfig.load(env);
+    assert.equal(loaded.managementSessions.vault, undefined);
+    assert.equal(typeof loaded.managementSessions.signing.matching, 'function');
     assert.equal(loaded.ownership.namespace, 'nsadm_authorization');
     assert.equal(loaded.ownership.lifecycleNamespace, 'nsadm_control');
     assert.equal(loaded.provisioning.namespaces.registry, 'nsadm_registry');

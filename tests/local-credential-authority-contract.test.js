@@ -15,9 +15,11 @@ const hash = value => crypto.createHash('sha1').update(value).digest('hex');
 const root = 'synthetic-local-authority-root';
 const credential = 'named-' + hash(hash(root) + 'subject').slice(0, 16);
 async function fixture () {
-  const key = tokens.generateKey(), codec = tokens.create({ issuer: 'synthetic', audience: 'synthetic', now: () => 1700000000 });
+  // Per-tenant data keys derived from the synthetic deployment secret (deployment-signing-secret, D14).
+  const signing = require('./fixtures/signing-secret').signing, row = tenant => ({ kid: signing.key(tenant, 'data', 1).kid, publicKey: signing.key(tenant, 'data', 1).spki });
+  const codec = tokens.create({ issuer: 'synthetic', audience: 'synthetic', now: () => 1700000000 });
   const prepared = material.prepare(Buffer.from(root), [{ subjectId: 'subject', tokenPrefix: 'named' }]);
-  const states = new Map([A, B].map(tenant => [tenant, { ...prepared, rootVersion: 1, keys: [{ ...key, active: true }],
+  const states = new Map([A, B].map(tenant => [tenant, { ...prepared, rootVersion: 1, keys: [{ ...row(tenant), active: true }],
     subjects: prepared.subjects.map(subject => ({ ...subject, credentialVersion: 1 })) }]));
   const grants = new Map([[A, ['api:entries:read', 'api:entries:create']], [B, []]]), queries = [];
   const connection = {
@@ -37,8 +39,8 @@ async function fixture () {
     verifierContext: async tenant => ({ tenant, consumer: 'api' }), legacyCollections: ['entries'] });
   const verifierContext = async tenant => ({ tenant, principal: 'api', consumer: 'api' });
   const socket = createSocket({ secrets: credentials, authority, verifierContext, admission: { allows: async () => true } });
-  const exchange = createExchange({ credentials, secrets: credentials, authority, verifierContext,
-    store: { signingKey: async () => key }, codec, audit: async () => {}, now: () => 1700000000000 });
+  const exchange = createExchange({ credentials, authority, verifierContext,
+    store: { signingKey: async tenant => row(tenant) }, codec, signing, audit: async () => {}, now: () => 1700000000000 });
   const admin = createAdmin({ secrets: { ...credentials, rootLegacyTokens: async () => [], adminLegacyTokens: async () => [] },
     authority, verifierContext, tenants: [A, B] });
   const request = (tenant = A, secret = credential, method = 'POST') => access({ tenant, version: 1,

@@ -72,7 +72,7 @@ function fixture (options = {}) {
     if (m.localAuth && text.includes('"local_auth".')) {
       assert.equal(m.locked, true); assert.equal(target().window.phase, 'suspended');
       if (text.startsWith('SELECT root_reference_id')) return { rows: [{ root_reference_id: 'root' }] };
-      if (text.startsWith('SELECT subject_id') || text.startsWith('SELECT kid')) return { rows: [] };
+      if (text.startsWith('SELECT subject_id')) return { rows: [] };
       if (text.startsWith('UPDATE') || text.startsWith('INSERT')) { target().rows.push(text); return { rowCount: 1, rows: [] }; }
     }
     throw new Error('Unexpected simulated query: ' + text);
@@ -94,7 +94,10 @@ describe('private tenant restore controller (simulated backend protocol)', funct
       readRoot: async reference => { assert.deepEqual(reference, { tenant: A, id: 'root' }); root = Buffer.from('synthetic-root'); return root; } });
     assert.deepEqual(await prepare(A, { artifactDigest: DIGEST }), { prepared: true });
     assert(root.every(byte => byte === 0)); assert.equal(m.durable.window.phase, 'active');
-    assert.equal(m.durable.rows.length, 3);
+    // Verifiers only: the root update; no subject rows; no signing key row
+    // (data signing keys are derived, decision deployment-signing-secret).
+    assert.equal(m.durable.rows.length, 1);
+    assert(m.durable.rows.every(text => !text.includes('legacy_data_keys')));
     assert(m.trace.indexOf('committed:DATA') < m.trace.indexOf('committed:ACTIVATION'));
     await api.close();
   });

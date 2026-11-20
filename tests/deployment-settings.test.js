@@ -37,6 +37,12 @@ describe('deployment settings: the environment builds the deployment\'s document
     // The deployment replaced this digest with the native selection's when it
     // attached the selection at bootstrap; the role now computes it itself.
     completed.digest = settings.nativeSelection(settings.layout(env)).contractDigest;
+    // Bootstrap writes the owner's configure authority (one-call-usable-provisioning).
+    expected.provisioning.namespaces.ownerConfiguration = settings.layout(env).namespaces.owner_configuration;
+    // Signing is in process (deployment-signing-secret): management sessions hold no
+    // Vault credential, and provisioning issues data JWTs in the api's realm.
+    delete expected.managementSessions.vault;
+    expected.provisioning.accessTokens = { ...golden.configs.api.accessTokens };
     assert.deepStrictEqual(built, expected);
     // Each admin service is composed when the process has its connection secret.
     assert.deepStrictEqual(Object.keys(settings.configuration('admin', { NS_OWNERSHIP_PG: env.NS_OWNERSHIP_PG })), ['version', 'maxBytes', 'timeoutMs', 'ownership']);

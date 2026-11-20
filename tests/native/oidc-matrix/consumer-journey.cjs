@@ -220,7 +220,9 @@ async function create (ctx) {
         if (action.operation === 'decrypt') { const value = await legacy.read(identity.tenant); return value?.reference?.id === action.id; }
         return ['sign', 'verify'].includes(action.operation);
       } });
-    const exchange = req('./lib/server/tenant-app/exchange')({ secrets, authority, verifierContext });
+    // The HS256 exchange is retired (decision deployment-signing-secret); this native
+    // journey must move to the local exchange before it runs again.
+    const exchange = () => { throw new Error('HS256 exchange retired (deployment-signing-secret); port this journey to the local exchange'); };
     const environment = req('./lib/server/tenant-app/environment');
     const environments = new Map(config.tenants.map(tenant => [tenant, environment()]));
     const bindings = new Map(config.tenants.map(tenant => [tenant, verifierContext(tenant)]));

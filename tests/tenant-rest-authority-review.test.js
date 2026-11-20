@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { randomBytes, createHash, createHmac } = require('node:crypto');
+const { randomBytes, createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require('pg');
@@ -11,9 +11,13 @@ const { optInSuite } = require('./support/opt-in');
 const { run } = require('../lib/migrations/postgres');
 const scope = require('../lib/storage/tenant-scope');
 const createAuthority = require('../lib/tenant-authorization/postgres');
-const { createSecrets } = require('../lib/secrets/component');
 const createAccess = require('../lib/server/tenant-app/data-access');
-const createExchange = require('../lib/server/tenant-app/exchange');
+// The api's local composition (decision deployment-signing-secret): local
+// verifiers and data JWTs signed with per-tenant derived keys.
+const material = require('../lib/secrets/legacy-verifiers');
+const tokens = require('../lib/tenant-authorization/legacy-data-token');
+const createExchange = require('../lib/server/tenant-app/local-exchange');
+const signing = require('./fixtures/signing-secret').signing;
 const legacyAuthorization = require('../lib/server/tenant-app/legacy-authorization');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
@@ -30,7 +34,6 @@ optInSuite(process.env.NS_REST_AUTHORITY_REVIEW_TEST === '1', 'NS_REST_AUTHORITY
     const namespace = 'authority_test';
     const role = 'review_app';
     const root = randomBytes(24).toString('hex');
-    const signingKey = randomBytes(32);
     const credential = 'viewer-' + hash(hash(root) + SUBJECT).slice(0, 16);
     const effects = [];
     const grants = ['api:entries:read', 'api:entries:create'];
@@ -80,26 +83,16 @@ optInSuite(process.env.NS_REST_AUTHORITY_REVIEW_TEST === '1', 'NS_REST_AUTHORITY
         await admin.query(`INSERT INTO ${table('subject_roles')} VALUES ($1,$2,'viewer')`, [tenant, SUBJECT]);
       }
       authority = await createAuthority({ connectionString: appURI, namespace });
-      // Deliberately share the synthetic root and signing key. Audience binding
-      // must remain decisive even when deployment key isolation is absent.
-      const secrets = createSecrets({
-        maxTokenLifetimeSeconds: 28800,
-        authorize: async who => who.principal === 'verifier' && who.consumer === 'api',
-        audit: async () => {},
-        store: { async insert () { throw new Error('unused'); }, async get (tenant, id) {
-          return { tenant, id, format: 1, ciphertext: JSON.stringify({ tenant, id, data: Buffer.from(root).toString('base64') }) };
-        } },
-        providerFor: async () => ({ signingVersion: 1,
-          decrypt: async value => Buffer.from(value),
-          sign: async value => createHmac('sha256', signingKey).update(value).digest(),
-          verify: async (version, value, signature) => version === 1 &&
-            signature.equals(createHmac('sha256', signingKey).update(value).digest())
-        }),
-        legacyAuthorityFor: async tenant => ({ reference: { tenant, id: 'root' },
-          subjects: [{ subjectId: SUBJECT, tokenPrefix: 'viewer' }] })
-      });
+      // Deliberately share the synthetic root and overlapping subject ids;
+      // per-tenant derived data keys (D14) and the tenant claim both bind a JWT.
+      const prepared = material.prepare(Buffer.from(root), [{ subjectId: SUBJECT, tokenPrefix: 'viewer' }]);
+      const row = tenant => ({ kid: signing.key(tenant, 'data', 1).kid, publicKey: signing.key(tenant, 'data', 1).spki });
+      const codec = tokens.create({ issuer: 'review-data', audience: 'review-api' });
+      const secrets = material.create({ verifyToken: codec.verify, read: async tenant => ({ rootVerifiers: prepared.rootVerifiers, rootVersion: 1,
+        keys: [{ ...row(tenant), active: true }], subjects: prepared.subjects.map(subject => ({ ...subject, credentialVersion: 1 })) }) });
       const verifierContext = async tenant => ({ tenant: wrongVerifier ? B : tenant, principal: 'verifier', consumer: 'api' });
-      exchange = createExchange({ secrets, authority, verifierContext });
+      exchange = createExchange({ credentials: secrets, authority, verifierContext, codec, signing,
+        store: { signingKey: async tenant => row(tenant) }, audit: async () => {} });
       const dataAccess = createAccess({ secrets, authority, verifierContext, legacyCollections: ['entries'] });
       const router = express.Router();
       const auth = legacyAuthorization();
@@ -135,7 +128,7 @@ optInSuite(process.env.NS_REST_AUTHORITY_REVIEW_TEST === '1', 'NS_REST_AUTHORITY
       finally { if (owned) docker(['rm', '-f', '-v', container]); if (mode !== undefined) scope.setTenancyMode(mode); }
     });
 
-    it('binds a verified JWT to its host tenant despite shared keys and overlapping subject identifiers', async function () {
+    it('binds a verified JWT to its host tenant with a shared root and overlapping subject identifiers', async function () {
       const issuedA = await exchange({ tenant: A, credential });
       const issuedB = await exchange({ tenant: B, credential });
       await http(A, 'get', '/api/v1/entries', issuedA.token).expect(200);

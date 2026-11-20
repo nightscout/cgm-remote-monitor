@@ -6,12 +6,8 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const HEX = '0123456789abcdef01234567';
 const digest = 'a'.repeat(64);
-// Synthetic keys stay stable across repeated seed reads within this process.
-const localDataKeys = new Map();
-function localDataKey (tenant) {
-  if (!localDataKeys.has(tenant)) localDataKeys.set(tenant, require('../../lib/tenant-authorization/legacy-data-token').generateKey());
-  return localDataKeys.get(tenant);
-}
+// The synthetic deployment's derived data key (public part only is stored).
+const localDataKey = tenant => require('./signing-secret').signing.key(tenant, 'data', 1);
 const uuid = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
 
 function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}) {
@@ -78,8 +74,7 @@ function populatedRows ({ now = 1700000000000, profileSocketOrder = false } = {}
     add('legacy_credential_config', { tenant_id: tenant, root_reference_id: 'reference_' + suffix });
     add('legacy_credential_subjects', { tenant_id: tenant, subject_id: 'subject_' + suffix, token_prefix: suffix });
     const localKey = localDataKey(tenant);
-    add('legacy_data_keys', { tenant_id: tenant, kid: localKey.kid, public_key: localKey.publicKey,
-      private_key: localKey.privateKey, active: true, signing: true });
+    add('legacy_data_keys', { tenant_id: tenant, kid: localKey.kid, public_key: localKey.spki, active: true, signing: true });
     add('secret_records', { tenant_id: tenant, id: 'reference_' + suffix, format: 1,
       ciphertext: offset ? 'vault:v2:Zm9yZWlnbg==' : 'vault:v1:c3ludGhldGljLWNpcGhlcnRleHQ=' });
     add('secret_audit', { event_id: event(3), tenant_id: tenant, principal, consumer, operation: 'encrypt', secret_id: 'reference_' + suffix,

@@ -261,10 +261,10 @@ module.exports = function settingsFixture () {
       await vault('sys/mounts/' + transitMount, { type: 'transit' });
       ownsTransitMount = true;
       for (const [i, tenant] of [A, B].entries()) {
-        for (const purpose of ['data', 'signing']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
+        for (const purpose of ['data']) await vault(`${transitMount}/keys/${name}-${i}-${purpose}`, { type: 'aes256-gcm96' });
         providers.push(createVaultTransit({
           address: process.env.NS_SETTINGS_VAULT_ADDRESS, mount: transitMount,
-          encryptionKey: `${name}-${i}-data`, signingKey: `${name}-${i}-signing`, signingVersion: 1,
+          encryptionKey: `${name}-${i}-data`,
           getToken: async () => process.env.NS_SETTINGS_VAULT_TOKEN, allowInsecureLoopback: true
         }));
         await admin.query(`INSERT INTO "${schemas.identity}".legacy_credential_config VALUES ($1, 'synthetic-import')`, [tenant]);

@@ -51,7 +51,7 @@ function bootProtocol ({ hold, fail } = {}) {
     '../../storage/postgres-connection': async () => resource(),
     '../../secrets/component': { createSecrets: () => ({}) }, '../../secrets/postgres': { createPostgresSecrets: async () => persistence },
     '../../secrets/legacy-postgres': async () => legacy, '../../tenant-authorization/postgres': async () => authority,
-    '../tenant-app/data-access': () => (req, res, next) => next(), '../tenant-app/exchange': () => async () => null,
+    '../tenant-app/data-access': () => (req, res, next) => next(), '../tenant-app/local-exchange': () => async () => null, '../../secrets/legacy-verifiers': { create: () => ({ verifyLegacyCredential: async () => null }) }, '../../tenant-authorization/legacy-data-token': { create: () => ({ verify () {}, issue () {} }) },
     '../tenant-app': { createTenantApp: () => express.Router() },
     // The 'readiness' stage is the API's one platform proof check.
     './role-readiness': require('./fixtures/role-readiness')(undefined, () => stage('readiness')),

@@ -51,7 +51,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     const url=name=>'postgres://synthetic-'+name+':synthetic@127.0.0.1:15432/bootstrap_test';
     const common={NS_API_INTERNAL_SOCKET:path.join(dir,'api.sock'),NS_REALTIME_INTERNAL_SOCKET:path.join(dir,'alarm.sock'),NS_EVALUATOR_INTERNAL_SOCKET:path.join(dir,'evaluator.sock'),NS_TENANT_ADMIN_INTERNAL_SOCKET:path.join(dir,'owner.sock'),RT_BOOTSTRAP_DISPLAY_PG:'postgres://synthetic-display:synthetic@127.0.0.1:15432/bootstrap_test',RT_BOOTSTRAP_ACTIVITY_PG:'postgres://synthetic-activity:synthetic@127.0.0.1:15432/bootstrap_test',NS_RT_BOOTSTRAP_PGSTREAM_BINARY:'/synthetic/pinned-pgstream',NS_RT_BOOTSTRAP_PGSTREAM_CONFIG:'/synthetic/pgstream.json'};
     const api={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_API_INTERNAL_SOCKET,RT_BOOTSTRAP_API_PG:url('api'),
-      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role'};
+      RT_BOOTSTRAP_READINESS_PG:url('readiness'),RT_BOOTSTRAP_ALARM_PG:url('alarm'),RT_BOOTSTRAP_VAULT_ROLE:'synthetic-role',...require('./fixtures/signing-secret').env()};
     const worker={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_EVALUATOR_INTERNAL_SOCKET,RT_BOOTSTRAP_EVAL_PG:url('evaluator'),RT_BOOTSTRAP_OUTBOX_PG:url('outbox'),RT_BOOTSTRAP_SUPPRESSION_PG:url('suppression'),[docs.evaluator.pgstream.recovery.connectionEnv]:(()=>{const u=new URL(url('evaluator'));u.username=docs.evaluator.pgstream.streamRole;return u.href;})()};
     const realtime={...common,NS_SERVE_INTERNAL_SOCKET:common.NS_REALTIME_INTERNAL_SOCKET,RT_BOOTSTRAP_RT_PG:url('realtime')};
     // The lab's documents through each role's own validator (parse); roles read their

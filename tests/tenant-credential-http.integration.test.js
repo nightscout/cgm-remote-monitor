@@ -19,7 +19,13 @@ const createLegacyAuthority = require('../lib/secrets/legacy-postgres');
 const { createPostgresSecrets } = require('../lib/secrets/postgres');
 const { createSecrets } = require('../lib/secrets/component');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
-const createExchange = require('../lib/server/tenant-app/exchange');
+// Retired composition (decision deployment-signing-secret, 2026-11-20): this
+// suite drives the Vault-backed DATA verifier with HS256 exchange JWTs, which no
+// api composition builds any more. Its REST behaviours are to be ported to the
+// local composition (local verifiers, derived data keys); until then an opted-in
+// run refuses with this reason rather than testing a removed path.
+const RETIRED = 'HS256 exchange and Vault-on-DATA composition retired (deployment-signing-secret); port to the local composition pending';
+const createExchange = () => { throw new Error(RETIRED); };
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createResolver = require('../lib/tenant-resolution');
 const Api3Collection = require('../lib/api3/generic/collection');

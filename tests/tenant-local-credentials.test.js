@@ -18,13 +18,16 @@ const SUBJECTS = [{ subjectId: 'subject', tokenPrefix: 'named' }, { subjectId: '
 const digest = id => hash(hash(ROOT) + id);
 const credential = id => SUBJECTS.find(s => s.subjectId === id).tokenPrefix + '-' + digest(id).slice(0, 16);
 
-async function fixture (sessionEpochs = false) {
+// Data signing keys are derived from the synthetic deployment secret (decision
+// deployment-signing-secret); stored rows hold public keys only.
+const signing = require('./fixtures/signing-secret').signing;
+async function fixture () {
   let providerUnavailable = false;
   let time = 1700000000, allowed = true, active = true, unavailable = false, failAudit = false;
-  const key = tokens.generateKey(), other = tokens.generateKey(), prepared = material.prepare(Buffer.from(ROOT), SUBJECTS);
+  const key = signing.key(A, 'data', 1), other = signing.key(B, 'data', 1), prepared = material.prepare(Buffer.from(ROOT), SUBJECTS);
   const states = new Map([A, B].map(tenant => [tenant, { rootVerifiers: prepared.rootVerifiers, rootVersion: 1,
     subjects: prepared.subjects.map(s => ({ ...s, credentialVersion: 1 })),
-    keys: [{ kid: (tenant === A ? key : other).kid, publicKey: (tenant === A ? key : other).publicKey, active: true }] }]));
+    keys: [{ kid: (tenant === A ? key : other).kid, publicKey: (tenant === A ? key : other).spki, active: true }] }]));
   const effects = { metadata: 0, authority: 0, decrypt: 0, sign: 0, verify: 0, keyReads: 0, audit: 0 };
   const codec = tokens.create({ issuer: 'synthetic-data', audience: 'synthetic-api', now: () => time });
   const read = async tenant => { effects.metadata++; if (unavailable) throw Error('synthetic metadata unavailable'); return states.get(tenant); };
@@ -54,11 +57,10 @@ async function fixture (sessionEpochs = false) {
   const secrets = require('../lib/secrets/component').createSecrets({ providerFor: async () => provider,
     store: { get: async (tenant, id) => records.get(tenant + '/' + id), insert: async row => records.set(row.tenant + '/' + row.id, row) },
     authorize: async () => true, audit, maxTokenLifetimeSeconds: 28800, now: () => time * 1000,
-    ...(sessionEpochs ? { legacySessionEpochFor: async tenant => ({ tenant, version: states.get(tenant).rootVersion, enforced: states.get(tenant).previousProfileAllowed === false }) } : {}),
     legacyAuthorityFor: async tenant => ({ reference: { tenant, id: 'root' }, subjects: SUBJECTS }) });
   await secrets.encrypt(await verifierContext(A), 'root', Buffer.from(ROOT));
-  const store = { async signingKey (tenant) { effects.keyReads++; return tenant === A ? key : other; } };
-  const exchange = createExchange({ credentials, secrets, authority, verifierContext, store, codec, audit, now: () => time * 1000 });
+  const store = { async signingKey (tenant) { effects.keyReads++; const row = tenant === A ? key : other; return { kid: row.kid, publicKey: row.spki }; } };
+  const exchange = createExchange({ credentials, authority, verifierContext, store, codec, signing, audit, now: () => time * 1000 });
   const data = createDataAccess({ secrets: credentials, authority, verifierContext, legacyCollections: ['entries'] });
   const socket = createSocket({ secrets: credentials, authority, verifierContext, admission: { allows: async () => active } });
   const dataRead = (token, tenant = A) => data({ tenant, version: 3,
@@ -147,7 +149,7 @@ describe('local Node/PostgreSQL multitenant data credentials', function () {
 
   it('supports key overlap and fresh key revocation across a recreated verifier', async function () {
     const f = await fixture(), issued = await f.exchange({ tenant: A, credential: credential('subject') });
-    const next = tokens.generateKey(); f.states.get(A).keys.push({ ...next, active: true });
+    const next = signing.key(A, 'data', 2); f.states.get(A).keys.push({ kid: next.kid, publicKey: next.spki, active: true });
     assert(await f.dataRead(issued.token));
     const restarted = material.create({ read: f.read, verifyToken: f.codec.verify });
     assert(await restarted.verifyLegacyCredential(await f.verifierContext(A), { token: issued.token }));
@@ -164,91 +166,6 @@ describe('local Node/PostgreSQL multitenant data credentials', function () {
     assert.equal((await f.credentials.verifyLegacyCredential(context, { apiSecret: hash(ROOT) })).kind, 'root');
     f.states.get(A).rootVerifiers = null;
     await assert.rejects(f.credentials.verifyLegacyCredential(context, { apiSecret: hash(ROOT) }), { code: 'SECRETS_LEGACY_AUTHORITY_INVALID' });
-  });
-
-  it('renews old Vault HS256 only at exchange and uses no Vault work afterwards', async function () {
-    const f = await fixture(), context = await f.verifierContext(A);
-    const old = await f.secrets.signJWT(context, credential('subject'), 28800); f.reset();
-    assert.equal(await f.dataRead(old), null);
-    assert.deepEqual([f.effects.decrypt, f.effects.verify], [0, 0], 'OLD_JWT_NEVER_TRIGGERS_DATA_VAULT_FALLBACK');
-    const renewed = await f.exchange({ tenant: A, credential: old });
-    assert(renewed); assert.deepEqual([f.effects.decrypt, f.effects.verify, f.effects.sign], [1, 1, 0]);
-    f.reset(); assert(await f.dataRead(renewed.token));
-    await f.socket.verify({ tenant: A, namespace: '/', credential: { token: renewed.token } });
-    assert.deepEqual([f.effects.decrypt, f.effects.verify, f.effects.sign], [0, 0, 0]);
-  });
-
-  it('refuses previous-profile renewal after current recommission while retaining plain credentials and tenant B', async function () {
-    const f = await fixture(), context = await f.verifierContext(A);
-    const old = await f.secrets.signJWT(context, credential('subject'), 28800);
-    const issuedBefore = await f.exchange({ tenant: A, credential: old }); assert(issuedBefore);
-    const state = f.states.get(A); state.rootVersion++; state.subjects.forEach(subject => subject.credentialVersion++); state.previousProfileAllowed = false;
-    assert.equal(await f.exchange({ tenant: A, credential: old }), null);
-    assert.equal(await f.dataRead(issuedBefore.token), null);
-    const fresh = await f.exchange({ tenant: A, credential: credential('subject') }); assert(fresh); assert(await f.dataRead(fresh.token));
-    await f.secrets.encrypt(await f.verifierContext(B), 'root', Buffer.from(ROOT));
-    const other = await f.secrets.signJWT(await f.verifierContext(B), credential('subject'), 28800);
-    assert(await f.exchange({ tenant: B, credential: other }), 'A recommission cannot close B renewal');
-  });
-
-  it('makes old-profile resurrection red when the exchange omits its current-profile flag, restored source refuses', async function () {
-    const f = await fixture(), old = await f.secrets.signJWT(await f.verifierContext(A), credential('subject'), 28800);
-    f.states.get(A).previousProfileAllowed = false;
-    const broken = modified(require.resolve('../lib/server/tenant-app/local-exchange'), source => source.replace('previous.subjectId, { previous: true, rootVersion }', 'previous.subjectId'));
-    const exchange = broken({ credentials: f.credentials, secrets: f.secrets, authority: f.authority, verifierContext: f.verifierContext, store: f.store, codec: f.codec, audit: f.audit, now: () => 1700000000000 });
-    let red = false;
-    try { assert.equal(await exchange({ tenant: A, credential: old }), null); } catch (error) { assert.equal(error.code, 'ERR_ASSERTION'); red = true; }
-    assert(red); assert.equal(await f.exchange({ tenant: A, credential: old }), null);
-  });
-
-  it('preserves selected legacy HS256 mode with typed current epochs, then renews only fresh current epochs into Node DATA', async function () {
-    const f = await fixture(true), context = await f.verifierContext(A);
-    const old = await f.secrets.signJWT(context, credential('subject'), 28800);
-    assert.equal(JSON.parse(Buffer.from(old.split('.')[1], 'base64url')).rv, 1);
-    const state = f.states.get(A); state.rootVersion++; state.subjects.forEach(subject => subject.credentialVersion++); state.previousProfileAllowed = false;
-    await assert.rejects(f.secrets.verifyJWT(context, old), { code: 'SECRETS_TOKEN_INVALID' });
-    assert.equal(await f.exchange({ tenant: A, credential: old }), null);
-    const fresh = await f.secrets.signJWT(context, credential('subject'), 28800);
-    assert.equal((await f.secrets.verifyJWT(context, fresh)).accessToken, credential('subject'));
-    const renewed = await f.exchange({ tenant: A, credential: fresh }); assert(renewed); assert(await f.dataRead(renewed.token));
-    const ordinary = await fixture(), ordinaryJWT = await ordinary.secrets.signJWT(await ordinary.verifierContext(A), credential('subject'), 28800);
-    assert(!Object.hasOwn(JSON.parse(Buffer.from(ordinaryJWT.split('.')[1], 'base64url')), 'rv'), 'unselected v1 token schema remains unchanged');
-    await assert.rejects(f.secrets.verifyJWT(context, ordinaryJWT), { code: 'SECRETS_TOKEN_INVALID' });
-  });
-
-  it('makes stale selected HS256 verification red when its current epoch guard is removed, restored source refuses', async function () {
-    const provider = require('./fixtures/tenant-credential-provider')(); let version = 1;
-    const options = { providerFor: async () => provider, store: { get: async () => undefined, insert: async () => {} }, authorize: async () => true,
-      audit: async () => {}, maxTokenLifetimeSeconds: 28800, now: () => 1700000000000, legacySessionEpochFor: async tenant => ({ tenant, version, enforced: version > 1 }) };
-    const create = require('../lib/secrets/component').createSecrets, context = { tenant: A, principal: 'api', consumer: 'data' }, original = create(options);
-    const old = await original.signJWT(context, 'subject', 600); version = 2;
-    const guard = "if (epoch && (payload.rv !== undefined && payload.rv !== epoch.version || epoch.enforced && payload.rv === undefined)) throw refuse('SECRETS_TOKEN_INVALID');";
-    const broken = modified(require.resolve('../lib/secrets/component'), source => { assert.equal(source.split(guard).length, 2); return source.replace(guard, ''); }).createSecrets(options);
-    let red = false;
-    try { await assert.rejects(broken.verifyJWT(context, old)); } catch (error) { assert.equal(error.code, 'ERR_ASSERTION'); assert.match(error.message, /Missing expected rejection/); red = true; }
-    assert(red); await assert.rejects(original.verifyJWT(context, old), { code: 'SECRETS_TOKEN_INVALID' });
-    const foreign = create({ ...options, legacySessionEpochFor: async () => ({ tenant: B, version, enforced: true }) });
-    await assert.rejects(foreign.signJWT(context, 'subject', 600), { code: 'SECRETS_LEGACY_AUTHORITY_INVALID' });
-    const sign = provider.sign.bind(provider); provider.sign = async input => { const signature = await sign(input); version++; return signature; };
-    await assert.rejects(original.signJWT(context, 'subject', 600), { code: 'SECRETS_TOKEN_INVALID' });
-  });
-
-  it('keeps status issuance and admin query-token authentication out of previous-profile renewal', async function () {
-    const f = await fixture(), context = await f.verifierContext(A);
-    const old = await f.secrets.signJWT(context, credential('subject'), 28800); f.reset(); f.vaultUnavailable(true);
-    const status = require('../lib/server/tenant-app/status-authorization')({ tenant: A,
-      exchange: operation => f.exchange({ ...operation, renewPrevious: false }) });
-    const request = { method: 'GET', path: '/status', query: { token: old }, rawHeaders: [], header: () => undefined };
-    assert.equal(await status(request), null, 'ORDINARY_STATUS_DOES_NOT_RENEW_VAULT_JWT');
-    assert.equal(f.effects.keyReads, 0);
-    const admin = require('../lib/server/tenant-app/root-admin').createRootAuthentication({
-      secrets: { ...f.secrets, verifyLegacyCredential: f.credentials.verifyLegacyCredential },
-      authority: { ...f.authority, authorize: async () => true }, verifierContext: f.verifierContext, tenants: [A] });
-    const adminRequest = token => ({ ...request, query: { token } });
-    const actor = await admin({ tenant: A, request: adminRequest(credential('subject')), permission: 'admin:api:subjects:read' });
-    assert.equal(actor.actor.principal, 'subject'); assert.equal(f.effects.keyReads, 0, 'ADMIN_AUTH_DOES_NOT_ISSUE');
-    assert.equal(await admin({ tenant: A, request: adminRequest(old), permission: 'admin:api:subjects:read' }), null);
-    assert.deepEqual([f.effects.decrypt, f.effects.sign, f.effects.verify], [0, 0, 0]);
   });
 
   it('withholds local issuance on audit failure, without exposing keys or credentials in receipts', async function () {
@@ -296,22 +213,22 @@ describe('local Node/PostgreSQL multitenant data credentials', function () {
 
 
 describe('local data credential persistence and preparation protocols', function () {
-  it('reads current public metadata per operation and reads private material only at issuance', async function () {
+  it('reads current public metadata per operation and only the signing row (kid, public key) at issuance', async function () {
     const file = require.resolve('../lib/secrets/legacy-postgres'), loaded = new Module(file, module);
     loaded.filename = file; loaded.paths = Module._nodeModulePaths(path.dirname(file));
     const realRequire = loaded.require.bind(loaded), calls = [];
-    const key = tokens.generateKey(), prepared = material.prepare(Buffer.from(ROOT), SUBJECTS);
+    const key = signing.key(A, 'data', 1), prepared = material.prepare(Buffer.from(ROOT), SUBJECTS);
     let revoked = false, unavailable = false, rootChanged = false, prefixChanged = false;
     const connection = { async withTenant (tenant, fn) { return fn(); }, async end () {},
       async query (sql, values) {
         if (sql.includes('FROM pg_class')) return { rows: Array.from({ length: 3 }, () => ({ secured: true, owns: false, reads: true, writes: false })) };
         calls.push({ sql, values }); if (unavailable) throw Error('sensitive synthetic database detail');
-        if (sql.includes('SELECT kid, private_key')) return { rows: [{ kid: key.kid, private_key: key.privateKey }] };
+        if (sql.includes('SELECT kid, public_key')) return { rows: [{ kid: key.kid, public_key: key.spki }] };
         return { rows: prepared.subjects.map(subject => ({ root_verifiers: prepared.rootVerifiers, root_version: 1,
           root_reference_id: rootChanged ? 'root-new' : 'root', verifier_root_reference_id: 'root',
           token_prefix: prefixChanged ? 'changed' : 'named', verifier_token_prefix: 'named',
           subject_id: subject.subjectId, verifiers: subject.verifiers, credential_version: 1,
-          keys: [{ kid: key.kid, publicKey: key.publicKey, active: !revoked }] })) };
+          keys: [{ kid: key.kid, publicKey: key.spki, active: !revoked }] })) };
       } };
     loaded.require = name => name === '../storage/postgres-connection' ? async () => connection
       : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' } : realRequire(name);
@@ -326,7 +243,8 @@ describe('local data credential persistence and preparation protocols', function
     }
     prefixChanged = true; assert.equal((await store.readVerification(A)).subjects[0].verifiers, null);
     rootChanged = true; await assert.rejects(store.readVerification(A), { code: 'SECRETS_LEGACY_AUTHORITY_INVALID' });
-    assert.equal((await store.signingKey(A)).privateKey, key.privateKey);
+    assert.deepEqual({ ...await store.signingKey(A) }, { kid: 'data-1', publicKey: key.spki });
+    assert(calls.every(call => !/private_key/.test(call.sql)), 'NO_PRIVATE_KEY_COLUMN_READ');
     unavailable = true;
     await assert.rejects(store.readVerification(A), error => error.code === 'SECRETS_LEGACY_AUTHORITY_UNAVAILABLE' && !error.message.includes('sensitive'));
   });
@@ -416,13 +334,6 @@ describe('local data credential persistence and preparation protocols', function
           draft.rootVerifiers = values[1]; return { rows: [] };
         }
         if (sql.startsWith('UPDATE') && sql.includes('SET verifiers=')) { draft.subjects.set(values[1], values[2]); return { rows: [] }; }
-        if (sql.startsWith('SELECT kid')) return { rows: draft.keys.filter(k => k.active && k.signing) };
-        if (sql.startsWith('UPDATE') && sql.includes('SET signing=false')) {
-          for (const key of draft.keys) if (key.signing) { key.signing = false; key.privateKey = null; } return { rows: [] };
-        }
-        if (sql.startsWith('INSERT INTO')) {
-          draft.keys.push({ kid: values[1], publicKey: values[2], privateKey: values[3], active: true, signing: true }); return { rows: [] };
-        }
         throw Error('Unexpected preparation SQL');
       }
     };
@@ -435,19 +346,17 @@ describe('local data credential persistence and preparation protocols', function
     return { state, calls, prepare, rootBytes: () => rootBytes, failCommit: () => { failCommit = true; }, failRead: () => { failRead = true; } };
   }
 
-  it('prepares current verifiers and a separate local signing key atomically, with idempotent restart and overlap rotation', async function () {
+  it('prepares current verifiers atomically with idempotent restart, and writes no signing key row', async function () {
     const f = preparationFixture();
     assert.deepEqual(await f.prepare(A), { prepared: true });
-    assert.equal(f.state.keys.length, 1); assert.equal(f.state.subjects.size, 2);
+    // Data signing keys are derived by issuers; provisioning writes their public rows.
+    assert.equal(f.state.keys.length, 0); assert.equal(f.state.subjects.size, 2);
     assert(f.rootBytes().every(v => v === 0));
-    const first = structuredClone(f.state.keys[0]), version = f.state.rootVersion;
-    await f.prepare(A); assert.equal(f.state.keys.length, 1); assert.equal(f.state.rootVersion, version);
-    await f.prepare(A, { rotateSigningKey: true });
-    assert.equal(f.state.keys.length, 2); assert.equal(f.state.keys[0].active, true);
-    assert.equal(f.state.keys[0].signing, false); assert.equal(f.state.keys[0].privateKey, null);
-    const codec = tokens.create({ issuer: 'synthetic', audience: 'synthetic', now: () => 1700000000 });
-    const issued = codec.issue(A, { kind: 'subject', subjectId: 'subject', credentialVersion: 1, rootVersion: version }, first);
-    assert.equal(codec.verify(issued.token, A, f.state.keys).sub, 'subject', 'EARLIER_PUBLIC_KEY_REMAINS_VERIFIABLE');
+    const version = f.state.rootVersion;
+    await f.prepare(A); assert.equal(f.state.keys.length, 0); assert.equal(f.state.rootVersion, version);
+    // A former rotation option has no effect: no key SQL is reachable (the fixture refuses unexpected SQL).
+    await f.prepare(A, { rotateSigningKey: true }); assert.equal(f.state.keys.length, 0);
+    assert(f.calls.every(sql => !sql.includes('legacy_data_keys')), 'NO_SIGNING_KEY_SQL');
     assert.equal(f.calls[0], 'exclusive-window');
     assert.match(f.calls.find(sql => sql.startsWith('SELECT root_reference_id')), /FOR UPDATE/);
   });

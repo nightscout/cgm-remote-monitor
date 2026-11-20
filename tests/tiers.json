@@ -75,6 +75,7 @@
         "tests/migrations.test.js",
         "tests/secrets.test.js",
         "tests/tenant-legacy-credentials.test.js",
+        "tests/derived-signing.test.js",
         "tests/tenant-local-credentials.test.js",
         "tests/recommission-auth-preview-composition.test.js",
         "tests/realtime-output-demand.test.js",

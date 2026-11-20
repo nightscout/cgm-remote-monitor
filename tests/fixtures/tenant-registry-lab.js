@@ -115,7 +115,7 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
   await vaultRequest('sys/mounts/' + mount, { type: 'transit' });
   // The provisioning token: create/read tenant keys, encrypt with tenant data keys.
   await vaultRequest('sys/policies/acl/' + mount + '_provision', { policy: [
-    `path "${mount}/keys/tenant-*" { capabilities = ["create", "read", "update"] }`,
+    `path "${mount}/keys/tenant-data-*" { capabilities = ["create", "read", "update"] }`,
     `path "${mount}/encrypt/tenant-data-*" { capabilities = ["update"] }`].join('\n') });
   const provisionToken = (await vaultRequest('auth/token/create', { policies: [mount + '_provision'], no_default_policy: true, ttl: '1h' })).auth.client_token;
   return {
@@ -136,13 +136,15 @@ async function createLab ({ servingApi = false, database = process.env.NS_TEST_P
       }
       const { writeFileSync } = require('node:fs');
       writeFileSync(require('node:path').join(dir, 'vault-token'), provisionToken, { mode: 0o600 });
-      return { NS_PG_PREFIX: prefix, NS_SECRETS_DIR: dir, NS_VAULT_ADDR: vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_PROVISIONER_PG: urls.provisioner };
+      return { NS_PG_PREFIX: prefix, NS_SECRETS_DIR: dir, NS_VAULT_ADDR: vault.address, NS_VAULT_ALLOW_INSECURE_LOOPBACK: 'true', NS_PROVISIONER_PG: urls.provisioner,
+        ...require('./signing-secret').env(dir) };
     },
     vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
     vaultRequest,
     provisioningOptions: (extra = {}) => ({ connectionString: urls.provisioner, namespaces: { ...namespaces }, checkpoints: consumers,
       vault: { address: vault.address, mount, allowInsecureLoopback: true, timeoutMs: 5000, getToken: async () => provisionToken },
-      actor: { principal: 'registry-lab-operator', consumer: 'registry-lab' }, ...extra }),
+      actor: { principal: 'registry-lab-operator', consumer: 'registry-lab' },
+      signing: require('./signing-secret').signing, accessTokens: require('./signing-secret').DATA_REALM, ...extra }),
     // Every row any provisioning table holds for a tenant (as the superuser).
     async rowsFor (tenant) {
       const out = {};

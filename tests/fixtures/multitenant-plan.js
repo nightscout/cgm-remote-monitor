@@ -28,7 +28,9 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
   // directory; every peer address names the same paths.
   const socketOf = role => SOCKET_DIRECTORY + '/' + role + '.sock';
   const envName = require('../../lib/server/internal-api/listener-config').envName;
-  const common = { NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...extra,
+  // The synthetic deployment signing secret (decision deployment-signing-secret).
+  const signingSecret = require('./signing-secret').env();
+  const common = { NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...signingSecret, ...extra,
     ...Object.fromEntries(serviceRoles.map(role => [envName(role) + 'SOCKET', socketOf(role)])) };
   const present = value => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined));
   const readers = { NS_DISPLAY_PG: urls.display_reader };
@@ -44,7 +46,7 @@ function documents ({ layout: l, urls = {}, vaultAddress = 'https://vault.exampl
     'tenant-admin': present({ ...common, NS_SERVE_INTERNAL_SOCKET: socketOf('tenant-admin'), TENANT_ADMIN_HOSTNAME: '0.0.0.0', TENANT_ADMIN_PORT: '1341',
       NS_OWNER_WRITER_PG: urls.owner_writer, NS_OWNER_READER_PG: urls.owner_reader, NS_OWNER_CREDENTIALS_PG: urls.owner_credentials, NS_OWNER_SETTINGS_PG: urls.owner_settings, ...lifetime('tenant-admin') }) };
   const configs = Object.fromEntries(serviceRoles.map(role => [role, settings.configuration(role, environments[role])]));
-  const adminEnvironment = present({ NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...extra,
+  const adminEnvironment = present({ NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...signingSecret, ...extra,
     ADMIN_HOSTNAME: '127.0.0.1', ADMIN_PORT: '1342', NS_PROVISIONER_PG: urls.provisioner,
     NS_OWNERSHIP_PG: urls.ownership_operator, NS_CONNECTOR_SOURCES_PG: urls.connector_writer, NS_MANAGEMENT_SESSIONS_PG: urls.management_issuer });
   const vcpoolEnvironment = present({ NS_PG_PREFIX: l.prefix, NS_VAULT_ADDR: vaultAddress, NS_SECRETS_DIR: CONFIG_DIRECTORY, ...extra,

@@ -28,7 +28,13 @@ const Collection = require('../lib/api3/generic/collection');
 const MongoCollection = require('../lib/api3/storage/mongoCollection');
 const writeIntent = require('../lib/storage/write-intent');
 const createDataAccess = require('../lib/server/tenant-app/data-access');
-const createExchange = require('../lib/server/tenant-app/exchange');
+// Retired composition (decision deployment-signing-secret, 2026-11-20): this
+// suite drives the Vault-backed DATA verifier with HS256 exchange JWTs, which no
+// api composition builds any more. Its REST behaviours are to be ported to the
+// local composition (local verifiers, derived data keys); until then an opted-in
+// run refuses with this reason rather than testing a removed path.
+const RETIRED = 'HS256 exchange and Vault-on-DATA composition retired (deployment-signing-secret); port to the local composition pending';
+const createExchange = () => { throw new Error(RETIRED); };
 const statusAuthorization = require('../lib/server/tenant-app/status-authorization');
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';

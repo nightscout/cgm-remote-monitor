@@ -18,10 +18,10 @@ const { optInSuite } = require('./support/opt-in');
 const STEPS = ['vault', 'database', 'registry', 'hosts', 'secret', 'authorization', 'access', 'clock', 'lifecycle', 'settings'];
 // Every provisioning table, with the row count one tenant gets.
 const COMPLETE = {
-  'registry.tenant_registry': 1, 'registry.tenant_registry_changes': 1, 'registry.tenant_registry_hosts': 2, 'registry.tenant_registry_keys': 4,
+  'registry.tenant_registry': 1, 'registry.tenant_registry_changes': 1, 'registry.tenant_registry_hosts': 2, 'registry.tenant_registry_keys': 3,
   'legacy.legacy_credential_config': 1, 'legacy.legacy_data_keys': 1, 'secrets.secret_records': 1, 'secrets.secret_audit': 1,
   'authorization.tenant_authorization_config': 1, 'authorization.tenant_owner_policy': 1,
-  'access.access_tenants': 1, 'access.access_keys': 4, 'clock.tenant_write_clock': 1, 'checkpoint.tenant_consumer_checkpoint': 1,
+  'access.access_tenants': 1, 'access.access_keys': 3, 'clock.tenant_write_clock': 1, 'checkpoint.tenant_consumer_checkpoint': 1,
   'control.tenant_lifecycle_windows': 1, 'control.tenant_activity': 1, 'control.tenant_activity_audit': 1,
   'settings.tenant_settings': 1, 'settings.tenant_settings_history': 1, 'operatorPolicy.tenant_operator_policy': 1
 };
@@ -41,13 +41,22 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     scope.setTenancyMode(prior);
   });
 
-  it('PV_CREATE: provisions every row, the six Vault keys, and the registry entry a serving identity can resolve', async function () {
+  it('PV_CREATE: provisions every row, the one Vault key (data), the derived signing public keys, and the registry entry a serving identity can resolve', async function () {
     const request = spec(1, { ref: 'lab-1', issueRootSecret: true });
     const result = await provisioning.provision(request);
     assert.equal(result.outcome, 'created'); assert.equal(result.ref, 'lab-1');
     assert.match(result.rootSecret, /^[0-9a-f]{48}$/);
     assert.deepEqual(await lab.rowsFor(request.id), COMPLETE);
-    for (const purpose of Object.keys(rules.PURPOSES)) assert.ok(await lab.vaultRequest(lab.mount + '/keys/' + rules.vaultKey(request.id, purpose)), purpose);
+    assert.deepEqual(Object.keys(rules.PURPOSES), ['data']);
+    assert.ok(await lab.vaultRequest(lab.mount + '/keys/' + rules.vaultKey(request.id, 'data')));
+    // No Transit signing key exists for the tenant (decision deployment-signing-secret).
+    for (const retired of ['signing', 'access', 'management', 'human-data', 'human-management']) {
+      assert.equal(await lab.vaultRequest(lab.mount + '/keys/tenant-' + retired + '-' + request.id), null, retired);
+    }
+    // Public keys only, each this deployment's derivation at signing version 1.
+    const signing = require('./fixtures/signing-secret').signing;
+    const dataKeys = (await lab.admin.query(`SELECT kid, public_key, active, signing FROM "${lab.namespaces.legacy}".legacy_data_keys WHERE tenant_id = $1`, [request.id])).rows;
+    assert.deepEqual(dataKeys, [{ kid: 'data-1', public_key: signing.key(request.id, 'data', 1).spki, active: true, signing: true }]);
     const window = (await lab.admin.query(`SELECT lock_key::text AS key FROM "${lab.namespaces.control}".tenant_lifecycle_windows WHERE tenant_id = $1`, [request.id])).rows[0];
     assert.equal(window.key, rules.lockKey(request.id));
     const connection = await connect({ connectionString: lab.urls.api, max: 1 });
@@ -55,7 +64,9 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       const reader = registry.create({ connection, namespace: lab.namespaces.registry });
       assert.deepEqual({ ...await reader.lookup('t1.example.test', 'alias') }, { tenant: request.id, state: 'active' });
       const entry = await reader.entry(request.id);
-      assert.deepEqual(entry.keys.map(key => key.purpose + ':' + key.kid), ['access:key1', 'human-data:human-data-1', 'human-management:human-management-1', 'management:management1']);
+      assert.deepEqual(entry.keys.map(key => key.purpose + ':' + key.kid), ['human-data:human-data-1', 'human-management:human-management-1', 'management:management-1']);
+      const signing = require('./fixtures/signing-secret').signing;
+      for (const key of entry.keys) assert.equal(key.publicKey, signing.key(request.id, key.purpose, 1).raw, key.purpose);
     } finally { await connection.end(); }
     assert.deepEqual({ ...await provisioning.get(request.id) }, { id: request.id, state: 'active', signingVersion: 1, hosts: ['t1-alt.example.test', 't1.example.test'] });
   });
@@ -100,8 +111,10 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       const hash = createHash('sha1').update(root.rootSecret).digest('hex');
       assert.deepEqual(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { apiSecret: hash }), { kind: 'root' });
       assert.equal(await credentials().verifyLegacyCredential({ tenant: other.id }, { apiSecret: hash }), null);
-      const metadata = await reader.readVerification(tenant.id), signing = await reader.signingKey(tenant.id);
+      const metadata = await reader.readVerification(tenant.id), stored = await reader.signingKey(tenant.id);
       assert(metadata.keys.every(key => !Object.hasOwn(key, 'privateKey')));
+      assert.deepEqual(Object.keys(stored).sort(), ['kid', 'publicKey']);
+      const signing = require('./fixtures/signing-secret').signing.matching(tenant.id, 'data', stored);
       const principal = { kind: 'subject', subjectId: subject.subjectId, credentialVersion: 1, rootVersion: metadata.rootVersion };
       const issued = codec.issue(tenant.id, principal, signing).token;
       assert.deepEqual(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), principal);
@@ -118,7 +131,7 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
       await lab.admin.query('UPDATE "' + ns + '".legacy_credential_subjects SET credential_version=credential_version+1 WHERE tenant_id=$1', [tenant.id]);
       assert.equal(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), null);
       await lab.admin.query('UPDATE "' + ns + '".legacy_credential_subjects SET credential_version=1 WHERE tenant_id=$1', [tenant.id]);
-      await lab.admin.query('UPDATE "' + ns + '".legacy_data_keys SET signing=false,active=false,private_key=NULL WHERE tenant_id=$1', [tenant.id]);
+      await lab.admin.query('UPDATE "' + ns + '".legacy_data_keys SET signing=false,active=false WHERE tenant_id=$1', [tenant.id]);
       assert.equal(await credentials().verifyLegacyCredential({ tenant: tenant.id }, { token: issued }, async () => true), null);
     } finally { await reader.close(); }
   });
@@ -209,6 +222,19 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     } finally { await reader.close(); }
   }
 
+  // A data JWT as the api verifies it: local verifiers and the stored public key.
+  async function verifyDataJwt (tenant, token) {
+    const ns = lab.namespaces.legacy, who = '"' + lab.roles.api + '"';
+    await lab.admin.query('GRANT USAGE ON SCHEMA "' + ns + '" TO ' + who);
+    await lab.admin.query('GRANT SELECT ON "' + ns + '".legacy_credential_config,"' + ns + '".legacy_credential_subjects,"' + ns + '".legacy_data_keys TO ' + who);
+    const reader = await require('../lib/secrets/legacy-postgres')({ connectionString: lab.urls.api, namespace: ns, localVerification: true });
+    try {
+      const codec = require('../lib/tenant-authorization/legacy-data-token').create(require('./fixtures/signing-secret').DATA_REALM);
+      return await require('../lib/secrets/legacy-verifiers').create({ read: reader.readVerification, verifyToken: codec.verify })
+        .verifyLegacyCredential({ tenant }, { token }, async () => true);
+    } finally { await reader.close(); }
+  }
+
   it('PV_BOOTSTRAP: one call writes the role, owner, subject and credential rows and returns a working subject access token', async function () {
     const request = spec('boot', { issueRootSecret: true, bootstrap: BOOTSTRAP() });
     const committed = [];
@@ -220,6 +246,10 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.match(result.bootstrap.ownerSubject, /^[0-9a-f]{32}$/); assert.match(result.bootstrap.subject, /^[0-9a-f]{32}$/);
     assert.match(result.bootstrap.accessToken, /^syntheticl-[0-9a-f]{16}$/);
     assert.deepEqual(await lab.rowsFor(request.id), { ...COMPLETE, ...BOOTSTRAP_ROWS });
+    // The data JWT is the one the api's exchange issues: it verifies locally for the subject.
+    assert.equal(typeof result.bootstrap.jwt, 'string');
+    assert.deepEqual(await verifyDataJwt(request.id, result.bootstrap.jwt), { kind: 'subject', subjectId: result.bootstrap.subject, credentialVersion: 1, rootVersion: 1 });
+    assert.equal(JSON.parse(Buffer.from(result.bootstrap.jwt.split('.')[1], 'base64url')).exp, result.bootstrap.jwtExpiresAt);
     const principal = await verifyAccessToken(request.id, result.bootstrap.accessToken);
     assert.equal(principal.kind, 'subject'); assert.equal(principal.subjectId, result.bootstrap.subject);
     assert.equal(await verifyAccessToken(request.id, result.rootSecret.slice(0, 11) + '-0123456789abcdef'), null);
@@ -229,12 +259,14 @@ optInSuite(enabled(), 'disposable NS_TEST_POSTGRES_ADMIN_URI and NS_VAULT_DOCKER
     assert.deepEqual(owner, [{ principal: result.bootstrap.ownerSubject, consumer: 'lab-owner', active: true, can_update: true, delegable: ['*'], display_name: 'Synthetic lab owner' }]);
     const links = (await lab.admin.query(`SELECT subject_id, role_name FROM "${a}".tenant_authorization_subject_roles WHERE tenant_id = $1`, [request.id])).rows;
     assert.deepEqual(links, [{ subject_id: result.bootstrap.subject, role_name: 'lab' }]);
-    // Retry: the same ids, no token, nothing written, no post-commit call.
+    // Retry: the same ids and a fresh data JWT, no access token, nothing written, no post-commit call.
     const rows = await lab.rowsFor(request.id);
     const retry = createProvisioning(lab.provisioningOptions({ afterCommit: tenant => committed.push(tenant) }));
     try {
-      assert.deepEqual(await retry.provision(request), { id: request.id, outcome: 'existing',
-        bootstrap: { ownerSubject: result.bootstrap.ownerSubject, subject: result.bootstrap.subject } });
+      const again = await retry.provision(request);
+      assert.deepEqual({ ...again, bootstrap: { ...again.bootstrap, jwt: undefined, jwtExpiresAt: undefined } }, { id: request.id, outcome: 'existing',
+        bootstrap: { ownerSubject: result.bootstrap.ownerSubject, subject: result.bootstrap.subject, jwt: undefined, jwtExpiresAt: undefined } });
+      assert.deepEqual(await verifyDataJwt(request.id, again.bootstrap.jwt), { kind: 'subject', subjectId: result.bootstrap.subject, credentialVersion: 1, rootVersion: 1 });
     } finally { await retry.close(); }
     assert.deepEqual(await lab.rowsFor(request.id), rows);
     assert.deepEqual(committed, [request.id]);
