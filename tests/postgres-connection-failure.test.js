@@ -557,4 +557,32 @@ describe('actual driver read-only outage cleanup', function () {
       assert.equal(accepted, false, 'late driver packets cannot turn a refused read into success');
     } finally { await f.store.end(); }
   });
+  // Trusted metadata reads (evaluator scheduling and work state) are one
+  // statement: no BEGIN READ ONLY/COMMIT. PostgreSQL's READ ONLY mode is not
+  // there to refuse a write, so the port itself admits only one SELECT.
+  it('sends a trusted metadata read as one statement and refuses anything but one SELECT', async function () {
+    const f = await fixture();
+    try {
+      await f.store.readStatement('SELECT outage_work', []); // the first checkout screens its backend once
+      const before = f.submitted.length;
+      const result = await f.store.readStatement('SELECT outage_work', []);
+      assert.equal(result.rows.length, 1);
+      assert.deepEqual(f.submitted.slice(before), ['SELECT outage_work'], 'ONE_STATEMENT_PER_METADATA_READ');
+      for (const text of ['WITH w AS (UPDATE t SET x=1 RETURNING x) SELECT x FROM w', 'SELECT 1; UPDATE t SET x=1',
+        'UPDATE t SET x=1', 'select_into', undefined]) {
+        await assert.rejects(f.store.readStatement(text), /one SELECT/, 'READ_STATEMENT_REFUSES ' + text);
+      }
+      assert.deepEqual(f.submitted.slice(before).filter(text => !/^(BEGIN|COMMIT|ROLLBACK|SELECT set_config)/.test(text)), ['SELECT outage_work'], 'NO_REFUSED_TEXT_SUBMITTED');
+    } finally { await f.store.end(); }
+  });
+  it('rejects an unanswered single-statement metadata read without accepting a late result', async function () {
+    const f = await fixture('SELECT outage_work'); let accepted = false;
+    try {
+      await assert.rejects(f.store.readStatement('SELECT outage_work').then(() => { accepted = true; }), /Query read timeout/);
+      assert(!f.submitted.includes('ROLLBACK'));
+      assert.equal(f.clients[0].connection.stream.destroyed, true, 'the failed backend is evicted');
+      f.resume(); await new Promise(resolve => setImmediate(resolve));
+      assert.equal(accepted, false);
+    } finally { await f.store.end(); }
+  });
 });

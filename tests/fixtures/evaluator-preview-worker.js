@@ -6,6 +6,8 @@ let held, release, armed = false, armedTenant, armedExpected, armedNonce, runnin
 // Count actual role queries without changing their result or timing contract.
 const clinicalReads={snapshots:0,statistics:0,catalogue:0,exports:0,imports:0};
 for(const key of Object.keys(clinicalReads))clinicalReads[key+'Completed']=0;
+// Every statement by pool application_name and leading SQL text (statement-cost harness).
+const statements=new Map();
 const pg=require('pg'),query=pg.Client.prototype.query;
 pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text,access=[];
   if(typeof sql==='string'){
@@ -16,6 +18,7 @@ pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?
     if(sql.includes('information_schema.columns'))access.push('catalogue');
   }
   for(const key of access)clinicalReads[key]++;
+  if(typeof sql==='string'){const pool=this.connectionParameters?.application_name||'unnamed',shape=pool+' | '+sql.replace(/\s+/g,' ').trim().slice(0,160);statements.set(shape,(statements.get(shape)||0)+1);}
   const completed=()=>{for(const key of access)clinicalReads[key+'Completed']++;};
   const callback=args[args.length-1];
   if(access.length&&typeof callback==='function')args[args.length-1]=function(error,...values){if(!error)completed();return callback.call(this,error,...values);};
@@ -32,10 +35,12 @@ const encode = value => JSON.parse(JSON.stringify(value, (key, item) => item ===
 // memory, leaving the actual default CLI composition and source tree intact.
 if(process.env.NS_EVALUATOR_FIXTURE_WARM_LOCK_MUTANT==='1'){
   const file=require.resolve('../../lib/storage/postgres-durable-replay'),source=require('node:fs').readFileSync(file,'utf8');
-  const needle="checkpointSelect + (stream ? '' : ' FOR UPDATE')";
-  if(!source.includes(needle))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
+  // The warm read now runs on the read-only port, where PostgreSQL itself
+  // refuses a row lock; the control restores the old writable snapshot too.
+  const needle="checkpointSelect + (stream ? '' : ' FOR UPDATE')",port='stream ? connection.readOnlyTransaction(() => read()) : connection.snapshotTransaction(() => read())';
+  if(!source.includes(needle)||!source.includes(port))throw Error('WARM_LOCK_CONTROL_SEAM_MISSING');
   require(file);const module={exports:{}};
-  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'")+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
+  require('node:vm').runInThisContext('(function(require,module,exports){'+source.replace(needle,"checkpointSelect + ' FOR UPDATE'").replace(port,'connection.snapshotTransaction(() => read())')+'\n})',{filename:file})(require('node:module').createRequire(file),module,module.exports);
   require.cache[file].exports=module.exports;
 }
 // Native source-access control: force an actual imported source snapshot on
@@ -74,6 +79,7 @@ process.on('message', async request => {
     else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }
     else if (request.action === 'last') value = await currentOutput(request.tenant);
     else if (request.action === 'queries') value = {...clinicalReads};
+    else if (request.action === 'statements') { value = Object.fromEntries(statements); if (request.reset) statements.clear(); }
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'current') value = await context.isCurrent(request.tenant, request.identity);
     else if (request.action === 'close') { await running.stop(); value = true; }
