@@ -20,6 +20,9 @@ const rules = require('../../lib/tenant-registry/rules');
 const clinical = require('../../lib/tenant-lifecycle/clinical-catalogue').CLINICAL;
 const ordered = ['entries', 'treatments', 'devicestatus', 'profile', 'food'];
 const { optInSuite } = require('../support/opt-in');
+// Token-signing keys are derived from the deployment signing secret (decision
+// deployment-signing-secret): Vault holds only each tenant's data key.
+const { signing } = require('./signing-secret');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const ROOT = path.resolve(__dirname, '../..');
 const PG_IMAGE = 'postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97';
@@ -84,8 +87,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
     }
     function provider (tenant) {
       return require('../../lib/secrets/vault-transit').createVaultTransit({ address: vault.address, mount: 'transit', allowInsecureLoopback: true,
-        timeoutMs: 5000, getToken: async () => runtimeToken, encryptionKey: rules.vaultKey(tenant, 'data'),
-        signingKey: rules.vaultKey(tenant, 'signing'), signingVersion: 1 });
+        timeoutMs: 5000, getToken: async () => runtimeToken, encryptionKey: rules.vaultKey(tenant, 'data') });
     }
     const replay = () => ({ consumer: profile.binding.consumer, projectionVersion: 'native-recommission-v1',
       checkpointTable: (native?ns.evaluator_checkpoint:ns.checkpoint) + '.tenant_consumer_checkpoint', clockTable: ns.clock + '.tenant_write_clock',
@@ -94,10 +96,10 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
     async function currentConfiguration ({ tenant, connection }) {
       if (configMissing) return undefined;
       const keys = (await connection.query('SELECT purpose,kid,public_key FROM ' + q(registryNamespace) + '.tenant_registry_keys WHERE tenant_id=$1', [tenant])).rows;
-      const human = require('../../lib/tenant-registry/provision').HUMAN_KIDS;
-      const current = new Set(['access:key1', 'management:management1', 'human-data:' + human.data, 'human-management:' + human.management]);
+      const kids = require('../../lib/tenant-registry/provision').KIDS;
+      const current = new Set(['management', 'human-data', 'human-management'].map(purpose => purpose + ':' + kids[purpose]));
       const selected = keys.filter(key => current.has(key.purpose + ':' + key.kid));
-      assert.equal(selected.length, 4, 'explicit current key IDs must all exist');
+      assert.equal(selected.length, 3, 'explicit current key IDs must all exist');
       const grants = [{ principal: 'runtime', consumer: 'api', operation: 'decrypt', id: 'root' }];
       return { hosts: [tenant === A ? 'one.example.test' : 'two.example.test'], actor: { principal: role, consumer: 'recommission' }, eventTime: BASE + 500,
         ownerCatalogue: ['*'], ownerActors: [{ principal: 'subject_a', consumer: 'native_owner', active: true, canUpdate: true, delegable: ['api:*:read'] }],
@@ -299,9 +301,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       });
       // The current serving token cannot create, rotate or destroy provider keys.
       await vaultRequest('sys/policies/acl/native-recommission-runtime', { policy: [A, B].flatMap(tenant => [
-        ...['encrypt', 'decrypt'].map(verb => 'path "transit/' + verb + '/' + rules.vaultKey(tenant, 'data') + '" { capabilities=["update"] }'),
-        ...['hmac', 'verify'].map(verb => 'path "transit/' + verb + '/' + rules.vaultKey(tenant, 'signing') + '" { capabilities=["update"] }'),
-        ...['access', 'management', 'human-data', 'human-management'].map(purpose => 'path "transit/sign/' + rules.vaultKey(tenant, purpose) + '" { capabilities=["update"] }')
+        ...['encrypt', 'decrypt'].map(verb => 'path "transit/' + verb + '/' + rules.vaultKey(tenant, 'data') + '" { capabilities=["update"] }')
       ]).join('\n') });
       runtimeToken = (await vaultRequest('auth/token/create', { policies: ['native-recommission-runtime'], no_default_policy: true, ttl: '1h' })).auth.client_token;
       await vaultRequest('sys/policies/acl/native-recommission-custodian', { policy: keysOf(A).map(key => 'path "transit/keys/' + key.name + '" { capabilities=["read","delete"] }\npath "transit/keys/' + key.name + '/config" { capabilities=["update"] }').join('\n') });
@@ -324,9 +324,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           const rows = (await connection.query('SELECT phase,artifact_digest FROM ' + table('lifecycle', 'tenant_lifecycle_windows') + ' WHERE tenant_id=$1', [tenant])).rows;
           return { tenant, current: rows.length === 1 && rows[0].phase === 'suspended', quiesced: rows.length === 1 && rows[0].phase === 'suspended' };
         }, recommissionRegistryNamespace: registryNamespace, currentConfiguration, recommissionProviderFor: async ({ tenant }) => provider(tenant),
-        recommissionSignersFor: async ({ tenant }) => Object.fromEntries(['access', 'management', 'human-data', 'human-management'].map(purpose => [purpose,
-          require('../../lib/secrets/vault-access-signing').createVaultAccessSigner({ address: vault.address, mount: 'transit', allowInsecureLoopback: true,
-            signingKey: rules.vaultKey(tenant, purpose), signingVersion: 1, getToken: async () => runtimeToken })])),
+        recommissionSigning: signing,
         keyCustodian: require('../../lib/secrets/vault-transit-custodian').createVaultTransitCustodian({ address: vault.address, getToken: async () => custodianToken, allowInsecureLoopback: true,
           keyAllowed: async ({ tenant, mount, name }) => keysOf(tenant).some(key => key.mount === mount && key.name === name) })
       });
@@ -442,7 +440,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const subject = captured.tables['legacy.legacy_credential_subjects'][0];
         const codec = require('../../lib/tenant-authorization/legacy-data-token').create({ issuer: 'native-recommission', audience: 'native-data', now: () => 1000 });
         const oldToken = codec.issue(A, { kind: 'subject', subjectId: subject.subject_id, rootVersion: config.root_version, credentialVersion: subject.credential_version },
-          { kid: oldKey.kid, privateKey: oldKey.private_key }).token;
+          signing.matching(A, 'data', { kid: oldKey.kid, publicKey: oldKey.public_key })).token;
         let commits = 0;
         if(native&&!cycle){
           await assert.rejects(reconstruct(record,{onCommitted:()=>{commits++;throw new Error('NATIVE_AFTER_DATA_INTERRUPT');}}),/NATIVE_AFTER_DATA_INTERRUPT/);
@@ -501,10 +499,10 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const reader = async () => admin(async client => {
           const configRow = (await client.query('SELECT root_verifiers,root_version FROM ' + table('legacy', 'legacy_credential_config') + ' WHERE tenant_id=$1', [A])).rows[0];
           const subjects = (await client.query('SELECT subject_id,credential_version,verifiers FROM ' + table('legacy', 'legacy_credential_subjects') + ' WHERE tenant_id=$1', [A])).rows;
-          const keys = (await client.query('SELECT kid,public_key,private_key,active,signing FROM ' + table('legacy', 'legacy_data_keys') + ' WHERE tenant_id=$1', [A])).rows;
+          const keys = (await client.query('SELECT kid,public_key,active,signing FROM ' + table('legacy', 'legacy_data_keys') + ' WHERE tenant_id=$1', [A])).rows;
           return { rootVerifiers: configRow.root_verifiers, rootVersion: configRow.root_version,
             subjects: subjects.map(row => ({ subjectId: row.subject_id, credentialVersion: row.credential_version, verifiers: row.verifiers })),
-            keys: keys.map(row => ({ kid: row.kid, publicKey: row.public_key, privateKey: row.private_key, active: row.active, signing: row.signing })) };
+            keys: keys.map(row => ({ kid: row.kid, publicKey: row.public_key, active: row.active, signing: row.signing })) };
         });
         const verifier = require('../../lib/secrets/legacy-verifiers').create({ read: reader, verifyToken: codec.verify });
         assert.equal(await verifier.verifyLegacyCredential({ tenant: A }, { token: oldToken }, async () => true), null);
@@ -513,7 +511,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
         const digest = crypto.createHash('sha1').update(sha1 + subject.subject_id).digest('hex');
         const principal = await verifier.verifyLegacyCredential({ tenant: A }, { apiSecret: digest });
         const fresh = (await reader()).keys.find(key => key.active && key.signing); assert(fresh && fresh.kid !== oldKey.kid);
-        assert.equal((await verifier.verifyLegacyCredential({ tenant: A }, { token: codec.issue(A, principal, fresh).token }, async () => true)).subjectId, subject.subject_id);
+        assert.equal((await verifier.verifyLegacyCredential({ tenant: A }, { token: codec.issue(A, principal, signing.matching(A, 'data', fresh)).token }, async () => true)).subjectId, subject.subject_id);
         const ownerConnection = new Client({ connectionString: ownerURI }); await ownerConnection.connect();
         try {
           await ownerConnection.query('BEGIN'); await ownerConnection.query("SELECT set_config('app.current_tenant_id',$1,true)", [A]);
