@@ -14,20 +14,38 @@ const DEADLINE_MS = 120000;
 const SWEEP_MS = Number(process.env.NS_S1_SWEEP_MS || 10000);
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function awaitReflected (lab, writes, { pollMs = 100 } = {}) {
-  const pending = new Set(writes);
-  while (pending.size) {
-    const rows = await lab.outputs(), seen = Date.now();
-    const last = new Map(rows.map(row => [row.tenant, row.last === null ? -1 : Number(row.last)]));
-    for (const write of [...pending]) {
-      if ((last.get(write.tenant) ?? -1) >= write.date) { write.latencyMs = seen - write.committedAt; pending.delete(write); }
-      else if (seen - write.committedAt > DEADLINE_MS) { write.latencyMs = null; pending.delete(write); }
+// The oracle polls while writes are still being made, so a latency is the time
+// from COMMIT to the first poll that sees the write covered (100 ms resolution).
+function tracker (lab, { pollMs = 100 } = {}) {
+  const writes = [], pending = new Set();
+  let stopped = false;
+  const loop = (async () => {
+    while (!stopped || pending.size) {
+      if (pending.size) {
+        const rows = await lab.outputs(), seen = Date.now();
+        const last = new Map(rows.map(row => [row.tenant, row.last === null ? -1 : Number(row.last)]));
+        for (const write of [...pending]) {
+          if ((last.get(write.tenant) ?? -1) >= write.date) { write.latencyMs = seen - write.committedAt; pending.delete(write); }
+          else if (seen - write.committedAt > DEADLINE_MS) { write.latencyMs = null; pending.delete(write); }
+        }
+      }
+      await sleep(pollMs);
     }
-    if (pending.size) await sleep(pollMs);
-  }
-  const missing = writes.filter(write => write.latencyMs === null);
-  const latencies = writes.filter(write => write.latencyMs !== null).map(write => write.latencyMs);
-  return { missing, maxLatencyMs: latencies.length ? Math.max(...latencies) : null, latencies };
+  })();
+  return {
+    add (write) { writes.push(write); pending.add(write); return write; },
+    async done () {
+      stopped = true; await loop;
+      const missing = writes.filter(write => write.latencyMs === null);
+      const latencies = writes.filter(write => write.latencyMs !== null).map(write => write.latencyMs);
+      return { missing, maxLatencyMs: latencies.length ? Math.max(...latencies) : null, latencies };
+    }
+  };
+}
+async function awaitReflected (lab, writes) {
+  const track = tracker(lab);
+  writes.forEach(write => track.add(write));
+  return track.done();
 }
 
 // A reading dated now: bgnow reports only recent readings, so an older date
@@ -48,12 +66,12 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
 
     it('S1_C1_SWEEP_ALONE with every hint lost, the sweep delivers every write inside the deadline', async function () {
       await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: false });
-      const writes = [];
+      const track = tracker(lab);
       for (let i = 0; i < 12; i++) {
-        writes.push(await write(lab, i % 2 ? lab.base.B : lab.base.A, 'c1-' + i, 100 + i));
+        track.add(await write(lab, i % 2 ? lab.base.B : lab.base.A, 'c1-' + i, 100 + i));
         await sleep(2000);
       }
-      const result = await awaitReflected(lab, writes);
+      const result = await track.done();
       console.log('S1_C1', JSON.stringify({ sweepMs: SWEEP_MS, maxLatencyMs: result.maxLatencyMs, latencies: result.latencies,
         hintsSent: lab.api.sent, hintsDropped: lab.api.dropped, sweep: lab.evaluator.sweepStats() }));
       assert.equal(lab.api.sent, 0, 'no hint reached the evaluator');
@@ -63,14 +81,13 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
 
     it('S1_C2_LOST_HINT a write whose hint is lost (crash after COMMIT) is still evaluated, from its pending mark', async function () {
       await lab.startEvaluator({ sweepMs: SWEEP_MS, hints: true });
-      const writes = [];
-      writes.push(await write(lab, lab.base.A, 'c2-a0', 120));
+      const track = tracker(lab);
+      track.add(await write(lab, lab.base.A, 'c2-a0', 120));
       lab.api.drop.add(lab.base.B);
-      const lost = await write(lab, lab.base.B, 'c2-b-lost', 130);
+      const lost = track.add(await write(lab, lab.base.B, 'c2-b-lost', 130));
       lab.api.drop.delete(lab.base.B);
-      writes.push(lost);
-      writes.push(await write(lab, lab.base.A, 'c2-a1', 121));
-      const result = await awaitReflected(lab, writes);
+      track.add(await write(lab, lab.base.A, 'c2-a1', 121));
+      const result = await track.done();
       console.log('S1_C2', JSON.stringify({ sweepMs: SWEEP_MS, lostLatencyMs: lost.latencyMs, latencies: result.latencies,
         hintsSent: lab.api.sent, hintsDropped: lab.api.dropped, sweep: lab.evaluator.sweepStats() }));
       assert.equal(lab.api.dropped, 1);
