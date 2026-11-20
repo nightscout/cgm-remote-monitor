@@ -92,6 +92,35 @@ describe('dormant tenant projection evaluator source contract', function () {
     assert.equal(sqlCalls, 0, 'fresh, aged, and restored instants are read in process');
     assert.equal(JSON.stringify(document), original, 'evaluation never changes the committed document');
   });
+  it('reads tenant statistics only for an enabled dbsize pill, at most once per interval', async function () {
+    const clock = require('./lib/views-replay/clock');
+    const at = Date.UTC(2026, 10, 6, 12);
+    const document = { _id: 'stats-reading', type: 'sgv', sgv: 123, date: at - 60000,
+      dateString: new Date(at - 60000).toISOString(), srvModified: at };
+    const replay = { async reconcile () { return { checkpoint: at, rows: [{ domain: 'entries', document }] }; } };
+    let reads = 0;
+    const dbstats = async () => ({ dataSize: 1048576 * ++reads, indexSize: undefined });
+    const pill = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow', 'dbsize'] } });
+    clock.install(); clock.pin(at);
+    try {
+      const off = component(replay, undefined, dbstats, { includeFrame: true });
+      const quiet = await off.evaluate({ at });
+      assert.equal(reads, 0, 'no statistics read without the dbsize pill');
+      assert.deepEqual(quiet.frame.dbstats, {}, 'the frame carries the loader\'s empty statistics');
+      const on = component(replay, undefined, dbstats, { includeFrame: true, env: pill, statsTtlMs: 60000 });
+      const first = await on.evaluate({ at });
+      assert.equal(reads, 1);
+      assert.equal(first.properties.dbsize.totalDataSize, 1);
+      clock.pin(at + 59999);
+      await on.evaluate({ at: at + 59999 });
+      assert.equal(reads, 1, 'reused inside the interval');
+      clock.pin(at + 60000);
+      const later = await on.evaluate({ at: at + 60000 });
+      assert.equal(reads, 2, 're-read once the interval has passed');
+      assert.equal(later.properties.dbsize.totalDataSize, 2);
+      assert.throws(() => component(replay, undefined, dbstats, { statsTtlMs: -1 }), /statistics interval/);
+    } finally { clock.uninstall(); }
+  });
   it('optionally emits a bounded browser frame from the evaluated working set', async function () {
     const clock = require('./lib/views-replay/clock');
     const at = Date.UTC(2026, 10, 6, 12);
@@ -156,7 +185,7 @@ describe('dormant tenant projection evaluator source contract', function () {
     } }, undefined, async () => {
       if (fail) throw new Error('Synthetic downstream clinical read failure');
       return { dataSize: 0, indexSize: 0 };
-    });
+    }, { env: require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow', 'dbsize'] } }), statsTtlMs: 0 });
     const instant = Date.UTC(2026, 10, 6, 12);
     const first = await v.evaluate({ at: instant });
     fail = true;
@@ -171,7 +200,8 @@ describe('dormant tenant projection evaluator source contract', function () {
   it('evaluates time-only from successful retained input without acquisition or statistics reload', async function () {
     let acquisitions = 0, statistics = 0;
     const v = component({ async reconcile () { acquisitions++; return { checkpoint: 7, rows: [] }; } },
-      { async query () { return { rows: [] }; } }, async () => { statistics++; return { dataSize: 0, indexSize: 0 }; });
+      { async query () { return { rows: [] }; } }, async () => { statistics++; return { dataSize: 0, indexSize: 0 }; },
+      { env: require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow', 'dbsize'] } }) });
     await assert.rejects(v.evaluateTime(), /no successful retained input/, 'M5_EVAL_TIME_COMPONENT time-only cannot bootstrap acquisition');
     const first = await v.evaluate({ at: 1000 });
     const time = await v.evaluateTime({ at: 2000 });

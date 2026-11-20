@@ -90,11 +90,15 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
       await lab.persistDomains({ entries: [reading('one', 111)] }); await lab.provisionView();
       let fail = false;
       // Downstream of the projection COMMIT: the statistics read (the views'
-      // reads are answered in process since evaluator cost lane A).
-      const v = lab.evaluator(lab.A, { dbstats: async () => {
+      // reads are answered in process since evaluator cost lane A). Statistics
+      // are read only for an enabled dbsize pill; no interval reuses them here.
+      const env = require('../lib/server/tenant-app/environment')({ settings: { enable: [...lab.env.settings.enable, 'dbsize'],
+        thresholds: { bgHigh: 200, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 } } });
+      const v = lab.evaluator(lab.A, { env, statsTtlMs: 0, dbstats: async () => {
         if (fail) throw new Error('Synthetic projection read unavailable');
         return lab.stats();
       } });
+      const withoutPill = ({ dbsize, ...rest }) => rest;
       await lab.at(at, async () => {
         const first = await v.evaluate({ at });
         await lab.persistDomains({ entries: [reading('one', 222)] });
@@ -106,7 +110,8 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
         fail = false;
         const retry = await v.evaluate({ at });
         assert.equal(retry.properties.bgnow.mean, 222);
-        assert.deepEqual(retry.properties, (await lab.fresh(lab.A, at)).properties);
+        assert.ok(retry.properties.dbsize, 'enabled pill reads statistics');
+        assert.deepEqual(withoutPill(retry.properties), (await lab.fresh(lab.A, at)).properties);
       });
     });
     it('recomputes the same checkpoint at a later explicit instant without a new write', async function () {
