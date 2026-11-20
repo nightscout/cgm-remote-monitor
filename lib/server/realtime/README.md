@@ -97,8 +97,9 @@ delete/rename, including a public identifier different from typed `_id`. Omitted
 unchanged TOAST documents on metadata-only updates produce no raw client event.
 Readiness refuses the old identity mode. This adds WAL bytes for old documents;
 it does not change source retention, REST, export, whole-history statistics or
-logical table inventory. Raw-tail row and byte limits reuse the evaluator limits;
-completed-frame consumers retain their own bounds. Alarm handoff preserves the durable notification and attempt;
+logical table inventory. The raw tail has its own bound (1,000 events, 512 KiB,
+`storage-event-journal.js` `BOUNDS`), sized for a live cursor's catch-up across a
+recheck, not the evaluator's clinical-input limits; completed-frame consumers retain their own bounds. Alarm handoff preserves the durable notification and attempt;
 acceptance means server handoff, not device delivery. Uncertain replies can repeat.
 The existing main/alarm acknowledgment routes and current rights still apply.
 

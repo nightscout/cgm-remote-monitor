@@ -16,10 +16,12 @@ function fixture({holdCommit=false,loseReply=false}={}){
   if(text.includes('pg_advisory_xact_lock_shared'))return {rows:[{}]};
   if(text.startsWith('SELECT projection,contract_digest,checkpoint FROM '))return {rows:[structuredClone(current.get(values[0]))]};
   if(text.startsWith('SELECT c.tenant_id'))return {rows:values[0].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
-  if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant))}))};
+  // The completed consumer's row keeps its own contract digest; this fake
+  // stores both consumers' fields on one object per tenant.
+  if(text.startsWith('SELECT tenant_id'))return {rows:values[1].map(tenant=>({tenant,...structuredClone(current.get(tenant)),contract_digest:digest}))};
   if(text.startsWith('WITH input')){const patches=JSON.parse(values[1]);for(const patch of patches){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(patch.delivery_delta));}return {rowCount:patches.length};}
   if(text.startsWith('UPDATE ')&&text.includes('SET delivery_revision')){const row=current.get(values[0]);row.delivery_revision=String(BigInt(row.delivery_revision)+1n);return {rowCount:1};}
-  if(text.startsWith('WITH written AS (UPDATE ')&&text.includes('SET projection=p.projection')){const patches=JSON.parse(values[2]);for(const patch of patches){const row=current.get(patch.tenant);row.projection=patch.projection;row.contract_digest=values[1];row.checkpoint=patch.checkpoint;}return {rows:[{written:patches.length}]};}
+  if(text.startsWith('WITH written AS (UPDATE ')&&text.includes('SET projection=p.projection')){const patches=JSON.parse(values[2]);for(const patch of patches){const row=current.get(patch.tenant);row.projection=patch.projection;row.contract_digest=values[1];row.checkpoint=patch.checkpoint;}const work=JSON.parse(values[4]);for(const patch of work){const row=current.get(patch.tenant);row.work_observed=patch.observed;row.work_observed_at=patch.observed_at;row.work_pending_at=patch.pending_at;row.work_enabled=patch.enabled;row.work_activity_enabled=patch.activity;row.work_lifecycle_enabled=patch.lifecycle;row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(patch.delivery_delta));}return {rows:[{written:patches.length,worked:work.length}]};}
   if(text.startsWith('UPDATE ')&&text.includes('SET projection=')){const row=current.get(values[0]);row.projection=JSON.parse(values[2]);row.contract_digest=values[3];row.checkpoint=values[4];return {rowCount:1};}
   throw new Error('UNEXPECTED_SQL:'+text);
  }};
@@ -87,7 +89,8 @@ describe('atomic native clinical and control SQL receipt',()=>{
   assert.equal(f.durable.get(A).delivery_revision,'1');
   assert.equal(f.durable.get(A).work_observed[2],'4');
   assert.equal(f.durable.get(A).work_observed[5],'11');
-  const writes=f.calls.filter(({text})=>text.startsWith('WITH input')||text.includes('SET delivery_revision='));
+  // The receipt folds its completed-row write into the input-row statement.
+  const writes=f.calls.filter(({text,values})=>text.startsWith('WITH input')||text.includes('SET delivery_revision=')||text.includes('worked AS (')&&JSON.parse(values[4]).length);
   assert.equal(writes.length,1,'COMPLETED_ROW_WRITE_REPEATED');
  });
  it('uses one already-locked input update for two tenants and skips input reads for control-only work',async()=>{

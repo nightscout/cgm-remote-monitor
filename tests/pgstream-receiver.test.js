@@ -81,6 +81,20 @@ describe('native complete-cohort receiver composition',function(){
   await new Promise(resolve=>setImmediate(resolve));assert.equal(done,false);assert.equal(f.hints.length,0);assert.equal(accepted.observations[0].observed.settings,'4');assert.equal(accepted.routes.length,1);
   release();await pending;assert.equal(done,true);assert.deepEqual(f.hints,[[A,'bootstrap',123]]);
  });
+ it('validates a webhook transaction once, bounded by the received body size',async()=>{
+  const state=require('../lib/storage/clinical-stream-state'),original=state.validateTransaction;let validations=0,seen;
+  state.validateTransaction=(...args)=>{validations++;return original(...args);};
+  try{
+   // As clinical-stream-sql does: reuse the receiver's validation when genuine.
+   const {receive}=cohortFixture(async(envelope,options)=>{seen=state.revalidateTransaction(options.transaction,envelope,{maxRows:100,maxBytes:100000});return [];});
+   const text=JSON.stringify(native.envelope([native.row('a')]));
+   await receive(parse(text));assert.equal(validations,1);assert.equal(seen.position,'0/30');
+   // The body, not a re-encoding of it, is the measured size.
+   const padded=text.replace('{','{'+' '.repeat(100000));
+   await assert.rejects(receive(parse(padded)),/TRANSACTION_BYTE_BOUND/);
+   await receive(native.envelope([native.row('a')]));assert.equal(validations,3,'AN_UNPARSED_ENVELOPE_IS_MEASURED_BY_ENCODING');
+  }finally{state.validateTransaction=original;}
+ });
  it('refuses partial or unframed clinical input before durable acceptance',async()=>{
   let effects=0;const f=cohortFixture(async()=>{effects++;return [];});
   const incomplete=native.envelope([native.row('a')]);incomplete.Transaction.pop();await assert.rejects(f.receive(incomplete),/TRANSACTION_BOUNDARY/);

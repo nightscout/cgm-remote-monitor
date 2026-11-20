@@ -26,6 +26,12 @@ require.cache[producerPath].exports = Object.assign(options => {
     }
   } };
 }, makeProducer);
+// Every statement by pool application_name and leading SQL text (statement-cost harness).
+const statements=new Map();
+{const pg=require('pg'),query=pg.Client.prototype.query;
+  pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text;
+    if(typeof sql==='string'){const shape=(this.connectionParameters?.application_name||'unnamed')+' | '+sql.replace(/\s+/g,' ').trim().slice(0,160);statements.set(shape,(statements.get(shape)||0)+1);}
+    return query.apply(this,args);};}
 const currentOutput = tenant => context.health().closed || running.generationScope.closed ? null
   : running.generationScope.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
@@ -37,6 +43,8 @@ process.on('message', async request => {
     else if (request.action === 'retry') { await context.consumerRetry(request.tenant); value = context.health(); }
     else if (request.action === 'flush') { await context.consumerFlush(request.tenant); value = context.health(); }
     else if (request.action === 'selectionScopeRefusals') value = scopeRefusals;
+    else if (request.action === 'statements') value = Object.fromEntries(statements);
+    else if (request.action === 'statementsReset') { value = Object.fromEntries(statements); statements.clear(); }
     else if (request.action === 'health') value = context.health();
     else if (request.action === 'invalidate') { await context.invalidateTenant(request.tenant); value = context.health(); }
     else if (request.action === 'last') value = await currentOutput(request.tenant);
