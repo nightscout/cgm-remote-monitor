@@ -42,15 +42,18 @@ credential acquisition are not settled by these internal method names.
 
 Methods:
 
+Token signing is not a secrets operation: tenant signing keys are derived in
+process from the deployment signing secret ([`derived-signing.js`](derived-signing.js),
+decision deployment-signing-secret, 2026-11-20). The HS256 `signJWT`,
+`verifyJWT` and `exchangeLegacyCredential` methods and the Transit HMAC key
+are retired.
+
 | Method | Authority and result |
 |---|---|
 | `encrypt(context,id,Buffer)` | `encrypt` permission; encrypt a tenant/reference-bound envelope, insert the immutable record and return `{tenant,id}`. |
 | `decrypt(context,reference)` | `decrypt` permission for the named consumer/reference; return a Buffer only after authorization, audit and authenticated envelope validation. |
 | `reveal(context,reference)` | Separate `reveal` permission and audit event, not an alias for the consumer permission. The eventual owner policy must refuse operator reveal and enforce its selected re-authentication policy. |
-| `signJWT(context,accessToken,lifetimeSeconds)` | `sign` permission is **tenant-wide minting authority**, reserved for a trusted token issuer, not an owner-config permission. Return an HS256 JWT with `accessToken`, tenant `aud`, `iat`, `exp` and version `kid`. Reject lifetimes outside the configured bound. |
-| `verifyJWT(context,token)` | `verify` consumer permission; verify signature/key version, tenant audience, algorithm, issued time, expiry and lifetime, then return only the selected claims. Invalid tokens reject; they never become anonymous/default authority. |
 | `issueLegacyCredential(context,subjectId,withCurrentSubject)` | Sensitive trusted management issuance only: `issue-legacy` permission and durable redacted attempt audit. Derives the existing canonical raw subject credential behind the encrypted root boundary; returns only `{token}`. The wrapper fences current management/delegation/subject/credential state until transaction commit; no root or signing key leaves secrets. |
-| `exchangeLegacyCredential(context,credential,currentSubject)` | Trusted issuer only: verify the path credential against current imported tenant metadata, refuse root/anonymous, await the current-subject callback, and sign the canonical subject token inside secrets. Returns only `{token,iat,exp}`. Requires an explicitly configured maximum of 28800 seconds and issues exactly that duration. |
 
 Legacy issuance additionally requires a trusted `withCurrentSubject({tenant,subjectId}, issue)`
 wrapper. It must validate current owner/actor and grant ceilings, hold subject and
@@ -85,26 +88,20 @@ and CAS are defined in the rotation continuation below.
 A tenant-bound provider exposes:
 
 ```text
-signingVersion                         positive integer, operator-controlled
 encrypt(Buffer) -> opaque ciphertext string
 decrypt(ciphertext) -> Buffer
-sign(Buffer) -> 32-byte HS256 MAC at signingVersion
-verify(version, Buffer, 32-byte MAC) -> boolean
+rewrap(ciphertext, version) -> ciphertext
 ```
 
-Failures reject, with sanitized errors; only a genuine signature mismatch
-returns false. No operation exports key material. Ciphertext is opaque to the
-component, and request callers cannot choose provider key paths. Providers must
-support verification of permitted earlier signing versions. The component's
-versioned JWT envelope is new: preserving `accessToken` and HS256 is not a
-claim that legacy keyless-`kid` tokens, socket forms or root-header auth are
-already integrated.
+Failures reject, with sanitized errors. No operation exports key material.
+Ciphertext is opaque to the component, and request callers cannot choose
+provider key paths.
 
 ## Vault adapter
 
-`createVaultTransit` requires a trusted HTTPS origin, one Transit mount,
-separate provisioned data/signing key names, an explicit signing version and
-an asynchronous `getToken` credential callback. Explicit loopback HTTP is
+`createVaultTransit` requires a trusted HTTPS origin, one Transit mount, the
+tenant's provisioned data key name and an asynchronous `getToken` credential
+callback. Explicit loopback HTTP is
 test-only. Redirects are refused. Fetches have a bounded timeout. Provider
 errors/bodies and credential-callback failures are redacted; there is no
 provider fallback. The adapter never creates, exports, reads or rotates keys.
@@ -114,12 +111,9 @@ Provision non-exportable keys and grant only:
 ```text
 path "<mount>/encrypt/<tenant-data-key>" { capabilities = ["update"] }
 path "<mount>/decrypt/<tenant-data-key>" { capabilities = ["update"] }
-path "<mount>/hmac/<tenant-signing-key>" { capabilities = ["update"] }
-path "<mount>/verify/<tenant-signing-key>" { capabilities = ["update"] }
 ```
 
-The test uses AES256-GCM96 Transit keys (including Transit HMAC support).
-The adapter converts Vault's versioned base64 HMAC to/from JWT base64url.
+The test uses AES256-GCM96 Transit keys.
 An operator rotates keys separately, then replaces the bound provider with
 the new signing version. Do not retire a required old key version before its
 tokens expire and ciphertext has been migrated. Transit stores **keys**, not

@@ -1,5 +1,13 @@
 # Dormant tenant legacy credential verifier
 
+> Superseded in part, 2026-11-20 (decision deployment-signing-secret): the
+> Vault HS256 profile (`signJWT`, `verifyJWT`, `exchangeLegacyCredential`,
+> previous-profile renewal) is retired. The api verifies DATA credentials
+> locally and issues data JWTs with per-tenant keys derived from the
+> deployment signing secret ([`derived-signing.js`](derived-signing.js));
+> `legacy_data_keys` holds public keys only. Statements below about HS256 or a
+> stored private key describe the retired design.
+
 This is the first credential/entries-GET bridge, not an enabled server role,
 owner/operator authenticator or complete API surface. The optional dormant
 exchange/GET join below reuses the same credential boundary.

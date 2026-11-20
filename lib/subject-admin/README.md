@@ -80,7 +80,7 @@ The owner preview accepts optional `ownerCredentials` configuration parsed by
 [`owner-credential-config.js`](../server/serve/owner-credential-config.js). It has
 `connectionEnv`, a separate secrets `namespace`, a Vault configuration
 `{address,mount,allowInsecureLoopback}`, and one entry per configured tenant with
-`{id,tokenEnv,encryptionKey,signingKey,signingVersion}`. Database credentials and
+`{id,tokenEnv,encryptionKey}` (no signing key: signing keys are derived, decision deployment-signing-secret). Database credentials and
 Vault tokens are environment references. The secrets identity must differ from
 owner writer/access identities and use the same database. Tenant keys and token
 references are distinct. HTTPS is required except explicit loopback development.
