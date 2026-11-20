@@ -1,6 +1,7 @@
 'use strict';
 
-// covers: lib/secrets/derived-signing.js (decision deployment-signing-secret, D14)
+// Decision deployment-signing-secret and D14 (a token for A fails signature on B).
+// covers: lib/secrets/derived-signing.js
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
