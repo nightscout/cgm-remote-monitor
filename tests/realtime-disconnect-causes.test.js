@@ -72,7 +72,9 @@ const SCENARIOS = {
   [CAUSES.FANOUT]: async f => { const s = await f.primed(); s.emitThrows = true; await f.protocol.fanout({ tenant: A, previous: f.ctl.frame, next: frameOf(2) }); return s; },
   [CAUSES.ALARM_READ_LOST]: async f => { const s = await f.primed('/alarm'); f.ctl.api = 'noread'; await f.protocol.alarm({ tenant: A, notification: { level: 1 } }); return s; },
   [CAUSES.ALARM_REFUSED]: async f => { const s = await f.primed('/alarm'); f.ctl.api = 'denied'; await f.protocol.alarm({ tenant: A, notification: { level: 1 } }); return s; },
-  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');await f.protocol.storage({tenant:A,tail:require('../lib/storage/storage-event-journal').reset(null)});return s; },
+  // Spike S2: a socket held (authority uncertain) cannot be sent a live
+  // /storage hint; it is disconnected so the client re-syncs over REST.
+  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');f.ctl.api='unavailable';await f.protocol.recheckTenant(A);f.ctl.api='read';await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'create',colName:'entries',doc:{identifier:'synthetic'}}]});return s; },
   [CAUSES.TENANT_INVALIDATED]: async f => { const s = await f.primed(); f.protocol.invalidateTenant(A, 'role'); return s; },
   [CAUSES.UNAUTHORIZED_DEADLINE]: async f => f.socket('/storage') // never subscribes; deadline below
 };

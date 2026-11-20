@@ -36,7 +36,7 @@ describe('atomic native clinical and control SQL receipt',()=>{
   assert.equal(input.ready,false);assert.equal(input.rows,undefined);assert.equal(input.floor,1);
   assert.equal(input.stream.snapshot_position,'0/0');assert.equal(input.stream.accepted_position,'0/30');
   assert.equal(saved.contract_digest,digest);assert.equal(saved.work_observed[5],'1');assert.equal(saved.work_completed[5]??null,null);
-  assert.notEqual(saved.work_pending_at,null);assert.equal(saved.projection[1].head,1);assert.equal(receipt[0].rawDeliveryPending,true);
+  assert.notEqual(saved.work_pending_at,null);assert.equal(saved.projection[1],null);assert.equal(receipt[0].rawDeliveryPending,false); // spike S2: no journal
   assert.notEqual(f.cache.get(A)?.ready,true,'COLD_RECEIPT_MUST_NOT_CREATE_READY_CLINICAL_RAM');
   assert(f.calls.every(c=>!c.text.includes('.entries')),'COLD_RECEIPT_MUST_NOT_ACQUIRE_SOURCE');
  });
@@ -46,7 +46,7 @@ describe('atomic native clinical and control SQL receipt',()=>{
   await assert.rejects(sql.acceptTransaction({...f.options,initialDigest}),/LOST_COMMIT_REPLY/);
   const committed=structuredClone(f.durable),offset=f.calls.length;
   await sql.acceptTransaction({...f.options,initialDigest});assert.deepEqual(f.durable,committed);
-  assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.durable.get(A).work_observed[5],'1');
+  assert.equal(f.durable.get(A).projection[1],null);assert.equal(f.durable.get(A).work_observed[5],'1');
   assert.equal(f.calls.slice(offset).filter(call=>call.text.startsWith('UPDATE ')||call.text.startsWith('WITH input')||call.text.startsWith('WITH written')).length,0,'FRESH_REPLAY_MUST_NOT_REWRITE');
  });
  it('refuses foreign or nonempty initial contracts and rolls back a fresh multi-tenant receipt on a failed fence',async()=>{
@@ -82,8 +82,9 @@ describe('atomic native clinical and control SQL receipt',()=>{
   const f=fixture();
   const [receipt]=await sql.acceptTransaction({...f.options,observations:[{tenant:A,observed:{policy:'4'}}]});
   assert.equal(receipt.deliveryPending,true);
-  assert.equal(receipt.rawDeliveryPending,true);
-  assert.equal(f.durable.get(A).delivery_revision,'2');
+  // Spike S2: no storage-event journal, so no raw delivery increment.
+  assert.equal(receipt.rawDeliveryPending,false);
+  assert.equal(f.durable.get(A).delivery_revision,'1');
   assert.equal(f.durable.get(A).work_observed[2],'4');
   assert.equal(f.durable.get(A).work_observed[5],'11');
   const writes=f.calls.filter(({text})=>text.startsWith('WITH input')||text.includes('SET delivery_revision='));
@@ -116,17 +117,17 @@ describe('atomic native clinical and control SQL receipt',()=>{
  it('replays uncertain committed delivery without rewrites and returns durable lost-wake obligation',async()=>{
   const f=fixture({loseReply:true});await assert.rejects(sql.acceptTransaction(f.options),/LOST_COMMIT_REPLY/);const offset=f.calls.length;
   const receipts=await sql.acceptTransaction(f.options);assert.equal(receipts[0].tenant,A);assert.equal(receipts[0].deliveryPending,false);assert.equal(receipts[0].rawDeliveryPending,false);
-  assert.equal(f.calls.slice(offset).filter(c=>c.text.startsWith('UPDATE ')||c.text.startsWith('WITH input')||c.text.startsWith('WITH written')).length,0,'REPLAY_REWRITES');assert.equal(f.durable.get(A).projection[1].head,1);assert.equal(f.cache.get(A)?.ready,false,'UNCERTAIN_COMMIT_CACHE_NOT_READY');
+  assert.equal(f.calls.slice(offset).filter(c=>c.text.startsWith('UPDATE ')||c.text.startsWith('WITH input')||c.text.startsWith('WITH written')).length,0,'REPLAY_REWRITES');assert.equal(f.durable.get(A).projection[1],null);assert.equal(f.cache.get(A)?.ready,false,'UNCERTAIN_COMMIT_CACHE_NOT_READY');
  });
  it('keeps delayed raw rows after snapshot coverage and late commits with earlier WAL row positions',async()=>{
   const f=fixture();f.durable.get(A).projection[0].stream.snapshot_position='0/50';f.cache.get(A).stream.snapshot_position='0/50';
-  await sql.acceptTransaction(f.options);assert.equal(f.cache.get(A).rows.length,0);assert.equal(f.durable.get(A).projection[1].head,1);
+  await sql.acceptTransaction(f.options);assert.equal(f.cache.get(A).rows.length,0);assert.equal(f.durable.get(A).projection[1],null);
   const later=native.row('late');later.lsn='0/11';await sql.acceptTransaction({...f.options,envelope:native.envelope([later],'0/60')});
-  assert.equal(f.cache.get(A).rows[0].doc._id,'late');assert.equal(f.durable.get(A).projection[1].head,2,'OLD_TRANSACTION_RAW_MUTATION_LOST');
+  assert.equal(f.cache.get(A).rows[0].doc._id,'late');assert.equal(f.durable.get(A).projection[1],null);
  });
  it('accepts raw delivery independently when the complete clinical set overflows and remains pending',async()=>{
   const f=fixture();await sql.acceptTransaction({...f.options,maxRows:1,envelope:native.envelope([native.row('a'),native.row('b')])});
-  const saved=f.durable.get(A);assert.equal(saved.projection[0].ready,false);assert.equal(saved.projection[0].gap,'rows');assert.equal(saved.work_observed[5],'11');assert.equal(saved.projection[1].head,2);
+  const saved=f.durable.get(A);assert.equal(saved.projection[0].ready,false);assert.equal(saved.projection[0].gap,'rows');assert.equal(saved.work_observed[5],'11');assert.equal(saved.projection[1],null);
  });
  it('explicit invalidation advances pending work without rewinding local coverage or racing recovery',async()=>{
   const f=fixture();const receipt=await sql.accept({...f.options,tenant:A,invalidate:true});

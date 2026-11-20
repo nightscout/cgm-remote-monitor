@@ -41,7 +41,7 @@ async function fixture () {
     if (state.holdAuthority) { const held = state.holdAuthority; state.holdAuthority = null; held.entered.resolve(); await held.release.promise; }
     return { permissions: { read, write: read, write_treatment: read, ack: read }, collections: read ? ['entries', 'treatments'] : [] };
   } };
-  const protocol = protocolFactory.create({ admission, api, readCurrent, storageEvents:{read:async()=>({kind:'storage-events-v1',head:0,base:0,events:[],keys:[],last:null})}, runtime: () => runtime, domains: ['entries', 'treatments'] });
+  const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries', 'treatments'] });
   const schedule = {};
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
     create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: structuredClone(state.rows),
@@ -312,7 +312,7 @@ describe('explicit realtime preview source contracts', function () {
       assert.deepEqual(now.sent, [], 'RT_STORAGE_BASELINE matching subscribe does not invent reset/replay');
       f.state.rows = []; await f.schedule.callback();
       assert.equal(now.sent.filter(row => row.event === 'delete').length, 0, 'CACHE_EXPIRY_IS_NOT_SOURCE_DELETE');
-      await f.protocol.storage({tenant:A,tail:{kind:'storage-events-v1',head:1,base:0,keys:[],events:[{sequence:1,event:'delete',domain:'entries',value:{colName:'entries',identifier:'old'}}]}});
+      await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'delete',colName:'entries',identifier:'old'}]});
       assert.equal(now.sent.filter(row => row.event === 'delete').length, 1, 'COMMITTED_SOURCE_DELETE_REACHES_CONNECTED_CLIENT');
     } finally { await f.close(); }
   });
