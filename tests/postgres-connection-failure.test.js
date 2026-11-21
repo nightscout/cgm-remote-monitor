@@ -12,7 +12,7 @@ function recordingConnection (Client, mutate = source => source) {
   const filename = path.resolve(__dirname, '../lib/storage/postgres-connection.js'), loaded = new Module(filename, module);
   loaded.filename = filename; loaded.paths = Module._nodeModulePaths(path.dirname(filename));
   const original = loaded.require.bind(loaded);
-  loaded.require = name => name === './postgres-settings-protocol' ? { Client, assertTransaction () {}, assertRollback () {}, assertUnlock () {} } : name === '../tenant-lifecycle/operation-window' ? { ...original(name), schedulingParent: (window, tenant) => window.parentToken ? window.parentToken(tenant) : null } : original(name);
+  loaded.require = name => name === './postgres-settings-protocol' ? { Client, settled: async () => {}, assertTransaction () {}, assertRollback () {}, assertUnlock () {} } : name === '../tenant-lifecycle/operation-window' ? { ...original(name), schedulingParent: (window, tenant) => window.parentToken ? window.parentToken(tenant) : null } : original(name);
   loaded._compile(mutate(fs.readFileSync(filename, 'utf8')), filename); return loaded.exports;
 }
 const scope = require('../lib/storage/tenant-scope');
