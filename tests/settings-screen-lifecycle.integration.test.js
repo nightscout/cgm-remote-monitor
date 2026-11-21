@@ -113,7 +113,7 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRE
     } finally { await settings.close(); }
   });
 
-  it('API proof admission suppresses the full settings screen at open, check and failed-read reopen while reads fail closed', async function () {
+  it('API proof admission suppresses the full settings screen at open and check; a failed read fails closed for its tenant and keeps the shared reader ready', async function () {
     const binding = { connectionString: url.toString(), namespaces };
     const presentation = require('../lib/tenant-settings/presentation-reader')(binding, { roleAdmitted: true });
     const relation = '"' + namespaces.settings + '".tenant_settings';
@@ -126,11 +126,13 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRE
       await q(`REVOKE SELECT ON ${relation} FROM "${role}"`);
       try {
         await assert.rejects(presentation.read(tenant), { code: 'SETTINGS_POLICY_UNAVAILABLE' });
-        assert.equal(presentation.health().ready, false, 'failed settings cannot supply a presentation');
+        // tenant-defect-tenant-scoped: the failed read is that tenant's refusal; it
+        // supplies no value and does not close the shared capability (eec0530f9).
+        assert.equal(presentation.health().ready, true, 'a failed tenant read leaves the shared reader ready');
       } finally { await q(`GRANT SELECT ON ${relation} TO "${role}"`); }
       const reopened = await counted(() => presentation.read(tenant));
       assert.equal(reopened.value.version, 1); assert.equal(presentation.health().ready, true);
-      assert.equal(settingsScreens(reopened.texts).length, 0, 'verified reopen has no full settings screen');
+      assert.equal(settingsScreens(reopened.texts).length, 0, 'the next read has no full settings screen');
       const checked = await counted(() => presentation.check());
       assert.equal(checked.texts.length, 0, 'verified owner check sends no SQL');
       console.log('    API_SETTINGS full-screen statements: open=' + settingsScreens(opened.texts).length +

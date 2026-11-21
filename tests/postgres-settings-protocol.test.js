@@ -21,7 +21,7 @@ async function fixture () {
 }
 // Recording transport under the fixed shipping Client and actual pg.Pool.
 // SQL replies exercise wire handlers; they are not PostgreSQL/RLS evidence.
-async function snapshotFixture () {
+async function snapshotFixture (extra = {}) {
   const pg = require('pg'), scope = require('../lib/storage/tenant-scope');
   const connect = require('../lib/storage/postgres-connection'), calls = [], clients = [];
   const originalConnect = protocol.Client.prototype.connect, originalQuery = protocol.Client.prototype.query;
@@ -52,13 +52,17 @@ async function snapshotFixture () {
         connection.emit('commandComplete', { text: sql.startsWith('SELECT') ? 'SELECT 1' : sql.split(' ')[0] });
         connection.emit('readyForQuery', { status });
       };
+      // A SQL error whose ReadyForQuery arrives in a later socket read, or never.
+      const denied = () => connection.emit('errorMessage', Object.assign(Error('synthetic permission denied'), { code: '42501' }));
+      if (sql === 'SELECT denied_late') { queueMicrotask(denied); setTimeout(() => { status = 'E'; connection.emit('readyForQuery', { status }); }, 5); return; }
+      if (sql === 'SELECT denied_silent') { queueMicrotask(denied); return; }
       if (sql === 'SELECT held') releaseHeld = () => queueMicrotask(finish); else queueMicrotask(finish);
     };
     return pg.Client.prototype.connect.apply(this, args);
   };
   const previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); let store;
   const restore = () => { protocol.Client.prototype.connect = originalConnect; protocol.Client.prototype.query = originalQuery; scope.setTenancyMode(previous); };
-  try { store = await connect({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', direct: true, displaySettings: true, application_name: 'nightscout-display-settings', max: 1, idleTimeoutMillis: 0 }); }
+  try { store = await connect({ connectionString: 'postgres://synthetic:synthetic@127.0.0.1/synthetic_test', direct: true, displaySettings: true, application_name: 'nightscout-display-settings', max: 1, idleTimeoutMillis: 0, ...extra }); }
   catch (error) { restore(); throw error; }
   return { store, calls, clients, release: () => releaseHeld(), async close () { try { await store.end(); } finally { restore(); } } };
 }
@@ -76,6 +80,25 @@ describe('unselected settings actual-driver protocol custody', function () {
       assert.equal(f.clients[0]._ending, true);
       assert.equal(await f.store.readOnlySnapshot(tenant, async ({ query }) => { await query('SELECT healthy'); return 'FRESH'; }), 'FRESH');
       assert.equal(f.clients.length, 2); assert.equal(f.calls.filter(sql => sql === 'COMMIT').length, 1);
+    } finally { await f.close(); }
+  });
+  it('a SQL error whose ReadyForQuery arrives in a later read rolls back as that error, not as unconfirmed cleanup', async function () {
+    const f = await snapshotFixture({ query_timeout: 1000 }), tenant = '11111111-1111-4111-8111-111111111111';
+    try {
+      await assert.rejects(f.store.readOnlySnapshot(tenant, async ({ query }) => { await query('SELECT denied_late'); }),
+        error => error.code === '42501' && error.name !== 'PostgresCleanupError');
+      assert(f.calls.includes('ROLLBACK')); assert(!f.calls.includes('COMMIT'));
+      assert.equal(await f.store.readOnlySnapshot(tenant, async ({ query }) => { await query('SELECT healthy'); return 'FRESH'; }), 'FRESH');
+    } finally { await f.close(); }
+  });
+  it('a SQL error whose ReadyForQuery never arrives is refused as unconfirmed cleanup after the query bound', async function () {
+    const f = await snapshotFixture({ query_timeout: 30 }), tenant = '11111111-1111-4111-8111-111111111111';
+    try {
+      const started = Date.now();
+      await assert.rejects(f.store.readOnlySnapshot(tenant, async ({ query }) => { await query('SELECT denied_silent'); }),
+        error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause?.code === '42501' && error.cleanupError?.code === 'POSTGRES_SETTINGS_PROTOCOL_REQUIRED');
+      assert(Date.now() - started >= 25, 'waited for the bound');
+      assert(!f.calls.includes('ROLLBACK')); assert.equal(f.clients[0]._ending, true);
     } finally { await f.close(); }
   });
   it('accepts completed T only, rejects fabricated clients, and observes dispatch and queue drain', async function () {
