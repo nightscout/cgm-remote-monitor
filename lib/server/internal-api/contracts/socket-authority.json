@@ -1,0 +1,270 @@
+{
+  "id": "socket-authority",
+  "version": 1,
+  "operations": {
+    "authorizeSocket": {
+      "path": "/authorize",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tenant": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "namespace": {
+            "enum": [
+              "/",
+              "/storage",
+              "/alarm"
+            ]
+          },
+          "credential": {
+            "type": "object",
+            "properties": {
+              "secret": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "token": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "jwtToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "accessToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "humanToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "tenant",
+          "namespace",
+          "credential"
+        ],
+        "additionalProperties": false,
+        "description": "host is required except for registry-mode warm calls, which name the tenant only, with namespace '/' and an empty credential (lib/server/realtime/private-api.js)."
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "denied": {
+                "const": true
+              }
+            },
+            "required": [
+              "denied"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "permissions": {
+                "type": "object",
+                "properties": {
+                  "read": {
+                    "type": "boolean"
+                  },
+                  "write": {
+                    "type": "boolean"
+                  },
+                  "write_treatment": {
+                    "type": "boolean"
+                  },
+                  "ack": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "read",
+                  "write",
+                  "write_treatment",
+                  "ack"
+                ],
+                "additionalProperties": false
+              },
+              "collections": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "entries",
+                    "treatments",
+                    "devicestatus",
+                    "profile",
+                    "food",
+                    "activity"
+                  ]
+                }
+              },
+              "display": {
+                "type": "object",
+                "properties": {
+                  "units": {
+                    "type": "string"
+                  },
+                  "showSeconds": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "units",
+                  "showSeconds"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "permissions",
+              "collections"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "executeSocketMutation": {
+      "path": "/mutate",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "envelope": {
+            "type": "object",
+            "properties": {
+              "tenant": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "credential": {
+                "type": "object",
+                "properties": {
+                  "secret": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "jwtToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "accessToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  },
+                  "humanToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              },
+              "namespace": {
+                "enum": [
+                  "/",
+                  "/alarm"
+                ]
+              },
+              "event": {
+                "enum": [
+                  "dbAdd",
+                  "dbUpdate",
+                  "dbUpdateUnset",
+                  "dbRemove",
+                  "ack"
+                ]
+              },
+              "args": {
+                "type": "array",
+                "items": true
+              }
+            },
+            "required": [
+              "tenant",
+              "credential",
+              "namespace",
+              "event",
+              "args"
+            ],
+            "additionalProperties": false,
+            "description": "Socket forwarding envelope. args are canonical event arguments; domain validation remains in the existing write and alarm acknowledgement handlers.",
+            "oneOf": [
+              {
+                "properties": {
+                  "namespace": {
+                    "const": "/"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "namespace": {
+                    "const": "/alarm"
+                  },
+                  "event": {
+                    "const": "ack"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "required": [
+          "host",
+          "envelope"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "replyArgs": {
+            "type": "array",
+            "items": true,
+            "description": "Unchanged callback argument array returned by canonical socket write or alarm acknowledgement handler."
+          }
+        },
+        "required": [
+          "replyArgs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

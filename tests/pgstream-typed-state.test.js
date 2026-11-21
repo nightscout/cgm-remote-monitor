@@ -1,0 +1,8 @@
+'use strict';
+const assert=require('node:assert/strict');
+const work=require('../lib/pgstream/work-state');
+describe('typed pgstream hot-state codecs',function(){
+ it('preserves full signed-bigint source versions and refuses unsafe numeric input',()=>{assert.equal(work.version('9007199254740993'),'9007199254740993');assert.equal(work.version('9223372036854775807'),'9223372036854775807');assert.throws(()=>work.version(9007199254740992),/VERSION_REFUSED/);assert.throws(()=>work.version('9223372036854775808'),/VERSION_REFUSED/);assert.deepEqual(work.map(work.array({clock:'9007199254740993',lifecycle:'9223372036854775807'})),{clock:'9007199254740993',lifecycle:'9223372036854775807'});});
+ it('rounds fractional due instants up so bigint extraction cannot fire early',()=>{const due=60000/7;assert.equal(work.instant(due),8572);assert(work.instant(due)>=due);assert.equal(work.instant(null),null);assert.equal(work.instant(Infinity),null);assert.throws(()=>work.instant(NaN),/DUE_RANGE/);assert.throws(()=>work.instant(8640000000000000),/DUE_RANGE/);});
+ it('requires versioned admission and never obtains work from clinical JSON',()=>{assert.throws(()=>work.state({work_version:0}),/ADMISSION_REQUIRED/);const state=work.state({work_version:2,work_observed:['9007199254740993',null,null,null,null,null],work_completed:[null,null,null,null,null,null],work_observed_at:['123',null,null,null,null,null],work_pending_at:'123',work_due_at:null,work_enabled:false,work_activity_enabled:false,work_lifecycle_enabled:true});assert.equal(state.observed.clock,'9007199254740993');assert.equal(state.pendingAt,123);assert.equal(state.enabled,false);});
+});

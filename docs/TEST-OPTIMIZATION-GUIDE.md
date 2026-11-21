@@ -4,6 +4,21 @@ This document describes optimizations made to the Nightscout test suite and reco
 
 ## Optimizations Implemented
 
+### Opt-in integration labs and execution accounting
+
+The default MongoDB CI matrix does not enable the disposable PostgreSQL,
+Vault or migration labs. These suites use `tests/support/opt-in.js` to register
+their tests as pending, with the enabling environment variable in the suite
+title. Pending is not a reproduced lab result.
+
+The execution reporter accepts these explicit pending outcomes, as it does
+backend exclusions. Ordinary skipped tests, empty files and enabled labs with
+no completed test body still fail. Opt-in settings retain their existing
+meaning: Docker labs require their `NS_*_DOCKER_TEST` flag to equal `1`, and
+PostgreSQL connection/import/read labs require `NS_TEST_POSTGRES_ADMIN_URI`
+(the differential read lab also requires `CUSTOMCONNSTR_mongo`). Enabling a lab
+does not exempt its skips or failures from execution accounting.
+
 ### 1. Converted beforeEach to before for App Initialization
 
 **Files Modified:**

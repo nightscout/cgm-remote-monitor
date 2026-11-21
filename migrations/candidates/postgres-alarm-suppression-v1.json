@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "status": "dormant candidate; explicit operator provisioning, API-only narrow writes and evaluator SELECT-only access",
+  "migrations": [
+    {
+      "name": "0001_tenant_alarm_suppression",
+      "up": [
+        "CREATE TABLE tenant_alarm_suppression (tenant_id uuid NOT NULL, alarm_group text NOT NULL CHECK (octet_length(alarm_group) BETWEEN 1 AND 512), alarm_level integer NOT NULL CHECK (alarm_level IN (1,2)), acked_at bigint NOT NULL CHECK (acked_at >= 0 AND acked_at < 8640000000000000), expires_at bigint NOT NULL CHECK (expires_at > acked_at AND expires_at < 8640000000000000), PRIMARY KEY (tenant_id,alarm_group,alarm_level))",
+        "ALTER TABLE tenant_alarm_suppression ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_alarm_suppression FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_alarm_suppression_isolation ON tenant_alarm_suppression USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_alarm_suppression FROM PUBLIC"
+      ],
+      "checksum": "c3b6095d2c448f5838904f2c6627fc360347b4a023f6896a4c34dd06136d1e82"
+    }
+  ]
+}

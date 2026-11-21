@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "status": "Review candidate; explicit operator migration only",
+  "evidence": ["lib/server/profile.js: profileSort, pruneFilterForBoundary, indexedFields", "lib/api3/generic/setup.js: profile created_at fallback"],
+  "migrations": [{
+    "name": "0001_profile",
+    "up": [
+      "CREATE TABLE profile (tenant_id uuid NOT NULL, id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), \"_id\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'_id') = 'string' THEN doc->>'_id' END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'identifier') = 'string' THEN doc->>'identifier' END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+      "CREATE UNIQUE INDEX profile_identifier_unique ON profile (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+      "CREATE INDEX profile_tenant_startdate_id ON profile (tenant_id, (doc->'startDate') DESC, \"_id\" DESC)",
+      "CREATE INDEX profile_tenant_created_at ON profile (tenant_id, (doc->>'created_at'))",
+      "CREATE INDEX profile_tenant_nsclient ON profile (tenant_id, (doc->'NSCLIENT_ID'))",
+      "CREATE INDEX profile_tenant_srvmodified ON profile (tenant_id, (doc->'srvModified'))",
+      "ALTER TABLE profile ENABLE ROW LEVEL SECURITY",
+      "ALTER TABLE profile FORCE ROW LEVEL SECURITY",
+      "CREATE POLICY profile_tenant_isolation ON profile USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+    ],
+    "checksum": "9fe44ff376aa7ad61e0273e294d71ac76bbf5efe16a3619f9f187c28eab5e19b"
+  },
+    {
+      "name": "0099_profile_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "profile"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"profile\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "DO $clinical_size_backfill$\nDECLARE original_binding text := current_setting('app.current_tenant_id',true); selected_tenant uuid;\nBEGIN\n  FOR selected_tenant IN SELECT DISTINCT tenant_id FROM \"nightscout_migration_namespace\".\"profile\" LOOP\n    PERFORM set_config('app.current_tenant_id',selected_tenant::text,true);\n    UPDATE \"nightscout_migration_namespace\".\"profile\" SET storage_bytes=pg_column_size(doc) WHERE tenant_id=selected_tenant;\n  END LOOP;\n  PERFORM set_config('app.current_tenant_id',COALESCE(original_binding,''),true);\nEND\n$clinical_size_backfill$",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"profile\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"profile\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"profile\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "80b9bbe0dc378e264f3c4ac2f16b85cbad0879e537ad31b18742138ef0d49b5f"
+    }
+  ]
+}

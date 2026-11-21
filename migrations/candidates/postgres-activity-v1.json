@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "evidence": [
+    "lib/server/activity.js: created_at preservation, default order, no server dates",
+    "lib/storage/write-intent.js: activity v1/internal rules and string twin removal",
+    "lib/storage/identifier-index.js: partial unique identifier contract"
+  ],
+  "migrations": [
+    {
+      "name": "0001_activity",
+      "up": [
+        "CREATE TABLE activity (tenant_id uuid NOT NULL, doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> '_id') = 'string' THEN doc ->> '_id' END) STORED, created_at text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'created_at') = 'string' THEN doc ->> 'created_at' END) STORED, \"date\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'date') = 'number' THEN (doc ->> 'date')::numeric END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'identifier') = 'string' THEN doc ->> 'identifier' END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+        "CREATE INDEX activity_tenant_created_at ON activity (tenant_id, created_at DESC)",
+        "CREATE INDEX activity_tenant_date ON activity (tenant_id, \"date\" ASC)",
+        "CREATE UNIQUE INDEX activity_identifier_unique ON activity (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+        "ALTER TABLE activity ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE activity FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY activity_tenant_isolation ON activity USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "f0c4f976d276f18ad11b694755411e8c61b8dec50700a0ed0d6aaa484440431b"
+    },
+    {
+      "name": "0099_activity_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "activity"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"activity\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"activity\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "DO $clinical_size_backfill$\nDECLARE original_binding text := current_setting('app.current_tenant_id',true); selected_tenant uuid;\nBEGIN\n  FOR selected_tenant IN SELECT DISTINCT tenant_id FROM \"nightscout_migration_namespace\".\"activity\" LOOP\n    PERFORM set_config('app.current_tenant_id',selected_tenant::text,true);\n    UPDATE \"nightscout_migration_namespace\".\"activity\" SET storage_bytes=pg_column_size(doc) WHERE tenant_id=selected_tenant;\n  END LOOP;\n  PERFORM set_config('app.current_tenant_id',COALESCE(original_binding,''),true);\nEND\n$clinical_size_backfill$",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"activity\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"activity\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"activity\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"activity\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"activity\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "e31ce1c322ca6c8543ca9c571a5e3c6fa974503b9b18654924fddfac18f133c5"
+    }
+  ]
+}

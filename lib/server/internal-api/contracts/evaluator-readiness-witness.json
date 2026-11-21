@@ -1,0 +1,709 @@
+{
+  "id": "evaluator-readiness-witness",
+  "version": 1,
+  "operations": {
+    "inspectReadinessWitness": {
+      "path": "/evaluator/readiness-witness",
+      "request": {
+        "type": "object",
+        "properties": {
+          "runtimeId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+            },
+            "minItems": 1,
+            "maxItems": 128,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "runtimeId",
+          "tenants"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "evaluator-readiness-witness"
+          },
+          "version": {
+            "const": 1
+          },
+          "runtimeId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+                },
+                "generation": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "clinical": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "none",
+                        "within-bound",
+                        "expired",
+                        "unknown"
+                      ]
+                    },
+                    "pendingSince": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pendingAgeMs": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pendingBoundMs": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "pendingSince",
+                    "pendingAgeMs",
+                    "pendingBoundMs"
+                  ],
+                  "additionalProperties": false
+                },
+                "acquisition": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "releasedGeneration": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "releasedWorkerGeneration": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "currentWorkerGeneration": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "releasedGeneration",
+                    "releasedWorkerGeneration",
+                    "currentWorkerGeneration"
+                  ],
+                  "additionalProperties": false
+                },
+                "runtime": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "closed": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "inactive": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "withdrawn": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "booting": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "running": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "metadataPaused": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verificationPending": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "underlyingCode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^EVALUATOR_[A-Z0-9_]{1,54}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "closed",
+                    "inactive",
+                    "withdrawn",
+                    "booting",
+                    "running",
+                    "metadataPaused",
+                    "verificationPending",
+                    "underlyingCode"
+                  ],
+                  "additionalProperties": false
+                },
+                "worker": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "available": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "generation": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "acquisitionEpochMatches": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "available",
+                    "generation",
+                    "acquisitionEpochMatches"
+                  ],
+                  "additionalProperties": false
+                },
+                "metadata": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "registryActive": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "assigned": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "identityMatches": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "paused": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "suspended": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "registryActive",
+                    "assigned",
+                    "identityMatches",
+                    "paused",
+                    "suspended"
+                  ],
+                  "additionalProperties": false
+                },
+                "window": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "closed": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "operational": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verifying": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verificationFailed": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sessionLost": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "probeFailed": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "closed",
+                    "operational",
+                    "verifying",
+                    "verificationFailed",
+                    "sessionLost",
+                    "probeFailed"
+                  ],
+                  "additionalProperties": false
+                },
+                "platform": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "ready": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "code": {
+                      "enum": [
+                        null,
+                        "PLATFORM_VERIFICATION_REQUIRED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "ready",
+                    "code"
+                  ],
+                  "additionalProperties": false
+                },
+                "source": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "current",
+                        "refused",
+                        "unknown"
+                      ]
+                    },
+                    "healthy": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "schemaBlocked": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "schemaInFlight": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "acceptedCutReady": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ownerAvailable": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "healthy",
+                    "schemaBlocked",
+                    "schemaInFlight",
+                    "acceptedCutReady",
+                    "ownerAvailable"
+                  ],
+                  "additionalProperties": false
+                },
+                "independentStatus": {
+                  "enum": [
+                    "current",
+                    "refused",
+                    "unknown"
+                  ]
+                },
+                "classification": {
+                  "enum": [
+                    "ready",
+                    "clinical-expiry-only",
+                    "source-refused",
+                    "unknown"
+                  ]
+                },
+                "faults": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "ACQUISITION_ACTIVITY_REFUSED",
+                      "ACQUISITION_ACTIVITY_UNKNOWN",
+                      "ACQUISITION_METADATA_MISMATCH",
+                      "ACQUISITION_METADATA_UNKNOWN",
+                      "ACQUISITION_MISSING",
+                      "ACQUISITION_PROOF_UNKNOWN",
+                      "ACQUISITION_SCOPE_MISMATCH",
+                      "ACQUISITION_WINDOW_CHANGED",
+                      "ACQUISITION_WINDOW_UNKNOWN",
+                      "ACQUISITION_WORKER_MISMATCH",
+                      "ACQUISITION_WORKER_UNAVAILABLE",
+                      "ACQUISITION_WORKER_UNKNOWN",
+                      "ACTIVITY_PAUSED",
+                      "ACTIVITY_SUSPENDED",
+                      "ACTIVITY_UNKNOWN",
+                      "ASSIGNMENT_REFUSED",
+                      "CLINICAL_UNKNOWN",
+                      "METADATA_ACQUISITION_UNKNOWN",
+                      "METADATA_CHANGED",
+                      "METADATA_PAUSED",
+                      "METADATA_UNKNOWN",
+                      "PLATFORM_REFUSED",
+                      "PLATFORM_UNKNOWN",
+                      "REGISTRY_INACTIVE",
+                      "RUNTIME_CLOSED",
+                      "RUNTIME_IN_FLIGHT",
+                      "RUNTIME_REFUSED",
+                      "RUNTIME_UNKNOWN",
+                      "SCHEMA_BLOCKED",
+                      "SCHEMA_VERIFYING",
+                      "SOURCE_ACCEPTANCE_PENDING",
+                      "SOURCE_OWNER_UNAVAILABLE",
+                      "SOURCE_UNAVAILABLE",
+                      "SOURCE_UNKNOWN",
+                      "TENANT_INACTIVE",
+                      "TENANT_WITHDRAWN",
+                      "VERIFICATION_PENDING",
+                      "WINDOW_CLOSED",
+                      "WINDOW_PROBE_FAILED",
+                      "WINDOW_SESSION_LOST",
+                      "WINDOW_UNAVAILABLE",
+                      "WINDOW_UNKNOWN",
+                      "WINDOW_VERIFICATION_FAILED",
+                      "WINDOW_VERIFYING",
+                      "WORKER_ACQUISITION_UNKNOWN",
+                      "WORKER_EPOCH_MISMATCH",
+                      "WORKER_UNAVAILABLE",
+                      "WORKER_UNKNOWN"
+                    ]
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 64
+                }
+              },
+              "required": [
+                "tenant",
+                "generation",
+                "clinical",
+                "acquisition",
+                "runtime",
+                "worker",
+                "metadata",
+                "window",
+                "platform",
+                "source",
+                "independentStatus",
+                "classification",
+                "faults"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 128
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "runtimeId",
+          "observedAt",
+          "tenants"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

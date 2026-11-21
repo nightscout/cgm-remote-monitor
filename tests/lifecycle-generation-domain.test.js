@@ -1,0 +1,42 @@
+'use strict';
+// Source/catalogue protocol only. Native CHECK/deparser/atomic DDL remain unmeasured.
+// covers: lib/tenant-lifecycle/generation-domain.js
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module');
+const domain=require('../lib/tenant-lifecycle/generation-domain'),profiles=require('../lib/pgstream/intake-profile'),readiness=require('../lib/tenant-lifecycle/operation-window-readiness'),legacy=require('../lib/tenant-lifecycle/postgres-candidate.json'),protocol=require('./fixtures/operation-window-admission-protocol'),helper=require('./fixtures/lifecycle-domain-profile');
+const {A,B}=helper,copy=x=>JSON.parse(JSON.stringify(x)),bad='LIFECYCLE_WINDOW_SCHEMA_UNSAFE',C='33333333-3333-4333-8333-333333333333';
+function client(selected,mutate){const respond=protocol(helper.metadata(selected,mutate));return{query:async(sql,values)=>respond(sql,values)};}
+function compile(file,change){const source=fs.readFileSync(file,'utf8'),m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));m._compile(change(source),file);return m.exports;}
+describe('selected lifecycle generation domain source capability',function(){
+ it('keeps exact original migrations and appends one source-known validated CHECK',()=>{const selected=domain.catalogue(helper.profile());assert.deepEqual(selected.migrations.slice(0,-1),legacy.migrations);assert.notEqual(selected.migrations[0],legacy.migrations[0]);assert.throws(()=>{selected.migrations[0].up[0]='ALTER WRONG';},TypeError);assert.equal(selected.migrations.length,10);assert.equal(domain.constraint(),"CHECK ('4611686018427387902'::bigint >= generation)");const tail=selected.migrations.at(-1);assert.equal(tail.up.length,1);assert(!tail.up[0].includes('NOT VALID'));require('../lib/migrations/catalogue').validateCatalogue(selected);assert.throws(()=>domain.catalogue(),/PROFILE_REQUIRED/);});
+ it('accepts selected exact catalogue while preserving the original unselected exact shape',async()=>{await readiness.admit(client(), 'synthetic_window');await readiness.admit(client(helper.profile()),'synthetic_window',{intakeProfile:helper.profile()});await assert.rejects(readiness.admit(client(helper.profile()),'synthetic_window'),{code:bad});await assert.rejects(readiness.admit(client(),'synthetic_window',{intakeProfile:helper.profile()}),{code:bad});});
+ for(const [name,change] of [
+  ['missing',row=>row.constraints.pop()],['wrong bound',row=>row.constraints.at(-1).definition="CHECK ('4611686018427387903'::bigint >= generation)"],['unvalidated',row=>row.constraints.at(-1).valid=false],['deferrable',row=>row.constraints.at(-1).deferrable=true],['extra',row=>row.constraints.push({definition:'CHECK (generation > 1)',valid:true,deferrable:false})],['custom trigger',row=>row.triggers=true],['weakened policy',row=>row.policies.pop()]
+ ])it('refuses selected '+name+' then accepts exact restoration',async()=>{const p=helper.profile();await assert.rejects(readiness.admit(client(p,(kind,rows)=>{if(kind==='tenant_lifecycle_windows')change(rows[0]);}),'synthetic_window',{intakeProfile:p}),{code:bad});await readiness.admit(client(p),'synthetic_window',{intakeProfile:p});});
+ it('rejects a selected ledger drift without accepting an arbitrary caller maximum',async()=>{const p=helper.profile();await assert.rejects(readiness.admit(client(p,(kind,rows)=>{if(kind==='ledger')rows.at(-1).checksum='0'.repeat(64);}),'synthetic_window',{intakeProfile:p}),{code:bad});const forged=copy(p);forged.binding.maximum='9223372036854775807';assert.throws(()=>domain.bind(forged,'synthetic_window'));assert.throws(()=>helper.profile({generationDomain:'caller-selected-max'}));assert.throws(()=>domain.bind(p,'different_window'));assert.throws(()=>domain.bind(p,'synthetic_window',[A]));});
+ it('regenerates safe profile assignment and rejects caller-forged owner functions',()=>{const p=helper.profile(),forged={...p,assignment:{owner:()=>0}};const safe=domain.bind(forged,'synthetic_window',[B,A]);assert.notEqual(safe,forged);assert.throws(()=>safe.assignment.owner(C),/FIXED_ASSIGNMENT_TENANT/);});
+ it('requires exact full-namespace coverage including rows outside the declared roster',()=>{const p=helper.profile(),rows=[{tenant:A,phase:'active',generation:profiles.DOMAIN.completeMaximum},{tenant:B,phase:'suspended',generation:'9007199254740994'}];assert.equal(domain.validateRoster(p,rows).digest,p.digest);for(const values of [rows.slice(0,1),[...rows,{tenant:C,phase:'active',generation:'1'}],[rows[0],rows[0]],[rows[0],{...rows[1],generation:'4611686018427387903'}]])assert.throws(()=>domain.validateRoster(p,values));const plan=domain.adoptionPlan(p);assert.equal(plan.kind,'DECLARED_LIFECYCLE_ADOPTION_PLAN_NOT_INSTALLER');assert(plan.lockSQL.includes('ACCESS EXCLUSIVE'));assert(!plan.rosterSQL.includes('WHERE'));assert(plan.transaction.includes('rollback everything'));assert(plan.integration.startsWith('OPEN'));});
+ it('preserves exact int8 bounds and separates active max from next-suspension headroom',()=>{assert.equal(domain.assertGeneration('9007199254740994'),'9007199254740994');assert.equal(domain.assertGeneration(profiles.DOMAIN.completeMaximum),profiles.DOMAIN.completeMaximum);assert.throws(()=>domain.assertGeneration(profiles.DOMAIN.completeMaximum,{next:true}),{code:'LIFECYCLE_GENERATION_DOMAIN_UNSUPPORTED'});for(const value of ['0','4611686018427387903',9007199254740994])assert.throws(()=>domain.assertGeneration(value));});
+ it('bounded bigint parser support fails red when removed and still rejects changed literal bounds',()=>{const file=require.resolve('../lib/tenant-lifecycle/catalogue-structure'),current=require(file),broken=compile(file,s=>{assert(s.includes("'oid','bigint'"));return s.replace("'oid','bigint'","'oid'");}),expected=domain.constraint();assert.throws(()=>broken(expected,'synthetic_window'),{code:bad});assert.equal(typeof current(expected,'synthetic_window'),'string');assert.notEqual(current(expected,'synthetic_window'),current(expected.replace('7902','7903'),'synthetic_window'));});
+ it('loads profile and readiness safely in both isolated fresh module-cache orders',()=>{const saved=Module._cache;try{for(const order of [['intake-profile','operation-window-readiness'],['operation-window-readiness','intake-profile']]){Module._cache=Object.create(null);for(const name of order)require(path.resolve(__dirname,'../lib',name==='intake-profile'?'pgstream':'tenant-lifecycle',name));const fresh=require('./fixtures/lifecycle-domain-profile').profile();assert.equal(require('../lib/tenant-lifecycle/generation-domain').catalogue(fresh).migrations.length,10);}}finally{Module._cache=saved;}});
+ it('actual selected registry window retains registry key rule and rejects unknown fixed-roster tenant',async()=>{
+  const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules');
+  const p=helper.profile(), forged={...p,assignment:{owner:()=>0}};
+  const f=fixture({intakeProfile:forged,lockRule:'tenant-id-sha256-v1',key:rule.lockKey(A)});
+  try {
+   await f.window.run(A,()=>{});
+   await assert.rejects(f.window.run(C,()=>assert.fail('UNKNOWN_BODY')),{code:'LIFECYCLE_WINDOW_TENANT_UNKNOWN'});
+   const admissions=f.log.filter(([sql])=>sql.includes('/* operation-window-snapshot */'));
+   assert.deepEqual(admissions.map(([,values])=>values),[[A,rule.lockKey(A)]]);
+  } finally {await f.window.close();}
+ });
+ it('unselected registry retains existing unknown-roster lookup behavior',async()=>{
+  const fixture=require('./fixtures/operation-window-runtime-protocol'),rule=require('../lib/tenant-registry/rules');
+  const f=fixture({lockRule:'tenant-id-sha256-v1',key:rule.lockKey(C)});
+  try {
+   await f.window.run(C,()=>{});
+   const admissions=f.log.filter(([sql])=>sql.includes('/* operation-window-snapshot */'));
+   assert.deepEqual(admissions.map(([,values])=>values),[[C,rule.lockKey(C)]]);
+  } finally {await f.window.close();}
+ });
+
+});

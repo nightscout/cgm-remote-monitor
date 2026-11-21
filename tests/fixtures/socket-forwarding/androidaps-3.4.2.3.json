@@ -1,0 +1,50 @@
+{
+  "classification": "source-pinned pattern replay; not a binary execution or complete client model",
+  "repository": "https://github.com/nightscout/AndroidAPS",
+  "tag": "3.4.2.3",
+  "commit": "05a3433598ac49a3ecafcbd218fc5c1fc39c8719",
+  "sources": [
+    {
+      "path": "plugins/sync/src/main/kotlin/app/aaps/plugins/sync/nsclient/services/NSClientService.kt",
+      "sha256": "cb22f485fe2f34016b88dd2737ec9c6d2f70bc820aa6ded704e6f8861c9e060a",
+      "anchors": {
+        "socket": 281,
+        "authorize": 374,
+        "dbUpdate": 603,
+        "dbAdd": 621,
+        "ack": 630,
+        "resend": 644
+      }
+    },
+    {
+      "path": "plugins/sync/src/main/kotlin/app/aaps/plugins/sync/nsclient/acks/NSAddAck.kt",
+      "sha256": "2032f88e5bfa8c6315a9cb0c5941c7783e89e170e8fa197cf5f8f08baa87acda",
+      "anchors": {
+        "arrayReply": 31,
+        "id": 35
+      }
+    },
+    {
+      "path": "plugins/sync/src/main/kotlin/app/aaps/plugins/sync/nsclient/acks/NSUpdateAck.kt",
+      "sha256": "5d5bf3623fcc2a28af48430bf48ea7d25b5cd562feffe93f3c68c137196029d5",
+      "anchors": {
+        "result": 32
+      }
+    },
+    {
+      "path": "plugins/sync/src/main/kotlin/app/aaps/plugins/sync/nsclient/acks/NSAuthAck.kt",
+      "sha256": "e2ee6c209d40401fee2acb28b89d49880ccd2cc349de07d9a84216a81f1ba0de",
+      "anchors": {
+        "permissions": 15
+      }
+    },
+    {
+      "path": "plugins/sync/src/main/kotlin/app/aaps/plugins/sync/nsclient/workers/NSClientAddAckWorker.kt",
+      "sha256": "cd4a69ee48f1ee02cff2b3d790f7204e6d2f23f4d923b9dbf112bfc67c037081",
+      "anchors": {
+        "worker": 45
+      }
+    }
+  ],
+  "namespaceBoundary": "NSClient uses main socket at configured URL; current server implements alarm ack in /alarm only. Namespace/ack persistence join remains unmeasured."
+}

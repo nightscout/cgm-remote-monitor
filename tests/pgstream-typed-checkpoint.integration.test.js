@@ -1,0 +1,61 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {optInSuite}=require('./support/opt-in');
+const {create,WORK_COLUMNS}=require('../lib/pgstream/checkpoint');
+const {run}=require('../lib/migrations/postgres');
+const scope=require('../lib/storage/tenant-scope');
+optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('typed evaluator receipts and output handoff on actual PostgreSQL',function(){
+ this.timeout(30000);const lab=require('./fixtures/tenant-projection-evaluator')();let store,table;
+ before(async()=>{await lab.open();table='"'+lab.replayNamespace+'".tenant_consumer_checkpoint';await run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:lab.replayNamespace,catalogue:require('../migrations/candidates/postgres-evaluator-work-v2.json')});await lab.admin.query('GRANT UPDATE('+WORK_COLUMNS.join(',')+') ON '+table+' TO "'+lab.readerRole+'"');await lab.admin.query('CREATE POLICY typed_receipts ON '+table+' TO "'+lab.readerRole+'" USING (consumer=\'evaluator-typed-completed\') WITH CHECK (consumer=\'evaluator-typed-completed\')');});
+ beforeEach(async()=>{await lab.reset();store=create({connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-typed',maxBytes:4194304,timeIntervalMs:60000,typed:true});for(const tenant of [lab.A,lab.B])await lab.provision(store.consumer,tenant,null,0,store.digest);await store.own(()=>{});await store.admit([lab.A,lab.B]);});
+ afterEach(async()=>{await store?.close();});after(()=>lab.close());
+ const result=()=>({checkpoint:1,trigger:'acquisition',properties:{bgnow:123},emitted:[],requested:[],encodedRows:[{synthetic:'x'.repeat(32768)}],frame:{sgvs:[{mgdl:123}],lastUpdated:10},due:{dueAt:8572.42857142857,slow:[]}});
+ const row=async tenant=>(await lab.admin.query('SELECT * FROM '+table+' WHERE consumer=$1 AND tenant_id=$2',[store.consumer,tenant])).rows[0];
+ it('commits exact source versions and control outbox while tenant work is suspended',async()=>{await store.observe(lab.A,'clock','9007199254740993');await store.observe(lab.B,'activity','1',false);assert.deepEqual(await store.begin(lab.A),{clock:'9007199254740993'});assert.equal((await row(lab.B)).work_enabled,false);assert.equal((await row(lab.B)).delivery_revision,'1','CONTROL_COMMITS_DELIVERY_OBLIGATION');assert.equal((await row(lab.A)).delivery_revision,'0');assert.deepEqual((await store.work()).map(r=>r.tenant),[lab.A]);});
+ it('atomically separates typed progress from immutable output and advances durable handoff once',async()=>{await store.observe(lab.A,'clock','1');const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),restoreGeneration:'9007199254740993',result:result()}));const stored=await row(lab.A);assert.equal(stored.work_due_at,'8573');assert.equal(stored.output_restore_generation,'9007199254740993');assert.deepEqual(Object.keys(stored.projection[0]).sort(),['kind','output']);assert(!Object.hasOwn(stored.projection[0].output,'outputRevision'));assert.equal(stored.delivery_revision,'1');assert.equal(first.deliveryPending,true);await store.observe(lab.A,'clock','2');const next=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'2'},identity:'a'.repeat(64),restoreGeneration:'9007199254740993',result:result(),retainedOutput:first.output}));assert.equal(next.changed,false);assert.equal(next.output,first.output);const saved=await row(lab.A);assert.deepEqual(saved.projection,stored.projection);assert.equal(saved.delivery_revision,'1');assert.equal(next.deliveryPending,false,'UNCHANGED_OUTPUT_IS_NO_NEW_OBLIGATION');assert.equal(saved.delivery_ack_revision,'0','EVALUATOR_WRITES_NO_DELIVERY_ACK');});
+ it('reuses only the current immutable revision, rejecting tampered retained fields',async()=>{await store.observe(lab.A,'clock','1');const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:result()}));assert.equal(await store.output(lab.A,'a'.repeat(64),{retained:first.output}),first.output);for(const mutate of [o=>({...o,inputCheckpoint:99}),o=>({...o,frame:{...o.frame,lastUpdated:99}}),o=>({...o,rows:[]})]){const hint=mutate(first.output);const output=await store.output(lab.A,'a'.repeat(64),{retained:hint});assert.notEqual(output,hint);assert.deepEqual(output,first.output);}await store.observe(lab.A,'activity','1',false);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);});
+ // The runtime's cold loadOutput: one statement, so a completion landing
+ // between two reads cannot label one revision's body with another's version.
+ it('reads a cold output in one statement from one snapshot',async()=>{
+  const queries=[];let between=null;
+  const reader={...lab.reader,async query(text,values){const result=await lab.reader.query(text,values);if(String(text).includes('tenant_consumer_checkpoint')){queries.push(text);if(between){const step=between;between=null;await step();}}return result;}};
+  await store.close();store=create({connection:reader,namespace:lab.replayNamespace,consumer:'evaluator-typed',maxBytes:4194304,timeIntervalMs:60000,typed:true});await store.own(()=>{});await store.admit([lab.A,lab.B]);
+  await store.observe(lab.A,'clock','1');const one=result();delete one.encodedRows;
+  const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:one}));
+  queries.length=0;const cold=await store.output(lab.A,'a'.repeat(64));
+  assert.equal(queries.length,1,'COLD_OUTPUT_ONE_STATEMENT');assert.deepEqual(cold.frame,one.frame);assert.equal(cold.outputRevision,first.output.outputRevision);
+  await store.observe(lab.A,'clock','2');const two={...result(),properties:{bgnow:150},frame:{sgvs:[{mgdl:150}],lastUpdated:20}};delete two.encodedRows;
+  let second;between=()=>scope.withTenant(lab.A,async()=>{second=await store.complete(lab.A,{observed:{clock:'2'},identity:'a'.repeat(64),result:two});});
+  const raced=await store.output(lab.A,'a'.repeat(64));
+  assert(second?.changed,'COMPLETION_INTERLEAVED_AFTER_FIRST_STATEMENT');
+  const body=raced.outputRevision===first.output.outputRevision?one:two;
+  assert.deepEqual(raced.frame,body.frame,'COLD_OUTPUT_TORN_ACROSS_REVISIONS');assert.deepEqual(raced.result.properties,body.properties);
+ });
+ it('persists and reuses row-free clinical completion through cold output recovery',async()=>{
+  await store.observe(lab.A,'clock','1');const clinical=result();delete clinical.encodedRows;
+  const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:clinical}));
+  const stored=(await row(lab.A)).projection[0].output;
+  assert.equal(Object.hasOwn(stored,'rows'),false,'STREAM_OUTPUT_MUST_NOT_PERSIST_RAW_PROJECTION');assert.deepEqual(stored.frame,clinical.frame);
+  const cold=await store.output(lab.A,'a'.repeat(64));assert.deepEqual(cold.frame,clinical.frame);assert.equal(cold.rows,undefined);
+  assert.equal(await store.output(lab.A,'a'.repeat(64),{retained:cold}),cold,'ROW_FREE_OUTPUT_MUST_RETAIN_VALID_CONTENT_DIGEST');
+  const same=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:clinical,retainedOutput:cold}));
+  assert.equal(same.changed,false);assert.equal(same.output,cold);assert.deepEqual((await row(lab.A)).projection[0].output,stored);
+ });
+ it('detects a removed actual typed UPDATE grant and succeeds only after restoration',async()=>{await lab.admin.query('REVOKE UPDATE(work_observed) ON '+table+' FROM "'+lab.readerRole+'"');try{await assert.rejects(store.observe(lab.A,'clock','1'),error=>error.code==='42501');assert.deepEqual(await store.begin(lab.A),{});}finally{await lab.admin.query('GRANT UPDATE(work_observed) ON '+table+' TO "'+lab.readerRole+'"');}await store.observe(lab.A,'clock','1');assert.deepEqual(await store.begin(lab.A),{clock:'1'});});
+ // Prototype compatibility is retired: preserve old data on refusal, never promote it.
+ it('refuses nonempty old work without transferring or altering its payload',async()=>{
+  const state={kind:'evaluator-work-v1',output:{synthetic:'x'.repeat(1048576)}};
+  await lab.admin.query('UPDATE '+table+' SET work_version=0,projection=$2::jsonb WHERE tenant_id=$1 AND consumer=$3',[lab.A,JSON.stringify([state]),store.consumer]);
+  const before=await row(lab.A);let transferred=0;
+  const pool={async connect(){return {async query(...args){const result=await lab.admin.query(...args);if(String(args[0]).startsWith('SELECT tenant_id'))transferred+=Buffer.byteLength(JSON.stringify(result.rows));return result;},release(){}};}};
+  await assert.rejects(require('../lib/pgstream/work-state').admit({pool,observeBackend:async()=>{},table:lab.replayNamespace+'.tenant_consumer_checkpoint',consumer:store.consumer,digest:store.digest,tenants:[lab.A]}),/EVALUATOR_OUTPUT_CONTRACT/);
+  assert(transferred<1024,'ADMISSION_MUST_NOT_TRANSFER_CLINICAL_OUTPUT');assert.deepEqual(await row(lab.A),before);
+ });
+ it('admits a new live tenant without restarting or rereading the existing roster and caps each admission page',async()=>{
+  const tenants=Array.from({length:65},(_,i)=>'00000000-0000-4000-8000-'+String(i+1).padStart(12,'0'));
+  await lab.admin.query('INSERT INTO '+table+' (tenant_id,consumer,contract_digest,checkpoint) SELECT tenant,$2,$3,0 FROM unnest($1::uuid[]) AS tenant',[tenants,store.consumer,store.digest]);await assert.rejects(store.begin(tenants[64]),/OUTPUT_CONTRACT/);const pages=[];
+  const pool={async connect(){return {async query(...args){if(String(args[0]).startsWith('SELECT tenant_id'))pages.push(args[1][1].length);return lab.admin.query(...args);},release(){}};}};
+  await require('../lib/pgstream/work-state').admit({pool,observeBackend:async()=>{},table:lab.replayNamespace+'.tenant_consumer_checkpoint',consumer:store.consumer,digest:store.digest,tenants});assert.deepEqual(pages,[64,1]);assert.deepEqual(await store.begin(tenants[64]),{});await store.observe(tenants[64],'clock','9007199254740993');assert.deepEqual(await store.begin(tenants[64]),{clock:'9007199254740993'});assert.deepEqual(await store.begin(lab.A),{});
+ });
+ it('commits each control generation as a monotone delivery obligation with no evaluator ACK surface',async()=>{await store.observe(lab.A,'activity','1',true);await store.observe(lab.A,'policy','1');assert.equal((await row(lab.A)).delivery_revision,'2');await store.observe(lab.A,'policy','1');assert.equal((await row(lab.A)).delivery_revision,'2','DUPLICATE_IS_NO_NEW_OBLIGATION');for(const retired of ['deliveries','acknowledge'])assert.equal(store[retired],undefined,'RETIRED '+retired);assert.equal((await row(lab.A)).delivery_ack_revision,'0');});
+});

@@ -1,0 +1,431 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const scope = require('../lib/storage/tenant-scope');
+const createV3 = require('../lib/storage/postgres-entries-intent');
+const createLegacy = require('../lib/storage/postgres-collection-intent');
+const intent = require('../lib/storage/write-intent');
+const dates = require('../lib/server/srv-dates');
+const { fromMongo } = require('../lib/storage/filter');
+const postgresDomains = require('../lib/server/serve/postgres-domains');
+const createLab = require('./fixtures/tenant-commit-clock-port');
+const { optInSuite } = require('./support/opt-in');
+
+const deferred = () => {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+};
+const document = identifier => ({ identifier, device: 'synthetic-clock', type: 'sgv', sgv: 123,
+  date: 1793923200000, utcOffset: 0 });
+
+optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
+  'NS_TENANT_COMMIT_CLOCK_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')(
+  'tenant commit clock actual PostgreSQL port', function () {
+    this.timeout(30000);
+    const lab = createLab();
+    before(() => lab.open());
+    beforeEach(() => lab.reset());
+    after(() => lab.close());
+    const port = (worker, bus) => createV3({ connection: lab.clocks[worker], table: lab.table, bus });
+    const write = (worker, identifier, tenant = lab.A) => scope.withTenant(tenant, () =>
+      port(worker).write({ op: 'create', docs: [document(identifier)], canUpdate: true }));
+
+    async function insertionState () {
+      const ordinals = await lab.admin.query('SELECT id_kind,"_id",insertion_ordinal FROM "' +
+        lab.namespaces.entries + '".entries WHERE tenant_id=$1 ORDER BY id_kind,"_id"', [lab.A]);
+      const counter = await lab.admin.query('SELECT last_ordinal FROM "' + lab.namespaces.entries +
+        '".tenant_insertion_ordinal WHERE tenant_id=$1', [lab.A]);
+      return { ordinals: ordinals.rows, counter: counter.rows };
+    }
+    async function seedIndependentRows () {
+      await write(0, 'lower-existing');
+      await write(1, 'higher-existing');
+      const stored = await scope.withTenant(lab.A, async () => Promise.all(
+        ['lower-existing', 'higher-existing'].map(async identifier => {
+          // This API returns an array; options are its third argument. Read
+          // two at most so duplicate targets fail instead of hiding at LIMIT 1.
+          const rows = await port(0).storage.findOneFilter({ identifier }, undefined,
+            { normalize: false, limit: 2 });
+          assert.equal(rows.length, 1, 'Seed identifier must resolve exactly one stored row');
+          assert.equal(rows[0].identifier, identifier);
+          assert.equal(rows[0]._id._bsontype, 'ObjectId', 'Retain the actual decoded seed identity kind');
+          return rows[0];
+        })));
+      assert.equal(stored.length, 2);
+      assert.notEqual(String(stored[0]._id), String(stored[1]._id));
+      const baseline = await lab.floor(lab.A);
+      assert.equal(baseline, Math.max(...stored.map(row => row.srvModified)));
+      return { stored, baseline, insertion: await insertionState() };
+    }
+    const replacement = stored => ({ op: 'update', docs: [{ ...document(stored.identifier), sgv: 124 }],
+      target: { identifier: stored.identifier, stored } });
+
+    it('characterizes a durable uniqueness-only counter losing a lower late replacement behind an observed higher cursor', async function () {
+      const { stored, baseline, insertion } = await seedIndependentRows();
+      const acquired = deferred(), release = deferred();
+      // The earlier INSERT control timed out because the tenant-local insertion
+      // counter serialized both creates. Use independent existing rows so this
+      // alternative tests history-clock commit order without that other lock.
+      // Commit the atomic stamp before the raw data transaction; shipping
+      // intent/adapter replacement must retain both insertion ordinals/floor.
+      async function detached (worker, row, hold) {
+        return scope.withTenant(lab.A, async () => {
+          const allocated = await lab.raw[worker].query('UPDATE "' + lab.namespaces.clock +
+            '".tenant_write_clock SET last_stamp=last_stamp+1 WHERE tenant_id=$1 RETURNING last_stamp', [lab.A]);
+          const value = Number(allocated.rows[0].last_stamp);
+          let issued = false;
+          const allocator = { tenant: lab.A, active: true, next () {
+            assert.equal(issued, false, 'The control admits one timestamped mutation');
+            issued = true;
+            return value;
+          } };
+          try {
+            return await lab.raw[worker].transaction(() => dates.withAllocator(allocator, async () => {
+              const step = intent.forCollectionResolved(port(worker).storage, 'entries', 'v3', { env: {} });
+              const result = await step.write(replacement(row));
+              assert.equal(result.items[0].outcome, 'replaced');
+              if (hold) { acquired.resolve(); await release.promise; }
+            }));
+          } finally { allocator.active = false; }
+        });
+      }
+      const first = detached(0, stored[0], true);
+      first.catch(() => {});
+      let cursor;
+      try {
+        await Promise.race([acquired.promise, first.then(() => { throw new Error('Held write ended before its barrier'); })]);
+        await detached(1, stored[1], false);
+        const visible = await lab.rows(lab.A, baseline);
+        assert.deepEqual(visible.map(row => row.identifier), ['higher-existing']);
+        cursor = visible[0].srvModified;
+        assert.equal(cursor, baseline + 2);
+        assert.equal((await lab.rows()).find(row => row.identifier === 'lower-existing').srvModified, stored[0].srvModified);
+        assert.deepEqual(await insertionState(), insertion, 'Replacement must not acquire a new insertion ordinal');
+      } finally {
+        release.resolve();
+        await Promise.allSettled([first]);
+      }
+      await first;
+      const final = await lab.rows(lab.A, baseline);
+      assert.deepEqual(final.map(row => row.identifier), ['lower-existing', 'higher-existing']);
+      assert.equal(final[0].srvModified, baseline + 1);
+      assert.ok(final.every(row => row.sgv === 124));
+      assert.deepEqual(await insertionState(), insertion);
+      assert.deepEqual(await lab.rows(lab.A, cursor), [], 'Exclusive cursor misses the actual lower late replacement');
+    });
+
+    it('holds lower replacement allocation through COMMIT before an independent row can expose a higher cursor', async function () {
+      const { stored, baseline, insertion } = await seedIndependentRows();
+      const acquired = deferred(), release = deferred();
+      const bus = new EventEmitter();
+      let events = 0;
+      bus.on(intent.INTENT_EVENT, () => { events++; });
+      const first = scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
+        const result = await port(0, bus).write(replacement(stored[0]));
+        assert.equal(result.items[0].outcome, 'replaced');
+        acquired.resolve();
+        await release.promise;
+      }));
+      first.catch(() => {});
+      let second;
+      try {
+        await Promise.race([acquired.promise, first.then(() => { throw new Error('Held write ended before its barrier'); })]);
+        assert.deepEqual(await lab.rows(lab.A, baseline), [], 'Lower replacement must still be uncommitted');
+        assert.equal(events, 0);
+        assert.equal(await lab.floor(lab.A), baseline);
+        second = scope.withTenant(lab.A, () => port(1).write(replacement(stored[1])));
+        second.catch(() => {});
+        const waiting = await lab.waitForClockLock();
+        assert.ok(waiting.blockers.length > 0, 'Actual history clock allocation must have a blocking backend');
+        assert.deepEqual(await lab.rows(lab.A, baseline), [], 'Higher cursor must not become visible ahead of held lower replacement');
+        assert.deepEqual(await insertionState(), insertion);
+        assert.equal(events, 0);
+      } finally {
+        release.resolve();
+        await Promise.allSettled([first, second].filter(Boolean));
+      }
+      await first;
+      assert.equal((await second).items[0].outcome, 'replaced');
+      const rows = await lab.rows(lab.A, baseline);
+      assert.deepEqual(rows.map(row => row.identifier), ['lower-existing', 'higher-existing']);
+      assert.deepEqual(rows.map(row => row.srvModified), [baseline + 1, baseline + 2]);
+      assert.ok(rows.every(row => row.sgv === 124));
+      assert.deepEqual((await lab.rows(lab.A, rows[0].srvModified)).map(row => row.identifier), ['higher-existing']);
+      assert.deepEqual(await insertionState(), insertion);
+      assert.equal(events, 1);
+      assert.equal(await lab.floor(lab.A), rows[1].srvModified);
+    });
+
+    it('rolls back actual data, high-water and queued logical events together', async function () {
+      const bus = new EventEmitter();
+      let events = 0;
+      bus.on(intent.INTENT_EVENT, () => { events++; });
+      await scope.withTenant(lab.A, () => assert.rejects(lab.clocks[0].transaction(async () => {
+        await port(0, bus).write({ op: 'create', docs: [document('rolled-back')] });
+        const visibleInside = await lab.raw[0].query('SELECT doc FROM "' + lab.namespaces.entries + '".entries');
+        assert.equal(visibleInside.rows.length, 1);
+        throw new Error('synthetic rollback after actual INSERT');
+      }), /synthetic rollback after actual INSERT/));
+      assert.deepEqual(await lab.rows(), []);
+      assert.equal(await lab.floor(lab.A), lab.initial);
+      assert.equal(events, 0);
+      await write(1, 'after-rollback');
+      assert.equal((await lab.rows())[0].srvModified, lab.initial + 1);
+    });
+
+    it('allows tenant B through the shared pool while tenant A holds and waits on its fence', async function () {
+      const acquired = deferred(), release = deferred();
+      const first = scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
+        await port(0).write({ op: 'create', docs: [document('a-held')] });
+        acquired.resolve();
+        await release.promise;
+      }));
+      first.catch(() => {});
+      let waiter;
+      try {
+        await Promise.race([acquired.promise, first.then(() => { throw new Error('Held write ended before its barrier'); })]);
+        waiter = write(0, 'a-waiter');
+        waiter.catch(() => {});
+        await lab.waitForClockLock();
+        await write(0, 'b-progress', lab.B);
+        assert.deepEqual((await lab.rows(lab.B)).map(row => row.identifier), ['b-progress']);
+        assert.deepEqual(await lab.rows(lab.A), []);
+        assert.equal(await lab.floor(lab.A), lab.initial);
+        assert.equal(await lab.floor(lab.B), lab.initial + 1);
+      } finally {
+        release.resolve();
+        await Promise.allSettled([first, waiter].filter(Boolean));
+      }
+      await first;
+      await waiter;
+    });
+
+    it('settles a complete legacy identity resend while an independent writer holds the clock', async function () {
+      const step = worker => createLegacy({ connection: lab.clocks[worker], table: lab.table, logical: 'entries',
+        source: 'v1/internal', env: { write: { resend: 'refuse' } }, naturalOrder: true });
+      const docs = () => [0, 1].map(i => ({ ...document('repeat-' + i), date: 1793923200000 + i }));
+      const batch = worker => scope.withTenant(lab.A, () => {
+        const writer = step(worker);
+        return writer.write(writer.plan({ op: 'create', docs: docs() }));
+      });
+      const racing = await Promise.all([batch(0), batch(1)]);
+      assert.deepEqual(racing.map(reply => reply.items.map(it => it.outcome).join(',')).sort(),
+        ['inserted,inserted', 'refused,refused']);
+      const baseline = await lab.floor(lab.A);
+      const entered = deferred(), release = deferred();
+      const held = scope.withTenant(lab.A, () => lab.clocks[0].transaction(async () => {
+        await port(0).write({ op: 'create', docs: [document('held-separate')] });
+        entered.resolve();
+        await release.promise;
+      }));
+      let pending;
+      try {
+        await Promise.race([held, entered.promise]);
+        pending = batch(1);
+        let timer;
+        const timeout = new Promise((resolve, reject) => {
+          timer = setTimeout(() => reject(new Error('A read-only legacy resend waited on the history lock')), 4000);
+        });
+        const reply = await Promise.race([pending, timeout]).finally(() => clearTimeout(timer));
+        assert.deepEqual(reply.items.map(it => it.outcome), ['refused', 'refused']);
+        assert.equal(await lab.floor(lab.A), baseline);
+      } finally { release.resolve(); await Promise.allSettled([held, pending]); }
+      await held;
+    });
+
+    it('returns stored dates on an acknowledged legacy resend without allocating a new cursor', async function () {
+      await write(0, 'acknowledged-cursor');
+      const stored = (await lab.rows())[0], before = await lab.floor(lab.A);
+      const step = createLegacy({ connection: lab.clocks[1], table: lab.table, logical: 'entries',
+        source: 'v1/internal', env: { write: { resend: 'acknowledge' } }, naturalOrder: true });
+      await scope.withTenant(lab.A, async () => {
+        const doc = document(stored.identifier), planned = step.plan({ op: 'create', docs: [doc] });
+        assert.equal(Object.hasOwn(doc, 'srvModified'), false, 'PLANNING_MUST_NOT_ISSUE_CURSOR');
+        const result = await step.write(planned);
+        assert.equal(result.items[0].outcome, 'unchanged');
+        assert.equal(doc.srvModified, stored.srvModified, 'ACK_REPLY_MUST_USE_STORED_HISTORY_METADATA');
+        assert.equal(doc.srvCreated, stored.srvCreated);
+      });
+      assert.equal(await lab.floor(lab.A), before, 'ACK_MUST_NOT_ADVANCE_CURSOR');
+      assert.deepEqual(await lab.rows(), [stored]);
+    });
+
+    it('queues an insert on the ordinal after acquiring history, then admits another writer after release', async function () {
+      await write(0, 'seed-ordinal');
+      const entered = deferred(), release = deferred();
+      // An uncommitted fixture insert isolates the ordinal contention in the
+      // trigger. Roll it back so it cannot create an unstamped public row.
+      const blocker = scope.withTenant(lab.A, () => assert.rejects(lab.raw[0].transaction(async () => {
+        await port(0).storage.insertOne(document('ordinal-blocker'));
+        entered.resolve();
+        await release.promise;
+        throw new Error('rollback ordinal fixture');
+      }), /rollback ordinal fixture/));
+      let first, second;
+      try {
+        await Promise.race([blocker, entered.promise]);
+        first = write(1, 'first-ordinal');
+        const until = Date.now() + 4000;
+        let blocked;
+        do {
+          blocked = (await lab.admin.query(`SELECT pg_blocking_pids(pid) AS blockers FROM pg_stat_activity
+            WHERE application_name=$1 AND wait_event_type='Lock' AND query LIKE 'INSERT INTO %entries%'`,
+          [lab.name + '_1'])).rows[0];
+          if (!blocked) await new Promise(done => setTimeout(done, 5));
+        } while (!blocked && Date.now() < until);
+        assert.ok(blocked && blocked.blockers.length, 'insertion trigger waits for the uncommitted ordinal');
+        second = write(0, 'second-ordinal');
+        const historyWait = await lab.waitForClockLock();
+        assert.ok(historyWait.blockers.length, 'the writer behind the ordinal holds the history fence');
+      } finally {
+        release.resolve();
+        await Promise.allSettled([blocker, first, second]);
+      }
+      await Promise.all([blocker, first, second]);
+      assert.deepEqual((await lab.rows()).map(row => row.identifier), ['seed-ordinal', 'first-ordinal', 'second-ordinal']);
+      assert.equal((await insertionState()).ordinals.length, 3);
+    });
+
+    it('finalizes an earlier legacy plan above an intervening committed v3 cursor without changing its identities or domain dates', async function () {
+      const step = createLegacy({ connection: lab.clocks[0], table: lab.table, logical: 'entries',
+        source: 'v1/internal', env: {}, naturalOrder: true });
+      await scope.withTenant(lab.A, async () => {
+        // New identifiers still use the legacy time+type upsert key. Distinct
+        // reading times admit two rows rather than an intentional re-send.
+        const docs = [0, 1].map(i => ({ identifier: 'legacy-' + i, dateString: '2026-11-06T01:00:0' + i + '+01:00',
+          type: 'sgv', sgv: 120 + i, nested: { falsy: false, zero: 0 } }));
+        const planned = step.plan({ op: 'create', docs });
+        const before = docs.map(doc => ({ ...doc }));
+        const filters = planned.ops.map(op => structuredClone(op.updateOne.filter));
+        assert.notDeepEqual(filters[0], filters[1], 'The fixture must admit two distinct legacy readings');
+        await write(1, 'intervening-cursor');
+        const cursor = (await lab.rows())[0].srvModified;
+        await step.write(planned);
+        const rows = await lab.rows(lab.A, cursor);
+        assert.deepEqual(rows.map(row => row.identifier), ['legacy-0', 'legacy-1']);
+        assert.deepEqual(rows.map(row => row.srvModified), [cursor + 1, cursor + 2]);
+        rows.forEach((row, i) => {
+          assert.equal(row.sysTime, before[i].sysTime);
+          assert.equal(row.dateString, before[i].dateString);
+          assert.equal(row.utcOffset, 60);
+          assert.deepEqual(row.nested, before[i].nested);
+          assert.equal(row.srvCreated, row.srvModified);
+          assert.equal(docs[i].srvModified, row.srvModified, 'COMMITTED_REPLY_AND_HISTORY_CURSOR_MUST_AGREE');
+          assert.deepEqual(planned.ops[i].updateOne.filter, filters[i]);
+          assert.equal(String(docs[i]._id), row._id);
+        });
+      });
+    });
+
+    it('refuses absent, stale and overprivileged provisioning without repairing state', async function () {
+      const config = { writeClock: true, domains: ['entries'], namespaces: lab.namespaces,
+        bindings: new Map([[lab.A, {}], [lab.B, {}]]) };
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
+      await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
+      await assert.rejects(write(0, 'missing-floor'), /not provisioned/);
+      assert.deepEqual(await lab.rows(), []);
+      await lab.reset();
+      await write(0, 'stored-ahead');
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock + '".tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
+      assert.equal(await lab.floor(lab.A), 0);
+      await lab.reset();
+      await lab.admin.query('GRANT UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock TO "' + lab.role + '"');
+      try { await assert.rejects(postgresDomains.screenServing(config, lab.raw[0]), /unsafe write clock privileges/); }
+      finally { await lab.admin.query('REVOKE UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock FROM "' + lab.role + '"'); }
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
+    });
+
+    it('preserves refusal to acquire a new commit boundary inside an unrelated raw transaction', async function () {
+      await scope.withTenant(lab.A, () => lab.raw[0].transaction(() =>
+        assert.rejects(lab.clocks[0].transaction(async () => {}), /commit boundary requires a new transaction/)));
+      assert.equal(await lab.floor(lab.A), lab.initial);
+      assert.deepEqual(await lab.rows(), []);
+    });
+
+    it('pages both soft-deleted legacy identifier-absent typed twins across an exclusive history boundary', async function () {
+      // Preexisting typed twins are a seed, not concurrent raw-import coverage.
+      // A truthy identifier would address each row by that identifier instead
+      // of its legacy _id, so it would not exercise everyForm's twin selector.
+      const hex = '1234567890abcdef12345678';
+      for (const kind of ['objectid', 'string']) {
+        const doc = { _id: hex, ...document('unused'), device: kind, srvCreated: lab.initial, srvModified: lab.initial };
+        delete doc.identifier;
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces.entries +
+            '".entries (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, kind, doc]));
+      }
+      await scope.withTenant(lab.A, () => port(0).write({ op: 'delete', form: 'mark', target: { identifier: hex } }));
+      const rows = await lab.rows();
+      assert.equal(rows.length, 2);
+      assert.ok(rows.every(row => row.isValid === false));
+      assert.deepEqual(rows.map(row => row.srvModified), [lab.initial + 1, lab.initial + 2]);
+      assert.equal(await lab.floor(lab.A), lab.initial + 2);
+      const page = await scope.withTenant(lab.A, () => port(0).storage.findFiltered(
+        fromMongo({ srvModified: { $gt: lab.initial } }),
+        { sort: { srvModified: 1 }, limit: 1, options: { normalize: false } }));
+      assert.equal(page.length, 1);
+      // One stamp per mutation previously hid the second stored identity.
+      const next = await lab.rows(lab.A, page[0].srvModified);
+      assert.equal(next.length, 1);
+      assert.equal(next[0].srvModified, lab.initial + 2);
+      assert.equal(next[0].isValid, false);
+      assert.deepEqual([page[0].device, next[0].device].sort(), ['objectid', 'string']);
+
+      // If the last member cannot fit, no part of the new mutation may commit.
+      const almostFull = 8640000000000000 - 2;
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=$1 WHERE tenant_id=$2', [almostFull, lab.A]);
+      await assert.rejects(scope.withTenant(lab.A, () =>
+        port(0).write({ op: 'delete', form: 'mark', target: { identifier: hex } })), /Invalid tenant write clock floor/);
+      assert.equal(await lab.floor(lab.A), almostFull);
+      assert.deepEqual(await lab.rows(), rows);
+    });
+
+    it('admits valid floors across all seven catalogues and ignores nonnumeric or out-of-range legacy server dates', async function () {
+      const config = { writeClock: true, domains: lab.domains, namespaces: lab.namespaces,
+        bindings: new Map([[lab.A, {}], [lab.B, {}]]) };
+      // Real catalogues, real serving grants and RLS. Profile has no physical
+      // srvModified projection; its fractional JSON value is the highest.
+      for (const domain of lab.domains) {
+        const values = [domain === 'profile' ? 103.25 : 100, '7000000000000000', null,
+          false, [999999], { value: 999999 }, -1, 8640000000000000, 1e100];
+        for (let index = 0; index < values.length; index++) {
+          await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+            lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+              '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string',
+              { _id: 'legacy-date-' + index, srvModified: values[index] }]));
+        }
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.A, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.A, 'string', { _id: 'missing-server-date' }]));
+        await require('./fixtures/tenant-insertion-grants').withTenant(lab.admin, lab.B, () =>
+          lab.admin.query('INSERT INTO "' + lab.namespaces[domain] + '"."' + domain +
+            '" (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [lab.B, 'string',
+            { _id: 'foreign-high-date', srvModified: 1000000 }]));
+      }
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=CASE WHEN tenant_id=$1 THEN 104 ELSE 1000000 END', [lab.A]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=103 WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
+      assert.equal(await lab.floor(lab.A), 103, 'Readiness must not repair a stale floor');
+      for (const domain of lab.domains) {
+        await lab.admin.query('DELETE FROM "' + lab.namespaces[domain] + '"."' + domain +
+          '" WHERE tenant_id=$1 AND doc->>\'_id\'=$2', [lab.A, 'legacy-date-0']);
+      }
+      await lab.admin.query('UPDATE "' + lab.namespaces.clock +
+        '".tenant_write_clock SET last_stamp=0 WHERE tenant_id=$1', [lab.A]);
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
+      await lab.admin.query('GRANT UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock TO "' + lab.role + '"');
+      try { await assert.rejects(postgresDomains.screenServing(config, lab.raw[0]), /unsafe write clock privileges/); }
+      finally { await lab.admin.query('REVOKE UPDATE(tenant_id) ON "' + lab.namespaces.clock + '".tenant_write_clock FROM "' + lab.role + '"'); }
+      await postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A);
+      await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock WHERE tenant_id=$1', [lab.A]);
+      await assert.rejects(postgresDomains.checkTenantFloors(config, lab.raw[0], lab.A), /missing or stale/);
+    });
+  });

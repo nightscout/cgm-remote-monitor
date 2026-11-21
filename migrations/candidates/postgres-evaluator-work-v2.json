@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "status": "selected evaluator typed work and durable output handoff; bounded version admission owns legacy row conversion",
+  "migrations": [
+    {
+      "name": "0001_consumer_checkpoint_projection",
+      "up": [
+        "CREATE TABLE tenant_consumer_checkpoint (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), contract_digest text NOT NULL CHECK (contract_digest ~ '^[a-f0-9]{64}$'), checkpoint bigint NOT NULL CHECK (checkpoint >= 0 AND checkpoint < 8640000000000000), projection jsonb CHECK (projection IS NULL OR jsonb_typeof(projection) = 'array'), PRIMARY KEY (tenant_id, consumer))",
+        "ALTER TABLE tenant_consumer_checkpoint ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_consumer_checkpoint FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_consumer_checkpoint_isolation ON tenant_consumer_checkpoint USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_consumer_checkpoint FROM PUBLIC"
+      ],
+      "checksum": "daa0055e54ada5f0a7465d605c69c7bee0a4b0fdfb8e0eb3276ec8c7ee71748f"
+    },
+    {
+      "name": "0002_evaluator_typed_work",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_version smallint NOT NULL DEFAULT 0 CHECK (work_version IN (0,2))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_observed bigint[] CHECK (work_observed IS NULL OR (array_ndims(work_observed) = 1 AND array_lower(work_observed,1) = 1 AND cardinality(work_observed) = 6 AND 0 <= ALL(work_observed)))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_completed bigint[] CHECK (work_completed IS NULL OR (array_ndims(work_completed) = 1 AND array_lower(work_completed,1) = 1 AND cardinality(work_completed) = 6 AND 0 <= ALL(work_completed)))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_observed_at bigint[] CHECK (work_observed_at IS NULL OR (array_ndims(work_observed_at) = 1 AND array_lower(work_observed_at,1) = 1 AND cardinality(work_observed_at) = 6 AND 0 <= ALL(work_observed_at)))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_pending_at bigint CHECK (work_pending_at IS NULL OR (work_pending_at >= 0 AND work_pending_at < 8640000000000000))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_due_at bigint CHECK (work_due_at IS NULL OR (work_due_at >= 0 AND work_due_at < 8640000000000000))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_completed_at bigint CHECK (work_completed_at IS NULL OR (work_completed_at >= 0 AND work_completed_at < 8640000000000000))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_enabled boolean NOT NULL DEFAULT true",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_activity_enabled boolean NOT NULL DEFAULT true",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN work_lifecycle_enabled boolean NOT NULL DEFAULT true",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN delivery_revision bigint NOT NULL DEFAULT 0 CHECK (delivery_revision >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN delivery_ack_revision bigint NOT NULL DEFAULT 0 CHECK (delivery_ack_revision >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_identity text",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_digest text CHECK (output_digest IS NULL OR output_digest ~ '^[a-f0-9]{64}$')",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_revision bigint NOT NULL DEFAULT 0 CHECK (output_revision >= 0 AND output_revision <= 9007199254740991)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_restore_generation bigint CHECK (output_restore_generation IS NULL OR output_restore_generation > 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD CONSTRAINT evaluator_delivery_order CHECK (delivery_ack_revision <= delivery_revision)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD CONSTRAINT evaluator_v2_arrays_required CHECK (work_version <> 2 OR (work_observed IS NOT NULL AND work_completed IS NOT NULL AND work_observed_at IS NOT NULL))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD CONSTRAINT evaluator_observed_at_range CHECK (work_observed_at IS NULL OR 8640000000000000 > ALL(work_observed_at))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD CONSTRAINT evaluator_completed_order CHECK ((work_completed[1] IS NULL OR (work_observed[1] IS NOT NULL AND work_completed[1] <= work_observed[1])) AND (work_completed[2] IS NULL OR (work_observed[2] IS NOT NULL AND work_completed[2] <= work_observed[2])) AND (work_completed[3] IS NULL OR (work_observed[3] IS NOT NULL AND work_completed[3] <= work_observed[3])) AND (work_completed[4] IS NULL OR (work_observed[4] IS NOT NULL AND work_completed[4] <= work_observed[4])) AND (work_completed[5] IS NULL OR (work_observed[5] IS NOT NULL AND work_completed[5] <= work_observed[5])) AND (work_completed[6] IS NULL OR (work_observed[6] IS NOT NULL AND work_completed[6] <= work_observed[6])))",
+        "CREATE INDEX pgstream_evaluator_pending ON tenant_consumer_checkpoint (consumer, work_pending_at, tenant_id) WHERE work_version=2 AND work_enabled AND work_pending_at IS NOT NULL",
+        "CREATE INDEX pgstream_evaluator_due ON tenant_consumer_checkpoint (consumer, work_due_at, tenant_id) WHERE work_version=2 AND work_enabled AND work_due_at IS NOT NULL",
+        "CREATE INDEX pgstream_evaluator_delivery ON tenant_consumer_checkpoint (consumer, tenant_id) WHERE work_version=2 AND delivery_revision > delivery_ack_revision"
+      ],
+      "checksum": "b9b731bfb3b128738e7ba60ef3f9a6e87b2cc500bbaa9d5a211c3307f525b18b"
+    },
+    {
+      "name": "0008_evaluator_notification_pending",
+      "checksum": "4917219dedfb7a8349278c4e465802d4f811e7d1fa5022abccdc93ce2920dace",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN notification_work_pending boolean NOT NULL DEFAULT false",
+        "UPDATE tenant_consumer_checkpoint SET notification_work_pending=true WHERE work_version=2 AND jsonb_path_exists(projection,'$[0].output.result.requested[*]')",
+        "CREATE INDEX pgstream_evaluator_notification_pending ON tenant_consumer_checkpoint (consumer,tenant_id) WHERE work_version=2 AND work_enabled AND notification_work_pending"
+      ]
+    }
+  ]
+}

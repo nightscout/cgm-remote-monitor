@@ -1,0 +1,510 @@
+'use strict';
+
+// Bounded current-state recovery. Historical0bc characterization/captures stay immutable.
+// No retained-transition, distributed-runtime or notification acceptance here.
+const assert = require('node:assert/strict');
+const scope = require('../lib/storage/tenant-scope');
+const { ObjectId } = require('mongodb');
+const createLab = require('./fixtures/m5-current-state-proof');
+const { optInSuite } = require('./support/opt-in');
+
+const at = Date.UTC(2026, 10, 6, 12);
+const older = 'm5-current-string';
+const newer = '0123456789abcdef01234567';
+const reading = (id, sgv, minutes) => ({ _id: id, type: 'sgv', sgv,
+  date: at - minutes * 60000, dateString: new Date(at - minutes * 60000).toISOString(), direction: 'Flat' });
+const mean = observation => observation?.properties?.bgnow?.mean;
+function committed(write) {
+  assert.equal(write.commits.length, 1, 'M5_COMMIT actual transaction receipt');
+  assert.equal(write.commits[0].status, 'committed', 'M5_COMMIT independent transaction status');
+  assert.equal(write.commits[0].earlyEvents, 0, 'M5_COMMIT no intent publication before COMMIT');
+  assert.equal(write.events.length, 1, 'M5_COMMIT canonical committed intent event');
+  assert.equal(write.events[0].committedReceipts, 1, 'M5_COMMIT publication follows checked COMMIT');
+}
+function parity(observation, label) {
+  assert.deepEqual(observation.projectionKeys, observation.physical && Object.entries(observation.physical.tables)
+    .flatMap(([domain, rows]) => rows.filter(row => row.doc.isValid !== false)
+      .map(row => JSON.stringify([domain, row.id_kind, row.doc._id]))).sort(), label + ' typed physical identities');
+  assert.deepEqual(observation.clinical.properties, observation.fresh.properties, label + ' independent clinical output');
+}
+
+optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
+  'NS_M5_CURRENT_STATE_PROOF_TEST=1 with disposable PostgreSQL')(
+  'M5 bounded current-state snapshot recovery', function () {
+    this.timeout(60000);
+    const lab = createLab();
+    before(() => lab.open());
+    beforeEach(() => lab.reset());
+    after(() => lab.close());
+
+    it('reconciles canonical hard-delete absence across unchanged floor restart and later advancement', async function () {
+      // Socket dbAdd is one canonical record per write, as its real caller is.
+      const seeded = await lab.writeCanonical({ planned: { op: 'create', docs: [
+        { ...reading(older, 111, 7), identifier: older }
+      ] } });
+      const seededNewest = await lab.writeCanonical({ planned: { op: 'create', docs: [reading(new ObjectId(newer), 222, 2)] } });
+      const seededB = await lab.writeCanonical({ tenant: lab.B, planned: { op: 'create', docs: [reading(new ObjectId(newer), 333, 2)] } });
+      lab.trace('initial-canonical-writes', { seeded, seededNewest, seededB });
+      committed(seeded); committed(seededNewest); committed(seededB);
+      assert.deepEqual(seededNewest.after.tables.entries.map(row => row.id_kind).sort(), ['objectid', 'string']);
+      await lab.provisionView();
+      const initial = lab.trace('initial-catchup-clinical', await lab.compare(at));
+      parity(initial, 'M5_INITIAL');
+      assert.equal(mean(initial.clinical), 222, 'M5_INITIAL clinical newest reading');
+      const foreign = initial.foreign;
+      const deleted = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: new ObjectId(newer) } } });
+      lab.trace('canonical-hard-delete', { deleted });
+      committed(deleted);
+      assert.equal(deleted.after.tables.entries.length, 1, 'M5_HARD_DELETE physical removal reached');
+      assert.deepEqual(deleted.after.tables.entries.map(row => [row.id_kind, row.doc._id, row.doc.sgv]),
+        [['string', older, 111]], 'M5_HARD_DELETE typed survivor is independent of the removed ObjectId');
+      assert.ok(deleted.after.tables.entries.every(row => row.doc._id !== newer), 'M5_HARD_DELETE independent physical absence');
+      // A physical delete has native transaction coverage, not a public history
+      // stamp. A fresh current-state snapshot must still reconcile its absence.
+      assert.equal(deleted.after.floor, deleted.before.floor, 'M5_HARD_DELETE_PUBLIC_HISTORY_UNCHANGED');
+      assert.equal(deleted.events[0].event.stamp, null, 'M5_HARD_DELETE_NO_PUBLIC_HISTORY_STAMP');
+      const stale = lab.trace('after-delete-catchup-new-handle', await lab.compare(at));
+      assert.equal(stale.clinical.checkpoint, deleted.after.floor);
+      const absentKey = JSON.stringify(['entries', 'objectid', newer]);
+      assert.ok(!stale.projectionKeys.includes(absentKey), 'M5_SNAPSHOT_ABSENCE removed typed key must be absent');
+      assert.equal(stale.projectionKeys.length, 1, 'M5_SNAPSHOT_ABSENCE full current identity replacement');
+      assert.equal(mean(stale.clinical), 111, 'M5_SNAPSHOT_ABSENCE actual recovered clinical output');
+      assert.equal(mean(stale.fresh), 111, 'M5_HARD_DELETE independent current-table clinical oracle');
+      parity(stale, 'M5_SNAPSHOT_ABSENCE');
+      assert.deepEqual(stale.foreign, foreign, 'M5_TENANT foreign stored values/floor/checkpoint unchanged');
+      const restarted = lab.trace('restart-with-no-new-floor', await lab.compare(at));
+      assert.deepEqual(restarted.projectionKeys, stale.projectionKeys);
+      assert.equal(mean(restarted.clinical), 111);
+      assert.equal(mean(restarted.fresh), 111);
+
+      const unrelated = await lab.writeCanonical({ source: 'v1/internal',
+        planned: { op: 'create', docs: [reading('m5-unrelated-advance', 98, 30)] } });
+      lab.trace('unrelated-canonical-stamped-write', { unrelated });
+      committed(unrelated);
+      assert.ok(unrelated.after.floor > deleted.after.floor, 'M5_ADVANCE actual unrelated floor advancement');
+      const advanced = lab.trace('advanced-checkpoint-new-handle', await lab.compare(at));
+      assert.equal(advanced.clinical.checkpoint, unrelated.after.floor);
+      assert.equal(advanced.physical.tables.entries.length, 2);
+      assert.ok(!advanced.projectionKeys.includes(absentKey));
+      assert.equal(advanced.projectionKeys.length, 2, 'M5_SNAPSHOT_ADVANCE no absent key after later floor');
+      assert.equal(mean(advanced.clinical), 111);
+      parity(advanced, 'M5_SNAPSHOT_ADVANCE');
+      assert.equal(mean(advanced.fresh), 111);
+      assert.deepEqual(advanced.foreign, foreign);
+
+      const marked = await lab.writeCanonical({ source: 'v3', planned: { op: 'delete', form: 'mark', target: { identifier: older } } });
+      lab.trace('canonical-soft-delete', { marked });
+      committed(marked);
+      assert.ok(marked.after.floor > marked.before.floor, 'M5_SOFT_DELETE floor advances');
+      const markedRow = marked.after.tables.entries.find(row => row.doc._id === older);
+      assert.ok(markedRow, 'M5_SOFT_DELETE independent retained row exists');
+      assert.equal(markedRow.doc.isValid, false);
+      const soft = lab.trace('soft-delete-positive', await lab.compare(at));
+      parity(soft, 'M5_SOFT_DELETE');
+      assert.equal(soft.projectionKeys.length, 1, 'M5_SOFT_DELETE invalid key removed');
+      assert.deepEqual(soft.foreign, foreign);
+    });
+
+    for (const source of ['v1/internal', 'socket']) {
+      it('reconciles dates:none activity create and unchanged-floor update from ' + source, async function () {
+        await lab.provisionView();
+        const before = await lab.physical();
+        const foreign = await lab.physical(lab.B);
+        const doc = { _id: new ObjectId('1234567890abcdef12345678'),
+          created_at: new Date(at).toISOString(), date: at, steps: 1 };
+        const created = await lab.writeCanonical({ logical: 'activity', source, planned: { op: 'create', docs: [doc] } });
+        const initial = await lab.compare(at);
+        const checkpointBeforeStrict = await lab.checkpointView(lab.A);
+        const firstAttempt = await lab.replayAttempt();
+        lab.trace('activity-created-' + source, { created, initial, firstAttempt, physical: await lab.physical(), foreign: await lab.physical(lab.B) });
+        committed(created);
+        assert.equal(created.after.tables.activity.length, 1, 'M5_ACTIVITY physical create reached');
+        // Unstamped activity belongs to native transaction coverage. The dormant
+        // snapshot contract can read it at an unchanged public history floor.
+        assert.equal(created.after.floor, before.floor, 'M5_ACTIVITY_PUBLIC_HISTORY_UNCHANGED');
+        assert.equal(created.events[0].event.stamp, null, 'M5_ACTIVITY_NO_PUBLIC_HISTORY_STAMP');
+        assert.equal(Object.hasOwn(created.after.tables.activity[0].doc, 'srvModified'), false);
+        assert.equal(firstAttempt.error && firstAttempt.error.name, 'Error', 'M5_ACTIVITY wrong failure layer is invalid');
+        assert.equal(firstAttempt.error.message, 'REPLAY_UNSTAMPED_OR_UNFENCED_ROW', 'M5_ACTIVITY_HYPOTHESIS exact replay refusal');
+        parity(initial, 'M5_SNAPSHOT_ACTIVITY_CREATE');
+        assert.equal(initial.recovered.rows.find(row => row.domain === 'activity').doc.steps, 1);
+        assert.deepEqual(await lab.checkpointView(lab.A), checkpointBeforeStrict, 'M5_ACTIVITY strict replay refusal commits no checkpoint');
+        const changed = source === 'socket'
+          ? { op: 'update', form: 'merge', target: { _id: doc._id }, fields: { steps: 2 } }
+          : { op: 'update', docs: [{ ...doc, steps: 2 }] };
+        const updated = await lab.writeCanonical({ logical: 'activity', source, planned: changed });
+        const recovered = await lab.compare(at);
+        const checkpointAfterUpdate = await lab.checkpointView(lab.A);
+        const secondAttempt = await lab.replayAttempt();
+        const final = lab.trace('activity-updated-' + source, { updated, recovered, secondAttempt,
+          physical: await lab.physical(), foreign: await lab.physical(lab.B) });
+        committed(updated);
+        assert.equal(final.physical.tables.activity.length, 1);
+        assert.equal(final.physical.tables.activity[0].doc.steps, 2, 'M5_ACTIVITY independent physical update reached');
+        assert.equal(final.physical.floor, created.after.floor, 'M5_ACTIVITY_UPDATE_PUBLIC_HISTORY_UNCHANGED');
+        assert.equal(Object.hasOwn(final.physical.tables.activity[0].doc, 'srvModified'), false);
+        assert.equal(updated.events[0].event.stamp, null);
+        assert.equal(secondAttempt.error && secondAttempt.error.name, 'Error');
+        assert.equal(secondAttempt.error.message, 'REPLAY_UNSTAMPED_OR_UNFENCED_ROW');
+        parity(recovered, 'M5_SNAPSHOT_ACTIVITY_UPDATE');
+        assert.equal(recovered.recovered.rows.find(row => row.domain === 'activity').doc.steps, 2, 'M5_SNAPSHOT_ACTIVITY_UPDATE actual unstamped update retained');
+        // Snapshot coverage is independent of the unchanged public history floor.
+        assert.equal(recovered.clinical.checkpoint, final.physical.floor, 'M5_ACTIVITY_SNAPSHOT_UNCHANGED_FLOOR');
+        assert.deepEqual(final.physical.checkpoint, checkpointAfterUpdate);
+        assert.deepEqual(final.foreign, foreign);
+      });
+    }
+    it('refuses row and byte bounds and rolls back persistence failure while retaining good state', async function () {
+      await lab.writeCanonical({ planned: { op: 'create', docs: [reading('bound-a', 111, 7)] } });
+      await lab.provisionView();
+      let rows = 10000, bytes = 4 * 1024 * 1024, failPersistence = false, staged;
+      const observed = { ...lab.reader, async query (text, values) {
+        const result = await lab.reader.query(text, values);
+        if (failPersistence && text.startsWith('UPDATE')) {
+          staged = { result, externallyVisibleCheckpoint: await lab.checkpointView(lab.A) };
+          throw new Error('M5_SYNTHETIC_PERSISTENCE_FAILURE');
+        }
+        return result;
+      } };
+      const actual = lab.consumer('clinical-view', observed);
+      const replay = { reconcile: () => actual.reconcile({ maxRows: rows, maxBytes: bytes }) };
+      const instance = lab.evaluator(lab.A, { replay });
+      await lab.at(at, async () => {
+        const good = await instance.evaluate({ at }), saved = await lab.checkpointView(lab.A);
+        await lab.writeCanonical({ planned: { op: 'create', docs: [reading('bound-b', 222, 2)] } });
+        const physical = await lab.physical();
+        const foreign = await lab.physical(lab.B);
+        for (const scenario of ['row', 'byte', 'persistence']) {
+          rows = scenario === 'row' ? 1 : 10000;
+          bytes = scenario === 'byte' ? 1 : 4 * 1024 * 1024;
+          failPersistence = scenario === 'persistence';
+          let error = null;
+          try { await instance.evaluate({ at }); } catch (failure) { error = { name: failure.name, message: failure.message }; }
+          const observation = lab.trace('snapshot-refusal-' + scenario, { scenario, error, staged,
+            savedBefore: saved, physicalBefore: physical, physicalAfter: await lab.physical(),
+            foreignBefore: foreign, foreignAfter: await lab.physical(lab.B), retained: instance.last() });
+          assert.equal(observation.physicalAfter.tables.entries.length, 2, 'M5_SNAPSHOT_BOUND physical oversized inputs reached');
+          assert.deepEqual(observation.physicalAfter.checkpoint, saved, 'M5_SNAPSHOT_BOUND_PERSISTENCE last good persisted projection retained');
+          assert.equal(instance.last(), good, 'M5_SNAPSHOT_BOUND retained clinical state');
+          assert.deepEqual(observation.physicalAfter.tables, physical.tables);
+          assert.deepEqual(observation.foreignAfter, foreign);
+          assert.equal(error && error.name, 'Error', 'M5_SNAPSHOT_REFUSAL wrong failure layer');
+          assert.equal(error.message, scenario === 'persistence' ? 'M5_SYNTHETIC_PERSISTENCE_FAILURE'
+            : scenario === 'row' ? 'REPLAY_SNAPSHOT_ROW_BOUND' : 'REPLAY_SNAPSHOT_BYTE_BOUND');
+          if (scenario === 'persistence') {
+            assert.equal(staged.result.rowCount, 1, 'M5_SNAPSHOT_ROLLBACK actual checkpoint UPDATE reached');
+            assert.deepEqual(staged.externallyVisibleCheckpoint, saved, 'M5_SNAPSHOT_ROLLBACK uncommitted replacement invisible');
+          }
+        }
+        rows = 10000; bytes = 4 * 1024 * 1024; failPersistence = false;
+        const retry = await instance.evaluate({ at });
+        const restored = lab.trace('snapshot-refusal-restored', { retry, observation: await lab.compare(at) });
+        assert.equal(instance.last(), retry);
+        parity(restored.observation, 'M5_SNAPSHOT_REFUSAL_RESTORED');
+      });
+      instance.close();
+    });
+
+    it('reads a complete consistent old cohort across paging and a concurrent canonical commit', async function () {
+      const ids = ['snapshot-a', 'snapshot-b', 'snapshot-c', 'snapshot-d'];
+      for (const [index, id] of ids.entries()) await lab.writeCanonical({ planned: { op: 'create', docs: [reading(id, 111 + index, 7 - index)] } });
+      await lab.writeCanonical({ tenant: lab.B, planned: { op: 'create', docs: [reading(ids[0], 333, 2)] } });
+      await lab.provisionView();
+      const before = await lab.physical(), foreign = await lab.physical(lab.B);
+      let writer, pages = 0;
+      const observed = { ...lab.reader, async query (text, values) {
+        const result = await lab.reader.query(text, values);
+        if (text.startsWith('SELECT domain') && text.includes('snapshot_source') && result.rows.length) {
+          pages++;
+          if (pages === 1) writer = await lab.writeAtomicEntries(ids.map((id, index) => ({ id, value: 221 + index })));
+        }
+        return result;
+      } };
+      const recovered = await scope.withTenant(lab.A, () => lab.consumer('clinical-view', observed)
+        .reconcile({ maxRows: 10000, maxBytes: 4 * 1024 * 1024 }));
+      const after = await lab.physical(), foreignAfter = await lab.physical(lab.B);
+      lab.trace('snapshot-interleaving', { before, foreign, writer, pages, recovered, after, foreignAfter });
+      assert.ok(pages >= 2, 'M5_SNAPSHOT_INTERLEAVE actual multiple full-snapshot pages');
+      assert.equal(writer.status, 'committed');
+      assert.equal(writer.earlyEvents, 0);
+      assert.equal(writer.events.length, ids.length);
+      assert.ok(writer.events.every(event => event.stamp === writer.after.floor));
+      assert.ok(after.floor > before.floor);
+      assert.deepEqual(after.tables.entries.map(row => row.doc.sgv), [221, 222, 223, 224]);
+      assert.deepEqual(recovered.rows.map(row => row.document), before.tables.entries.map(row => row.doc),
+        'M5_SNAPSHOT_COHORT full old cohort, never a mixed old/new page');
+      assert.equal(recovered.checkpoint, before.floor, 'M5_SNAPSHOT_COHORT floor and rows share snapshot');
+      assert.equal(Number(after.checkpoint.checkpoint), before.floor);
+      assert.deepEqual(after.checkpoint.projection.map(row => row.doc), before.tables.entries.map(row => row.doc));
+      assert.deepEqual(foreignAfter, foreign);
+      const fresh = lab.trace('snapshot-interleaving-next', await lab.compare(at));
+      parity(fresh, 'M5_SNAPSHOT_INTERLEAVE_NEXT');
+      assert.equal(fresh.clinical.checkpoint, after.floor);
+    });
+  });
+
+function evaluatorLifecycleSuite (label, factory) {
+optInSuite(process.env.NS_M5_CURRENT_STATE_PROOF_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
+  'NS_M5_CURRENT_STATE_PROOF_TEST=1 with disposable PostgreSQL')(
+  label, function () {
+    this.timeout(60000);
+    const lab = factory();
+    const lifecycle = it;
+    before(() => lab.open()); beforeEach(async () => { await lab.reset(); await lab.provisionPreview(); });
+    afterEach(() => lab.stopChildren()); after(() => lab.close());
+    const runtimeReading = (id, sgv, minutes) => { const instant = Date.now() - minutes * 60000;
+      return { _id: id, type: 'sgv', sgv, date: instant, dateString: new Date(instant).toISOString(), direction: 'Flat' }; };
+    const value = reply => reply && reply.result && reply.result.properties.bgnow?.mean;
+    async function seed (tenant = lab.A, id = 'preview-reading', sgv = 111) {
+      return lab.writeCanonical({ tenant, planned: { op: 'create', docs: [runtimeReading(id, sgv, 2)] } });
+    }
+    async function waitForReading (worker, tenant = lab.A, expected = 111) {
+      return lab.wait(async () => {
+        const last = await worker.call('last', tenant);
+        return last?.eligible && value(last) === expected && last;
+      });
+    }
+    // These tenants were provisioned before the test slot. Open their initial
+    // snapshots before measuring live receipts, deletion and timing.
+    async function startExisting (tenants, config) {
+      const worker = await start(config);
+      for (const tenant of tenants) await worker.call('acquire', tenant);
+      return worker;
+    }
+    const cyclesOf = health => health.tenants.find(row => row.tenant === lab.A).cycles;
+    const version = value => BigInt(value || '0');
+    // Activity is outside clinical membership but stays in the independent raw
+    // tail. Native accepted input, clinical completion and restore authority
+    // must all cover that same durable mutation; public history stamps do not
+    // define any of these internal coverage values.
+    async function activityRecovery(id,steps,previousFloor) {
+      const input=await lab.checkpoint(lab.consumerName,lab.A),clinical=input.projection?.[0],tail=input.projection?.[1];
+      const completed=await lab.previewCompleted();
+      const row=(await lab.admin.query('SELECT work_observed,work_completed,work_enabled FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
+      const restore=(await lab.admin.query('SELECT generation FROM "'+lab.registryNamespaces.control+'".tenant_lifecycle_windows WHERE tenant_id=$1',[lab.A])).rows[0].generation;
+      const observed=require('../lib/pgstream/work-state').map(row.work_observed),done=require('../lib/pgstream/work-state').map(row.work_completed);
+      const raw=tail?.events?.some(event=>event.domain==='activity'&&event.event==='create'&&event.value.doc?.identifier===id&&event.value.doc.steps===steps);
+      const accepted=clinical?.floor,native=clinical?.stream,position=require('../lib/storage/clinical-stream-state').position;
+      return clinical?.rows===undefined&&raw&&version(accepted)>version(previousFloor)&&row.work_enabled&&
+        native?.accepted_position&&tail?.last&&position(native.accepted_position)>=position(tail.last)&&
+        version(observed.bootstrap)>=version(accepted)&&version(done.bootstrap)>=version(accepted)&&
+        version(completed.checkpoint)>=version(accepted)&&completed.projection?.[0]?.output?.frame?.sgvs.length===0&&
+        String(completed.output_restore_generation)===String(restore)
+        ? {input,completed,observed,done,restore}:null;
+    }
+
+    async function start (config = lab.configure()) {
+      const worker = await lab.worker(config);
+      lab.tracePreview('preview-startup', { startup: worker.startup, physical: await lab.previewPhysical(), logs: worker.logs() });
+      assert.equal(worker.startup.bootError, undefined, 'M5_EVAL_STARTUP privileged/schema/provisioning readiness');
+      assert.deepEqual(worker.startup.contexts, ['evaluator'], 'M5_EVAL_LISTENERLESS_BOOT selected evaluator must start');
+      assert.equal(worker.startup.servers, 0);
+      return worker;
+    }
+    lifecycle('boots listenerless role and actual CLI and recovers current state on restart', async function () {
+      const config = lab.configure(), worker = await start(config);
+      // Deliver both initial inputs through the maintained stream, which
+      // admits each addressed tenant before the later CLI restart.
+      const a = await seed(), b = await seed(lab.B, 'preview-reading', 333); committed(a); committed(b);
+      const first = await lab.wait(async () => {
+        const current = await worker.call('last');
+        return value(current) === 111 && value(await worker.call('last', lab.B)) === 333 && current;
+      });
+      const physical = await lab.previewPhysical();
+      lab.tracePreview('preview-first-result', { first, physical });
+      assert.equal(value(first), 111); assert.equal(first.eligible, true);
+      assert.equal(value(await worker.call('last', lab.B)), 333);
+      const stopped = await lab.stopWorker(worker); assert.equal(stopped.code, 0);
+      const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
+      const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
+        { _id: 'preview-activity', created_at: new Date().toISOString(), steps: 1 }
+      ] } });
+      committed(removed); committed(activity);
+      const beforeRestart = await lab.previewPhysical();
+      const cli = await lab.cli(config);let recovered;
+      await lab.wait(async () => {
+        if (cli.child.exitCode !== null || cli.child.signalCode !== null) throw new Error('Evaluator CLI exited before acquisition');
+        recovered=await activityRecovery('preview-activity',1,beforeRestart.A.checkpoint.checkpoint);
+        // Input acceptance can precede CLI readiness and clinical completion.
+        return recovered&&/Evaluator preview started/.test(cli.logs().stdout);
+      });
+      const afterRestart = await lab.previewPhysical();
+      lab.tracePreview('preview-cli-restart', { beforeRestart, afterRestart, recovered, logs: cli.logs(), removed, activity });
+      assert.equal(afterRestart.A.tables.entries.length, 0);
+      assert.equal(afterRestart.A.checkpoint.projection[0].rows,undefined,'M5_EVAL_RESTART_NO_PERSISTED_CLINICAL_INPUT');
+      assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_RESTART_ACTUAL_CLINICAL_ABSENCE');
+      assert.equal(afterRestart.A.tables.activity.find(row=>row.doc._id==='preview-activity').doc.steps,1);
+      assert.equal(afterRestart.A.floor, beforeRestart.A.floor);
+      assert.deepEqual(afterRestart.B.tables,beforeRestart.B.tables,'M5_EVAL_RESTART_FOREIGN_PHYSICAL_ROWS_UNCHANGED');
+      assert.equal(afterRestart.B.floor,beforeRestart.B.floor,'M5_EVAL_RESTART_FOREIGN_PUBLIC_HISTORY_UNCHANGED');
+      assert.match(cli.logs().stdout, /Evaluator preview started/);
+      const exit = new Promise(resolve => cli.child.once('exit', (code, signal) => resolve({ code, signal })));
+      cli.child.kill('SIGTERM'); const result = await exit; assert.equal(result.code, 0); assert.equal(result.signal, null);
+    });
+    lifecycle('finds committed canonical absence and activity through maintained stream receipts', async function () {
+      const worker = await startExisting([lab.A], lab.configure(d => { d.timeIntervalMs = 60000; }));
+      await seed();
+      const first = await waitForReading(worker), foreignBefore = (await lab.previewPhysical()).B;
+      const removed = await lab.writeCanonical({ planned: { op: 'delete', target: { _id: 'preview-reading' } } });
+      const activity = await lab.writeCanonical({ logical: 'activity', planned: { op: 'create', docs: [
+        { _id: 'quiet-activity', created_at: new Date().toISOString(), steps: 2 }
+      ] } });
+      const afterWrites = await worker.call('last');
+      let recovered;await lab.wait(async()=>{recovered=await activityRecovery('quiet-activity',2,first.inputCheckpoint);return recovered;});
+      const observed = lab.tracePreview('preview-backstop', { first, afterWrites, recovered, last: await worker.call('last'),
+        physical: await lab.previewPhysical(), removed, activity });
+      committed(removed); committed(activity);
+      assert.equal(observed.physical.A.tables.entries.length, 0);
+      assert.equal(observed.physical.A.checkpoint.projection[0].rows,undefined,'M5_EVAL_STREAM_RECOVERY_NO_PERSISTED_CLINICAL_INPUT');
+      assert.equal(observed.physical.A.tables.activity.find(row=>row.doc._id==='quiet-activity').doc.steps,2);
+      assert.equal(recovered.completed.projection[0].output.frame.sgvs.length,0,'M5_EVAL_BACKSTOP_ACTUAL_CLINICAL_ABSENCE');
+      assert.deepEqual(observed.physical.B,foreignBefore,'M5_EVAL_BACKSTOP_FOREIGN_TENANT_UNCHANGED');
+      assert.equal(observed.physical.A.floor,removed.before.floor,'M5_EVAL_NATIVE_DELETE_ACTIVITY_PUBLIC_HISTORY_UNCHANGED');
+      assert(version(recovered.done.bootstrap)>=version(recovered.input.checkpoint),'M5_EVAL_BACKSTOP_NATIVE_INPUT_COMPLETED');
+    });
+    lifecycle('keeps unchanged timer input and acquires complete committed writes from maintained CDC', async function () {
+      const worker = await startExisting([lab.A]); await seed();
+      // Sample the live seed after durable completion. Retained output content may carry an
+      // older result checkpoint, so read current coverage from the typed row.
+      const { first, before } = await lab.wait(async () => {
+        const physical = await lab.previewPhysical(), last = await worker.call('last');
+        const input=physical.A.checkpoint.projection?.[0],completed=await lab.previewCompleted();
+        const landed = input?.stream?.snapshot_position && completed.projection?.[0]?.output?.frame?.sgvs.some(row=>row._id==='preview-reading'&&row.mgdl===111);
+        const covered=require('../lib/pgstream/work-state').map(completed.work_completed).bootstrap;
+        return landed && version(covered)>=version(physical.A.checkpoint.checkpoint) &&
+          last?.eligible === true && value(last) === 111 ? { first: last, before: physical } : null;
+      });
+      const cyclesBefore = cyclesOf(await worker.call('health')), queriesBefore=await worker.call('queries');
+      const tick = await worker.call('tick'), afterTick = await lab.previewPhysical();
+      assert.equal(value(tick), 111, 'M5_EVAL_TIME_RETAINED current retained clinical value');
+      assert.deepEqual(afterTick.A.checkpoint, before.A.checkpoint, 'M5_EVAL_TIME_RETAINED timer does not advance acquisition');
+      assert.equal(tick.inputCheckpoint, first.inputCheckpoint);
+      assert.ok(cyclesOf(await worker.call('health')) > cyclesBefore, 'M5_EVAL_TIME_RETAINED actual time-only cycle ran');
+      assert.equal(tick.outputRevision, first.outputRevision, 'identical time-only content keeps its revision');
+      const queriesAfter=await worker.call('queries');
+      for(const key of ['snapshots','catalogue','exports','imports'])assert.equal(queriesAfter[key],queriesBefore[key],'M5_EVAL_TIME_NO_SOURCE_REACQUISITION_'+key);
+      const written = await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('new-physical', 222, 1)] } });
+      committed(written);
+      const acquired = await lab.wait(async () => {
+        const result = await worker.call('last');
+        return result?.inputCheckpoint > first.inputCheckpoint && value(result) === (111 + 222) / 2 ? result : null;
+      });
+      lab.tracePreview('preview-stream-acquired', { first, tick, written, acquired, physical: await lab.previewPhysical() });
+      assert.equal(acquired.result.properties.bgnow.last, 222, 'M5_EVAL_ACQUIRED_NEWEST_LAST');
+      assert.deepEqual(acquired.result.properties.bgnow.sgvs.map(row => [row._id, row.mgdl]).sort((x, y) => x[0].localeCompare(y[0])),
+        [['new-physical', 222], ['preview-reading', 111]], 'M5_EVAL_ACQUIRED_EXACT_BUCKET_INPUT');
+      assert.ok(acquired.inputCheckpoint > first.inputCheckpoint, 'M5_EVAL_STREAM_INPUT_ADVANCED without explicit acquire/wake');
+    });
+    lifecycle('refuses the removed static tenant product configuration before a role starts', async function () {
+      assert.throws(() => lab.configure(document => {
+        delete document.registry;
+        document.tenants = [lab.A, lab.B].map(id => ({ id, revision: 'retired-hot-file', settings: {} }));
+      }), /invalid explicit evaluator preview configuration/, 'M5_EVAL_STATIC_PRODUCT_REFUSED');
+      const restored = lab.configure();
+      assert(restored.document.registry && restored.document.pgstream && restored.document.trustedWorker);
+      const worker = await start(restored);
+      assert.equal(worker.startup.bootError, undefined, 'M5_EVAL_REGISTRY_PRODUCT_RESTORED');
+    });
+    lifecycle('keeps tenant B progressing while A row or byte refusal retains last good output', async function () {
+      for (const scenario of ['row', 'byte']) {
+        if (scenario === 'byte') { await lab.reset(); await lab.provisionPreview(); }
+        const config = lab.configure(d => { if (scenario === 'row') { d.maxRows = 1; d.pageSize = 1; } else d.maxBytes = 10000; });
+        const worker = await startExisting([lab.A, lab.B], config);
+        await seed(); await seed(lab.B, 'preview-reading', 333);
+        // Establish the actual last-good model before testing its retention.
+        // A concurrent durable receipt can refuse a bootstrap snapshot; the
+        // common scheduler must recover it within the existing watchdog.
+        const first = await waitForReading(worker);
+        await waitForReading(worker, lab.B, 333);
+        const checkpoint = await lab.previewCheckpoint(lab.A), completed = await lab.previewCompleted(lab.A),inputBefore=await lab.checkpoint(lab.consumerName,lab.A);
+        const written = await lab.writeCanonical({ planned: { op: 'create', docs: [
+          { ...runtimeReading('oversized-a', 222, 1), ...(scenario === 'byte' ? { extension: 'x'.repeat(11000) } : {}) }
+        ] } });
+        // Stream acquisition covers accepted cohorts, not routine rediscovery
+        // of a write that the producer has not delivered yet. Wait for the
+        // durable bounded-gap marker and its still-pending native input obligation.
+        await lab.wait(async()=>{
+          const input=(await lab.checkpoint(lab.consumerName,lab.A)).projection?.[0];
+          const observed=(await lab.admin.query('SELECT work_observed,work_completed FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
+          const work=require('../lib/pgstream/work-state'),position=require('../lib/storage/clinical-stream-state').position;
+          return input?.gap&&input.ready===false&&version(input.floor)>version(inputBefore.checkpoint)&&
+            position(input.stream.accepted_position)>position(inputBefore.projection[0].stream.accepted_position||inputBefore.projection[0].stream.snapshot_position)&&
+            version(work.map(observed.work_observed).bootstrap)>=version(input.floor)&&version(work.map(observed.work_completed).bootstrap)<version(input.floor);
+        });
+        const refused = await worker.call('acquire'), b = await worker.call('acquire', lab.B), health = await worker.call('health');
+        lab.tracePreview('preview-refusal-' + scenario, { written, first, refused, b, health, physical: await lab.previewPhysical(), checkpoint });
+        // A failed actual window withdraws RAM serving; the last good clinical
+        // result/frame remains authoritative only in the durable completed row.
+        assert.equal(refused, null, 'M5_EVAL_REFUSAL no currently servable model');
+        assert.deepEqual(await lab.previewCompleted(lab.A), completed, 'M5_EVAL_REFUSAL retains durable revision/result/frame/input checkpoint');
+        assert.equal(Number(completed.output_revision), first.outputRevision);
+        assert.equal(value(completed.projection[0].output), 111);
+        // A bounded GAP evicts only the disposable input cache to reserve
+        // room for durable recovery metadata; the completed result above stays.
+        const gap=await lab.checkpoint(lab.consumerName,lab.A);
+        assert(version(gap.checkpoint)>version(checkpoint.checkpoint),'M5_EVAL_REFUSAL accepted input remains owed');
+        assert(version(require('../lib/pgstream/work-state').map(completed.work_completed).bootstrap)<version(gap.checkpoint),'M5_EVAL_REFUSAL no false clinical completion');
+        assert.equal(gap.projection[0].ready,false);assert.equal(gap.projection[0].gap,scenario==='row'?'rows':'bytes');
+        assert.equal(gap.projection[0].rows,undefined,'M5_EVAL_REFUSAL_INPUT_REMAINS_COMPACT');
+        assert.equal(b.eligible, true); assert.equal(value(b), 333);
+        await lab.stopWorker(worker);
+      }
+    });
+    lifecycle('drains and fences a real in-flight clinical read before role shutdown', async function () {
+      const worker = await startExisting([lab.A]); await seed();
+      const first = await waitForReading(worker), completed = await lab.previewCompleted(lab.A);
+      // Arm before the write: maintained CDC may start its actual cycle as soon
+      // as COMMIT arrives, before a later explicit acquire call.
+      await worker.call('arm'); const held = worker.held();
+      await lab.writeCanonical({ planned: { op: 'create', docs: [runtimeReading('pending-new', 222, 1)] } });
+      const running = worker.call('acquire').then(value => ({ value }), error => ({ error })); await held;
+      let finished = false; const stopping = worker.call('close').then(() => { finished = true; });
+      await new Promise(resolve => setImmediate(resolve));
+      const physicalWhileHeld = await lab.previewPhysical();
+      await worker.call('release'); const [acquisition] = await Promise.all([running, stopping]);
+      if (acquisition.error) assert.equal(acquisition.error.message, 'LIFECYCLE_WINDOW_CLOSED');
+      else assert.equal(acquisition.value, null, 'M5_EVAL_CLOSE_FENCE no late servable output');
+      assert.equal(await worker.call('last'), null, 'M5_EVAL_CLOSE_FENCE no observation opens a new window after closure');
+      const retained = await lab.previewCompleted(lab.A), health = await worker.call('health');
+      lab.tracePreview('preview-close-fence', { first, physicalWhileHeld, retained, health, finished, physicalAfter: await lab.previewPhysical() });
+      assert.equal(physicalWhileHeld.A.tables.entries.length, 2);
+      assert.equal(health.closed, true); assert.equal(finished, true);
+      assert.deepEqual(retained, completed, 'M5_EVAL_CLOSE_FENCE no late durable revision/result/frame/input checkpoint');
+      assert.equal(Number(retained.output_revision), first.outputRevision); assert.equal(value(retained.projection[0].output), 111);
+      await lab.stopWorker(worker);
+    });
+    lifecycle('provisions a read-only clinical source and restricts evaluator checkpoint updates', async function () {
+      const grants = [[lab.namespaces.entries + '.entries', 'doc', 'UPDATE'],
+        [lab.namespaces.clock + '.tenant_write_clock', 'last_stamp', 'UPDATE'],
+        [lab.replayNamespace + '.tenant_consumer_checkpoint', 'tenant_id', 'UPDATE'],
+        [lab.namespaces.settings + '.settings', null, 'SELECT']];
+      for (const [table, column, privilege] of grants) {
+        const check = column ? 'SELECT has_column_privilege($1,$2,$3,$4) AS allowed'
+          : 'SELECT has_table_privilege($1,$2,$3) AS allowed';
+        const args = column ? [lab.previewRole, table, column, privilege] : [lab.previewRole, table, privilege];
+        const { rows } = await lab.admin.query(check, args);
+        assert.equal(rows[0].allowed, false, 'evaluator provisioning forbids ' + privilege + ' on ' + table + (column ? '.' + column : ''));
+      }
+    });
+    lifecycle('refuses lost clinical source row isolation before starting jobs', async function () {
+      const table = '"' + lab.namespaces.entries + '".entries';
+      const before = await lab.previewPhysical();
+      await lab.admin.query('ALTER TABLE ' + table + ' NO FORCE ROW LEVEL SECURITY');
+      try {
+        const worker = await lab.worker(lab.configure());
+        assert.equal(worker.startup.bootError?.previewConfigError, true, 'M5_EVAL_PRIVILEGE actual PreviewConfigError class');
+        assert.match(worker.startup.bootError.message, /PLATFORM_SERVING_IDENTITY_UNSAFE/);
+        assert.equal(worker.startup.ready, undefined);
+        assert.deepEqual(await lab.previewPhysical(), before);
+      } finally {
+        await lab.admin.query('ALTER TABLE ' + table + ' FORCE ROW LEVEL SECURITY');
+      }
+    });
+  });
+
+}
+
+evaluatorLifecycleSuite('M5 evaluator registry lifecycle actual PostgreSQL', require('./fixtures/evaluator-consumers-native'));
+// Historical static hot-file captures remain unchanged. The adopted product
+// rejects that configuration; its explicit refusal and restored registry boot
+// are exercised above while all clinical lifecycle checks remain native.

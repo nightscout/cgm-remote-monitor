@@ -203,7 +203,7 @@ describe('Shared persistence boundary', function () {
 
 
 describe('Write-boundary gate controls', function () {
-  const {check, ADAPTERS} = require('../scripts/check-write-boundary');
+  const {check, checkSocketWrapper, ADAPTERS, SOCKET_WRAPPER} = require('../scripts/check-write-boundary');
   const fs = require('node:fs'), path = require('node:path');
   it('checks every adapter and catches a removed boundary in each one', function () {
     for (const file of ADAPTERS) {
@@ -212,11 +212,29 @@ describe('Write-boundary gate controls', function () {
       // Break-it control: replacing the wrapper with an arbitrary pass-through,
       // and an interface acquisition with the driver's, must fail for every
       // real adapter, not just a toy source string. (An adapter that acquires
-      // only through the storage interface, such as the websocket, has no
+      // only through the storage interface, such as the socket handlers, has no
       // wrapper of its own to remove.)
       const bypassed = source.replaceAll('writeStep.collection(', 'passthrough(')
         .replaceAll('reads.collection(', 'ctx.store.collection(');
       assert(check(bypassed).some(issue => issue.includes('raw collection')), file);
+    }
+  });
+
+  it('pins actual acquisition adapters and the separately checked socket wrapper', function () {
+    assert.deepEqual(ADAPTERS, ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity',
+      'socket-write-handlers'].map(name => 'lib/server/' + name + '.js')
+      .concat('lib/api3/storage/mongoCollection/index.js', 'lib/authorization/storage.js'));
+    assert.equal(SOCKET_WRAPPER, 'lib/server/websocket.js');
+    const source = fs.readFileSync(path.resolve(__dirname, '..', SOCKET_WRAPPER), 'utf8');
+    assert.deepEqual(checkSocketWrapper(source), []);
+    for (const bypass of ['ctx.store.collection("x").insertOne({});',
+      'socket.on("dbAdd", function () {});']) {
+      assert(checkSocketWrapper(source + '\n' + bypass).length, bypass);
+    }
+    for (const [before, after] of [["./socket-write-handlers", "./unreviewed-handlers"],
+      ['Object.entries(writeHandlers)', 'Object.entries({})']]) {
+      assert(source.includes(before), before);
+      assert(checkSocketWrapper(source.replace(before, after)).length, before);
     }
   });
 

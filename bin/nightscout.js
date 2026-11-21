@@ -5,5 +5,6 @@
 // subcommands. `nightscout single` is today's server; every other way of
 // starting it (Procfile, npm start, server.js, web.config, start.sh) is
 // unchanged. See lib/cli/index.js for the subcommand table.
+// `migrate` is an explicit operator action, never a server-startup hook.
 
 require('../lib/cli').main(process.argv.slice(2));

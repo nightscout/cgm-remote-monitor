@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_cli_fixture",
+      "up": ["CREATE TABLE cli_fixture (id integer)"],
+      "checksum": "76a1ee773f0956b2b53772b39b3973368637614d5ebe4b7ab18a2383fc16492e"
+    }
+  ]
+}

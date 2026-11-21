@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "backend": "mongodb",
+  "migrations": [{
+    "name": "0001_test",
+    "transactional": true,
+    "up": [{"collection": "samples", "filter": {"kind": "old"}, "set": {"kind": "new"}}],
+    "checksum": "42cf38694ca217fe6ec9adbeabcaec27b72a151a42e73b90dba31f3d86379e9f"
+  }]
+}

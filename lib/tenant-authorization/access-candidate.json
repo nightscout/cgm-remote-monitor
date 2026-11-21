@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_access_state",
+      "checksum": "d09cf6a2990dd68af735c6b2ed658a56ab4fa5c23355272896c6408af3628893",
+      "up": [
+        "CREATE TABLE access_tenants (tenant_id uuid PRIMARY KEY, active boolean NOT NULL)",
+        "CREATE TABLE access_credentials (tenant_id uuid NOT NULL REFERENCES access_tenants (tenant_id), credential_id text NOT NULL CHECK (credential_id ~ '^[A-Za-z0-9_-]{1,128}$'), subject_id text NOT NULL CHECK (subject_id ~ '^[A-Za-z0-9_-]{1,128}$'), generation integer NOT NULL CHECK (generation > 0), enabled boolean NOT NULL, PRIMARY KEY (tenant_id,credential_id), UNIQUE (tenant_id,credential_id,subject_id))",
+        "CREATE TABLE access_sessions (tenant_id uuid NOT NULL, session_id text NOT NULL CHECK (session_id ~ '^[A-Za-z0-9_-]{1,128}$'), subject_id text NOT NULL, credential_id text NOT NULL, generation integer NOT NULL CHECK (generation > 0), expires_at bigint NOT NULL CHECK (expires_at > 0), active boolean NOT NULL, purpose text NOT NULL CHECK (purpose IN ('data','management')), PRIMARY KEY (tenant_id,session_id), FOREIGN KEY (tenant_id,credential_id,subject_id) REFERENCES access_credentials (tenant_id,credential_id,subject_id))",
+        "CREATE TABLE access_keys (tenant_id uuid NOT NULL REFERENCES access_tenants (tenant_id), kid text NOT NULL CHECK (kid ~ '^[A-Za-z0-9_-]{1,128}$'), purpose text NOT NULL CHECK (purpose IN ('data','management')), active boolean NOT NULL, PRIMARY KEY (tenant_id,kid,purpose))",
+        "ALTER TABLE access_tenants ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_tenants FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_tenants_tenant ON access_tenants USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_tenants FROM PUBLIC",
+        "ALTER TABLE access_credentials ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_credentials FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_credentials_tenant ON access_credentials USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_credentials FROM PUBLIC",
+        "ALTER TABLE access_sessions ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_sessions FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_sessions_tenant ON access_sessions USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_sessions FROM PUBLIC",
+        "ALTER TABLE access_keys ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE access_keys FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY access_keys_tenant ON access_keys USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON access_keys FROM PUBLIC"
+      ]
+    },
+    {
+      "name": "0002_management_session_issuance",
+      "up": [
+        "CREATE TABLE management_session_requests (tenant_id uuid NOT NULL, request_id uuid NOT NULL, subject_id text NOT NULL, consumer text NOT NULL, credential_id text NOT NULL, session_id text NOT NULL, credential_generation integer NOT NULL CHECK (credential_generation>0), issued_at bigint NOT NULL CHECK (issued_at>=0), expires_at bigint NOT NULL CHECK (expires_at>issued_at), kid text NOT NULL CHECK (kid ~ '^[A-Za-z0-9_-]{1,128}$'), key_version integer NOT NULL CHECK (key_version>0), lifetime_seconds integer NOT NULL CHECK (lifetime_seconds>0), operator_principal text NOT NULL CHECK (operator_principal ~ '^[A-Za-z0-9_-]{1,128}$'), operator_consumer text NOT NULL CHECK (operator_consumer ~ '^[A-Za-z0-9_-]{1,128}$'), PRIMARY KEY(tenant_id,request_id), UNIQUE(tenant_id,session_id), FOREIGN KEY(tenant_id,credential_id,subject_id) REFERENCES access_credentials(tenant_id,credential_id,subject_id), FOREIGN KEY(tenant_id,session_id) REFERENCES access_sessions(tenant_id,session_id))",
+        "ALTER TABLE management_session_requests ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE management_session_requests FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY management_session_requests_tenant ON management_session_requests USING (tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "REVOKE ALL ON management_session_requests FROM PUBLIC",
+        "CREATE FUNCTION management_session_authority(target_tenant uuid,target_subject text,target_consumer text) RETURNS TABLE(kid text,public_key text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $fn$\nDECLARE bound uuid := nullif(current_setting('app.current_tenant_id',true),'')::uuid;\nBEGIN\n  IF bound IS NULL OR bound <> target_tenant THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM w.tenant_id FROM tenant_lifecycle_windows w WHERE w.tenant_id=bound AND w.phase='active';\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM a.tenant_id FROM tenant_activity a WHERE a.tenant_id=bound AND NOT a.suspended AND a.deletion_request_id IS NULL FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM c.tenant_id FROM tenant_authorization_config c WHERE c.tenant_id=bound FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM p.tenant_id FROM tenant_owner_policy p WHERE p.tenant_id=bound FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM a.principal FROM tenant_owner_actors a WHERE a.tenant_id=bound AND a.principal=target_subject\n    AND a.consumer=target_consumer AND a.active AND a.can_update FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM s.subject_id FROM tenant_authorization_subjects s WHERE s.tenant_id=bound AND s.subject_id=target_subject\n    AND s.display_name IS NOT NULL AND length(btrim(s.display_name))>0 FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM r.tenant_id FROM tenant_registry r WHERE r.tenant_id=bound AND r.state='active' FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  PERFORM t.tenant_id FROM access_tenants t WHERE t.tenant_id=bound AND t.active FOR SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\n  RETURN QUERY SELECT k.kid,k.public_key FROM tenant_registry_keys k JOIN access_keys a\n    ON a.tenant_id=k.tenant_id AND a.kid=k.kid AND a.purpose='management' AND a.active\n    WHERE k.tenant_id=bound AND k.purpose='management' FOR SHARE OF k,a;\n  IF NOT FOUND THEN RAISE EXCEPTION 'MANAGEMENT_SESSION_REFUSED'; END IF;\nEND$fn$",
+        "REVOKE ALL ON FUNCTION management_session_authority(uuid,text,text) FROM PUBLIC"
+      ],
+      "checksum": "89c454a8e1c9a8e4405deed095c79e890cc1e2f097fe273aea3653536cdbf6aa"
+    }
+  ]
+}

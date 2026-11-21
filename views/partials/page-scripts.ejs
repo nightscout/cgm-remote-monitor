@@ -7,6 +7,7 @@
   <p>Nightscout could not load this page. Check your connection and try again.</p>
   <button id="page-load-retry" type="button">Reload page</button>
 </div>
+<% if (locals.humanSessions === true) { %><meta name="nightscout-human-sessions" content="enabled"><% } %>
 <script src="<%= locals.bundle %>/js/bundle.app.js?v=<%= encodeURIComponent(locals.cachebuster || '') %>"></script>
 <% if (pageEntry !== 'app') { %>
 <script src="<%= locals.bundle %>/js/bundle.<%= pageEntry %>.js?v=<%= encodeURIComponent(locals.cachebuster || '') %>"></script>
