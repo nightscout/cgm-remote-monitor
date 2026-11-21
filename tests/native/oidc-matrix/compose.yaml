@@ -20,7 +20,14 @@ services:
       retries: 60
 
   mongo:
-    image: mongo@sha256:1f995ad6fdb93244a1addab1b58f934a0bc2f5643c38e02f5e9d7f0c7d227a7b
+    # The CI ceiling series (.github/workflows/main.yml tests mongo 5.0 and 8.0),
+    # pinned to the 8.0.34 digest. The open-file limit matches the CI labs: with
+    # Docker's default, mongod has died with "Too many open files" under the suites.
+    image: mongo:8.0@sha256:b9924c330a8bbc5800fe9c69f04a84e221eca7b28fd049a0354147d9908fa142
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
     tmpfs:
       - /data/db
     ports:
