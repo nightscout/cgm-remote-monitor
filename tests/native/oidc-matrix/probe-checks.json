@@ -4,7 +4,6 @@
     "production config and bound Vault signer issue locally verified asymmetric access for both purposes",
     "explicit bounded consumer callback completed before owned Vault teardown",
     "sign-only token refuses key reads, exports, writes, deletion, listing and every other selected endpoint",
-    "existing legacy Transit HMAC API remains separate and verifies with its own scoped token",
     "revoked signing token refuses new issuance while existing trusted-public-key verification continues"
   ],
   "mongo": [
