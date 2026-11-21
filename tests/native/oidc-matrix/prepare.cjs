@@ -110,6 +110,8 @@ module.exports = async function prepare ({ req, admin, config, parsed, nativeSto
     await grant('SELECT,INSERT', [history], role.settings);
     await grant('SELECT', [op], role.settings);
     await grant('SELECT,UPDATE(owner_fence)', [configuration], role.settings);
+    // Migration 0004 revokes the CHECK validator from PUBLIC; the settings writer gets EXECUTE as deployments grant it.
+    for (const sql of req('./lib/tenant-settings/function-privileges').writerGrants({ namespace: selected.settings, role: role.settings.slice(1, -1) })) await admin.query(sql);
     await grant('SELECT', [settings, history, op], role.reader);
     // lib/tenant-settings/effective-postgres runs the migration ledger `check` through the reader identity.
     await grant('SELECT', [table(selected.settings, 'schema_migrations'), table(selected.operatorPolicy, 'schema_migrations')], role.reader);
