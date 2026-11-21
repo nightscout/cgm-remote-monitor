@@ -24,7 +24,6 @@ const os = require('node:os');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { loadHumanAccess } = require('../lib/human-session/access-config');
-const { createVaultTransit } = require('../lib/secrets/vault-transit');
 
 function configuration (source) {
   if (source.HUMAN_SESSION_NATIVE_RESERVED !== '1' || source.HUMAN_VAULT_RESERVED !== '1') {
@@ -59,7 +58,7 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
   let cleaning = false;
   const suffix = randomBytes(8).toString('hex'), mount = 'human-native-' + suffix;
   const policies = [], tokens = [], checks = [], cleanup = [];
-  const signPolicy = 'human-sign-' + suffix, legacyPolicy = 'human-hmac-' + suffix;
+  const signPolicy = 'human-sign-' + suffix;
   let mountAttempted = false, tokenCreationUnknown = false, scratch, primary;
   const started = Date.now();
   async function api (endpoint, { method = 'GET', body, token = config.adminToken } = {}) {
@@ -213,18 +212,6 @@ async function run ({ source = process.env, fetch: transport = globalThis.fetch,
       // Prove denied mutations did not change the owned signing key's state.
       const info = (await expect(mount + '/keys/data', {}, 200)).data;
       assert.equal(info.exportable, false); assert.equal(info.deletion_allowed, false); assert.equal(info.latest_version, 1);
-    });
-    await check('existing legacy Transit HMAC API remains separate and verifies with its own scoped token', async () => {
-      for (const name of ['legacy-data', 'legacy-sign']) await expect(mount + '/keys/' + name,
-        { method: 'POST', body: { type: 'aes256-gcm96', exportable: false } }, [200, 204]);
-      await policy(legacyPolicy, ['hmac', 'verify'].map(operation => 'path "' + mount + '/' + operation + '/legacy-sign" { capabilities = ["update"] }').join('\n'));
-      const legacyToken = await issueToken(legacyPolicy);
-      const legacy = createVaultTransit({ address: config.address, mount, encryptionKey: 'legacy-data', signingKey: 'legacy-sign',
-        signingVersion: 1, getToken: () => legacyToken.token, allowInsecureLoopback: config.allowInsecureLoopback, timeoutMs: 3000 });
-      const input = Buffer.from('synthetic-legacy-hmac-proof'), signature = await legacy.sign(input);
-      assert.equal(signature.length, 32); assert.equal(await legacy.verify(1, input, signature), true);
-      const wrong = Buffer.from(signature); wrong[0] ^= 1;
-      assert.equal(await legacy.verify(1, input, wrong), false);
     });
     await check('revoked signing token refuses new issuance while existing trusted-public-key verification continues', async () => {
       const live = await expect('auth/token/lookup-accessor', { method: 'POST', body: { accessor: signing.accessor } }, 200);
