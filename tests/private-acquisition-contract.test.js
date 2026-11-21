@@ -11,6 +11,8 @@ const createSnapshot = require('../lib/server/tenant-app/snapshot');
 const environment = require('../lib/server/tenant-app/environment');
 const scope = require('../lib/storage/tenant-scope');
 
+const clock = require('./lib/views-replay/clock');
+
 const TENANT = '11111111-1111-4111-8111-111111111111';
 
 function fixture () {
@@ -82,6 +84,38 @@ describe('private acquisition caller contracts', function () {
     assert.deepEqual(second.ddata.sgvs.map(row => row.mgdl), [200]);
     assert.deepEqual(lab.ctx.cache.getDataRef('entries').map(row => row._id), ['resident-sentinel']);
     assert.deepEqual(lab.ctx.ddata.sgvs, []);
+  });
+
+  it('recuts at normalized retention edges in both clock directions and isolates plugin mutations', async function () {
+    const lab = fixture();
+    const { TWO_DAYS } = require('../lib/constants');
+    const expires = lab.now;
+    // The query date stays in the window throughout. The loader uses sysTime
+    // for mills (the cache's first choice), so only its retention cut changes.
+    const row = { ...lab.row(120), sysTime: new Date(expires - TWO_DAYS) };
+    const status = { _id: 'status', created_at: new Date(expires).toISOString(), uploader: { battery: 75 } };
+    lab.ctx.entries.list = (q, cb) => cb(null, [row]);
+    lab.ctx.devicestatus.list = (q, cb) => cb(null, [status]);
+    const views = createViews(lab.env, lab.ctx);
+    const keep = {};
+    const withKeep = () => new Promise((resolve, reject) => views.materialise('properties', { now: expires, keep },
+      (err, value) => err ? reject(err) : resolve(value)));
+    clock.install();
+    try {
+      for (const [offset, expectedCount, reused] of [
+        [-10000, 1, false], [-8000, 1, true], [0, 1, false], [1, 0, false], [10000, 0],
+        [12000, 0, true], [-8000, 1, false]
+      ]) {
+        clock.pin(expires + offset);
+        const set = await withKeep();
+        assert.equal(set.ddata.sgvs.length, expectedCount, 'retention at ' + offset);
+        if (reused !== undefined) assert.equal(set.kept, reused, 'reuse at ' + offset);
+        assert.equal(set.ddata.devicestatus[0].uploader.battery, 75);
+        set.ddata.devicestatus[0].uploader.battery = 1;
+      }
+    } finally { clock.uninstall(); }
+    assert.equal(status.uploader.battery, 75);
+    assert.equal(row.mills, undefined);
   });
 
   it('computed view read throws still escape synchronously without reporting completion', function () {
