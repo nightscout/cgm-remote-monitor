@@ -152,7 +152,7 @@ inventory before starting a resource.
 | `tests/admin-lifecycle-fit.integration.test.js` | `NS_ADMIN_LIFECYCLE_DOCKER_TEST=1` | | PostgreSQL | tenant A restore through the maintenance controller and remote cohort census with the admin role connected; ownership refusal while held; admin on the consumer address at another port |
 | `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
 | `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |
-| `tests/storage-port-contract.integration.test.js` | `NS_STORAGE_PORT_CONTRACT_DOCKER_TEST=1` | | PostgreSQL, MongoDB | `mongo:7.0` |
+| `tests/storage-port-contract.integration.test.js` | `NS_STORAGE_PORT_CONTRACT_DOCKER_TEST=1` | | PostgreSQL, MongoDB | `mongo:8.0` |
 | `tests/tenant-frame-acquisition.integration.test.js` | `NS_FRAME_ACQUISITION_TEST=1` | | PostgreSQL, MongoDB | `mongo:8.0.34` |
 | `tests/tenant-rest-client-replay.integration.test.js` | `NS_REST_CLIENT_REPLAY_TEST=1` | | PostgreSQL, Vault | spawns the shipping CLI as a child |
 | `tests/multitenant-preview-process.integration.test.js` | `NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST=1` | | PostgreSQL, Vault | spawns the shipping CLI as a child |

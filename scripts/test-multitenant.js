@@ -250,7 +250,7 @@ const INVENTORY = [
   { file: 'tests/owner-subject-policy.integration.test.js', flags: { NS_OWNER_SUBJECT_POLICY_DOCKER_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/tenant-rest-authority-review.test.js', flags: { NS_REST_AUTHORITY_REVIEW_TEST: '1' }, shared: [], own: ['postgres'], gate: PENDING },
   { file: 'tests/storage-port-contract.integration.test.js', flags: { NS_STORAGE_PORT_CONTRACT_DOCKER_TEST: '1' }, shared: [], own: ['postgres', 'mongo'], gate: PENDING,
-    note: 'mongo:7.0' },
+    note: 'mongo:8.0' },
   { file: 'tests/tenant-frame-acquisition.integration.test.js', flags: { NS_FRAME_ACQUISITION_TEST: '1' }, shared: [], own: ['postgres', 'mongo'], gate: PENDING,
     note: 'mongo:8.0.34' },
   { file: 'tests/tenant-rest-client-replay.integration.test.js', flags: { NS_REST_CLIENT_REPLAY_TEST: '1' }, shared: [], own: ['postgres', 'vault'], gate: PENDING,
