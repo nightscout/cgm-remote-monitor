@@ -28,7 +28,7 @@ module.exports = function template ({ nonce, tenants, publicKeys, sourceRoot, so
       ownerCredentials:{connectionEnv:'OWNER_SECRETS_PG',namespace:ns('secrets'),
         vault:{address:vaultAddress,mount:'transit',allowInsecureLoopback:false},
         tenants:tenants.map((id,index)=>({id,tokenEnv:index?'OWNER_TOKEN_B':'OWNER_TOKEN_A',
-          encryptionKey:'owner-encrypt-'+index,signingKey:'owner-sign-'+index,signingVersion:1}))}}
+          encryptionKey:'owner-encrypt-'+index}))}}
   };
 };
 module.exports.OREF_COMMIT = OREF_COMMIT;

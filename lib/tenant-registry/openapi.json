@@ -80,6 +80,20 @@
         }
       }
     },
+    "/v1/tenants/{id}/signing-version": {
+      "post": {
+        "operationId": "rotateTenantSigning",
+        "description": "Rotates one tenant's signing version (decision deployment-signing-secret). In one transaction the registry signing version moves to the next unused version; the management, human-data and human-management public keys and the data token key at that version become the tenant's only active keys; the registry revision moves, so serving roles refresh. Tokens and sessions signed under an older version stop verifying at once and new issuance uses the new version. No Vault call. Each call is one rotation (not idempotent).",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } }],
+        "responses": {
+          "200": { "description": "Rotated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SigningRotation" } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "409": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
     "/v1/tenants/{id}/connector-sources": {
       "get": {
         "operationId": "listConnectorSources",
@@ -352,6 +366,10 @@
           },
           "findings": { "type": "array", "items": { "type": "string", "pattern": "^(record|vault):[A-Za-z0-9:_-]+$" } }
         }
+      },
+      "SigningRotation": {
+        "type": "object", "required": ["id", "outcome", "signingVersion"], "additionalProperties": false,
+        "properties": { "id": { "$ref": "#/components/schemas/TenantId" }, "outcome": { "const": "rotated" }, "signingVersion": { "type": "integer", "minimum": 2 } }
       },
       "Removal": {
         "type": "object", "required": ["id", "outcome", "state"], "additionalProperties": false,

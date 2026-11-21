@@ -49,4 +49,7 @@ describe('native Vault human access admission (inert)', function () {
   it('admits no arbitrary authentication binding spelling', async function () {
     await refusesWithoutTransport({ ...synthetic, HUMAN_VAULT_TENANT: 'single-alias' }, /no implicit authentication scope/);
   });
+  it('admits no multitenant binding: multitenant human signing uses no Vault', async function () {
+    await refusesWithoutTransport({ ...synthetic, HUMAN_VAULT_TENANT: '11111111-1111-4111-8111-111111111111' }, /multitenant signing uses no Vault/);
+  });
 });

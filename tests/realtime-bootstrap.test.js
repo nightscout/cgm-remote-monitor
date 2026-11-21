@@ -1,7 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const fixture=require('./fixtures/realtime-preview/bootstrap');
-const plan=fixture.plan;
+// The plan's native executor is deleted with the retired pgstream lab
+// (decisions deployment-signing-secret, architecture-justified-removal).
+const plan=require('./fixtures/realtime-preview/bootstrap-plan');
 const sourceDir=path.resolve(__dirname,'..');
 function bounds(){return {timeoutMs:1000,recoveryIntervalMs:100,timeIntervalMs:100,pollIntervalMs:100,retryIntervalMs:100,retryDelayMs:10,
   attemptTimeoutMs:2000,maxRows:100,maxBytes:100000,pageSize:10,maxMessageBytes:30000,maxPayloadBytes:10000,maxConnections:2,maxInflight:2,
@@ -16,8 +17,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
       NS_RT_BOOTSTRAP_OPTIONS_JSON:JSON.stringify(bounds()),NS_RT_BOOTSTRAP_UI_JSON:JSON.stringify({bundleDirectory:'/tmp/synthetic-bundle',expectedBundleSha256:'0'.repeat(64),settings:{units:'mg/dl'}})},
       resources:[resource('postgres',15432,'bootstrap_test'),resource('mongo',27017),resource('vault',18200),{kind:'private-directory',path:dir,mode:0o700,ownerUid:process.getuid()}]};});
   afterEach(function(){fs.rmSync(dir,{recursive:true,force:true});});
-  it('refuses execution without explicit grant before loading or opening any service capability',async function(){
-    await assert.rejects(fixture(input),/EXPLICIT_PARENT_BOOTSTRAP_REQUIRED/);
+  it('parses the parent-owned input bounds',function(){
     assert.equal(plan.parse(input).options.maxRows,100);
   });
   it('refuses resource endpoint image ownership bounds and directory mismatches instead of discovering replacement services',function(){
@@ -98,8 +98,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.ok(plan.phases.includes('joined-consumer-plugin-ack'));
   });
 
-  it('uses the callable export, exact immutable image IDs and six exact consumed phase/carrier bindings',function(){
-    assert.equal(typeof fixture,'function');
+  it('uses exact immutable image IDs and six exact consumed phase/carrier bindings',function(){
     assert.deepEqual(plan.phases,['joined-role-recovery','joined-data-parity','joined-consumer-handoff','joined-consumer-plugin-ack','joined-socket-epoch','joined-browser-consumer']);
     assert.equal(plan.phaseConfiguration('joined-consumer-plugin-ack').credentialEnv,'RT_BOOTSTRAP_ALARM_A_JSON');
     assert.equal(plan.phaseConfiguration('joined-consumer-handoff').credentialEnv,'RT_BOOTSTRAP_ALARM_A_JSON');
@@ -124,8 +123,7 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.deepEqual(credentialFor('/alarm',JSON.parse(current[plan.phaseConfiguration('joined-consumer-plugin-ack').credentialEnv])),{accessToken:'synthetic-wire-token'});
   });
   // The socket ns-access+jwt status-credential check is retired with that verifier
-  // (decision deployment-signing-secret); the native bootstrap's credential port is
-  // recorded in the KEYS2 handoff.
+  // (decision deployment-signing-secret).
 
   it('preflights the explicit owned reset against every actual selected catalogue table and FK edge',function(){
     const catalogues=require('./fixtures/realtime-preview/bootstrap-grants').catalogues(),layout=plan.layout('0123456789abcdef');

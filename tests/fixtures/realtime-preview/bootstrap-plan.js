@@ -1,6 +1,8 @@
 'use strict';
 // Source-only plan and actual configuration parser inputs. No service imports or
-// side effects; execution lives in bootstrap.js and requires parent-owned URLs.
+// side effects. Its native executor (bootstrap.js, a pgstream lab with Vault
+// Transit signing keys) is deleted: pgstream is retired and the Transit signing
+// keys with it (decision deployment-signing-secret).
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');

@@ -2,11 +2,11 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module');
-const { generateKeyPairSync } = require('node:crypto');
 const http = require('node:http'), { PassThrough } = require('node:stream');
 const express = require('express');
 const { createTenantApp } = require('../lib/server/tenant-app');
 const createCache = require('../lib/server/serve/api-tenant-cache').create;
+const rules = require('../lib/tenant-registry/rules');
 const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222';
 const request = host => ({ rawHeaders: ['Host', host] });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -35,11 +35,15 @@ function tenantApp ({ resolver, verifyCredential = async () => null, prepareTena
     subjectPolicy: { read: unavailable, replace: unavailable }, dataRouter });
 }
 
-async function fixture ({ cache = createCache({ capacity: 1, concurrency: 2, pendingLimit: 2, waitMs: 1000 }), pin = true } = {}) {
+// The api's registry view as preview-api.js composes it (decision
+// deployment-signing-secret): the shared service LRU, a binding, the Vault
+// provider for the tenant's one `data` key, and no registry token keys (the
+// api verifies no `ns-access+jwt` data token; only the owner role reads
+// management keys). Per-tenant metadata pinned through a request is therefore
+// the binding, the environment and the data-key provider.
+async function fixture ({ cache = createCache({ capacity: 1, concurrency: 2, pendingLimit: 2, waitMs: 1000 }), pin = true, options = {} } = {}) {
   const rows = new Map(); let revision = 1, underlying;
-  const publicKey = generateKeyPairSync('ed25519').publicKey.export({ format: 'jwk' });
-  for (const tenant of [A, B]) rows.set(tenant, { tenant, state: 'active', signingVersion: 1,
-    keys: [{ purpose: 'access', kid: 'synthetic-' + tenant, publicKey: Buffer.from(publicKey.x, 'base64url').toString('base64') }] });
+  for (const tenant of [A, B]) rows.set(tenant, { tenant, state: 'active', signingVersion: 1, keys: [] });
   const store = { revision: async () => String(revision), lookup: async host => {
     const tenant = host === 'one.example.test' ? A : host === 'two.example.test' ? B : undefined;
     return tenant ? { tenant, state: rows.get(tenant).state } : null;
@@ -53,7 +57,7 @@ async function fixture ({ cache = createCache({ capacity: 1, concurrency: 2, pen
       underlying = require('../lib/tenant-registry/resolver').createRegistryResolver({ ...options, schedule: () => null, cancel: () => {} });
       return underlying;
     } };
-    if (name === '../../secrets/vault-transit') return { createVaultTransit: options => ({ signingKey: options.signingKey, version: options.signingVersion }) };
+    if (name === '../../secrets/vault-transit') return { createVaultTransit: options => ({ encryptionKey: options.encryptionKey }) };
     return Module.prototype.require.call(loaded, name);
   };
   let source = fs.readFileSync(filename, 'utf8');
@@ -64,7 +68,7 @@ async function fixture ({ cache = createCache({ capacity: 1, concurrency: 2, pen
   loaded._compile(source, filename);
   const view = await loaded.exports.create({ settings: { namespace: 'synthetic_registry', maxTenants: 10000, refreshMs: 1000 },
     connectionString: 'synthetic', binding: { principal: 'api', consumer: 'data' }, vault: {},
-    accessTokens: { issuer: 'synthetic-issuer' }, environment: tenant => ({ tenant }), cache });
+    environment: tenant => ({ tenant }), cache, ...options });
   return { view, cache, update: async (tenant, changes) => { rows.set(tenant, { ...rows.get(tenant), ...changes }); revision++; await underlying.poll(); },
     close: async () => { await view.close(); await cache.close(); } };
 }
@@ -79,8 +83,7 @@ async function pinnedCriterion (pin = true) {
       entered.resolve(); await release.promise;
       assert.equal(f.view.bindings.get(A)?.tenant, A, 'IN_FLIGHT_REGISTRY_BINDING_MUST_SURVIVE_EVICTION');
       assert.equal(f.view.environments.get(A).tenant, A);
-      assert.equal(f.view.resolveKey(A, 'synthetic-' + A).tenant, A);
-      assert.equal(f.view.providers.get(A).version, 1);
+      assert.equal(f.view.providers.get(A).encryptionKey, rules.vaultKey(A, 'data'));
       assert.equal(f.view.record(A), record);
       assert.equal(record.service, service);
       assert.equal(f.view.bindings.has(B), true, 'other retained tenant remains addressable');
@@ -130,12 +133,16 @@ describe('API registry metadata shares the service LRU', function () {
   it('replaces a service record when a registry revision changes its metadata', async function () {
     const f = await fixture();
     try {
-      await f.view.prepare(A); const original = f.view.record(A);
+      await f.view.prepare(A); const original = f.view.record(A), originalProvider = f.view.providers.get(A);
       await f.cache.load(original, () => ({ version: 1 }));
+      // The signing version stays in the registry (revocation and rotation of
+      // the derived keys); a new entry rebuilds the record and its provider.
       await f.update(A, { signingVersion: 2 }); await f.view.prepare(A);
       const current = f.view.record(A);
-      assert.notEqual(current, original); assert.equal(current.service, undefined);
-      assert.equal(f.view.providers.get(A).version, 2);
+      assert.notEqual(current, original, 'REGISTRY_REVISION_MUST_REPLACE_RECORD'); assert.equal(current.service, undefined);
+      assert.equal(current.registry.entry.signingVersion, 2);
+      assert.notEqual(f.view.providers.get(A), originalProvider);
+      assert.equal(f.view.providers.get(A).encryptionKey, rules.vaultKey(A, 'data'));
       assert.equal(original.service.version, 1, 'old in-flight object remains usable');
       await f.cache.load(current, () => ({ version: 2 }));
       assert.equal(current.service.version, 2);
@@ -178,13 +185,21 @@ describe('API registry metadata shares the service LRU', function () {
     } finally { await f.close(); }
   });
 
+  it('refuses registry token keys for any purpose but management (the api reads none)', async function () {
+    for (const options of [{ accessTokens: { issuer: 'synthetic-issuer' } }, { accessTokens: { issuer: 'synthetic-issuer' }, keyPurpose: 'access' }]) {
+      await assert.rejects(fixture({ options }), /Registry token keys are management keys/);
+    }
+    const f = await fixture({ options: { accessTokens: { issuer: 'synthetic-issuer' }, keyPurpose: 'management' } });
+    await f.close();
+  });
+
   it('keeps registry metadata pinned through a delayed JSON body after another request evicts it', async function () {
     const f = await fixture(), preparing = deferred();
     const router = express.Router();
     const respond = (req, res) => {
       const tenant = req.tenantContext.tenant;
       res.json({ tenant, binding: f.view.bindings.get(tenant)?.tenant, environment: f.view.environments.get(tenant)?.tenant,
-        key: f.view.resolveKey(tenant, 'synthetic-' + tenant)?.tenant, body: req.body });
+        provider: f.view.providers.get(tenant)?.encryptionKey, body: req.body });
     };
     router.post('/entries', respond); router.get('/entries', respond);
     const app = tenantApp({ resolver: f.view.resolver, dataRouter: router,
@@ -201,8 +216,8 @@ describe('API registry metadata shares the service LRU', function () {
       assert.equal(second.status, 200); assert.equal(second.body.binding, B);
       assert.equal(f.cache.peek(A), undefined, 'second request must actually evict the first tenant');
       first.send();
-      assert.deepEqual(await first.result, { status: 200, body: { tenant: A, binding: A, environment: A, key: A,
-        body: { marker: 'synthetic-a' } } });
+      assert.deepEqual(await first.result, { status: 200, body: { tenant: A, binding: A, environment: A,
+        provider: rules.vaultKey(A, 'data'), body: { marker: 'synthetic-a' } } });
     } finally { first?.send(); await first?.result.catch(() => {}); await f.close(); }
   });
 });

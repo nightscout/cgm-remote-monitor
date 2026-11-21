@@ -29,6 +29,8 @@ function requirements () {
     source: ['lib/server/serve/preview-domains.js', 'lib/server/tenant-app/index.js',
       'lib/server/tenant-app/data-access.js', 'lib/tenant-authorization/postgres.js',
       'lib/secrets/component.js', 'lib/secrets/postgres.js', 'lib/secrets/legacy-postgres.js',
+      'lib/secrets/legacy-verifiers.js', 'lib/secrets/derived-signing.js',
+      'lib/tenant-authorization/legacy-data-token.js', 'lib/server/tenant-app/local-exchange.js',
       'lib/server/serve/evaluator-runtime.js', 'lib/data/tenant-projection-evaluator.js',
       'lib/storage/postgres-durable-replay.js', 'lib/server/serve/evaluator-config.js',
       'lib/storage/postgres-projection-read.js', 'lib/server/serve/postgres-domains.js',
@@ -41,7 +43,7 @@ function requirements () {
 
 function admit ({ config, env = process.env } = {}) {
   if (env.HUMAN_SESSION_NATIVE_RESERVED !== '1' ||
-      env.HUMAN_HTTPS_RESERVED !== '1' || !env.HUMAN_HTTP_SIGNER_CONFIG || !config?.consumerJourney) refuse();
+      env.HUMAN_HTTPS_RESERVED !== '1' || !env.HUMAN_HTTP_SIGNER_CONFIG || !env.NS_SIGNING_SECRET_FILE || !config?.consumerJourney) refuse();
   const c = config.consumerJourney;
   if (!/^[a-f0-9]{16,32}$/.test(config.nonce || '') || !Array.isArray(config.tenants) || config.tenants.length !== 2 ||
       new Set(config.tenants).size !== 2 || config.tenants.some(tenant => !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(tenant)) ||
@@ -207,22 +209,35 @@ async function create (ctx) {
       'tenant_authorization_subjects', 'tenant_authorization_subject_roles'].map(name => table(parsed.namespaces.authorization, name)).join(',') + ' TO ' + authRole);
     const authority = await req('./lib/tenant-authorization/postgres')({ connectionString: parsed.accessConnectionString,
       namespace: parsed.namespaces.authorization }); resources.push(authority);
+    // As the api opens it (lib/server/serve/preview-api.js): local verification
+    // reads the verifiers and the data public key; the legacy identity may read
+    // them and write nothing (the adapter refuses otherwise).
     const legacy = await req('./lib/secrets/legacy-postgres')({ connectionString: parsed.accessConnectionString,
-      namespace: parsed.namespaces.credentials }); resources.push(legacy);
+      namespace: parsed.namespaces.credentials, localVerification: true }); resources.push(legacy);
     const persistence = await req('./lib/secrets/postgres').createPostgresSecrets({
       connectionString: parsed.ownerCredentials.connectionString, namespace: parsed.ownerCredentials.namespace }); resources.push(persistence);
     const verifierContext = tenant => ({ tenant, principal: 'native-data', consumer: 'data' });
+    // Root custody only: the fixture decrypts each tenant's root once to derive the
+    // shipping API_SECRET it presents. DATA never receives this capability.
     const secrets = req('./lib/secrets/component').createSecrets({ ...persistence, maxTokenLifetimeSeconds: 28800,
       legacyAuthorityFor: tenant => legacy.read(tenant), providerFor: async tenant => {
         const provider = parsed.ownerCredentials.providers.get(tenant); if (!provider) refuse('CONSUMER_PROVIDER_UNKNOWN'); return provider;
       }, authorize: async (identity, action) => {
         if (!config.tenants.includes(identity.tenant) || identity.principal !== 'native-data' || identity.consumer !== 'data') return false;
-        if (action.operation === 'decrypt') { const value = await legacy.read(identity.tenant); return value?.reference?.id === action.id; }
-        return ['sign', 'verify'].includes(action.operation);
+        if (action.operation !== 'decrypt') return false;
+        const value = await legacy.read(identity.tenant); return value?.reference?.id === action.id;
       } });
-    // The HS256 exchange is retired (decision deployment-signing-secret); this native
-    // journey must move to the local exchange before it runs again.
-    const exchange = () => { throw new Error('HS256 exchange retired (deployment-signing-secret); port this journey to the local exchange'); };
+    // DATA credentials as the api composes them (lib/server/serve/preview-api.js;
+    // decision deployment-signing-secret): one-way verifiers in PostgreSQL, data
+    // JWTs signed with the tenant's derived data key, and the local exchange.
+    // Nothing on this path calls Vault.
+    const signing = req('./lib/secrets/derived-signing').load(env);
+    const codec = req('./lib/tenant-authorization/legacy-data-token').create({
+      issuer: 'synthetic-native-data-' + config.nonce, audience: 'synthetic-native-data-api-' + config.nonce });
+    const dataCredentials = req('./lib/secrets/legacy-verifiers').create({ read: legacy.readVerification,
+      verifyToken: codec.verify, usesConnection: legacy.usesConnection });
+    const exchange = req('./lib/server/tenant-app/local-exchange')({ credentials: dataCredentials, authority,
+      verifierContext, store: legacy, codec, signing, audit: persistence.audit });
     const environment = req('./lib/server/tenant-app/environment');
     const environments = new Map(config.tenants.map(tenant => [tenant, environment()]));
     const bindings = new Map(config.tenants.map(tenant => [tenant, verifierContext(tenant)]));
@@ -254,7 +269,7 @@ async function create (ctx) {
         response.once('finish', () => events[key].push({ method: request.method, path: pathname, status: response.statusCode })); next();
       });
       const resolver = req('./lib/tenant-resolution')({ aliases: [{ host: 'localhost', tenant }] });
-      const dataAccess = req('./lib/server/tenant-app/data-access')({ secrets, authority, verifierContext,
+      const dataAccess = req('./lib/server/tenant-app/data-access')({ secrets: dataCredentials, authority, verifierContext,
         collections: domains.v3Names, legacyCollections: domains.legacyNames, safeRoutes: domains.safeRoutes,
         ...(enabled ? { humanSessions: ctx.human } : {}) });
       const unavailable = async () => { throw new Error('CONSUMER_DATA_CANNOT_MANAGE'); };

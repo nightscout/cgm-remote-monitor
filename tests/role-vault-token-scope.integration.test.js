@@ -2,10 +2,12 @@
 
 // covers: lib/server/serve/registry-config.js, lib/server/serve/preview-config.js, lib/tenant-registry/rules.js
 // Role-token scope (decision core-static-plan-retired): in registry mode a
-// server component holds one Vault credential for every tenant. The token
-// reaches exactly its key purposes on its mount; it cannot reach another key
-// purpose, another operation on its own purpose, key management, or another
-// mount. Tenant isolation is the application authority's and row-level
+// server component holds one Vault credential for every tenant. Since decision
+// deployment-signing-secret the api's only Vault use is decrypting with each
+// tenant's one `data` Transit key; token signing keys are derived in process.
+// The token reaches exactly that operation on its mount; it cannot sign, HMAC,
+// verify or encrypt, use a key outside the `tenant-data-` prefix, manage keys,
+// or reach another mount. Tenant isolation is the application authority's and row-level
 // security's (tests/multitenant-preview-replicas.integration.test.js), not the
 // token's. Actual Vault and PostgreSQL; synthetic tenants only.
 const assert = require('node:assert/strict');
@@ -31,29 +33,38 @@ optInSuite(process.env.NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST === '1',
   after(() => fixture.cleanup());
   afterEach(async () => { for (const worker of [...fixture.workers]) await fixture.stop(worker); });
 
-  it('RTS_GRANTED: the one role token serves both tenants and reaches each tenant\'s data and signing purposes', async function () {
+  it('RTS_GRANTED: the one role token serves both tenants through each tenant\'s data key', async function () {
     const worker = fixture.start(); await fixture.ready(worker);
     for (const tenant of [A, B]) {
-      assert.equal((await fixture.exchange(worker, tenant)).status, 200, 'legacy exchange decrypts the tenant root secret and signs with the tenant signing key');
-      assert.equal(await status('preview_transit/hmac/' + rules.vaultKey(tenant, 'signing'), { input }), 200);
+      // The exchange checks one-way verifiers in PostgreSQL and signs with the
+      // derived data key: it needs no Vault call, only a serving worker.
+      assert.equal((await fixture.exchange(worker, tenant)).status, 200, 'legacy exchange serves the tenant');
+      const key = rules.vaultKey(tenant, 'data');
+      const { ciphertext } = (await fixture.operatorVault('preview_transit/encrypt/' + key, { plaintext: input })).data;
+      assert.equal(await status('preview_transit/decrypt/' + key, { ciphertext }), 200, 'decrypt with the tenant data key');
     }
   });
 
-  it('RTS_PURPOSE: the role token cannot use another key purpose or another operation', async function () {
+  it('RTS_PURPOSE: the role token cannot use another operation or a key outside the data prefix', async function () {
     for (const tenant of [A, B]) {
-      for (const purpose of ['access', 'management', 'human-data', 'human-management']) {
-        assert.equal(await status('preview_transit/sign/' + rules.vaultKey(tenant, purpose), { input }), 403, purpose + ' signing');
+      const data = rules.vaultKey(tenant, 'data');
+      assert.equal(await status('preview_transit/encrypt/' + data, { plaintext: input }), 403, 'data encryption');
+      assert.equal(await status('preview_transit/hmac/' + data, { input }), 403, 'HMAC with the data key');
+      assert.equal(await status('preview_transit/sign/' + data, { input }), 403, 'sign with the data key');
+      assert.equal(await status('preview_transit/verify/' + data, { input, signature: 'vault:v1:AAAA' }), 403, 'verify with the data key');
+      // A name outside the `tenant-data-` prefix (here the retired signing key's
+      // name, which no longer exists) is unreachable for every operation.
+      const outside = 'tenant-signing-' + tenant;
+      for (const [operation, body] of [['decrypt', { ciphertext: 'vault:v1:AAAA' }], ['sign', { input }], ['hmac', { input }], ['verify', { input, signature: 'vault:v1:AAAA' }]]) {
+        assert.equal(await status('preview_transit/' + operation + '/' + outside, body), 403, operation + ' outside the data prefix');
       }
-      assert.equal(await status('preview_transit/encrypt/' + rules.vaultKey(tenant, 'data'), { plaintext: input }), 403, 'data encryption');
-      assert.equal(await status('preview_transit/hmac/' + rules.vaultKey(tenant, 'data'), { input }), 403, 'HMAC with the data key');
-      assert.equal(await status('preview_transit/decrypt/' + rules.vaultKey(tenant, 'signing'), { ciphertext: 'vault:v1:AAAA' }), 403, 'decrypt with the signing key');
     }
   });
 
   it('RTS_MANAGEMENT: the role token cannot read, create, rotate or configure keys, or read the mount table', async function () {
     const key = rules.vaultKey(A, 'data');
     assert.equal(await status('preview_transit/keys/' + key), 403, 'read key');
-    assert.equal(await status('preview_transit/keys/' + rules.vaultKey(A, 'signing') + '/rotate', {}), 403, 'rotate key');
+    assert.equal(await status('preview_transit/keys/' + key + '/rotate', {}), 403, 'rotate key');
     assert.equal(await status('preview_transit/keys/tenant-data-planted', { type: 'aes256-gcm96' }), 403, 'create key');
     assert.equal(await status('preview_transit/keys/' + key + '/config', { deletion_allowed: true }), 403, 'configure key');
     assert.equal(await status('sys/mounts'), 403, 'mount table');
@@ -65,6 +76,5 @@ optInSuite(process.env.NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST === '1',
     await fixture.operatorVault('other/keys/' + key, { type: 'aes256-gcm96', exportable: false });
     const ciphertext = (await fixture.operatorVault('other/encrypt/' + key, { plaintext: input })).data.ciphertext;
     assert.equal(await status('other/decrypt/' + key, { ciphertext }), 403);
-    assert.equal(await status('other/hmac/' + rules.vaultKey(A, 'signing'), { input }), 403);
   });
 });
