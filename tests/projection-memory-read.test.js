@@ -78,6 +78,26 @@ describe('projection-memory-read: the SQL path\'s answers without SQL', function
     assert.equal(await r.count(fromMongo({ v: { $exists: true } })), 9);
   });
 
+  it('reuses equal immutable documents across snapshots with independent contents, identity and ordering checks', async function () {
+    const hex = '0123456789abcdef01234567';
+    const row = (kind, ordinal, battery) => ({ id_kind: kind, ordinal, doc: { _id: hex, srvModified: 1, pump: { battery } } });
+    const before = memoryRead.rowsOf([row('objectid', 9, 80), row('string', 8, 75)]);
+    const after = memoryRead.rowsOf([row('string', 12, 75), row('objectid', 7, 50)], before);
+    assert.equal(after[0].doc, before[1].doc, 'the same typed document shares its immutable data');
+    assert.equal(after[0].ordinal, 12, 'the new snapshot supplies the ordinal');
+    assert.notEqual(after[1].doc, before[0].doc, 'a nested change can leave both ID and stamp unchanged');
+    assert.equal(after[1].doc.pump.battery, 50);
+    const sources = new WeakMap();
+    const read = memoryRead({ rows: after, documentSources: sources });
+    const options = { normalize: false };
+    const [whole] = await read.findFiltered(fromMongo({ _id: new ObjectId(hex) }), { options });
+    assert.equal(sources.get(whole), after[1].doc);
+    whole.pump.battery = 0;
+    assert.equal(after[1].doc.pump.battery, 50);
+    const [partial] = await read.findFiltered(fromMongo({ _id: new ObjectId(hex) }), { options, projection: { _id: 1 } });
+    assert.equal(sources.has(partial), false, 'a partial answer cannot identify a whole document for normalization');
+  });
+
   it('keeps the typed identity: an ObjectId _id and its same-spelling string are different rows', async function () {
     const hex = '0123456789abcdef01234567';
     const r = reader([{ _id: hex, v: 1 }, { _id: new ObjectId(hex), v: 2 }]);

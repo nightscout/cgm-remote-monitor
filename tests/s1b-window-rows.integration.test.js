@@ -173,6 +173,10 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       assert.deepEqual(ids(first.treatments), ['switch', 'site', 'recent']);
       const original = stableRow();
       assert.ok(original);
+      const [source, normalized] = [...history.current].find(([doc]) => doc._id === 'one-day');
+      assert.equal(normalized.uploader, source.uploader, 'the normalized row shares the immutable snapshot subtree');
+      assert.ok(Object.isFrozen(source.uploader));
+      assert.notEqual(first.devicestatus[0].uploader, source.uploader, 'the plugin frame owns its mutable document');
 
       const peer = component(other);
       try {
