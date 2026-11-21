@@ -35,16 +35,24 @@ const GRANTS = ['read', 'create', 'update', 'delete'].map(action => 'api:entries
 
 // Only service I/O and deployment composition are fixtures. Every CRUD route,
 // parser, purifier, permission check and intent is the shipping implementation.
-module.exports = function crudHTTP ({ legacy = false } = {}) {
+// pool: extra data-connection options (the api's own timeouts, say).
+// tenants: how many tenants the lab serves (A, B, then synthetic UUIDs).
+module.exports = function crudHTTP ({ legacy = false, pool = {}, tenants: tenantCount = 2 } = {}) {
+  const TENANTS = [A, B];
+  while (TENANTS.length < tenantCount) {
+    TENANTS.push('33333333-3333-4333-8333-' + String(TENANTS.length).padStart(12, '0'));
+  }
+  const hostOf = tenant => tenant === A ? 'one.example.test' : tenant === B ? 'two.example.test'
+    : 't' + TENANTS.indexOf(tenant) + '.example.test';
   const name = 'crud_' + crypto.randomBytes(8).toString('hex');
   const auth = name + '_auth';
   const role = name + '_app';
-  const roots = [A, B].map(() => crypto.randomBytes(24).toString('hex'));
+  const roots = TENANTS.map(() => crypto.randomBytes(24).toString('hex'));
   // The api's DATA verifier over one-way verifiers prepared from each root
   // (decision deployment-signing-secret); no secrets component on DATA.
   const credentials = localCredentials.memory();
   const workers = [];
-  const lab = { A, B, SUBJECT, GRANTS, workers, name, table: name + '.entries',
+  const lab = { A, B, tenants: TENANTS, SUBJECT, GRANTS, workers, name, table: name + '.entries',
     mongoEvents: [], mongoGrants: GRANTS, mongoName: 'Current Exact Name' };
   let mode, mongo, admin;
 
@@ -64,11 +72,11 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       catalogue: require('../../migrations/candidates/postgres-entries-v1.json') });
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
     await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
-      namespace: name + '_clock', role, tenants: [A, B] });
+      namespace: name + '_clock', role, tenants: TENANTS });
     const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
     uri.username = role;
     uri.password = password;
-    for (const tenant of [A, B]) {
+    for (const tenant of TENANTS) {
       await admin.query(`INSERT INTO "${auth}".tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
       await admin.query(`INSERT INTO "${auth}".tenant_authorization_subjects
         (tenant_id, subject_id, display_name) VALUES ($1, $2, 'Current Exact Name')`, [tenant, SUBJECT]);
@@ -79,12 +87,12 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
     for (let index = 0; index < 2; index++) {
       const worker = { events: [], visible: [], collections: new Map(), environments: new Map(), legacy: new Map() };
       workers.push(worker);
-      worker.connection = await connect({ connectionString: uri.toString(), max: 1 });
+      worker.connection = await connect({ connectionString: uri.toString(), max: 1, ...pool });
       worker.authority = { ...await createAuthority({ connectionString: uri.toString(), namespace: auth }) };
       worker.secrets = credentials.verifier;
       const data = express.Router();
       data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
-      for (const tenant of [A, B]) {
+      for (const tenant of TENANTS) {
         const routes = express.Router();
         const bus = new EventEmitter();
         for (const event of EVENTS) bus.on(event, value => {
@@ -119,9 +127,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       }
       const unavailable = async () => { throw new Error('unused owner capability'); };
       worker.server = createTenantApp({
-        resolver: createResolver({ aliases: [
-          { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
-        ] }),
+        resolver: createResolver({ aliases: TENANTS.map(tenant => ({ host: hostOf(tenant), tenant })) }),
         dataAccess: createDataAccess({ secrets: worker.secrets, authority: worker.authority,
           legacyCollections: legacy ? ['entries'] : [],
           verifierContext: async tenant => ({ tenant, principal: 'verifier', consumer: 'api' }) }),
@@ -133,7 +139,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
       await once(worker.server, 'listening');
       assert.equal(worker.server.address().address, '127.0.0.1');
     }
-    for (const [index, tenant] of [A, B].entries()) {
+    for (const [index, tenant] of TENANTS.entries()) {
       credentials.set(tenant, { root: roots[index], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
     }
     lab.credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
@@ -191,7 +197,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
     SET display_name = $1 WHERE tenant_id = $2 AND subject_id = $3`, [value, A, SUBJECT]);
   lab.http = (method, path, { worker = 0, tenant = A, credential = lab.credentials[0] } = {}) => {
     let call = request(workers[worker].server)[method]('/api/v3' + path)
-      .set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+      .set('Host', hostOf(tenant))
       .timeout({ response: 5000, deadline: 15000 });
     if (credential !== null) call = call.set('api-secret', credential);
     return call;
@@ -199,7 +205,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
   lab.reference = (method, path) => request(lab.mongoApp)[method](path);
   lab.legacyHttp = (method, path, { worker = 0, tenant = A, credential = lab.credentials[0] } = {}) => {
     let call = request(workers[worker].server)[method](path)
-      .set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+      .set('Host', hostOf(tenant))
       .set('Accept', 'application/json').timeout({ response: 5000, deadline: 15000 });
     if (credential !== null) call = call.set('api-secret', credential);
     return call;
@@ -208,7 +214,7 @@ module.exports = function crudHTTP ({ legacy = false } = {}) {
   lab.seed = async docs => {
     await admin.query(`DELETE FROM "${name}".entries`);
     await lab.mongoCollection.deleteMany({});
-    for (const tenant of [A, B]) for (const doc of docs) {
+    for (const tenant of TENANTS) for (const doc of docs) {
       const row = encodeDocument({ ...doc, ...(tenant === B ? { sgv: 902 } : {}) });
       await require('./tenant-insertion-grants').withTenant(admin, tenant, () =>
         admin.query(`INSERT INTO "${name}".entries (tenant_id, id_kind, doc) VALUES ($1, $2, $3)`,
