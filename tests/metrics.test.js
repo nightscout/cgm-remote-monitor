@@ -194,6 +194,45 @@ describe('opt-in Prometheus metrics (NS_METRICS)', function () {
     } finally { await runtime?.close(); await started.stop(); }
   });
 
+  it('clock offset: database clock minus Date.now(), sampled on an interval, one series with no tenant label', async function () {
+    // Off: the reader is never called and nothing is scheduled.
+    let reads = 0;
+    const off = metrics.current.clockOffset(async () => { reads++; return Date.now(); });
+    off(); await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(reads, 0, 'OFF_READ_DATABASE_CLOCK');
+
+    const instance = metrics.create({ roles: ['evaluator'] });
+    let ahead = 5000, fail = false;
+    const stop = instance.clockOffset(async () => { reads++; if (fail) throw new Error('down'); return Date.now() + ahead; }, { intervalMs: 15 });
+    await stop.first;
+    const value = async () => sample(await instance.text(), 'nightscout_db_clock_offset_seconds', { role: 'evaluator' });
+    assert.ok(Math.abs(await value() - 5) < 0.25, 'OFFSET_NOT_DATABASE_MINUS_ROLE');
+    ahead = -2000;
+    await new Promise(resolve => setTimeout(resolve, 80));
+    assert.ok(reads >= 3, 'OFFSET_NOT_RESAMPLED');
+    assert.ok(Math.abs(await value() + 2) < 0.25, 'OFFSET_SIGN');
+    fail = true;
+    await new Promise(resolve => setTimeout(resolve, 60));
+    assert.ok(Number.isNaN(await value()), 'FAILED_READ_KEPT_STALE_OFFSET');
+    stop();
+    const settled = reads;
+    await new Promise(resolve => setTimeout(resolve, 60));
+    assert.equal(reads, settled, 'OFFSET_TIMER_NOT_STOPPED');
+    const lines = (await instance.text()).split('\n').filter(line => line.startsWith('nightscout_db_clock_offset_seconds'));
+    assert.deepEqual(lines.map(line => line.slice(0, line.lastIndexOf(' '))), ['nightscout_db_clock_offset_seconds{role="evaluator"}']);
+    instance.register.clear();
+
+    // serve wires it behind NS_METRICS; the stand-in roles have no serving login, so the sample is NaN.
+    const { port, started } = await startProcess({ NS_METRICS: 'true' });
+    try {
+      let text = '';
+      for (let i = 0; i < 50 && !/^nightscout_db_clock_offset_seconds\{role="api\+evaluator"\} NaN$/mi.test(text); i++) {
+        await new Promise(resolve => setTimeout(resolve, 20)); text = (await get(port, '/metrics')).body;
+      }
+      assert.match(text, /^nightscout_db_clock_offset_seconds\{role="api\+evaluator"\} NaN$/mi, 'OFFSET_NOT_WIRED');
+    } finally { await started.stop(); }
+  });
+
   it('label-cardinality guard: no label value is or looks like a tenant id', async function () {
     const instance = metrics.create({ roles: ['api', 'evaluator', 'realtime'] });
     await exercise(instance);
