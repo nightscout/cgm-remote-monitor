@@ -5,8 +5,8 @@
 // pass and the due timers driven by the test instead of wall-clock timers.
 // The durable-event contract's controls: lost wake, duplicate delivery,
 // restart replay for public-history-producing writes. Physical deletes and
-// unstamped writes are covered by the native stream suites, independently of
-// this dormant snapshot runtime's public clock hints.
+// unstamped writes are covered by the writer-driven suites (evaluator-recovery,
+// s1-level-triggered), independently of this dormant snapshot runtime's public clock hints.
 // covers: lib/server/serve/evaluator-runtime.js, lib/storage/postgres-durable-replay.js, lib/data/tenant-projection-evaluator.js
 const assert = require('node:assert/strict');
 const startRuntime = require('../lib/server/serve/evaluator-runtime');
@@ -103,7 +103,7 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
 
     // Physical deletes and unstamped activity no longer advance public history.
     // Their lost-wake/recovery obligations require native accepted positions and
-    // durable work, exercised by pgstream-recovery and the M5 native lifecycle
+    // durable work, exercised by evaluator-recovery and the M5 native lifecycle
     // suite. A clock-only dormant snapshot runtime cannot measure that intake.
 
     it('eviction releases the retained input and the next cycle reacquires the same output', async function () {

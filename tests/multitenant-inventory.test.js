@@ -14,7 +14,9 @@ describe('multitenant inventory executable environment consumption', function ()
     const rows=new Map(inventory.INVENTORY.map(row=>[row.file,row]));
     const pgstream=['tests/pgstream-bootstrap-batch.integration.test.js','tests/pgstream-checkpoint.integration.test.js','tests/pgstream-single-receipt.integration.test.js'];
     for(const file of pgstream){const row=rows.get(file);assert(row);assert.deepEqual(row.flags,{NS_PGSTREAM_ROLE_TEST:'1'});assert.deepEqual(row.shared,['postgres']);assert.deepEqual(row.own,[]);}
-    const recovery=rows.get('tests/pgstream-recovery.integration.test.js');assert(recovery);assert.deepEqual(recovery.flags,{NS_PGSTREAM_RECOVERY_TEST:'1',NS_PGSTREAM_SELECTED_STARTUP_TEST:'1'});assert.throws(()=>inventory.producerSelection([recovery],{}),/MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/,'RECOVERY_NEEDS_REAL_PRODUCER_NOT_STOCK_DB');
+    const recovery=rows.get('tests/evaluator-recovery.integration.test.js');assert(recovery);assert.deepEqual(recovery.flags,{NS_EVALUATOR_RECOVERY_TEST:'1'});assert.deepEqual(recovery.shared,['postgres']);assert.deepEqual(recovery.own,[]);
+    assert.equal(rows.has('tests/pgstream-recovery.integration.test.js'),false,'the retired stream recovery suite is not in the corpus');
+    assert.equal(rows.has('tests/realtime-sharding-native.integration.test.js'),false,'the retired native sharding suite is not in the corpus');
     const rest=rows.get('tests/preview-entries-acquisition.integration.test.js');assert.deepEqual(rest.flags,{NS_REST_ACQUISITION_NATIVE:'1'});assert.deepEqual(rest.shared,[]);assert.deepEqual(rest.own,['postgres']);
     const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
     const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
@@ -29,20 +31,10 @@ describe('multitenant inventory executable environment consumption', function ()
     assert.deepEqual(omitted,[file+': opt-in test file missing from scripts/test-multitenant.js INVENTORY'],'OMITTED_API_COST_SUITE_MUST_REFUSE');
     assert.deepEqual(inventory.checkInventory(),[],'RESTORED_COMPLETE_CORPUS');
   });
-  it('requires maintained producer capabilities before a product fixture can allocate resources', function () {
-    const selected = [{ flags: { NS_EVALUATOR_CONSUMERS_TEST: '1' } }];
-    const source = { NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE: 'sha256:' + 'a'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_BINARY: '/synthetic/pgstream', NS_RT_BOOTSTRAP_PGSTREAM_SHA256: 'b'.repeat(64), NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT: '19042', NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT: '19043', NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON: '{}' };
-    const good = () => inventory.producerSelection(selected, source);
-    const sharding = [{ file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' } }];
-    assert.deepEqual(inventory.producerSelection(sharding, source), inventory.producerSelection(selected, source));
-    assert.throws(() => inventory.producerSelection(sharding, {}), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/, 'SHARDING_NEEDS_ACTUAL_PRODUCER');
-    assert.match(good().image, /^sha256:/); assert(good().command.includes('output_plugin_libraries=wal2json'));
-    for (const field of Object.keys(source)) {
-      const broken = { ...source }; delete broken[field];
-      assert.throws(() => inventory.producerSelection(selected, broken), /MAINTAINED_PRODUCER_CAPABILITY_REQUIRED/);
-      assert.deepEqual(good().command.slice(0, 2), ['-c', 'wal_level=logical']);
-    }
-    assert.equal(inventory.producerSelection([{ flags: { NS_PGSTREAM_ROLE_TEST: '1' } }], {}), null, 'low-level SQL receipt controls do not claim a running producer');
+  it('has no producer capability gate: no suite selection requires a stream binary, ports or a replication image', function () {
+    assert.equal(inventory.producerSelection, undefined, 'RETIRED_STREAM_PRODUCER_SELECTION_REMOVED');
+    for (const file of ['tests/fixtures/pgstream-native.js', 'tests/fixtures/realtime-sharding-native.js']) assert.equal(fs.existsSync(path.join(root, file)), false, file + ' is deleted');
+    for (const row of inventory.INVENTORY) assert(!Object.keys(row.flags).includes('NS_PGSTREAM_RECOVERY_TEST'), row.file + ' needs no stream recovery capability');
   });
   it('binds exact recovery source before allocation and refuses a caller mismatch', function () {
     const selected = inventory.select(['tenant-recommission.integration']);

@@ -11,7 +11,7 @@ describe('owned evaluator crash fixture source controls', function () {
     const { EventEmitter } = require('node:events');
     const calls = [], fields = Array(24).fill('0');
     Object.assign(fields, { 0:'S', 1:'4000', 2:'4242', 3:'4242', 19:'123' });
-    const lab = { prepareProduct:async () => {}, startStream:async()=>{}, tracePreview:() => {} };
+    const lab = { tracePreview:() => {} };
     const fork = (file, args, options) => {
       calls.push(options);
       const child = Object.assign(new EventEmitter(), { pid:4242, exitCode:null, signalCode:null, stdout:new EventEmitter(), stderr:new EventEmitter() });

@@ -75,7 +75,7 @@ describe('actual inherited evaluator consumer fixture setup protocol',function()
     const {EventEmitter}=require('node:events'),fields=Array(24).fill('0');fields[0]='S';fields[2]='333333';fields[19]='123';
     async function criterion(changeConsumer){
       let selected;const p=protocol({changeConsumer,procStat:'424242 (synthetic consumer) '+fields.join(' '),fork(file,args,options){selected=options;const child=Object.assign(new EventEmitter(),{pid:424242,exitCode:null,signalCode:null,stdout:new EventEmitter(),stderr:new EventEmitter()});child.kill=()=>{child.exitCode=0;queueMicrotask(()=>child.emit('exit',0,null));};queueMicrotask(()=>child.emit('message',{ready:true}));return child;}}),lab=p.factory();
-      try{await lab.open();lab.prepareProduct=async()=>{};lab.startStream=async()=>{};lab.stopStream=async()=>{};lab.stream=()=>undefined;const worker=await lab.workerConsumers({args:[]});assert.equal(selected.detached,false,'CONSUMER_MUST_INHERIT_DRIVER_GROUP');assert.equal(worker.processGroup,333333,'ACTUAL_GROUP_MUST_BE_CAPTURED');assert.equal(worker.child.fixtureProcessGroup,333333);assert.equal(worker.birth,'123');}finally{await lab.close();}
+      try{await lab.open();const worker=await lab.workerConsumers({args:[]});assert.equal(selected.detached,false,'CONSUMER_MUST_INHERIT_DRIVER_GROUP');assert.equal(worker.processGroup,333333,'ACTUAL_GROUP_MUST_BE_CAPTURED');assert.equal(worker.child.fixtureProcessGroup,333333);assert.equal(worker.birth,'123');}finally{await lab.close();}
     }
     await criterion();
     await assert.rejects(criterion(source=>{const needle='silent: true, detached: false';assert.equal(source.split(needle).length,2);return source.replace(needle,'silent: true, detached: true');}),/CONSUMER_MUST_INHERIT_DRIVER_GROUP/);

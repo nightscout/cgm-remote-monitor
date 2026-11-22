@@ -53,11 +53,6 @@ module.exports=function openProtocol({env,...options}={}) {
       if(id==='node:child_process'&&options.fork)return {...actual(id),fork:options.fork};
       if(id==='node:fs'&&options.procStat)return {...fs,readFileSync(file,...args){if(file==='/proc/424242/stat')return options.procStat;return fs.readFileSync(file,...args);}};
       if(id==='process'||id==='node:process')return processFacade;
-      if(id==='./pgstream-native')return {
-        capability:()=>({binary:'/synthetic/pgstream',receiverPort:19421,subscriptionsPort:19422}),
-        configuration:({prefix,capability})=>({receiver:{url:'http://127.0.0.1:'+capability.receiverPort+'/',trust:'network',bindHost:'127.0.0.1',maxBytes:8388608,timeoutMs:5000},slot:prefix+'_stream',streamRole:prefix+'_stream',bounds:{stepMs:5000,recoveryMs:30000,pendingMs:30000}}),
-        async setup(){throw Error('NATIVE_PRODUCER_MUST_NOT_START_IN_SETUP_ORDER_PROTOCOL');}
-      };
       const resolved=actual.resolve(id);
       if(resolved===path.join(fixtures,'provisioned-tenants.js'))return {async create(input){
         const owned=[],all={...input.namespaces},ids=new Set();

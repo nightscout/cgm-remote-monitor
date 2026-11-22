@@ -24,14 +24,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       while (Date.now() < end) { const value = await check(); if (value) return value; await sleep(20); }
       throw new Error(symptom);
     }
-    async function completedFloor (tenant = lab.A) { return floor(work.map((await lab.previewCompleted(tenant)).work_completed).bootstrap); }
-    async function accepted (value, id, tenant = lab.A) {
-      return wait(async () => {
-        const saved = await lab.checkpoint(lab.consumerName, tenant), input = saved.projection?.[0];
-        const event = saved.projection?.[1]?.events.find(row => row.domain === 'entries' && row.value.doc?.identifier === id && row.value.doc.sgv === value);
-        return input?.stream?.accepted_position && event ? floor(input.floor) : null;
-      }, 10000, 'INPUT_NOT_ACCEPTED');
-    }
+    async function completedFloor (tenant = lab.A) { return floor(work.map((await lab.previewCompleted(tenant)).work_completed).clock); }
+    // Writer-driven input: the write's transaction marked the work row pending at the clock's committed stamp.
+    async function accepted (value, id, tenant = lab.A) { return floor((await lab.clock(tenant)).stamp); }
     async function settle (worker) {
       let last = -1;
       for (let i = 0; i < 50; i++) {

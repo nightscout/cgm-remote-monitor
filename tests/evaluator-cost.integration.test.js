@@ -74,7 +74,7 @@ optInSuite(process.env.NS_TENANT_PROJECTION_EVALUATOR_TEST === '1' && !!process.
     beforeEach(() => lab.reset());
     after(() => lab.close());
 
-    // Native deletion coverage is exercised in pgstream-recovery. This dormant
+    // Native deletion coverage is exercised in s1-level-triggered (S1_X_HARD_DELETE) and tenant-current-state-recovery-proof. This dormant
     // full-snapshot component has no native intake: a new acquisition handle
     // reads physical absence even when public history has not advanced.
     it('EV_COST_E_HARD_DELETE a fresh snapshot acquisition sees physical deletion at the same public floor', async function () {

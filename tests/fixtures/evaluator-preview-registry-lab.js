@@ -16,20 +16,20 @@ const configParser = require('../../lib/server/serve/evaluator-config');
 const provisionedTenants = require('./provisioned-tenants');
 const assert = require('node:assert/strict');
 const { run } = require('../../lib/migrations/postgres');
-const stream = require('./pgstream-native');
+const decorate = require('../../lib/storage/postgres-write-clock');
+const writerDriven = require('../../lib/writer-driven');
 
 module.exports = function evaluatorPreviewRegistryLab () {
   const lab = base(), open = lab.open.bind(lab), reset = lab.reset.bind(lab), close = lab.close.bind(lab);
   const children = new Set(), addedRoles = new Set();
-  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, producer, producerIdentity, receiverURL, registryReady = false;
+  let directory, connectionString, settingsConnection, activityConnection, lifetimeConnection, provisioned, hinter, registryReady = false;
   const layout = deployment.layout({ NS_PG_PREFIX: lab.name });
   Object.assign(lab.catalogues, require('../../lib/server/tenant-socket-order-port').catalogues);
   lab.replayNamespace = layout.namespaces.eval_checkpoint;
   lab.consumerName = deployment.IDENTITY.evaluatorConsumer;
   lab.previewRole = lab.name + '_evaluator';
+  lab.sweepMs = 5000; // the deployed default; a suite may shorten it before it starts a role
   lab.open = async () => {
-    const capability = stream.capability(process.env);
-    receiverURL = 'http://127.0.0.1:' + capability.receiverPort + '/';
     await open(); directory = fs.mkdtempSync(path.join(os.tmpdir(), 'evaluator-preview-'));
     const password = crypto.randomBytes(24).toString('hex');
     await lab.admin.query('CREATE ROLE "' + lab.previewRole + '" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD \'' + password + '\'');
@@ -50,6 +50,10 @@ module.exports = function evaluatorPreviewRegistryLab () {
       catalogue: lab.catalogues[domain], mode: 'reader' });
     await lab.admin.query('GRANT UPDATE(checkpoint,projection,contract_digest,' + require('../../lib/pgstream/checkpoint').WORK_COLUMNS.join(',') + ') ON "' + lab.replayNamespace +
       '".tenant_consumer_checkpoint TO "' + lab.previewRole + '"');
+    // The deployment's evaluator work-row policy (nightscout-deploy output-grants.js
+    // pgstream_evaluator_metadata): cross-tenant work reads and completion on its own rows only.
+    await lab.admin.query('CREATE POLICY pgstream_evaluator_metadata ON "' + lab.replayNamespace + '".tenant_consumer_checkpoint TO "' + lab.previewRole +
+      "\" USING (consumer IN ('" + lab.consumerName + "','" + lab.consumerName + "-completed')) WITH CHECK (consumer IN ('" + lab.consumerName + "','" + lab.consumerName + "-completed'))");
     const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = lab.previewRole; url.password = password;
     connectionString = url.toString();
     const owner = lab.name + '_registry_owner', settingsRole = lab.name + '_settings_reader';
@@ -59,9 +63,11 @@ module.exports = function evaluatorPreviewRegistryLab () {
     // The inherited lab primes clock rows. Strict provisioning must create its
     // own rows in the registry transaction, never adopt these synthetic rows.
     await lab.admin.query('DELETE FROM "' + lab.namespaces.clock + '".tenant_write_clock');
-    const { clock, ...namespaceNames } = require('../../lib/server/ordinary-deployment-grants').provisioningNamespaces(layout.namespaces);
+    // This lab provisions without an owner-configuration namespace (provisioned-tenants has no catalogue for it).
+    const { clock, ...allNames } = require('../../lib/server/ordinary-deployment-grants').provisioningNamespaces(layout.namespaces);
+    const namespaceNames = Object.fromEntries(Object.entries(allNames).filter(([kind]) => kind !== 'ownerConfiguration'));
     provisioned = await provisionedTenants.create({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, owner,
-      namespaceNames, namespaces: { clock }, checkpoints: deployment.checkpoints(layout).filter(row => row.namespace === lab.replayNamespace) });
+      namespaceNames, namespaces: { clock }, catalogues: { control: () => require('../../lib/tenant-lifecycle/native-selection').catalogue(deployment.nativeSelection(layout)) }, checkpoints: deployment.checkpoints(layout).filter(row => row.namespace === lab.replayNamespace) });
     const registry = provisioned.namespaces;
     // Match canonical DBA grants: the lifetime role may execute only its
     // lifecycle birth function; settings validation belongs to provisioning.
@@ -94,32 +100,32 @@ module.exports = function evaluatorPreviewRegistryLab () {
     const trustedWorker = { clock: namespaces.clock, activity: registry.control, settings: registry.settings, operatorPolicy: registry.operatorPolicy };
     for (const statement of require('../../lib/trusted-worker/postgres').grants({ namespaces: trustedWorker, roles: [lab.previewRole] })) await lab.admin.query(statement);
     for (const [index, id] of [lab.A, lab.B].entries()) await provisioned.provision({ id, hosts: ['evaluator-' + index + '.example.test'] });
+    // Writer-driven input (the only transport): the api's write role marks the evaluator's
+    // completed-work row pending in its own transaction, as ordinary deployment grants allow.
+    for (const sql of writerDriven.grants({ namespace: lab.replayNamespace, roles: [lab.role] })) await lab.admin.query(sql);
+    // After COMMIT the api sends a disposable `changed` hint to the evaluator's private listener;
+    // the pending mark and the sweep are the guarantee, the hint only shortens the wait.
+    hinter = writerDriven.changedSender(env());
+    // The lifecycle namespace carries the native selection's catalogue (the evaluator's start check requires it).
+    lab.lifecycleCatalogue = require('../../lib/tenant-lifecycle/native-selection').catalogue(deployment.nativeSelection(layout));
+    lab.pendingBinding = { table: '"' + lab.replayNamespace + '".tenant_consumer_checkpoint', consumer: lab.consumerName + '-completed',
+      hint: (tenant, stamp) => hinter.changed(tenant, { stamp }) };
+    // NS_EVALUATOR_LAB_CONTROL=no-mark is the negative control for every suite on this lab: the writers do
+    // not mark the work row, so no write is owed and the suites' recovery and wake criteria must go red.
+    const marking = process.env.NS_EVALUATOR_LAB_CONTROL === 'no-mark' ? {} : { pending: lab.pendingBinding };
+    lab.clocks.forEach((_, index) => { lab.clocks[index] = decorate(lab.raw[index], lab.namespaces.clock, marking); });
     lab.document = deployment.evaluator(env());
     // This base lab exercises clinical acquisition without a notification sink.
     // The consumer extension provisions the deployment's outbox and suppression roles.
     delete lab.document.consumers;
     lab.registryNamespaces = registry;
     lab.registryAdmission = { namespace: registry.registry, allows: async tenant => (await provisioned.provisioning.get(tenant))?.state === 'active' };
-    lab.prepareProduct = async config => {
-      const selected = { ...config.document, namespaces: config.document.postgres.namespaces };
-      const identity = JSON.stringify([selected.consumer, selected.namespaces, selected.trustedWorker, selected.pgstream]);
-      if (producer && producerIdentity === identity) return;
-      assert(![...children].some(child => child.exitCode === null && child.signalCode === null), 'fixture cannot rebind a live producer');
-      if (producer) { await producer.close(); producer = null; }
-      producer = await stream.setup({ admin: lab.admin, adminURI: process.env.NS_TEST_POSTGRES_ADMIN_URI, directory,
-        config: selected, evaluatorRole: lab.previewRole });
-      producerIdentity = identity;
-    };
     lab.setSettings = async (settings, tenant) => {
       settings = require('../../lib/tenant-settings/catalogue').normalize(settings);
       const ids = tenant === undefined ? [lab.A, lab.B] : [tenant];
       const result = await lab.admin.query('UPDATE "' + registry.settings + '".tenant_settings SET version=version+1,values=$2::jsonb WHERE tenant_id=ANY($1::uuid[])', [ids, JSON.stringify(settings)]);
       assert.equal(result.rowCount, ids.length, 'fixture settings updates existing provisioned tenants');
     };
-    // These are fixture-owned actor controls, never evaluator role controls.
-    lab.stream = () => producer;
-    lab.startStream = () => producer.start();
-    lab.stopStream = () => producer?.stop();
     lab.environment = env;
     registryReady = true;
     await lab.reset();
@@ -127,19 +133,16 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.reset = async () => {
     if (!registryReady) return reset(); // inherited open resets before this extension exists
     await lab.stopChildren();
-    // Destructive per-test wipes declare a new source incarnation. Retire the
-    // fixture-owned slot/schema/role before TRUNCATE, whose stream event is not
-    // supported by the strict clinical routing contract. Within-test process
-    // restarts do not enter this reset and keep their original source/coverage.
-    if(producer){await producer.close();producer=null;producerIdentity=null;}
-    lab.document.pgstream.generation=crypto.randomBytes(16).toString('hex');
     for (const domain of lab.domains) await lab.admin.query('TRUNCATE "' + lab.namespaces[domain] + '"."' + domain + '"');
     lab.initial = Date.now() + 100000;
     const clock = await lab.admin.query('UPDATE "' + lab.namespaces.clock + '".tenant_write_clock SET last_stamp=$3,last_delete_stamp=0 WHERE tenant_id IN ($1,$2)', [lab.A, lab.B, lab.initial]);
     assert.equal(clock.rowCount, 2, 'registry fixture must retain both actually provisioned clocks');
     const checkpoints = await lab.admin.query('UPDATE "' + lab.replayNamespace + '".tenant_consumer_checkpoint SET checkpoint=0,projection=NULL WHERE tenant_id IN ($1,$2) AND consumer=$3', [lab.A, lab.B, lab.consumerName]);
     assert.equal(checkpoints.rowCount, 2, 'registry fixture must retain both actually provisioned checkpoints');
-    await lab.admin.query('UPDATE "' + lab.replayNamespace + '".tenant_consumer_checkpoint SET checkpoint=0,projection=NULL,work_version=0,work_observed=NULL,work_completed=NULL,work_observed_at=NULL,work_pending_at=NULL,work_due_at=NULL,work_completed_at=NULL,output_identity=NULL,output_digest=NULL,output_revision=0,output_restore_generation=NULL,delivery_revision=0,delivery_ack_revision=0,notification_work_pending=false WHERE tenant_id IN ($1,$2) AND consumer=$3', [lab.A, lab.B, lab.consumerName + '-completed']);
+    // Back to the provisioned state: the typed work-v2 row, pending at bootstrap (lib/writer-driven
+    // provisionedRow), so the api's pending mark finds it and the sweep finds the tenant.
+    const typed = writerDriven.provisionedRow(Date.now());
+    await lab.admin.query('UPDATE "' + lab.replayNamespace + '".tenant_consumer_checkpoint SET checkpoint=0,work_version=$4,work_observed=$5,work_completed=$6,work_observed_at=$7,work_pending_at=$8,projection=$9::jsonb,work_due_at=NULL,work_completed_at=NULL,output_identity=NULL,output_digest=NULL,output_revision=0,output_restore_generation=NULL,delivery_revision=0,delivery_ack_revision=0,notification_work_pending=false WHERE tenant_id IN ($1,$2) AND consumer=$3', [lab.A, lab.B, lab.consumerName + '-completed', ...typed.values]);
     const settings = await lab.admin.query('UPDATE "' + lab.registryNamespaces.settings + '".tenant_settings SET version=version+1,values=$3::jsonb WHERE tenant_id IN ($1,$2)',
       [lab.A, lab.B, JSON.stringify({ enable: ['bgnow', 'delta', 'direction', 'timeago'] })]);
     assert.equal(settings.rowCount, 2, 'registry fixture settings are committed provisioned rows');
@@ -154,7 +157,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
     const standard = deployment.evaluator(env({ document }));
     const args = require('node:util').isDeepStrictEqual(document, standard) ? [] : [JSON.stringify(document)];
     const configured = { document, args, async identity (tenant) {
-      await lab.prepareProduct(configured);
       const parsed = configParser.parse(document, env(configured));
       return (await configParser.withSettings(parsed, configParser.registryEntry(tenant), tenant)).identity;
     } };
@@ -165,7 +167,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.configureSelectedStartup = async (change = () => {}) => {
     const configured = lab.configure(change);
     configured.tenantReadiness = 'serve';
-    await lab.prepareProduct(configured);
     return configured;
   };
   lab.provisionPreview = async () => {
@@ -198,24 +199,19 @@ module.exports = function evaluatorPreviewRegistryLab () {
     return { PATH: process.env.PATH, HOME: process.env.HOME, NODE_PATH: process.env.NODE_PATH,
       NODE_ENV: 'test', TZ: 'UTC', NS_PG_PREFIX: lab.name, NS_SECRETS_DIR: directory,
       NS_REGISTRY_MAX_TENANTS: '2', NS_REGISTRY_REFRESH_MS: '250',
-      NS_PGSTREAM_RECEIVER_URL: receiverURL, NS_PGSTREAM_RECEIVER_BIND_HOST: '127.0.0.1',
-      NS_PGSTREAM_GENERATION: config?.document?.pgstream.generation ?? lab.document?.pgstream.generation,
+      // The evaluator's own sweep over pending rows shortens to the fixture's cadence.
+      NS_EVALUATOR_SWEEP_MS: String(lab.sweepMs),
       NS_EVALUATOR_PG: connectionString, NS_DISPLAY_PG: settingsConnection, NS_ACTIVITY_PG: activityConnection,
       NS_LIFETIME_PG: lifetimeConnection,
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
-      ...producer?.environment,
       ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: config?.tenantReadiness || process.env.NS_TENANT_READINESS || 'all' };
   }
   lab.worker = async (config, { detached = false } = {}) => {
     if (typeof detached !== 'boolean') throw new TypeError('Explicit worker detached boolean required');
-    // A new explicit fixture role starts a fresh external test actor; this is
-    // not an automatic response to a role process exit.
-    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
-    await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-preview-worker.js'), config.args, { env: env(config), silent: true, detached });
     const pending = new Map(); child.fixtureBootRefused = false; let sequence = 0, stdout = '', stderr = '', heldResolve;
@@ -230,7 +226,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
       owned = { birth: fields[19], processGroup: child.pid };
     }
     const handle = { child, ...owned, logs: () => ({ stdout, stderr }), held: () => new Promise(done => { heldResolve = done; }),
-      call (action, tenant = lab.A, extra = {}) { return new Promise((done, fail) => {
+      call (action, tenant = lab.A, extra = {}) { if (action === 'acquire') lab.pendingBinding.hint(tenant); return new Promise((done, fail) => {
         const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Evaluator fixture command watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant, ...extra });
       }); } };
@@ -244,16 +240,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
       }
     });
     child.once('error', error => { clearTimeout(timeout); reject(error); });
-    Promise.resolve().then(() => lab.startStream()).catch(error => {
-      // A boot refusal closes its own process. Stopping its still-waiting
-      // paired producer cancels receiver discovery; that cancellation must
-      // not race the refused process's natural nonzero exit with SIGTERM.
-      if (child.fixtureBootRefused && error.code === 'PGSTREAM_NATIVE_PRODUCER_START_CANCELLED') {
-        lab.tracePreview('boot-refused-producer-start-cancelled', { code: error.code, bootRefused: true });
-        return;
-      }
-      clearTimeout(timeout); child.kill('SIGTERM'); reject(error);
-    });
     child.on('exit', (code, signal) => {
       console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'worker', pid: child.pid, code, signal, bootRefused: child.fixtureBootRefused }));
       children.delete(child);
@@ -263,7 +249,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
   });
   };
   lab.stopWorker = async worker => {
-    await lab.stopStream();
     if (worker.child.fixtureBootRefused) {
       // Refused startup has no running role command surface. The bootError IPC
       // precedes process exit, so drain that actual exit without sending close.
@@ -285,14 +270,12 @@ module.exports = function evaluatorPreviewRegistryLab () {
   };
   lab.cli = async config => {
     assert.equal(config.args.length, 0, 'the real CLI uses the deployment configuration');
-    await lab.prepareProduct(config);
     const child = spawn(process.execPath, [path.join(__dirname, '../../bin/nightscout.js'), 'multitenant', 'evaluator'],
       { env: env(config), stdio: ['ignore', 'pipe', 'pipe'] });
     children.add(child); let stdout = '', stderr = '';
     child.stdout.on('data', b => { stdout += b; }); child.stderr.on('data', b => { stderr += b; });
     child.once('exit', (code, signal) => { children.delete(child);
       console.log('M5_EVALUATOR_CHILD_EXIT ' + JSON.stringify({ kind: 'cli', pid: child.pid, code, signal })); });
-    await lab.startStream();
     return { child, logs: () => ({ stdout, stderr }) };
   };
   lab.wait = async check => {
@@ -302,7 +285,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
   };
   lab.stopChildren = async () => {
     const errors=[];
-    try{await lab.stopStream?.();}catch(error){errors.push(error);}
     for (const child of [...children]) {
       if (child.exitCode !== null || child.signalCode !== null) continue;
       let forced = false;
@@ -318,9 +300,8 @@ module.exports = function evaluatorPreviewRegistryLab () {
   };
   lab.close = async () => {
     const errors = [], attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
-    await attempt(() => lab.stopStream?.());
     await attempt(() => lab.stopChildren());
-    if (producer) await attempt(() => producer.close());
+    if (hinter) await attempt(() => hinter.close());
     if (provisioned) await attempt(() => provisioned.close());
     if (lab.admin) for (const role of [...addedRoles].reverse()) await attempt(async () => {
       await lab.admin.query('DROP OWNED BY "' + role + '"');

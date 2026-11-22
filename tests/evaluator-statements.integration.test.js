@@ -8,11 +8,11 @@
 const assert = require('node:assert/strict');
 const { optInSuite } = require('./support/opt-in');
 const { summarize } = require('./lib/statement-summary');
-const enabled = process.env.NS_PGSTREAM_RECOVERY_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
+const enabled = process.env.NS_EVALUATOR_STATEMENTS_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI;
 const WRITES = Number(process.env.NS_EVALUATOR_STATEMENTS_WRITES || 5);
 const BOUND = process.env.NS_EVALUATOR_STATEMENTS_BOUND === undefined ? null : Number(process.env.NS_EVALUATOR_STATEMENTS_BOUND);
 
-optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL plus canonical pgstream fixture inputs')(
+optInSuite(enabled, 'NS_EVALUATOR_STATEMENTS_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')(
   'evaluator statements per accepted write', function () {
     this.timeout(120000);
     const lab = require('./fixtures/evaluator-preview-registry-lab')();
@@ -29,14 +29,12 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
     const work = require('../lib/pgstream/work-state');
     async function completedFloor (tenant = lab.A) {
       const row = await lab.previewCompleted(tenant);
-      return floor(work.map(row.work_completed).bootstrap);
+      return floor(work.map(row.work_completed).clock);
     }
+    // Writer-driven input: the write's own transaction marked the completed-work row pending at
+    // the write clock's committed stamp; completion covers it when work_completed.clock reaches it.
     async function accepted (value, id, tenant = lab.A) {
-      return wait(async () => {
-        const saved = await lab.checkpoint(lab.consumerName, tenant), input = saved.projection?.[0];
-        const event = saved.projection?.[1]?.events.find(row => row.domain === 'entries' && row.value.doc?.identifier === id && row.value.doc.sgv === value);
-        return input?.stream?.accepted_position && event ? floor(input.floor) : null;
-      }, 10000, 'INPUT_NOT_ACCEPTED');
+      return floor((await lab.clock(tenant)).stamp);
     }
     async function settle (worker) {
       // Quiescent when two consecutive 300 ms windows add no evaluator or receiver statement.
@@ -64,7 +62,7 @@ optInSuite(enabled, 'NS_PGSTREAM_RECOVERY_TEST=1 and owned disposable PostgreSQL
         assert.equal(worker.startup.ready, true, JSON.stringify(worker.startup));
         await worker.call('acquire', lab.A);
         await lab.wait(async () => !!(await worker.call('last', lab.A)));
-        // Warm-up write: the first stream input may take a cold path.
+        // Warm-up write: the first input may take a cold path.
         for (let i = 0; i < 2; i++) {
           const now = Date.now();
           await lab.persistDomains({ entries: [{ _id: 'warm-' + i, type: 'sgv', sgv: 90 + i, date: now, dateString: new Date(now).toISOString(), direction: 'Flat' }] });
