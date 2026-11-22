@@ -394,6 +394,7 @@
         "tests/clinical-storage-size.test.js",
         "tests/evaluator-resident-cache.test.js",
         "tests/notification-version-check.test.js",
+        "tests/notification-consumer-preread.test.js",
         "tests/pgstream-work-admission.test.js",
         "tests/tenant-api-admission.test.js",
         "tests/tenant-api-settings-reader.test.js",
