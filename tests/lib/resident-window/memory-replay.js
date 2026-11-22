@@ -113,7 +113,7 @@ module.exports = function memoryReplay ({ tenant, generation = '1', resident: re
     const base = shape ? shape({ rows: visible, policy, state }) : { checkpoint: state.stamp, progress: 'level-window', signature: { stamp: state.stamp, deleted: 0 },
       generation: state.generation, policy, expiresAt: residentOn ? residentWindow.nextExpiry(visible, policy) : windowPolicy.nextExpiry(visible, policy) };
     return { ...base, rows: visible.map(row => ({ domain: row.domain, document: decodeDocument(row), ordinal: row.ordinal })),
-      ...(residentOn ? { rowTextBytes: residentWindow.textBytes(visible, ordinal => ordinal), resident: next, residentMode: mode } : {}) };
+      ...(residentOn ? { rowTextBytes: residentWindow.textBytes(visible), resident: next, residentMode: mode } : {}) };
   }
   return { state, work, counters, write, begin, complete, windowTime,
     replay: { level: true, residentWindow: residentOn, window, async reconcile () { throw new Error('A level component reads its window'); } } };

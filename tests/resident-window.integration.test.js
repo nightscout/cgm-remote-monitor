@@ -58,7 +58,7 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
     });
     afterEach(async () => {
       for (const component of open.splice(0)) component.close();
-      await store.close(); await connection.end();
+      await store.close().catch(() => {}); await connection.end();
     });
 
     // ---- writers: the shipping storage writer over the lab's write clock
@@ -401,6 +401,40 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
       await unmarked(p.tenant, 'a-sgv-' + (T0 - 5 * MIN));
       const repaired = await cycle(p, at + MIN, { label: 'unmarked change with the self-check' });
       assert.equal(repaired.differences, 1, 'the self-check counts the difference'); assert.equal(repaired.full, 1, 'and repairs from the full read');
+    });
+
+    it('through the scheduler: writes racing with cycles all reach durable output, every tail read checked against a full read', async function () {
+      // The lab's evaluator (activity scheduler, typed checkpoint, shipping component) with the self-check on every read.
+      lab.residentCheckMs = 0;
+      await store.close(); // one owner per work consumer: the lab's evaluator takes it
+      const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+      try {
+        for (const [i, tenant] of lab.tenants.entries()) await seed(tenant, 'e' + i, Math.floor(Date.now() / MIN) * MIN - 10 * MIN);
+        const evaluator = await lab.startEvaluator({ sweepMs: 500, concurrency: 2 });
+        const expected = new Map();
+        for (let i = 0; i < 40; i++) {
+          for (const [n, tenant] of lab.tenants.entries()) {
+            const date = Date.now() - 1000 + n; // rising per tenant
+            await insert(tenant, 'entries', sgv('race-' + n + '-' + i, 100 + i, date));
+            if (i % 5 === 2) await insert(tenant, 'entries', sgv('race-late-' + n + '-' + i, 90, date - 6 * HOUR - i)); // backdated, lowers the mark
+            if (i % 5 === 3) await remove(tenant, 'entries', 'race-late-' + n + '-' + (i - 1)); // and a deletion of an old row
+            expected.set(tenant, date);
+          }
+          await sleep(i % 3 ? 5 : 60); // some writes land inside a running cycle, some between cycles
+        }
+        const deadline = Date.now() + 60000;
+        let rows;
+        do { await sleep(200); rows = await lab.outputs(); }
+        while (Date.now() < deadline && !rows.every(row => row.pending === null && Number(row.last) >= expected.get(row.tenant)));
+        for (const row of rows) { assert.equal(row.pending, null, 'nothing pending'); assert.ok(Number(row.last) >= expected.get(row.tenant), 'the newest reading reached durable output'); }
+        const stats = lab.replay.residentStats();
+        assert.deepEqual(evaluator.stats.errors, []);
+        assert.ok(stats.tail >= 20, 'tail reads: ' + JSON.stringify(stats));
+        assert.ok(stats.checks >= stats.tail, 'every tail read was checked');
+        assert.equal(stats.differences, 0, 'no resident differed from its snapshot\'s full read');
+        assert.deepEqual(Object.keys(stats.reasons).filter(reason => !['no-resident', 'unbounded-change'].includes(reason)), [], JSON.stringify(stats.reasons));
+        await lab.evaluator.close(); lab.evaluator = null;
+      } finally { lab.residentCheckMs = undefined; }
     });
 
     it('a database built from the previous work catalogue is brought forward by migration 0009 and the pending-writer grants', async function () {

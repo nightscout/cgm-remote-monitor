@@ -158,7 +158,7 @@ describe('resident window: what a resident row computes once', function () {
       const doc = { _id: next(2) ? 'row-' + i : i.toString(16).padStart(24, '0'), note: 'caf\u00e9 \u2603 ' + i, nested: { b: [1, { c: i }], a: null },
         ...(domain === 'entries' ? { date: time } : { created_at: time }), ...(next(9) === 0 ? { isValid: false } : {}),
         ...(domain === 'treatments' ? { eventType: ['Temp Basal', 'Site Change', 'Profile Switch'][next(3)], duration: 0 } : {}) };
-      out.push({ domain, id_kind: doc._id.startsWith('row-') ? 'string' : 'objectid', doc, ordinal: next(3) ? String(i + 1) : null,
+      out.push({ domain, id_kind: doc._id.startsWith('row-') ? 'string' : 'objectid', doc, ordinal: next(3) ? i + 1 : null,
         wt: memory.windowTime(domain, doc), bytes: Buffer.byteLength(JSON.stringify(doc)) });
     }
     return out;
@@ -174,7 +174,7 @@ describe('resident window: what a resident row computes once', function () {
     for (const at of [T - 500 * DAY, T - 372 * DAY, T - 62 * DAY, T - 60 * HOUR, T - 2 * DAY, T - DAY, T - 1, T, T + 1, T + DAY, T + 400 * DAY]) {
       for (const devicestatusMs of [86400000, 172800000]) {
         const policy = { ...policyAt(at), devicestatusMs }, visible = list.filter(row => row.doc.isValid !== false);
-        for (const row of list) row.exp = null; // the cache belongs to one device-status window
+        for (const row of list) { row.ms = undefined; row.exp = null; } // the cache belongs to one device-status window
         assert.equal(residentWindow.nextExpiry(list, policy), windowPolicy.nextExpiry(visible, policy), 'at ' + iso(at) + ' with ' + devicestatusMs);
         assert.equal(residentWindow.nextExpiry(list, policy), windowPolicy.nextExpiry(visible, policy), 'from the cached instants');
       }
@@ -182,14 +182,13 @@ describe('resident window: what a resident row computes once', function () {
   });
 
   it('gives the exact byte length of the rows in the evaluator\'s input text', function () {
-    const ordinalOf = value => value === null ? null : Number(value);
     for (const list of [prepare(rows()), prepare(rows().slice(0, 1)), prepare([])]) {
       const visible = list.filter(row => row.doc.isValid !== false);
       const { encodeDocument, decodeDocument } = require('../lib/storage/postgres-identity');
       // As the evaluator builds its input rows from a window's rows.
-      const input = visible.map(row => ({ domain: row.domain, ...encodeDocument(decodeDocument(row)), ordinal: ordinalOf(row.ordinal) }));
-      assert.equal(residentWindow.textBytes(list, ordinalOf), Buffer.byteLength(JSON.stringify(input)));
-      assert.equal(residentWindow.textBytes(list, ordinalOf), Buffer.byteLength(JSON.stringify(input)), 'from the cached lengths');
+      const input = visible.map(row => ({ domain: row.domain, ...encodeDocument(decodeDocument(row)), ordinal: row.ordinal }));
+      assert.equal(residentWindow.textBytes(list), Buffer.byteLength(JSON.stringify(input)));
+      assert.equal(residentWindow.textBytes(list), Buffer.byteLength(JSON.stringify(input)), 'from the cached lengths');
     }
   });
 
