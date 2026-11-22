@@ -34,9 +34,10 @@ describe('derived UTC offsets remain representable without weakening document va
       assert.equal(treatment.created_at, new Date(time).toISOString());
     }
   });
-  it('still refuses caller-supplied negative zero and non-finite numbers in storage documents', function () {
+  it('accepts finite signed zero and refuses non-finite numbers in storage documents', function () {
     const storage = writer({ connection: { query () {}, transaction () {} }, table: 'test_entries.entries' });
-    for (const value of [-0, NaN, Infinity, -Infinity]) {
+    storage.validateDocument({ type: 'sgv', date: 1700000000000, utcOffset: -0, sgv: -0 });
+    for (const value of [NaN, Infinity, -Infinity]) {
       assert.throws(() => storage.validateDocument({ type: 'sgv', date: 1700000000000, utcOffset: value }), /unsupported document value for utcOffset/);
       assert.throws(() => storage.validateDocument({ type: 'sgv', date: 1700000000000, sgv: value }), /unsupported document value for sgv/);
     }
