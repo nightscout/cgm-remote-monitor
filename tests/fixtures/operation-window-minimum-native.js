@@ -85,7 +85,8 @@ function create ({ receiptPrefix = '' } = {}) {
     });
     lifetimePool = new Pool({ connectionString: urls.lifetime_api, max: 1, Client: counter.Client, options: '-c search_path=pg_catalog' });
     await prestart();
-    window = windows.create({ namespace: ns.control, locks, pool: lifetimePool });
+    // Either arm of NS_EVAL_FEWER_ROUNDTRIPS: the fence contracts below hold for both.
+    window = windows.create({ namespace: ns.control, locks, pool: lifetimePool, fewerRoundTrips: process.env.NS_EVAL_FEWER_ROUNDTRIPS === '1' });
     await window.ready();
     releaseWindow = connect.installOperationWindow(window);
     lower = await connect({ connectionString: urls.api, operationWindow: window, max: 1, Client: counter.Client });

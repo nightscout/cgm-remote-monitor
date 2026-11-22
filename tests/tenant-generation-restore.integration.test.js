@@ -3,6 +3,8 @@
 const assert = require('node:assert/strict');
 const generation = require('../lib/tenant-lifecycle/generation-scope');
 const { optInSuite } = require('./support/opt-in');
+// Either arm of NS_EVAL_FEWER_ROUNDTRIPS.
+const fewerRoundTrips = process.env.NS_EVAL_FEWER_ROUNDTRIPS === '1';
 
 optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1', 'disposable PostgreSQL')(
   'serving tenant generation across restore', function () {
@@ -16,7 +18,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1', 'disposa
       let release, started;
       const barrier = new Promise(resolve => { release = resolve; });
       const entered = new Promise(resolve => { started = resolve; });
-      const scope = generation.create({namespace:fixture.ns.control, locks, pool,
+      const scope = generation.create({namespace:fixture.ns.control, locks, pool, fewerRoundTrips,
         async invalidate(tenant) {
           invalidated.push(tenant);
           started();
@@ -52,7 +54,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1', 'disposa
       const pool = fixture.freshPool('lifetime_api');
       const oldEntered = Promise.withResolvers(), checkOld = Promise.withResolvers();
       let attempts = 0;
-      const scope = generation.create({namespace:fixture.ns.control, locks, pool, async invalidate() {
+      const scope = generation.create({namespace:fixture.ns.control, locks, pool, fewerRoundTrips, async invalidate() {
         if (++attempts === 1) throw new Error('TEST_CACHE_RETIREMENT_FAILED');
       }});
       const old = scope.run(A, async () => {

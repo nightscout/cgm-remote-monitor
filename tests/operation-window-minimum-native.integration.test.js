@@ -128,6 +128,49 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
   });
 
+  // The transaction's own shared lock, not only the scope's earlier observation:
+  // the replacement lock is taken after admission and the phase is still active.
+  it('refuses a transaction opened inside an admitted scope while the replacement lock is held', async function () {
+    let entered = false;
+    await assert.rejects(f.window.run(f.A, () => f.admin(async holder => {
+      assert.equal((await holder.query('SELECT pg_try_advisory_lock($1::bigint) AS held', [f.locks[0].key])).rows[0].held, true);
+      try { await f.lower.withTenant(f.A, async () => { entered = true; }); }
+      finally { await holder.query('SELECT pg_advisory_unlock($1::bigint)', [f.locks[0].key]); }
+    })), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+    assert.equal(entered, false, 'refusal must precede public body');
+    await active();
+  });
+
+  // NS_EVAL_FEWER_ROUNDTRIPS sends lock and generation read as separate statements of one
+  // simple-protocol query. Each statement must take its own READ COMMITTED snapshot, so a
+  // replacement committed while the lock waited is seen. The single-statement form is the
+  // red control: its snapshot predates the lock.
+  it('gives each statement of one simple query its own READ COMMITTED snapshot', async function () {
+    const table = 'public.fence_snapshot_probe', key = '830099';
+    await f.sql('CREATE TABLE ' + table + '(generation int)');
+    try {
+      const probe = text => f.admin(async writer => {
+        await f.sql('TRUNCATE ' + table + '; INSERT INTO ' + table + ' VALUES (1)');
+        await writer.query('BEGIN');
+        await writer.query('SELECT pg_advisory_xact_lock($1::bigint)', [key]);
+        await writer.query('UPDATE ' + table + ' SET generation=2');
+        const reading = f.admin(reader => reader.query(text));
+        const end = Date.now() + 10000;
+        while (!(await f.sql("SELECT count(*)::int AS n FROM pg_locks WHERE locktype='advisory' AND NOT granted")).rows[0].n) {
+          if (Date.now() > end) throw new Error('READER_NEVER_WAITED');
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        await writer.query('COMMIT');
+        const results = await reading;
+        return results[results.length - 2].rows[0].generation;
+      });
+      const lock = 'SELECT pg_advisory_xact_lock_shared(' + key + '::bigint)';
+      assert.equal(await probe('BEGIN ISOLATION LEVEL READ COMMITTED;' + lock + ';SELECT generation FROM ' + table + ';COMMIT'), 2);
+      assert.equal(await probe('BEGIN ISOLATION LEVEL READ COMMITTED;' + lock.replace(')', ') AS held') +
+        ',(SELECT generation FROM ' + table + ') AS generation;COMMIT'), 1, 'single statement keeps its pre-lock snapshot');
+    } finally { await f.sql('DROP TABLE ' + table); }
+  });
+
   it('takes a fresh generation observation without creating durable response markers', async function () {
     await active();
     const pending = async () => (await f.sql('SELECT operation_id FROM ' + f.control('tenant_lifecycle_operations') + ' WHERE tenant_id=$1 AND NOT finished', [f.A])).rows;
