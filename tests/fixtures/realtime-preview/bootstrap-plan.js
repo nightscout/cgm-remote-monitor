@@ -117,8 +117,7 @@ function parse (input) {
   try {stat=fs.lstatSync(directory.path);}catch{fail();}
   if (!path.isAbsolute(directory.path || '') || !stat.isDirectory() || stat.isSymbolicLink() || (stat.mode&0o777)!==0o700 ||
       stat.uid!==process.getuid() || directory.ownerUid!==stat.uid || directory.mode!==0o700 || Buffer.byteLength(directory.path)>56) fail();
-  const ports=require('../pgstream-native').ports(input.env);
-  return {pgstream:ports,options:{...options,evaluatorMaxRows:options.evaluatorMaxRows??options.maxRows,realtimeMaxRows:options.realtimeMaxRows??options.maxRows},ui,pg,mongo,vault,directory};
+  return {options:{...options,evaluatorMaxRows:options.evaluatorMaxRows??options.maxRows,realtimeMaxRows:options.realtimeMaxRows??options.maxRows},ui,pg,mongo,vault,directory};
 }
 function layout (suffix=crypto.randomBytes(8).toString('hex')) {
   if (!/^[a-f0-9]{16}$/.test(suffix)) fail();

@@ -62,9 +62,11 @@ async function startVault (id) {
 //   owner        an existing NOLOGIN role that owns the catalogues this fixture adds
 //   namespaces   provisioning namespaces the suite already created and migrated, by kind
 //   checkpoints  [{ namespace, consumer, digest }] as createProvisioning takes them
+//   catalogues   { kind: () => catalogue } overrides for the namespaces this fixture creates (the lifecycle
+//                namespace takes the native selection's catalogue when a role process reads it)
 //   vault        { address, token } of a dev Vault the suite already owns (no `transit` mount yet);
 //                omitted, this fixture starts and removes its own
-async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames = {}, checkpoints = [], vault: suiteVault } = {}) {
+async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames = {}, checkpoints = [], vault: suiteVault, catalogues = {} } = {}) {
   validateNamespaceNames(namespaceNames);
   if (Object.keys(namespaceNames).some(kind => Object.hasOwn(namespaces, kind))) throw new TypeError('a provisioning namespace is either existing or newly named');
   if (!admin || typeof adminURI !== 'string' || !NAME.test(owner || '') || Object.keys(namespaces).some(kind => !Object.hasOwn(CATALOGUES, kind) || !NAME.test(namespaces[kind]))) {
@@ -97,7 +99,7 @@ async function create ({ admin, adminURI, owner, namespaces = {}, namespaceNames
       if (all[kind]) continue;
       const namespace = all[kind] = namespaceNames[kind] || 'pvt_' + kind.toLowerCase() + '_' + id;
       await q(`CREATE SCHEMA "${namespace}"`); created.push(namespace);
-      await run('up', { direct: true, connectionString: adminURI, namespace, catalogue: catalogue() });
+      await run('up', { direct: true, connectionString: adminURI, namespace, catalogue: (catalogues[kind] || catalogue)() });
       for (const row of (await q('SELECT tablename FROM pg_tables WHERE schemaname = $1', [namespace])).rows) await q(`ALTER TABLE "${namespace}"."${row.tablename}" OWNER TO "${owner}"`);
       for (const row of (await q('SELECT p.oid::regprocedure::text AS fn FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = $1', [namespace])).rows) {
         await q(`ALTER FUNCTION ${row.fn} OWNER TO "${owner}"`);

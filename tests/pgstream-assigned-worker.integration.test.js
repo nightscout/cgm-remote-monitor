@@ -63,6 +63,24 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable NS_TEST_POSTGRES
    assert.deepEqual(rows.map(row=>row.tenant_id),ids.filter(owner).sort(),'COLD_SLICE_MUST_FIND_OWNED_WORK');
   }
  });
+ it('SQL slice rule: every tenant is selected by exactly one ordinal at K=1/2/4/8; an overlapping rule is red',async()=>{
+  const ids=Array.from({length:600},(_,i)=>crypto.createHash('sha256').update('sql-k-'+i).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
+  const select=async(sliceModule,count,ordinal)=>(await admin.query('SELECT tenant_id::text AS id FROM unnest($1::uuid[]) AS r(tenant_id) WHERE '+sliceModule.sqlPredicate(count,ordinal),[ids])).rows.map(row=>row.id);
+  async function exactlyOnce(sliceModule){
+    for(const count of [1,2,4,8]){
+      const seen=new Map();
+      for(let ordinal=0;ordinal<count;ordinal++)for(const id of await select(sliceModule,count,ordinal))seen.set(id,(seen.get(id)||0)+1);
+      assert.equal(seen.size,ids.length,'K='+count+' every tenant is selected');
+      assert([...seen.values()].every(n=>n===1),'K='+count+' every tenant is selected by exactly one ordinal');
+    }
+  }
+  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
+  const file=require.resolve('../lib/pool-membership/slice'),source=fs.readFileSync(file,'utf8'),needle="') = ' + ordinal;";
+  assert.equal(source.split(needle).length,2);
+  const broken={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,"') >= ' + ordinal;")+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
+  await assert.rejects(exactlyOnce(broken.exports),/exactly one ordinal/);
+  await exactlyOnce(require('../lib/pool-membership/slice'));
+ });
  it('static slices: one held owner excludes duplicate and mixed K, and a lost backend cannot overwrite its same-ordinal replacement',async()=>{
   const left=actor(),right=actor(),mixed=actor(),duplicate=actor();
   const shape={count:2,ordinal:0};

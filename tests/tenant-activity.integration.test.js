@@ -68,7 +68,11 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       for (const statement of activityStore.grants({ namespace, ...roles, ceremony: ceremonyRole })) await lab.admin.query(statement);
       await lab.admin.query(`GRANT SELECT, INSERT, UPDATE ON "${namespace}".tenant_lifecycle_requests TO "${ceremonyRole}"`);
       await lab.admin.query(`GRANT SELECT, INSERT, UPDATE ON "${namespace}".tenant_lifecycle_ceremony TO "${ceremonyRole}"`);
-      for (const kind of Object.keys(roles)) stores[kind] = await activityStore.create({ connectionString: urls[kind], namespace, capability: kind });
+      // Writer-driven input: the owner and operator writers mark the evaluator's completed-work row
+      // pending in their own transactions (class b), as ordinary deployment grants allow.
+      for (const sql of require('../lib/writer-driven').grants({ namespace: lab.replayNamespace, roles: [roles.owner, roles.operator] })) await lab.admin.query(sql);
+      for (const kind of Object.keys(roles)) stores[kind] = await activityStore.create({ connectionString: urls[kind], namespace, capability: kind,
+        ...(kind === 'reader' ? {} : { pending: lab.pendingBinding }) });
     });
     beforeEach(async function () {
       await lab.reset(); provisioned = false;
@@ -130,29 +134,25 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       // Phase 1: actual committed B work progresses while A remains paused.
       // The maintained worker does not schedule unchanged idle evaluations.
       await lab.provisionPreview(); provisioned = true;
-      const startCheckpoint = await lab.previewCheckpoint(lab.A), completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
+      const startCheckpoint = await lab.previewCompleted(lab.A), completedBefore=await lab.previewCompleted(lab.A); // before any evaluator process exists
       let worker = await boot(document => { document.timeIntervalMs = 150; });
       await reading(48, lab.A); // new A data while paused: any acquisition would advance A's checkpoint
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       const bBefore = tenantHealth(await worker.call('health'), lab.B).cycles;
-      const bCheckpoint = await lab.previewCheckpoint(lab.B);
+      const bCheckpoint = await lab.previewCompleted(lab.B);
       await reading(49, lab.B);
       await sleep(700); // preserve the existing bounded observation window
       await worker.call('flush', lab.A);
       let health = await worker.call('health');
-      lab.traceConsumer('activity-paused-before-verdict', { checkpointA: await lab.previewCheckpoint(lab.A), checkpointB: await lab.previewCheckpoint(lab.B),
+      lab.traceConsumer('activity-paused-before-verdict', { checkpointA: await lab.previewCompleted(lab.A), checkpointB: await lab.previewCompleted(lab.B),
         effectsA: effects(lab.A).length, a: tenantHealth(health, lab.A), b: tenantHealth(health, lab.B), consumerA: consumerHealth(health, lab.A) });
-      // Paused uploads may advance native input receipt; they cannot earn
-      // clinical coverage, run a clinical cycle or publish output.
+      // Paused uploads keep their pending mark (the write is owed); they cannot earn clinical
+      // coverage, run a clinical cycle or publish output.
       assert.equal(tenantHealth(health,lab.A).cycles,0,'ACTIVITY_PAUSED_NO_CLINICAL_ACQUISITION');
       await noCompletion(completedBefore,'ACTIVITY_PAUSED_NO_COMPLETION');
-      const accepted=await lab.previewCheckpoint(lab.A),input=accepted.projection?.[0];
-      assert(input,'ACTIVITY_PAUSED_UPLOAD_NATIVE_RECEIPT');
-      assert.equal(input.kind,'clinical-stream-v2');assert.equal(input.ready,false);assert.equal(input.rows,undefined);
-      assert(accepted.projection[1].events.some(event=>event.domain==='entries'&&event.value.doc?.sgv===48),'ACTIVITY_PAUSED_UPLOAD_RAW_RECEIPT');
       const pending=(await lab.admin.query('SELECT work_observed,work_completed,work_pending_at FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
-      assert.equal(String(pending.work_observed[5]),String(input.floor));
-      assert(BigInt(pending.work_observed[5])>BigInt(pending.work_completed[5]??'0'),'ACTIVITY_PAUSED_UPLOAD_REMAINS_PENDING');
+      const workState=require('../lib/pgstream/work-state'),observedA=workState.map(pending.work_observed),completedA=workState.map(pending.work_completed);
+      assert(BigInt(observedA.clock)>BigInt(completedA.clock??'0'),'ACTIVITY_PAUSED_UPLOAD_REMAINS_PENDING');
       assert.notEqual(pending.work_pending_at,null);
 
       assert.equal(effects(lab.A).length, 0, 'ACTIVITY_PAUSED_NO_DELIVERY'); assert.deepEqual(await lab.requests(lab.A), []);
@@ -161,13 +161,16 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.equal(consumerHealth(health, lab.A).code, 'EVALUATOR_CONSUMER_TENANT_PAUSED');
       assert.equal(await worker.call('last', lab.A), null);
       assert.ok(tenantHealth(health, lab.B).cycles > bBefore, 'ACTIVITY_B_UNAFFECTED committed B work completed');
-      assert.notDeepEqual(await lab.previewCheckpoint(lab.B), bCheckpoint, 'ACTIVITY_B_UNAFFECTED committed B input acquired');
+      assert.notDeepEqual((await lab.previewCompleted(lab.B)).work_completed, bCheckpoint.work_completed, 'ACTIVITY_B_UNAFFECTED committed B input completed');
       assert((await worker.call('last',lab.B)).result.properties.bgnow.sgvs.some(row=>row.mgdl===49),'ACTIVITY_B_CURRENT_READING_WHILE_A_PAUSED');
-      assert.notDeepEqual(await lab.previewCheckpoint(lab.B), startCheckpoint);
+      assert.notDeepEqual((await lab.previewCompleted(lab.B)).work_completed, startCheckpoint.work_completed);
       await lab.stopConsumer(worker);
       // Phase 2: default (manual) timers; B delivery, upload, unpause.
       worker = await boot();
       await lab.wait(async () => effects(lab.B).length >= 1);
+      health = await worker.call('health');
+      // Writer-driven admission is by the sweep over pending rows: wait for the role to settle A.
+      await lab.wait(async () => tenantHealth(await worker.call('health'), lab.A)?.code === 'EVALUATOR_TENANT_PAUSED');
       health = await worker.call('health');
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_PAUSED', 'restart keeps A paused');
       assert.equal(effects(lab.A).length, 0);
@@ -179,9 +182,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await stores.owner.transition(ownerActor(lab.A), 'unpause', { expectedVersion: initialVersions.get(lab.A) + 1 });
       await worker.call('tick', lab.A);
       const first = await lab.wait(() => worker.call('last', lab.A));
-      lab.traceConsumer('activity-unpause-before-verdict', { first, checkpointA: await lab.previewCheckpoint(lab.A), effectsA: effects(lab.A).length });
+      lab.traceConsumer('activity-unpause-before-verdict', { first, checkpointA: await lab.previewCompleted(lab.A), effectsA: effects(lab.A).length });
       assert.equal(first.trigger, 'acquisition', 'ACTIVITY_UNPAUSE_RECOMPUTES first published output after unpause is an acquisition');
-      assert.notDeepEqual(await lab.previewCheckpoint(lab.A), startCheckpoint, 'acquisition read the data uploaded while paused');
+      assert.notDeepEqual((await lab.previewCompleted(lab.A)).work_completed, startCheckpoint.work_completed, 'acquisition read the data uploaded while paused');
       await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       try { await lab.wait(async () => effects(lab.A).length >= 1); }
       catch (error) {
@@ -222,7 +225,7 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await worker.call('invalidate', lab.A); // what restore activation's cohort invalidation calls
       await worker.call('acquire', lab.A); await worker.call('tick', lab.A); await worker.call('wake', lab.A); await worker.call('flush', lab.A);
       health = await worker.call('health');
-      lab.traceConsumer('activity-restart-before-verdict', { a: tenantHealth(health, lab.A), checkpointA: await lab.previewCheckpoint(lab.A) });
+      lab.traceConsumer('activity-restart-before-verdict', { a: tenantHealth(health, lab.A), checkpointA: await lab.previewCompleted(lab.A) });
       assert.equal(tenantHealth(health, lab.A).code, 'EVALUATOR_TENANT_PAUSED', 'ACTIVITY_RESTART_PRESERVES');
       assert.equal(tenantHealth(health,lab.A).cycles,0,'ACTIVITY_RESTART_NO_CLINICAL_ACQUISITION');
       await noCompletion(completedBefore,'ACTIVITY_RESTART_NO_COMPLETION');
@@ -322,7 +325,12 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       const before = [await lab.previewCompleted(lab.A), await lab.previewCompleted(lab.B)];
       const worker = await lab.workerConsumers(lab.configureConsumers());
       assert.equal(worker.startup.ready, true, 'the shared role starts before tenant admission');
-      await assert.rejects(worker.call('acquire', lab.A), /TRUSTED_WORKER_UNAVAILABLE/);
+      // The tenant-bound activity read fails for A on every admission attempt: A is never admitted,
+      // so the sweep and an explicit acquire both leave it without a cycle, output or delivery.
+      await worker.call('acquire', lab.A); await sleep(1500);
+      assert.equal(tenantHealth(await worker.call('health'), lab.A), undefined, 'ACTIVITY_UNREADABLE_A_NOT_ADMITTED');
+      // B is independent: its provisioned pending work completes while A's activity row is unreadable.
+      await lab.wait(async () => BigInt((await lab.previewCompleted(lab.B)).output_revision) > 0n);
       await lab.stopConsumers();
       assert.equal(effects(lab.A).length, 0);
       assert.deepEqual(await lab.requests(lab.A), []);
@@ -348,7 +356,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       assert.throws(() => assert.deepEqual(completionEvidence(plantedOutput), expected[0]), { code: 'ERR_ASSERTION' }, 'NONNULL_OUTPUT_MUST_FAIL_ORACLE');
       const plantedCompletion = { ...after[0], work_completed: ['1', null, null, null, null, null] };
       assert.throws(() => assert.deepEqual(completionEvidence(plantedCompletion), expected[0]), { code: 'ERR_ASSERTION' }, 'COMPLETED_VERSION_MUST_FAIL_ORACLE');
-      assert.deepEqual(after.map(completionEvidence), expected, 'SHARED_ACTIVITY_SCHEMA_NO_COMPLETED_OUTPUT');
+      assert.deepEqual(completionEvidence(after[0]), expected[0], 'SHARED_ACTIVITY_SCHEMA_NO_COMPLETED_OUTPUT');
+      assert(BigInt(after[1].output_revision) > 0n, 'ACTIVITY_UNREADABLE_A_B_INDEPENDENT');
       assert.deepEqual(lab.sinkEffects, []); assert.deepEqual(await lab.requests(lab.A), []); assert.deepEqual(await lab.requests(lab.B), []);
       lab.traceConsumer('activity-shared-schema-refusal', { startup: worker.startup, outputsUnchanged: true, effects: lab.sinkEffects.length });
     });
@@ -364,7 +373,9 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
           ...(['request', 'cancel'].includes(action) ? { plane: 'owner', principal: 'owner' } : { plane: 'operator', principal: 'synthetic-operator' }) }),
         verifyDurableArtifact: async ({ tenant, artifact }) => ({ verified: true, tenant, digest: artifact.digest }),
         executionWindow: async ({ tenant }) => ({ current: true, quiesced: true, tenant }),
-        namespaceOf: mapping => mapping.ledger, timestamp: () => ++clock, verifyRows: async () => [], eraseRows: async () => ({}) });
+        namespaceOf: mapping => mapping.ledger, timestamp: () => ++clock, verifyRows: async () => [], eraseRows: async () => ({}),
+        // The control namespace carries the native selection's catalogue, which the evaluator's start check requires.
+        ledgerCatalogue: lab.lifecycleCatalogue });
       const base = tenant => ({ tenant, ledgerNamespace: namespace, artifact: artifactFor(tenant) });
       const state = async tenant => (await stores.reader.read(tenant));
       try {

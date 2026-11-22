@@ -126,13 +126,10 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       await reading(50); await reading(50,lab.B); const first=await boot(smallWindow);
       let worker=first; const completed=await lab.previewCompleted(lab.A);
       await reading(50,lab.A,4);
-      // Source COMMIT does not imply recoverable CDC acceptance. The prior
-      // accepted model remains valid until this oversized cohort is received.
-      await lab.wait(async()=>{
-        const input=(await lab.checkpoint(lab.consumerName,lab.A)).projection?.[0];
-        const observed=(await lab.admin.query('SELECT work_observed FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.A,lab.consumerName+'-completed'])).rows[0];
-        return input?.gap==='rows'&&input.ready===false&&String(observed?.work_observed?.[5])===String(input.floor);
-      });
+      // The oversized window is refused by the evaluator's own row bound: the pending mark the write
+      // committed stays owed, the prior durable result stays, and nothing servable is produced.
+      await worker.call('acquire',lab.A);
+      await lab.wait(async()=>{const row=(await worker.call('health')).tenants.find(entry=>entry.tenant===lab.A);return row&&row.code?row:null;});
       await worker.call('acquire',lab.A); await worker.call('flush',lab.A);
       assert.equal(await worker.call('last',lab.A),null,'M5_CONSUMER_REFUSED_WINDOW_NO_SERVABLE_MODEL');
       assert.deepEqual(await lab.previewCompleted(lab.A),completed,'M5_CONSUMER_REFUSAL_RETAINS_DURABLE_CLINICAL_RESULT');
@@ -148,17 +145,8 @@ optInSuite(process.env.NS_EVALUATOR_CONSUMERS_TEST === '1' && !!process.env.NS_T
       lab.traceConsumer('control-clear-before-verdict',{suppression,after,state:await lab.producerState(),clinical:await worker.call('last',lab.A)});
       assert.equal(after.length,1,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL'); assert.equal(after[0].notification.clear,true,'M5_CONSUMER_CONTROL_CLEAR_FAILED_CLINICAL');
       assert.equal(after[0].notification.message,"default - Urgent was ack'd");
-      const priorInput=await lab.checkpoint(lab.consumerName,lab.B);
       const changedAt=await lab.epoch(); await lab.persistDomains({entries:[{_id:'synthetic-b-changed',type:'sgv',sgv:48,date:changedAt-500,
         dateString:new Date(changedAt-500).toISOString(),direction:'Flat'}]}, lab.B);
-      // A storage COMMIT and recoverable CDC acceptance are separate boundaries.
-      // Wait for B's native input floor and its matching pending obligation.
-      // The public history clock is independent of clinical native coverage.
-      await lab.wait(async()=>{
-        const row=(await lab.admin.query('SELECT work_observed FROM "'+lab.replayNamespace+'".tenant_consumer_checkpoint WHERE tenant_id=$1 AND consumer=$2',[lab.B,lab.consumerName+'-completed'])).rows[0];
-        const input=await lab.checkpoint(lab.consumerName,lab.B);
-        return BigInt(input.checkpoint)>BigInt(priorInput.checkpoint)&&String(row?.work_observed?.[5])===String(input.checkpoint);
-      });
       await worker.call('acquire',lab.B); await worker.call('flush',lab.B); assert.ok(lab.sinkEffects.at(-1).tenant===lab.B,'B keeps delivering on its own new data');
       lab.traceConsumer('control-ack-with-failed-clinical',{suppression,after,health:await worker.call('health'),state:await lab.producerState()}); await lab.stopConsumer(worker);
     });
