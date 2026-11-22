@@ -222,6 +222,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       for (const domain of domains) {
         await admin.query(`GRANT USAGE ON SCHEMA "${schemas[domain]}" TO "${role}"`);
         await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${schemas[domain]}".${domain} TO "${role}"`);
+        // A windowed created_at column calls it; migration 0001 revokes it from PUBLIC.
+        if (domain === 'devicestatus') {
+          await admin.query(`GRANT EXECUTE ON FUNCTION "${schemas[domain]}".window_time_text(jsonb) TO "${role}"`);
+        }
       }
       await admin.query(`GRANT USAGE ON SCHEMA "${auth}" TO "${role}"`);
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);

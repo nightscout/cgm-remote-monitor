@@ -193,6 +193,8 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
       await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
       await admin.query(`GRANT USAGE ON SCHEMA "${name}", "${auth}" TO "${role}"`);
       await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".treatments TO "${role}"`);
+      // created_at's generated column calls it; migration 0001 revokes it from PUBLIC.
+      await admin.query(`GRANT EXECUTE ON FUNCTION "${name}".window_time_text(jsonb) TO "${role}"`);
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
       await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
         namespace: name + '_clock', role, tenants: [A, B] });
