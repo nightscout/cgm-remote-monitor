@@ -94,4 +94,84 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
   await require('../lib/pgstream/work-state').admit({pool,observeBackend:async()=>{},table:lab.replayNamespace+'.tenant_consumer_checkpoint',consumer:store.consumer,digest:store.digest,tenants});assert.deepEqual(pages,[64,1]);assert.deepEqual(await store.begin(tenants[64]),{});await store.observe(tenants[64],'clock','9007199254740993');assert.deepEqual(await store.begin(tenants[64]),{clock:'9007199254740993'});assert.deepEqual(await store.begin(lab.A),{});
  });
  it('commits each control generation as a monotone delivery obligation with no evaluator ACK surface',async()=>{await store.observe(lab.A,'activity','1',true);await store.observe(lab.A,'policy','1');assert.equal((await row(lab.A)).delivery_revision,'2');await store.observe(lab.A,'policy','1');assert.equal((await row(lab.A)).delivery_revision,'2','DUPLICATE_IS_NO_NEW_OBLIGATION');for(const retired of ['deliveries','acknowledge'])assert.equal(store[retired],undefined,'RETIRED '+retired);assert.equal((await row(lab.A)).delivery_ack_revision,'0');});
+ // Durable M1 (lane m1-durable, 2026-11-21): the completion UPDATE that clears
+ // or raises the writer's mark also counts that mark's lag on the row, so the
+ // count commits or rolls back with the mark (lib/pgstream/completion-lag.js).
+ describe('durable completion lag on the work row',function(){
+  const lagOf=async tenant=>{const r=(await lab.admin.query('SELECT work_pending_at::text AS pending,work_completed_at::text AS completed,lag_count::text AS count,lag_sum_ms::text AS sum,lag_max_ms::text AS max,lag_buckets::text[] AS buckets,lag_over_120s::text AS over,lag_negative::text AS negative FROM '+table+' WHERE consumer=$1 AND tenant_id=$2',[store.consumer,tenant])).rows[0];return {...r,count:Number(r.count),sum:Number(r.sum),max:Number(r.max),buckets:r.buckets.map(Number),over:Number(r.over),negative:Number(r.negative)};};
+  const mark=at=>require('../lib/writer-driven').mark((text,values)=>lab.admin.query(text,values),{table,consumer:store.consumer},lab.A,{source:'clock',at});
+  const finish=(observed,extra={},target=store)=>scope.withTenant(lab.A,()=>target.complete(lab.A,{observed,identity:'a'.repeat(64),result:result(),...extra}));
+  const only=(index,n=1)=>Array.from({length:10},(_,i)=>i===index-1?n:0);
+  it('migration 0010 brings a schema built by the previous catalogue forward; existing rows read zero observations',async()=>{
+   const current=require('../migrations/candidates/postgres-evaluator-work-v2.json');
+   const previous={...current,migrations:current.migrations.filter(m=>m.name!=='0010_evaluator_completion_lag')};
+   assert.equal(previous.migrations.length,current.migrations.length-1);assert.equal(current.migrations.at(-1).name,'0010_evaluator_completion_lag');
+   const namespace=lab.replayNamespace+'_m1seed',seed='"'+namespace+'".tenant_consumer_checkpoint',uri=process.env.NS_TEST_POSTGRES_ADMIN_URI;
+   await lab.admin.query('CREATE SCHEMA "'+namespace+'"');
+   try{
+    await run('up',{direct:true,connectionString:uri,namespace,catalogue:previous});
+    await lab.admin.query(`INSERT INTO ${seed} (tenant_id,consumer,contract_digest,checkpoint,projection,work_version,work_observed,work_completed,work_observed_at,work_pending_at,work_completed_at)
+     VALUES ($1,'evaluator-seed-completed',$2,0,'[{"kind":"evaluator-work-v2","output":null}]'::jsonb,2,'{4,NULL,NULL,NULL,NULL,1}','{3,NULL,NULL,NULL,NULL,1}','{7,NULL,NULL,NULL,NULL,1}',7,5)`,[lab.A,'a'.repeat(64)]);
+    const columns=async()=>(await lab.admin.query("SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name='tenant_consumer_checkpoint' AND column_name LIKE 'lag\\_%' ORDER BY column_name",[namespace])).rows.map(r=>r.column_name);
+    assert.deepEqual(await columns(),[]);
+    await run('up',{direct:true,connectionString:uri,namespace,catalogue:current});
+    assert.deepEqual(await columns(),[...require('../lib/pgstream/completion-lag').COLUMNS].sort());
+    const row=(await lab.admin.query('SELECT work_pending_at::text AS pending,lag_count::text AS count,lag_sum_ms::text AS sum,lag_max_ms::text AS max,lag_buckets::text AS buckets,lag_over_120s::text AS over,lag_negative::text AS negative FROM '+seed)).rows[0];
+    assert.deepEqual(row,{pending:'7',count:'0',sum:'0',max:'0',buckets:'{0,0,0,0,0,0,0,0,0,0}',over:'0',negative:'0'},'EXISTING_ROW_DEFAULTS');
+    const ledger=async()=>(await lab.admin.query('SELECT name FROM "'+namespace+'".schema_migrations ORDER BY name')).rows.map(r=>r.name);
+    assert.equal((await ledger()).at(-1),'0010_evaluator_completion_lag');const applied=(await ledger()).length;
+    await run('up',{direct:true,connectionString:uri,namespace,catalogue:current});assert.equal((await ledger()).length,applied,'REPEAT_UP_IS_A_NO_OP');
+   }finally{await lab.admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');}
+  });
+  it('a covering completion counts the lag of the mark it clears, once, from the oldest mark',async()=>{
+   const zero=await lagOf(lab.A);assert.deepEqual([zero.count,zero.sum,zero.max,zero.over,zero.negative,zero.buckets],[0,0,0,0,0,only(0)],'NEW_ROW_READS_ZERO');
+   const t=Date.now();await mark(t-4000);await mark(t-1000);
+   assert.equal((await lagOf(lab.A)).pending,String(t-4000),'MARK_KEEPS_THE_OLDEST');
+   const done=await finish(await store.begin(lab.A));const row=await lagOf(lab.A);
+   const expected=Number(row.completed)-(t-4000);
+   assert.equal(row.pending,null);assert.equal(done.coveredAt,t-4000);
+   assert.equal(row.count,1,'COVERING_COMPLETION_NOT_COUNTED_ONCE');
+   assert.equal(row.sum,expected,'LAG_FROM_WRONG_MARK '+row.sum+' != '+expected);assert.equal(row.max,expected);assert.equal(done.durableLagMs,expected);
+   assert.deepEqual(row.buckets,only(5),'BUCKET '+row.buckets);assert.equal(row.over,0);assert.equal(row.negative,0);
+  });
+  it('a completion that covers nothing new adds nothing',async()=>{
+   await mark(Date.now()-2000);const observed=await store.begin(lab.A);await finish(observed);const first=await lagOf(lab.A);assert.equal(first.count,1);
+   await mark(Date.now());const stale=await finish(observed);
+   const after=await lagOf(lab.A);assert.notEqual(after.pending,null,'INPUT_STILL_OWED');
+   assert.deepEqual([after.count,after.sum,after.max,after.buckets],[first.count,first.sum,first.max,first.buckets],'NON_COVERING_COMPLETION_COUNTED');
+   assert.equal(stale.coveredAt,null);assert.equal(stale.durableLagMs,null);
+  });
+  it('counts over 120 s and a mark ahead of the completion clock (observed as 0)',async()=>{
+   await mark(Date.now()-130000);await finish(await store.begin(lab.A));
+   let row=await lagOf(lab.A);assert.equal(row.count,1);assert.equal(row.over,1,'OVER_DEADLINE_NOT_COUNTED');assert.deepEqual(row.buckets,only(10));assert(row.max>120000);
+   const sum=row.sum;await mark(Date.now()+60000);await finish(await store.begin(lab.A));
+   row=await lagOf(lab.A);assert.equal(row.count,2);assert.equal(row.negative,1,'NEGATIVE_NOT_COUNTED');assert.equal(row.sum,sum,'NEGATIVE_ADDED_TO_SUM');assert.deepEqual(row.buckets,[1,0,0,0,0,0,0,0,0,1]);assert.equal(row.over,1);
+  });
+  it('a COMMIT that fails after the UPDATE leaves both the mark and the lag unchanged',async()=>{
+   const fn='"'+lab.replayNamespace+'".m1_fail_at_commit';
+   try{
+    await mark(Date.now()-3000);const before=await lagOf(lab.A);
+    await lab.admin.query('CREATE FUNCTION '+fn+'() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION \'M1_COMMIT_FAILS\'; END$$');
+    await lab.admin.query('CREATE CONSTRAINT TRIGGER m1_fail_at_commit AFTER UPDATE ON '+table+' DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.work_pending_at IS DISTINCT FROM OLD.work_pending_at) EXECUTE FUNCTION '+fn+'()');
+    await assert.rejects(finish(await store.begin(lab.A)),/M1_COMMIT_FAILS/);
+    assert.deepEqual(await lagOf(lab.A),before,'ROLLED_BACK_COMPLETION_CHANGED_THE_ROW');
+   }finally{await lab.admin.query('DROP TRIGGER IF EXISTS m1_fail_at_commit ON '+table);await lab.admin.query('DROP FUNCTION IF EXISTS '+fn+'()');}
+   await finish(await store.begin(lab.A));assert.equal((await lagOf(lab.A)).count,1,'COUNTED_ONCE_AFTER_THE_TRIGGER_IS_GONE');
+  });
+  it('a completion fenced by the restore generation counts nothing; the current generation counts once',async()=>{
+   const windows='"'+lab.replayNamespace+'".tenant_lifecycle_windows';let fenced;
+   try{
+    await lab.admin.query('CREATE TABLE '+windows+' (tenant_id uuid PRIMARY KEY, generation bigint NOT NULL, lock_key bigint NOT NULL)');
+    await lab.admin.query('GRANT SELECT ON '+windows+' TO "'+lab.readerRole+'"');
+    await lab.admin.query('INSERT INTO '+windows+' VALUES ($1,2,4242)',[lab.A]);
+    fenced=create({connection:lab.reader,namespace:lab.replayNamespace,consumer:'evaluator-typed',maxBytes:4194304,timeIntervalMs:60000,typed:true,generationFence:{table:windows}});
+    await store.close();await fenced.own(()=>{});
+    await mark(Date.now()-3000);const before=await lagOf(lab.A);
+    await assert.rejects(finish(await fenced.begin(lab.A),{restoreGeneration:'1'},fenced),/EVALUATOR_COMPLETION_RESTORE_REFUSED/);
+    assert.deepEqual(await lagOf(lab.A),before,'FENCED_COMPLETION_CHANGED_THE_ROW');
+    await finish(await fenced.begin(lab.A),{restoreGeneration:'2'},fenced);
+    const row=await lagOf(lab.A);assert.equal(row.pending,null);assert.equal(row.count,1);
+   }finally{await fenced?.close();await lab.admin.query('DROP TABLE IF EXISTS '+windows);}
+  });
+ });
 });

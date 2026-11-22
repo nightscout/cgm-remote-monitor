@@ -62,6 +62,18 @@
         "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_devicestatus text COLLATE \"C\"",
         "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_treatments text COLLATE \"C\""
       ]
+    },
+    {
+      "name": "0010_evaluator_completion_lag",
+      "checksum": "5a75b2a8858563609cbcc6d932d9b6bf6c09db3db3fbd64ec20dd7045fea34f9",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_count bigint NOT NULL DEFAULT 0 CHECK (lag_count >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_sum_ms bigint NOT NULL DEFAULT 0 CHECK (lag_sum_ms >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_max_ms bigint NOT NULL DEFAULT 0 CHECK (lag_max_ms >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_buckets bigint[] NOT NULL DEFAULT '{0,0,0,0,0,0,0,0,0,0}' CHECK (array_ndims(lag_buckets) = 1 AND array_lower(lag_buckets,1) = 1 AND cardinality(lag_buckets) = 10 AND 0 <= ALL(lag_buckets))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_over_120s bigint NOT NULL DEFAULT 0 CHECK (lag_over_120s >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN lag_negative bigint NOT NULL DEFAULT 0 CHECK (lag_negative >= 0)"
+      ]
     }
   ]
 }
