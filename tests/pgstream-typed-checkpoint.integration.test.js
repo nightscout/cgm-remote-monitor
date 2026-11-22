@@ -16,6 +16,39 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
  // M1 (lib/metrics): a completion reports the writer's durable mark of the
  // oldest owed input only when it covers that input.
  it('reports coveredAt only when the completion covers the oldest owed input',async()=>{await store.observe(lab.A,'clock','1');const pending=Number((await row(lab.A)).work_pending_at);assert(Number.isSafeInteger(pending)&&pending>0);const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:result()}));assert.equal(first.coveredAt,pending,'COVERED_MARK');assert.equal(first.pendingAt,null);await store.observe(lab.A,'clock','2');const second=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:result(),retainedOutput:first.output}));assert.equal(second.coveredAt,null,'UNCOVERED_INPUT_REPORTED_COVERED');assert.equal(second.pendingAt,Number((await row(lab.A)).work_pending_at));});
+ // All-input M1 (lane mt-plannable-scale-20261121, R2). The carried mark must
+ // stay at or before every input still owed. Counterexample on the old carry
+ // (each source's latest mark): U at 3000 and V at 5000 both arrive after
+ // begin() read; the completion covers neither and carried 5000, past U.
+ const writerMark=at=>require('../lib/writer-driven').mark((text,values)=>lab.admin.query(text,values),{table,consumer:store.consumer},lab.A,{source:'clock',at});
+ const finish=(observed,extra={})=>scope.withTenant(lab.A,()=>store.complete(lab.A,{observed,identity:'a'.repeat(64),result:result(),...extra}));
+ for(const [name,beganAt]of [['fixed',2000],['red control: no begin time (the old carry)',undefined]])
+ it('carries the pending mark at or before every input the completion left uncovered ('+name+')',async()=>{
+  await writerMark(1000);await finish(await store.begin(lab.A));assert.equal((await row(lab.A)).work_pending_at,null);
+  const observed=await store.begin(lab.A);
+  await writerMark(3000);await writerMark(5000);
+  const second=await finish(observed,beganAt===undefined?{}:{beganAt});
+  const carried=Number((await row(lab.A)).work_pending_at);
+  const third=await finish(await store.begin(lab.A));
+  if(beganAt===undefined){assert.equal(carried,5000,'COUNTEREXAMPLE_NOT_REPRODUCED');assert.equal(third.coveredAt,5000);return;}
+  assert(carried<=3000,'CARRY_PASSED_OLDER_INPUT '+carried);
+  assert.equal(second.coveredAt,null,'UNCOVERED_INPUT_REPORTED_COVERED');
+  assert(third.coveredAt<=3000,'OLDEST_UNCOVERED_LAG_UNDERSTATED '+third.coveredAt);assert.equal(third.pendingAt,null);
+ });
+ it('counts a completion whose COMMIT fails after its body ran, and not an ordinary refusal (all-input M1)',async()=>{
+  const metrics=require('../lib/metrics');metrics.configure(['evaluator'],{NS_METRICS:'true'});
+  const unobserved=async()=>Number(((await metrics.current.text()).split('\n').find(line=>line.startsWith('nightscout_evaluator_completion_unobserved_total{'))||' 0').split(' ').pop());
+  const fn='"'+lab.replayNamespace+'".r2_fail_at_commit';
+  try{
+   await writerMark(1000);
+   await assert.rejects(finish({clock:'9'}),/EVALUATOR_COMPLETION_VERSION_REFUSED/);
+   assert.equal(await unobserved(),0,'ORDINARY_REFUSAL_COUNTED');
+   await lab.admin.query('CREATE FUNCTION '+fn+'() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION \'R2_COMMIT_FAILS\'; END$$');
+   await lab.admin.query('CREATE CONSTRAINT TRIGGER r2_fail_at_commit AFTER UPDATE ON '+table+' DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.work_pending_at IS DISTINCT FROM OLD.work_pending_at) EXECUTE FUNCTION '+fn+'()');
+   await assert.rejects(finish(await store.begin(lab.A)),/R2_COMMIT_FAILS/);
+   assert.equal(await unobserved(),1,'UNCONFIRMED_COMMIT_NOT_COUNTED');
+  }finally{await lab.admin.query('DROP TRIGGER IF EXISTS r2_fail_at_commit ON '+table);await lab.admin.query('DROP FUNCTION IF EXISTS '+fn+'()');metrics.reset();}
+ });
  it('reuses only the current immutable revision, rejecting tampered retained fields',async()=>{await store.observe(lab.A,'clock','1');const first=await scope.withTenant(lab.A,()=>store.complete(lab.A,{observed:{clock:'1'},identity:'a'.repeat(64),result:result()}));assert.equal(await store.output(lab.A,'a'.repeat(64),{retained:first.output}),first.output);for(const mutate of [o=>({...o,inputCheckpoint:99}),o=>({...o,frame:{...o.frame,lastUpdated:99}}),o=>({...o,rows:[]})]){const hint=mutate(first.output);const output=await store.output(lab.A,'a'.repeat(64),{retained:hint});assert.notEqual(output,hint);assert.deepEqual(output,first.output);}await store.observe(lab.A,'activity','1',false);await assert.rejects(store.output(lab.A,'a'.repeat(64)),/CONTROL_PENDING/);});
  // The runtime's cold loadOutput: one statement, so a completion landing
  // between two reads cannot label one revision's body with another's version.
