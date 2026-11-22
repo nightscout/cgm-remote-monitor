@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const { randomUUID, randomBytes } = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { Client } = require('pg');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 const MongoCollection = require('../lib/api3/storage/mongoCollection');
 const { and, or, cmp } = require('../lib/storage/filter');
 const connect = require('../lib/storage/postgres-connection');
@@ -224,7 +224,13 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         ['treatments created_at + eventType', 'treatments', (lab, c) => entriesRead({ connection: c, table: lab.qualified })
           .findFiltered(and(cmp('eq', 'created_at', iso(HISTORY - 3)), cmp('eq', 'eventType', 'Temp Basal')), raw)],
         ['devicestatus created_at', 'devicestatus', (lab, c) => entriesRead({ connection: c, table: lab.qualified })
-          .findFiltered(cmp('eq', 'created_at', iso(HISTORY - 3)), raw)]
+          .findFiltered(cmp('eq', 'created_at', iso(HISTORY - 3)), raw)],
+        // The primary key (tenant_id, id_kind, "_id") is in the database's
+        // collation; an equality compared under "C" cannot use it.
+        ['treatments _id, both kinds (v1 PUT/DELETE, v3 typed identity)', 'treatments', (lab, c) => entriesRead({ connection: c, table: lab.qualified })
+          .findFiltered(cmp('in', '_id', ['treatments-h7', new ObjectId('65a1b2c3d4e5f60718293a4b')]), raw)],
+        ['devicestatus locked delete by _id', 'devicestatus', (lab, c) => entriesWrite({ connection: c, table: lab.qualified })
+          .deleteMany(cmp('eq', '_id', 'devicestatus-h9'))]
       ];
       for (const [label, table, call] of cases) {
         it(label, async function () {
