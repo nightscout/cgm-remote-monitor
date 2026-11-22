@@ -166,7 +166,7 @@ describe('resident window: what a resident row computes once', function () {
   const policyAt = at => windowPolicy.create({ extendedSettings: {} }, at);
   const prepare = list => { const m = { observed: ['1', null, null, null, null, null], completed: ['1', null, null, null, null, null], version: '1' };
     // No membership rule (every row kept), sorted as a read returns them.
-    const sorted = list.map(row => ({ ...row, id: row.doc._id })).sort(residentWindow.compareRows).map(({ id, ...row }) => row);
+    const sorted = list.map(row => ({ ...row, id: row.doc._id })).sort(residentWindow.compareRows);
     return residentWindow.build({ rows: sorted, tenant: A, generation: '1', policy: policyAt(T), mark: m, membership: {}, checkAt: 0 }).rows; };
 
   it('gives the policy\'s next expiry at every instant', function () {
