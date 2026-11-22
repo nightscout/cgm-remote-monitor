@@ -53,9 +53,9 @@
     },
     {
       "name": "0009_evaluator_window_mark",
-      "checksum": "7530c959b32bdbbfd0b65eda58f76f5fb8ec5a50014239315cb01dfafb912183",
+      "checksum": "79e7713bed9d0567310e7318984b1de3d58e74d9c389b3ae778a57174591e557",
       "up": [
-        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_version numeric CHECK (window_mark_version IS NULL OR (window_mark_version >= 0 AND window_mark_version = trunc(window_mark_version)))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_version bigint CHECK (window_mark_version IS NULL OR window_mark_version >= 0)",
         "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_full boolean NOT NULL DEFAULT false",
         "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_profile boolean NOT NULL DEFAULT false",
         "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_entries bigint",

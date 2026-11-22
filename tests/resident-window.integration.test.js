@@ -243,6 +243,11 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
       await write(p.tenant, w => w.entries.updateMany(fromMongo({ date: { $gte: T0 + DAY } }), { set: { sgv: 1 } }, {}));
       step = await cycle(p, T0 + 6 * MIN, { label: 'update matching nothing' });
       mode(step, { unchanged: 1 }); assert.equal(step.read, 0);
+      // An insert refused as a duplicate (its savepoint rolled back) in a transaction that still commits and marks.
+      await write(p.tenant, (w, m) => w.entries.insertOne(stamped(sgv('a-sgv-' + (T0 - 10 * MIN), 1, T0 - 10 * MIN), m()), { normalize: false })
+        .then(() => assert.fail('a duplicate must be refused'), error => assert.equal(error.code, 11000)));
+      step = await cycle(p, T0 + 7 * MIN, { label: 'duplicate insert' });
+      mode(step, { unchanged: 1 }); assert.equal(step.read, 0);
     });
 
     it('deletion of the newest qualifying record and of an old one, and deletion by filter', async function () {
