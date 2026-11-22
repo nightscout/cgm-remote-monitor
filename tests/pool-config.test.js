@@ -40,6 +40,29 @@ describe('multitenant pool configuration', function () {
     it('refuses NS_POOL_API_MAX=' + JSON.stringify(value), function () {
       assert.throws(() => config.pool('api', { NS_POOL_API_MAX: value }), error => error instanceof PreviewConfigError && /NS_POOL_API_MAX/.test(error.message));
     });
+  it('NS_PG_JIT_<ROLE>: unset keeps the connection as it was, off adds -c jit=off, per role', function () {
+    for (const role of ['evaluator', 'realtime']) {
+      const name = 'NS_PG_JIT_' + role.toUpperCase(), other = role === 'evaluator' ? 'NS_PG_JIT_REALTIME' : 'NS_PG_JIT_EVALUATOR';
+      assert.deepEqual({ ...config.jit(role, {}) }, {});
+      assert.deepEqual({ ...config.jit(role, { [name]: '' }) }, {});
+      assert.deepEqual({ ...config.jit(role, { [name]: 'on' }) }, {});
+      assert.deepEqual({ ...config.jit(role, { [other]: 'off' }) }, {}, 'a role reads only its own name');
+      assert.deepEqual({ ...config.jit(role, { [name]: 'off' }) }, { options: '-c jit=off' });
+      for (const bad of ['false', 'OFF', '0', 'true']) assert.throws(() => config.jit(role, { [name]: bad }), PreviewConfigError);
+    }
+    assert.throws(() => config.jit('api', {}), TypeError);
+    // The same option the api's data connection carries.
+    assert.equal(config.jit('evaluator', { NS_PG_JIT_EVALUATOR: 'off' }).options, require('../lib/server/serve/preview-api').DATA_CONNECTION.options);
+  });
+  it('NS_PG_JIT_<ROLE>: each role pool spreads its own setting', function () {
+    const fs = require('node:fs'), path = require('node:path');
+    const text = file => fs.readFileSync(path.join(__dirname, '../lib/server/serve', file), 'utf8');
+    for (const [file, application, role] of [['evaluator-preview.js', 'nightscout-evaluator-preview', 'evaluator'],
+      ['evaluator-consumers.js', 'nightscout-evaluator-consumer-preview', 'evaluator'], ['preview-realtime.js', 'nightscout-realtime-preview', 'realtime']]) {
+      const line = text(file).split('\n').find(row => row.includes("application_name: '" + application + "'"));
+      assert.ok(line && line.includes("...require('./pool-config').jit('" + role + "')"), 'JIT_SETTING_NOT_APPLIED ' + file);
+    }
+  });
   it('refuses an out-of-range timeout and startup concurrency', function () {
     assert.throws(() => config.pool('operation', { NS_POOL_OPERATION_CONNECT_TIMEOUT_MS: '600001' }), PreviewConfigError);
     assert.throws(() => config.pool('evaluator', { NS_POOL_EVALUATOR_CONNECT_TIMEOUT_MS: '0' }), PreviewConfigError);
