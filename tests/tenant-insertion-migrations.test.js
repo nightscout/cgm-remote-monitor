@@ -29,8 +29,10 @@ const CANDIDATES = {
 // may change in place): entries, treatments and devicestatus 0001 now store the
 // window time columns, so their prefix hashes were recomputed.
 // These immutable prefix controls address insertion conversion/binding. The later
-// clinical-size projection is append-only and has its own catalogue controls.
-const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>m.operation?.kind!=='clinical-storage-size-v1')});
+// clinical-size projection and the identifier-array index are append-only
+// independent operations with their own catalogue controls.
+const INDEPENDENT = ['clinical-storage-size-v1', 'identifier-array-index-v1'];
+const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!INDEPENDENT.includes(m.operation?.kind))});
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorCode = code => error => error.code === code;
 

@@ -18,6 +18,15 @@
     "checksum": "9fe44ff376aa7ad61e0273e294d71ac76bbf5efe16a3619f9f187c28eab5e19b"
   },
     {
+      "name": "0098_profile_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "profile"
+      },
+      "up": ["CREATE INDEX \"profile_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"profile\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "52a5cfe76df78146ee29953ddbe2bff03f253a26a9b313f3e05c27f934431a4b"
+    },
+    {
       "name": "0099_profile_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",

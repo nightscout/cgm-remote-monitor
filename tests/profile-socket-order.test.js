@@ -15,8 +15,8 @@ function database (rows) {
 }
 describe('explicit profile socket insertion-order source contract', function () {
   it('keeps exact reviewed base migration/checksum as the validated successor prefix', function () {
-    const tails=old.migrations.filter(m=>m.name==='0099_profile_storage_bytes');
-    assert.deepEqual(tails.map(m=>m.operation),[{kind:'clinical-storage-size-v1',domain:'profile'}]);
+    const tails=old.migrations.filter(m=>m.name==='0098_profile_identifier_arrays'||m.name==='0099_profile_storage_bytes');
+    assert.deepEqual(tails.map(m=>m.operation),[{kind:'identifier-array-index-v1',domain:'profile'},{kind:'clinical-storage-size-v1',domain:'profile'}]);
     const prefix=old.migrations.filter(m=>!tails.includes(m));
     assert.deepEqual(successor.migrations.slice(0,prefix.length),prefix,'PROFILE_CATALOGUE_PREFIX pinned base is unchanged');
     assert.deepEqual(successor.migrations.slice(-tails.length),tails,'PROFILE_CATALOGUE_COMMON_TAILS exact size and identity operations are unchanged');

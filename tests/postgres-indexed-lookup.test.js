@@ -38,7 +38,9 @@ const TABLES = {
   entries: { text: ['sysTime', 'type', 'dateString', 'identifier'], number: ['date'] },
   treatments: { text: ['created_at', 'eventType', 'identifier'], number: [] },
   devicestatus: { text: ['created_at', 'identifier'], number: [] },
-  activity: { text: ['created_at', 'identifier'], number: [] }
+  activity: { text: ['created_at', 'identifier'], number: [] },
+  profile: { text: ['identifier'], number: [] },
+  food: { text: ['identifier'], number: [] }
 };
 const HISTORY = 3000;
 
@@ -160,15 +162,19 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         const history = {
           entries: k => ({ type: 'sgv', sgv: 100 + k % 50, date: T0 + k * STEP, dateString: iso(k), sysTime: iso(k) }),
           treatments: k => ({ eventType: 'Temp Basal', created_at: iso(k), duration: 30, absolute: 1 }),
-          devicestatus: k => ({ device: 'synthetic-loop', created_at: iso(k) })
+          devicestatus: k => ({ device: 'synthetic-loop', created_at: iso(k) }),
+          activity: k => ({ created_at: iso(k), steps: k }),
+          profile: k => ({ defaultProfile: 'Default', startDate: iso(k), created_at: iso(k) }),
+          food: k => ({ type: 'food', name: 'synthetic-' + k, carbs: 10 })
         };
         for (const [table, make] of Object.entries(history)) {
           const lab = labs[table];
-          // History carries string identifiers (as API v3 writes it). The
-          // identifier bound also admits rows whose identifier column is NULL
-          // (arrays leave it NULL), so rows without one are still read: open.
+          // Half the history carries a string identifier (as API v3 writes
+          // it), half none (as API v1 writes it). An identifier bound that
+          // admitted every row whose identifier column is NULL would read the
+          // v1 half; the array arm reads none of it.
           const rows = Array.from({ length: HISTORY }, (_, k) => encodeDocument({ _id: `${table}-h${k}`,
-            identifier: `${table}-id-${k}`, ...make(k) }));
+            ...(k % 2 ? { identifier: `${table}-id-${k}` } : {}), ...make(k) }));
           await grants.withTenant(admin, A, () => admin.query(`INSERT INTO "${lab.namespace}"."${table}" (tenant_id, id_kind, doc)
             SELECT $1, kind, doc FROM unnest($2::text[], $3::jsonb[]) AS row(kind, doc)`,
           [A, rows.map(r => r.id_kind), rows.map(r => JSON.stringify(r.doc))]));
@@ -230,7 +236,21 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         ['treatments _id, both kinds (v1 PUT/DELETE, v3 typed identity)', 'treatments', (lab, c) => entriesRead({ connection: c, table: lab.qualified })
           .findFiltered(cmp('in', '_id', ['treatments-h7', new ObjectId('65a1b2c3d4e5f60718293a4b')]), raw)],
         ['devicestatus locked delete by _id', 'devicestatus', (lab, c) => entriesWrite({ connection: c, table: lab.qualified })
-          .deleteMany(cmp('eq', '_id', 'devicestatus-h9'))]
+          .deleteMany(cmp('eq', '_id', 'devicestatus-h9'))],
+        // API v3 by identifier (create dedup, read, update, delete): the stored
+        // identifier or any _id form, over history half without identifiers.
+        ...['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity'].flatMap(table => [
+          [`${table} v3 identifier read and create dedup (findOne)`, table, (lab, c) => entriesRead({ connection: c, table: lab.qualified })
+            .findOne(`${table}-id-1235`)],
+          [`${table} v3 identifier resolve (every form)`, table, (lab, c) => entriesWrite({ connection: c, table: lab.qualified })
+            .resolveEveryForm(`${table}-id-1237`, 10)],
+          [`${table} v3 identifier update (locked, every form)`, table, (lab, c) => entriesWrite({ connection: c, table: lab.qualified })
+            .updateEveryForm(`${table}-id-1239`, { note: 'synthetic' })],
+          [`${table} v3 identifier delete (locked, every form)`, table, (lab, c) => entriesWrite({ connection: c, table: lab.qualified })
+            .deleteEveryForm(`${table}-id-1241`)],
+          [`${table} identifier $in (v1 upload carrying identifiers)`, table, (lab, c) => entriesRead({ connection: c, table: lab.qualified })
+            .findFiltered(cmp('in', 'identifier', [`${table}-id-1243`, `${table}-id-1245`]), raw)]
+        ])
       ];
       for (const [label, table, call] of cases) {
         it(label, async function () {

@@ -73,6 +73,15 @@
       "checksum": "054ea76d63ece5586f8a154f14ddc9109aca6bef8657d061c90e8bcebf56c27d"
     },
     {
+      "name": "0098_devicestatus_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "devicestatus"
+      },
+      "up": ["CREATE INDEX \"devicestatus_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"devicestatus\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "1d16270647bff5a50af1f82c45fd5768e02f5484287d492d17564486b1b48aef"
+    },
+    {
       "name": "0099_devicestatus_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",
