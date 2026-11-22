@@ -452,8 +452,12 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         created_at: CREATED, extension: { removed: null, added: 3 } });
       let stored = (await rows('devicestatus'))[0];
       assert.deepEqual(stored.extension, { removed: null, added: 3 });
-      await same('post', '/api/v3/devicestatus', { identifier: 'device-retry', device: 'rig',
-        date: BASE, app: 'synthetic', extension: { another: true } });
+      const retry = { identifier: 'device-retry', device: 'rig', date: BASE, app: 'synthetic',
+        extension: { another: true } };
+      // Supply both offsets explicitly so the API3 retry is independent of the test host's zone.
+      await same('post', '/api/v3/devicestatus', { ...retry, utcOffset: 120 }, 400);
+      assert.deepEqual((await rows('devicestatus'))[0], stored);
+      await same('post', '/api/v3/devicestatus', { ...retry, utcOffset: 0 });
       assert.equal((await rows('devicestatus')).length, 1);
       await seed('devicestatus', [{ _id: new ObjectId(ID), device: 'rig', created_at: CREATED, date: BASE }]);
       await same('post', '/api/v3/devicestatus', { device: 'rig', created_at: CREATED, app: 'synthetic', utcOffset: 0 }, 400);
