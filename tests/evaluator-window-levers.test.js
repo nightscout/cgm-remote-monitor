@@ -92,6 +92,11 @@ function history (now) {
     treatments.push({ eventType: 'Temp Basal', created_at: iso(t + 7000), duration: 30, absolute: 0.6 + ((t / (30 * MIN)) % 5) / 10, enteredBy: 'window-levers' });
   }
   treatments.push({ eventType: 'Site Change', created_at: iso(now - 30 * HOUR), enteredBy: 'window-levers' });
+  // Outside the 60 h of treatments: these reach the working set only through
+  // the loader's newest-of-a-kind reads, whose documents it keeps and writes
+  // to (normalizeTreatments adds absolute beside a nested amount).
+  treatments.push({ eventType: 'Sensor Start', created_at: iso(now - 100 * HOUR), enteredBy: 'window-levers', detail: { amount: 5, inner: { amount: '2' } } });
+  treatments.push({ eventType: 'Profile Switch', created_at: iso(now - 90 * HOUR), duration: 0, profile: 'Default', enteredBy: 'window-levers', detail: { amount: 7 } });
   const profile = [{ defaultProfile: 'Default', startDate: iso(now - 400 * DAY), mills: now - 400 * DAY, units: 'mg/dl', created_at: iso(now - 400 * DAY),
     store: { Default: { dia: 4, carbratio: [{ time: '00:00', value: 10, timeAsSeconds: 0 }], carbs_hr: 30, delay: 20,
       sens: [{ time: '00:00', value: 40, timeAsSeconds: 0 }], timezone: 'UTC', basal: [{ time: '00:00', value: 0.8, timeAsSeconds: 0 }],
@@ -312,6 +317,8 @@ describe('evaluator window levers', function () {
         const first = reference.warm[0][1];
         assert.ok(first.frame.devicestatus.some(status => status.device === 'loop://phone'), 'the stopped phone is in the frame');
         assert.ok(first.frame.devicestatus.length >= 20);
+        const start = first.frame.treatments.find(treatment => treatment.eventType === 'Sensor Start');
+        assert.deepEqual(start && start.detail, { amount: 5, inner: { amount: '2', absolute: 2 }, absolute: 5 }, 'the loader wrote inside a newest-of-a-kind document');
         if (envName === 'loop') {
           assert.ok(first.properties.cob && first.properties.cob.treatmentCOB !== undefined, 'the treatment model ran beside device COB');
           assert.ok(first.properties.openaps && first.properties.openaps.lastSuggested && first.properties.openaps.lastEnacted);
