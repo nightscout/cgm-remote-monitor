@@ -63,11 +63,11 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable NS_TEST_POSTGRES
    assert.deepEqual(rows.map(row=>row.tenant_id),ids.filter(owner).sort(),'COLD_SLICE_MUST_FIND_OWNED_WORK');
   }
  });
- it('SQL slice rule: every tenant is selected by exactly one ordinal at K=1/2/4/8; an overlapping rule is red',async()=>{
+ it('SQL slice rule: every tenant is selected by exactly one ordinal at K=1/2/4/8/9/16/20/32; an overlapping rule is red',async()=>{
   const ids=Array.from({length:600},(_,i)=>crypto.createHash('sha256').update('sql-k-'+i).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
   const select=async(sliceModule,count,ordinal)=>(await admin.query('SELECT tenant_id::text AS id FROM unnest($1::uuid[]) AS r(tenant_id) WHERE '+sliceModule.sqlPredicate(count,ordinal),[ids])).rows.map(row=>row.id);
   async function exactlyOnce(sliceModule){
-    for(const count of [1,2,4,8]){
+    for(const count of [1,2,4,8,9,16,20,32]){
       const seen=new Map();
       for(let ordinal=0;ordinal<count;ordinal++)for(const id of await select(sliceModule,count,ordinal))seen.set(id,(seen.get(id)||0)+1);
       assert.equal(seen.size,ids.length,'K='+count+' every tenant is selected');
@@ -80,6 +80,26 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'disposable NS_TEST_POSTGRES
   const broken={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,"') >= ' + ordinal;")+'\n})',{filename:file})(createRequire(file),broken,broken.exports);
   await assert.rejects(exactlyOnce(broken.exports),/exactly one ordinal/);
   await exactlyOnce(require('../lib/pool-membership/slice'));
+ });
+ it('SQL slice rule equals the process rule per ordinal at K=9/16/20/32, and an ordinal at or above K selects nothing; a SQL rule folded onto 8 ordinals is red',async()=>{
+  const shipping=require('../lib/pool-membership/slice');
+  const ids=Array.from({length:800},(_,i)=>crypto.createHash('sha256').update('sql-large-k-'+i).digest('hex').slice(0,32).replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5'));
+  const select=async(sliceModule,count,ordinal)=>(await admin.query('SELECT tenant_id::text AS id FROM unnest($1::uuid[]) AS r(tenant_id) WHERE '+sliceModule.sqlPredicate(count,ordinal)+' ORDER BY 1',[ids])).rows.map(row=>row.id);
+  async function agrees(sliceModule,counts){
+    for(const count of counts){
+      let total=0;
+      for(let ordinal=0;ordinal<count;ordinal++){const rows=await select(sliceModule,count,ordinal);total+=rows.length;assert.deepEqual(rows,ids.filter(shipping.predicate(count,ordinal)).sort(),'SQL_SLICE_EQUALS_PROCESS_SLICE K='+count+' ordinal='+ordinal);}
+      assert.equal(total,ids.length,'K='+count+' every tenant is selected once');
+      for(const extra of [count,count+3,shipping.MAX_MEMBERS-1])assert.deepEqual(await select(sliceModule,count,extra),[],'K='+count+' ordinal '+extra+' selects nothing');
+    }
+  }
+  const fs=require('node:fs'),vm=require('node:vm'),{createRequire}=require('node:module');
+  const file=require.resolve('../lib/pool-membership/slice'),source=fs.readFileSync(file,'utf8'),needle="::numeric + 9223372036854775808, ' + members + ') = '";
+  assert.equal(source.split(needle).length,2);
+  const folded={exports:{}};vm.runInThisContext('(function(require,module,exports){'+source.replace(needle,"::numeric + 9223372036854775808, ' + Math.min(members, 8) + ') = '")+'\n})',{filename:file})(createRequire(file),folded,folded.exports);
+  await agrees(folded.exports,[2,4,8]);
+  for(const count of [9,16,20,32])await assert.rejects(agrees(folded.exports,[count]),/SQL_SLICE_EQUALS_PROCESS_SLICE/,'K='+count);
+  await agrees(shipping,[9,16,20,32]);
  });
  it('static slices: one held owner excludes duplicate and mixed K, and a lost backend cannot overwrite its same-ordinal replacement',async()=>{
   const left=actor(),right=actor(),mixed=actor(),duplicate=actor();
