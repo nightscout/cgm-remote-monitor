@@ -542,6 +542,51 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     } finally { await f.store.end(); }
   });
 
+  // The refusal names where it was produced (nightscout_storage_refusals_total
+  // phase): a lock wait on the tenant write clock row, the transaction's
+  // opening statements, any other statement, or the pool checkout.
+  for (const [label, phase, failing, run] of [
+    ['the write clock row lock (FOR UPDATE)', 'clock', text => /tenant_write_clock .*FOR UPDATE/.test(text),
+      store => decorate(store, 'synthetic_clock').transaction(() => store.query('SELECT body_work'))],
+    ['the write clock reservation (UPDATE ... RETURNING)', 'clock', text => /^UPDATE "synthetic_clock"\.tenant_write_clock/.test(text),
+      store => decorate(store, 'synthetic_clock').transaction(() => store.query('SELECT body_work'), { reserveFirst: true })],
+    ['a statement under the clock', 'statement', text => text === 'SELECT body_work',
+      store => decorate(store, 'synthetic_clock').transaction(() => store.query('SELECT body_work'))],
+    ['an unlocked clock read', 'statement', text => /^SELECT last_stamp FROM "synthetic_clock"\.tenant_write_clock WHERE tenant_id = \$1$/.test(text),
+      store => decorate(store, 'synthetic_clock').transaction(() => store.query('SELECT body_work'), { settleBeforeLock: async () => true })],
+    ['the opening tenant binding', 'open', text => text.includes("set_config('app.current_tenant_id'"),
+      store => store.query('SELECT body_work')]
+  ]) {
+    it('marks a STORAGE_TIMEOUT on ' + label + ' with phase ' + phase, async function () {
+      const f = await fixture();
+      f.setAction(async (client, text) => { if (typeof text === 'string' && failing(text)) throw missedDeadline(); });
+      try {
+        await scope.withTenant(TENANT, () => assert.rejects(run(f.store), error => {
+          assert.equal(error.code, 'STORAGE_TIMEOUT');
+          assert.equal(error.phase, phase);
+          return true;
+        }));
+      } finally { await f.store.end(); }
+    });
+  }
+
+  it('marks a STORAGE_BUSY with phase checkout', async function () {
+    const f = await fixture({ max: 1, connectionTimeoutMillis: 30 });
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    try {
+      const first = scope.withTenant(TENANT, () => f.store.transaction(() => held));
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await scope.withTenant(TENANT, () => assert.rejects(f.store.query('SELECT waiting_work'), error => {
+        assert.equal(error.code, 'STORAGE_BUSY');
+        assert.equal(error.phase, 'checkout');
+        return true;
+      }));
+      release();
+      await first;
+    } finally { await f.store.end(); }
+  });
+
   it('preserves a server SQLSTATE and transport rollback cause as distinct failures', async function () {
     const f = await fixture();
     const server = Object.assign(new Error('Synthetic administrator termination'), { code: '57P01' });

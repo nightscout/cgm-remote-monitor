@@ -305,7 +305,10 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
             writeBatch(clock, treatments(288, String.fromCharCode(97 + i)))));
           const holds = probe.stop().holds.map(hold => hold.ms).sort((a, b) => a - b);
           const codes = outcomes.map(o => o.status === 'fulfilled' ? 'ok' : (o.reason.code || 'error'));
+          // Where each STORAGE_TIMEOUT was produced (nightscout_storage_refusals_total phase).
+          const phases = outcomes.filter(o => o.status === 'rejected' && o.reason.code === 'STORAGE_TIMEOUT').map(o => o.reason.phase || 'unset');
           report[on ? 'on' : 'off'] = { codes: codes.reduce((m, c) => Object.assign(m, { [c]: (m[c] || 0) + 1 }), {}),
+            timeoutPhases: phases.reduce((m, c) => Object.assign(m, { [c]: (m[c] || 0) + 1 }), {}),
             rows: (await stored()).length, ms: Date.now() - started,
             holdMs: { n: holds.length, p50: Math.round(holds[Math.floor(holds.length / 2)]), max: Math.round(holds[holds.length - 1]) } };
         }
@@ -313,6 +316,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       console.log('CLOCK_CONTENTION ' + JSON.stringify(report));
       // Characterization (single runs): off reproduces INC-D (6 of 8 refused).
       assert.ok((report.off.codes.STORAGE_TIMEOUT || 0) >= 1, 'off: the long hold refuses waiting batches');
+      assert.ok((report.off.timeoutPhases.clock || 0) >= 1, 'off: a batch refused while waiting for the held clock row is marked phase clock');
       assert.ok(report.on.holdMs.p50 * 3 < report.off.holdMs.p50, 'on: the hold under load is a third of off or less');
       assert.equal(report.on.rows, 288 * (report.on.codes.ok || 0), 'every committed batch is whole');
     });
