@@ -290,6 +290,7 @@
         "tests/resident-window.test.js",
         "tests/evaluator-window-levers.test.js",
         "tests/evaluator-resident-working-set.test.js",
+        "tests/evaluator-acquisition-delta.test.js",
         "tests/json-copy.test.js",
         "tests/moment-memo.test.js",
         "tests/projection-memory-read.test.js",
