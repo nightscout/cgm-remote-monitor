@@ -31,7 +31,10 @@
   <link rel="preload" href="/css/ui-lightness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <link rel="stylesheet" href="/css/modern.css?v=<%= locals.cachebuster %>">
   <link rel="stylesheet" href="/css/modern-editors.css?v=<%= locals.cachebuster %>">
+  <link rel="stylesheet" href="/css/report-colors.css?v=<%= locals.cachebuster %>">
   <link rel="stylesheet" href="/css/modern-reports.css?v=<%= locals.cachebuster %>">
+  <!-- Dark reports when the operating system prefers it; printing always uses the light styles. -->
+  <link rel="stylesheet" href="/css/report-dark.css?v=<%= locals.cachebuster %>" media="screen and (prefers-color-scheme: dark)">
   <%- include('preloadCSS')%>
   
 </head>
@@ -49,13 +52,13 @@
         <td>
           <label for="rp_from" class="translate">From</label>: <input type="date" id="rp_from">
           <label for="rp_to" class="translate">To</label>: <input type="date" id="rp_to">
-          <span class="report-date-presets"><a href="#" days="1" class="presetdates"><span class="translate">Today</span></a>
-          <a href="#" days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
-          <a href="#" days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
-          <a href="#" days="7" class="presetdates"><span class="translate">Last week</span></a>
-          <a href="#" days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
-          <a href="#" days="31" class="presetdates"><span class="translate">Last month</span></a>
-          <a href="#" days="90" class="presetdates"><span class="translate">Last 3 months</span></a></span>
+          <span class="report-date-presets"><a href="#" data-days="1" class="presetdates"><span class="translate">Today</span></a>
+          <a href="#" data-days="2" class="presetdates"><span class="translate">Last 2 days</span></a>
+          <a href="#" data-days="3" class="presetdates"><span class="translate">Last 3 days</span></a>
+          <a href="#" data-days="7" class="presetdates"><span class="translate">Last week</span></a>
+          <a href="#" data-days="14" class="presetdates"><span class="translate">Last 2 weeks</span></a>
+          <a href="#" data-days="31" class="presetdates"><span class="translate">Last month</span></a>
+          <a href="#" data-days="90" class="presetdates"><span class="translate">Last 3 months</span></a></span>
         </td>
       </tr>
       <tr class="rp_foodgui report-food-filter-row" style="display:none">

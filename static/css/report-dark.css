@@ -1,0 +1,405 @@
+/* Dark theme for the reports, following the operating system setting.
+   Loaded only with media="screen and (prefers-color-scheme: dark)" (see
+   views/reportindex.html), so printed reports keep the light styles.
+   Selectors mirror the light rules they replace in report.css and
+   modern-reports.css; this sheet is loaded after both, so equal specificity wins. */
+
+:root {
+  --rd-page: #0f141b;
+  --rd-surface: #161d27;
+  --rd-surface-2: #1c2531;
+  --rd-surface-3: #243041;
+  --rd-border: #2b3747;
+  --rd-border-strong: #3b4a5d;
+  --rd-text: #dce5ef;
+  --rd-text-strong: #f1f5fa;
+  --rd-muted: #a5b4c6;
+  --rd-faint: #8a9bb0;
+  --rd-link: #79b0f0;
+  --rd-accent: #2f74c0;
+  --rd-accent-hover: #2866ae;
+  --rd-grid: #263241;
+  --rd-axis: #3b4a5d;
+  --rd-axis-text: #95a6ba;
+  --rd-basal: #5a9be6;
+  --rd-in-range: #4caf50;
+  --rd-out-of-range: #ef5350;
+  --rd-insulin: #6f9bff;
+  --rd-carbs: #ff8a65;
+  color-scheme: dark;
+}
+
+/* Colours that only the dark theme uses (named like the light tokens, prefixed rd-). */
+:root {
+  /* Text */
+  --rd-text-tabnav-li:                          #b9d7bd;
+  --rd-text-rp-show:                            #cfe8d2;
+  --rd-text-basal-net:                          #f28b95;
+  --rd-text-is-positive-basal-net:              #7fd39a;
+  --rd-text-daily-option-carbs:                 #f56a67;
+  --rd-text-daily-option-basal:                 #4fb3ff;
+  --rd-text-daily-option-predicted:             #d39a6a;
+  --rd-text-daily-carbs-total:                  #ffad5c;
+  --rd-text-daytodaycharts-daily-carbs-total:   #f0a040;
+  --rd-text-treatment-badge-insulin:            #8ab6ff;
+  --rd-text-treatment-badge-basal:              #b7a0f0;
+  --rd-text-treatment-badge-meal:               #f0b866;
+
+  /* Backgrounds */
+  --rd-bg-tabnav-li:                          #1e3a24;
+  --rd-bg-tabnav-li-2:                        #2a5532;
+  --rd-bg-bad:                                rgba(239, 83, 80, 0.28);
+  --rd-bg-good:                               rgba(76, 175, 80, 0.28);
+  --rd-bg-is-negative:                        rgba(239, 83, 80, 0.16);
+  --rd-bg-is-positive:                        rgba(76, 175, 80, 0.16);
+  --rd-bg-daily-carbs-track:                  #3a2c1d;
+  --rd-bg-agp-target:                         rgba(76, 175, 80, 0.12);
+  --rd-bg-daily-chart-legend-span:            #2bbf91;
+  --rd-bg-daily-legend-target:                rgba(43, 191, 145, 0.14);
+  --rd-bg-daily-legend-carbs:                 #f0a040;
+  --rd-bg-treatment-data-row-treatment-alt:   #18202b;
+  --rd-bg-treatment-badge-insulin:            #1b3352;
+  --rd-bg-treatment-badge-basal:              #2c2347;
+  --rd-bg-treatment-badge-meal:               #3a2c16;
+
+  /* Borders and outlines */
+  --border-classic-tab-dark:         #3f7a48;
+  --rd-border-daily-legend-target:   rgba(43, 191, 145, 0.35);
+
+  /* SVG fills */
+  --fill-target-band-dark:                             rgba(76, 175, 80, 0.16);
+  --rd-fill-daily-target-band:                         rgba(43, 191, 145, 0.14);
+  --rd-fill-daytoday-sample-is-raw:                    #8d99a8;
+  --rd-fill-daytoday-sample-is-prediction:             #a98be8;
+  --rd-fill-tempbasalarea:                             rgba(90, 155, 230, 0.55);
+  --rd-fill-daily-other-treatment:                     #b37fe0;
+  --rd-fill-daily-other-treatment-label:               #c9a2ee;
+  --rd-fill-daily-duration-offline:                    #c08560;
+  --rd-fill-daily-chart-svg-daily-duration-override:   #c3cfdc;
+  --rd-fill-wtw-day-5:                                 #b47c6a;
+  --rd-fill-percentile-target-band:                    rgba(76, 175, 80, 0.2);
+  --rd-fill-gd-pentagon-overflow:                      #e0b030;
+
+  /* SVG strokes */
+  --rd-stroke-daily-bgcheck:           #ffb3b3;
+  --rd-stroke-wtw-combo-hatch:         #4fb3ff;
+  --rd-stroke-gd-pentagon-outline:     #5c6c80;
+  --rd-stroke-gd-pentagon-axis:        #4a596b;
+  --rd-stroke-gd-pentagon-reference:   #6cc070;
+  --rd-stroke-gd-pentagon-patient:     #e0b030;
+
+  /* Gradient stops */
+  --rd-stop-daily-glucose-fade-top:   #2bbf91;
+
+  /* Shadows */
+  --rd-shadow-agp-tir-swatch:   rgba(255, 255, 255, 0.6);
+
+  /* Chart series (read by CSS custom properties) */
+  --rd-series-loopalyzer-timeshift:          #202a37;
+  --rd-series-loopalyzer-glucose-range:      rgba(76, 175, 80, 0.18);
+  --rd-series-loopalyzer-prediction:         #a98be8;
+  --rd-series-glucose-in-range:              #5cc08a;
+  --rd-series-glucose-out-of-range:          #f06b77;
+  --rd-series-glucose-in-range-modern:       #2bbf91;
+  --rd-series-glucose-out-of-range-modern:   #f47e88;
+  --rd-series-hs-fill-neutral:               rgba(90, 155, 230, 0.2);
+  --rd-series-hs-fill-low:                   rgba(229, 115, 115, 0.22);
+  --rd-series-hs-fill-high:                  rgba(251, 140, 0, 0.22);
+  --rd-series-hs-fill-inrange:               rgba(67, 160, 71, 0.22);
+}
+
+/* ---------- Page, navigation and controls (default theme) ---------- */
+body { background: var(--rd-page); color: var(--rd-text); }
+.editor-content a { color: var(--rd-link); }
+#tabnav { border-bottom-color: var(--border-classic-tab-dark); }
+#tabnav li { border-color: var(--border-classic-tab-dark); background-color: var(--rd-bg-tabnav-li); color: var(--rd-text-tabnav-li); }
+#tabnav li:first-child { border-left-color: var(--border-classic-tab-dark); }
+#tabnav .selected { background: var(--rd-page); border-bottom-color: var(--rd-page); color: var(--rd-text-strong); }
+#tabnav li:hover { background: var(--rd-bg-tabnav-li-2); }
+#rp_show { background-color: var(--rd-bg-tabnav-li); border-color: var(--border-classic-tab-dark); color: var(--rd-text-rp-show); }
+input, select, textarea { background: var(--rd-surface-2); color: var(--rd-text); border-color: var(--rd-border-strong); }
+.tooltip { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); }
+
+/* jQuery UI (ui-lightness) dialog used to edit treatments. */
+.ui-widget-content { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); }
+.ui-widget-header { background: var(--rd-surface-3); color: var(--rd-text-strong); border-color: var(--rd-border-strong); }
+.ui-dialog .ui-dialog-buttonpane { background: var(--rd-surface); border-color: var(--rd-border); }
+.ui-widget-content .ui-state-default, .ui-dialog .ui-dialog-buttonpane button { background: var(--rd-surface-2); color: var(--rd-text); border-color: var(--rd-border-strong); }
+.rp-edittreatment-dialog { box-shadow: 20px 20px 20px 0 var(--shadow-rp-edittreatment-dialog); }
+
+/* ---------- Tables, cards and report text (default theme) ---------- */
+.report-bordered-table, .report-bordered-table > tr > :is(td, th), .report-bordered-table > * > tr > :is(td, th) { border-color: var(--rd-border-strong); }
+.border_bottom td { border-bottom-color: var(--rd-border); }
+#treatments-report .filterbar .recordcount { color: var(--rd-muted); }
+.treatments-classic-header { background: var(--rd-surface-3); }
+.treatments-classic-day { background: var(--rd-surface-2); }
+.rped-bgsource.icon-sort-numeric { color: var(--rd-insulin); }
+#dailystats-placeholder .tdborder, #success-placeholder td,
+#glucosedistribution-report .tdborder, #glucosedistribution-stability .tdborder, #glucosedistribution-summary .tdborder { border-color: var(--rd-border-strong); }
+#dailystats-placeholder .tir-bar { background: var(--rd-surface-2); border-color: var(--rd-faint); }
+#success-placeholder .bad { background-color: var(--rd-bg-bad); }
+#success-placeholder .good { background-color: var(--rd-bg-good); }
+.gd-wrap { color: var(--rd-text); }
+.gd-card { background: var(--rd-surface); border-color: var(--rd-border); box-shadow: none; }
+.gd-vbar { border-color: var(--rd-faint); }
+#daytodaycharts > table, #weektoweekcharts .wtw-card { background: var(--rd-surface); border-color: var(--rd-border); box-shadow: none; }
+#hourly-basal-adjustments :is(th, td) { border-color: var(--rd-border); }
+#hourly-basal-adjustments th { background: var(--rd-surface-2); color: var(--rd-muted); }
+.hourly-basal-unavailable, .hourly-basal-empty { background: var(--rd-surface-2); color: var(--rd-muted); }
+.hourly-basal-table .is-negative .basal-net { color: var(--rd-text-basal-net); }
+.hourly-basal-table .is-positive .basal-net { color: var(--rd-text-is-positive-basal-net); }
+.hourly-basal-average .is-negative { background: var(--rd-bg-is-negative); }
+.hourly-basal-average .is-positive { background: var(--rd-bg-is-positive); }
+.hourly-basal-average .is-neutral { background: var(--rd-surface-2); }
+#calibrations-list :is(th, td) { border-bottom-color: var(--rd-border); }
+#calibrations-list th { background: var(--rd-surface-2); color: var(--rd-muted); }
+.calibrations-details, #calibrations-status { color: var(--rd-muted); }
+.calibrations-swatch { border-color: #fff3; }
+#loopalyzer-charts, #loopalyzer-profiles, #loopalyzer-help, #loopalyzer-notenoughdata, #loopalyzer-buttons,
+#loopalyzer-dateinfo, #loopalyzer-profiles-table { color: var(--rd-text); }
+#loopalyzer-profiles-table td table { background-color: var(--rd-surface); border-color: var(--rd-border); }
+#loopalyzer-profiles-table td caption { color: var(--rd-muted); }
+#loopalyzer-profiles-table td tr:nth-child(even) td td { background-color: var(--rd-surface-2); }
+#rp_loopalyzertimeshiftinput.is-disabled { color: var(--rd-faint); }
+
+/* ---------- Charts (both themes) ---------- */
+#pluginchartplaceholders .flot-svg text, #pluginchartplaceholders .legend text { fill: var(--rd-axis-text); }
+#loopalyzer-placeholder {
+  --loopalyzer-tick: var(--rd-grid); --loopalyzer-surface: var(--rd-surface); --loopalyzer-marking: var(--rd-text);
+  --loopalyzer-timeshift: var(--rd-series-loopalyzer-timeshift); --loopalyzer-basal: var(--rd-basal); --loopalyzer-iob: var(--rd-basal);
+  --loopalyzer-glucose-range: var(--rd-series-loopalyzer-glucose-range); --loopalyzer-prediction: var(--rd-series-loopalyzer-prediction);
+}
+/* Shared d3 axes and chart backgrounds. */
+.report-axis { color: var(--rd-axis-text); }
+:is(.daily-chart-svg, #weektoweekcharts, #calibrations-chart, #hourlystats-overviewchart) .daily-chart-background { fill: var(--rd-surface); }
+#daytodaycharts .axis text, #weektoweekcharts .axis text, #calibrations-chart .axis text, #weektoweekcharts svg text,
+#hourlystats-overviewchart :is(.hs-axis text, .hs-axis-label),
+#percentile-chart :is(.percentile-axis text, .percentile-axis-label) { fill: var(--rd-axis-text); }
+#daytodaycharts .axis path.domain, #daytodaycharts .axis line, #daytodaycharts .axis, #weektoweekcharts .axis, #calibrations-chart .axis,
+#hourlystats-overviewchart .hs-axis path, #hourlystats-overviewchart .hs-axis line,
+#percentile-chart .percentile-axis :is(.tick line, .domain) { stroke: var(--rd-axis); }
+#daytodaycharts .high-line, :is(#calibrations-chart, #weektoweekcharts) .high-line,
+#hourlystats-overviewchart .hs-grid line, #percentile-chart .percentile-grid line { stroke: var(--rd-grid); }
+#agp-chart .agp-axis text { fill: var(--rd-axis-text); }
+#agp-chart .agp-axis-label { fill: var(--rd-faint); }
+
+/* Day to day. */
+.daily-option-insulin { color: var(--rd-insulin); }
+.daily-option-carbs, .daily-option-bgcheck { color: var(--rd-text-daily-option-carbs); }
+.daily-option-basal { color: var(--rd-text-daily-option-basal); }
+.daily-option-raw { color: var(--rd-faint); }
+.daily-option-predicted { color: var(--rd-text-daily-option-predicted); }
+.daily-combo-hatch { stroke: var(--rd-basal); }
+.daily-chart-svg .daily-target-band { fill: var(--fill-target-band-dark); stroke: var(--rd-border-strong); }
+.daily-chart-svg.is-modern .daily-target-band { fill: var(--rd-fill-daily-target-band); stroke: none; }
+.daily-chart-svg.is-modern .x.axis .tick line { stroke: var(--rd-grid); }
+.daily-chart-svg .glucose-in-range { --glucose-stroke: var(--rd-series-glucose-in-range); }
+.daily-chart-svg .glucose-out-of-range { --glucose-stroke: var(--rd-series-glucose-out-of-range); }
+.daily-chart-svg.is-modern .glucose-in-range { --glucose-stroke: var(--rd-series-glucose-in-range-modern); }
+.daily-chart-svg.is-modern .glucose-out-of-range { --glucose-stroke: var(--rd-series-glucose-out-of-range-modern); }
+.daily-chart-svg .daytoday-sample { stroke: var(--rd-text); }
+.daily-chart-svg .daytoday-sample.glucose-in-range { fill: var(--rd-in-range); }
+.daily-chart-svg .daytoday-sample.glucose-out-of-range, .daily-chart-svg .daytoday-sample.is-mbg { fill: var(--rd-out-of-range); }
+.daily-chart-svg .daytoday-sample.is-raw { fill: var(--rd-fill-daytoday-sample-is-raw); }
+.daily-chart-svg .daytoday-sample.is-prediction { fill: var(--rd-fill-daytoday-sample-is-prediction); }
+.daily-chart-svg .daytoday-sample:is(.is-concealed, .is-connected) { fill: transparent; }
+.daily-chart-svg .daytoday-sample.is-connected.is-highlighted { fill: var(--rd-surface); }
+.daily-glucose-fade-top { stop-color: var(--rd-stop-daily-glucose-fade-top); stop-opacity: 0.18; }
+.daily-glucose-fade-bottom { stop-color: var(--rd-stop-daily-glucose-fade-top); }
+.daily-chart-svg .daytoday-trace-label, .daily-chart-svg .daily-profile-label { fill: var(--rd-faint); }
+.daily-chart-svg :is(.basalline, .notempline) { stroke: var(--rd-basal); }
+.daily-chart-svg .basalarea { fill: var(--rd-basal); fill-opacity: 0.16; }
+.daily-chart-svg .tempbasalarea { fill: var(--rd-fill-tempbasalarea); }
+.daily-chart-svg .tempbasaltext, .daily-chart-svg .daily-profile-switch { fill: var(--rd-basal); }
+.daily-chart-svg .daily-treatment-bolus { color: var(--rd-insulin); }
+.daily-chart-svg .daily-treatment circle { stroke: var(--rd-surface); }
+.daily-chart-svg .daily-note-text { fill: var(--rd-text); }
+.daily-chart-svg .daily-carbs-bar { fill: var(--rd-out-of-range); stroke: var(--rd-out-of-range); }
+.daily-chart-svg .daily-insulin-bar { fill: var(--rd-insulin); stroke: var(--rd-insulin); }
+.daily-chart-svg .daily-carbs-label { fill: var(--rd-out-of-range); }
+.daily-chart-svg .daily-insulin-label { fill: var(--rd-insulin); }
+.daily-chart-svg .daily-bgcheck { fill: var(--rd-out-of-range); stroke: var(--rd-stroke-daily-bgcheck); }
+.daily-chart-svg .daily-other-treatment { fill: var(--rd-fill-daily-other-treatment); stroke: var(--rd-text); }
+.daily-chart-svg .daily-other-treatment-label { fill: var(--rd-fill-daily-other-treatment-label); }
+.daily-chart-svg .daily-duration-band { stroke: var(--rd-surface); opacity: 0.3; }
+.daily-chart-svg .daily-duration-offline { fill: var(--rd-fill-daily-duration-offline); }
+.daily-chart-svg .daily-duration-label.daily-duration-exercise { fill: var(--fill-daily-duration-exercise); }
+.daily-chart-svg .daily-duration-label.daily-duration-note { fill: var(--fill-daily-duration-note); }
+.daily-chart-svg :is(.daily-duration-override, .daily-duration-other) { fill: var(--rd-fill-daily-chart-svg-daily-duration-override); }
+.daily-chart-svg .daily-hover-guide { stroke: var(--rd-muted); }
+.daily-chart-svg .daily-hover-dot { fill: var(--rd-surface); }
+.daily-chart-svg .daily-basal-focus { fill: var(--rd-surface); stroke: var(--rd-basal); }
+#daytodaycharts .daily-distribution section { background: var(--rd-surface); border-color: var(--rd-border); color: var(--rd-text); }
+#daytodaycharts .daily-distribution h3, #daytodaycharts .daily-insulin-key strong { color: var(--rd-text-strong); }
+#daytodaycharts :is(.daily-summary-caption, .daily-insulin-name small, .daily-carbs-comparison, .daily-macro-totals) { color: var(--rd-faint); }
+#daytodaycharts .daily-insulin-name { color: var(--rd-muted); }
+#daytodaycharts .daily-insulin-total { fill: var(--rd-text-strong); }
+#daytodaycharts .daily-insulin-unit { fill: var(--rd-faint); }
+#daytodaycharts .daily-insulin-ring circle { stroke: var(--rd-surface-3); }
+#daytodaycharts .daily-carbs-total { color: var(--rd-text-daily-carbs-total); }
+#daytodaycharts .daily-carbs-total > span { color: var(--rd-faint); }
+#daytodaycharts .daily-carbs-track { background: var(--rd-bg-daily-carbs-track); }
+#daytodaycharts .daily-basal-adjustments { border-top-color: var(--rd-border); color: var(--rd-muted); }
+.tooltip.daytoday-reading-tooltip { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); box-shadow: 0 4px 16px #0008; }
+.tooltip.daytoday-reading-tooltip :is(.daily-tooltip-header, .daily-tooltip-treatments) { border-color: var(--rd-border); }
+.tooltip.daytoday-reading-tooltip :is(.daily-tooltip-header strong, .daily-tooltip-metric strong, li span) { color: var(--rd-text-strong); }
+.tooltip.daytoday-reading-tooltip :is(.daily-tooltip-header span, .daily-tooltip-metric > span, .daily-tooltip-heading, li b) { color: var(--rd-muted); }
+.tooltip.daytoday-reading-tooltip :is(.daily-tooltip-metric > small, .daily-tooltip-heading small, time, li > small, .daily-tooltip-detail, .daily-tooltip-treatments > small) { color: var(--rd-faint); }
+.tooltip.daytoday-reading-tooltip .daily-tooltip-basal strong { color: var(--rd-basal); }
+
+/* Week to week. Weekday 5 is lightened to reach 3:1 on the dark surface. */
+.wtw-day-5 { --wtw-day: var(--rd-fill-wtw-day-5); }
+.wtw-combo-hatch { stroke: var(--rd-stroke-wtw-combo-hatch); }
+#weektoweekcharts .wtw-target-band { fill: var(--fill-target-band-dark); }
+#weektoweekcharts .wtw-sample.is-mbg { stroke: var(--rd-text); }
+
+/* Calibrations. */
+#calibrations-chart svg { background: var(--rd-surface); border-color: var(--rd-border); }
+#calibrations-chart svg text { fill: var(--rd-axis-text); }
+#calibrations-chart .calibrations-point { stroke: var(--rd-surface); }
+
+/* Hourly statistics and percentile. */
+.hourlystats-tooltip { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); box-shadow: 0 2px 6px #0008; }
+#hourlystats-overviewchart .hs-range-neutral { --hs-stroke: var(--rd-basal); --hs-fill: var(--rd-series-hs-fill-neutral); }
+#hourlystats-overviewchart .hs-range-low { --hs-fill: var(--rd-series-hs-fill-low); }
+#hourlystats-overviewchart .hs-range-high { --hs-fill: var(--rd-series-hs-fill-high); }
+#hourlystats-overviewchart .hs-range-inrange { --hs-stroke: var(--rd-series-glucose-in-range); --hs-fill: var(--rd-series-hs-fill-inrange); }
+#percentile-chart .percentile-target-band, #agp-chart .percentile-target-band { fill: var(--fill-target-band-dark); }
+#agp-daily .percentile-target-band { fill: var(--rd-fill-percentile-target-band); }
+#percentile-chart .percentile-median, #agp-chart :is(.agp-median, .agp-target-line), #agp-daily .agp-daily-line { stroke: var(--rd-basal); }
+#agp-daily .agp-daily-point { fill: var(--rd-basal); }
+#percentile-chart .percentile-hover-line { stroke: var(--rd-muted); }
+#percentile-tooltip { background: var(--rd-surface-3); color: var(--rd-text-strong); box-shadow: 0 1px 4px #0009; }
+
+/* Distribution pie and glucose pentagon. */
+.report-distribution-pie path { stroke: var(--rd-surface); }
+.report-distribution-pie text { fill: var(--rd-text-strong); stroke: var(--rd-surface); }
+.gd-pentagon, .gd-pentagon-label { color: var(--rd-text); }
+.gd-pentagon-coverage, .gd-pentagon-note, .gd-pentagon-legend { color: var(--rd-muted); }
+.gd-pentagon-outline { stroke: var(--rd-stroke-gd-pentagon-outline); }
+.gd-pentagon-axis { stroke: var(--rd-stroke-gd-pentagon-axis); }
+.gd-pentagon-reference { stroke: var(--rd-stroke-gd-pentagon-reference); }
+.gd-pentagon-patient { stroke: var(--rd-stroke-gd-pentagon-patient); }
+.gd-pentagon-overflow { fill: var(--rd-fill-gd-pentagon-overflow); }
+
+/* AGP. */
+.agp-wrap { color: var(--rd-text); }
+.agp-card { background: var(--rd-surface); border-color: var(--rd-border); }
+.agp-card-title, .agp-stat-value { color: var(--rd-text-strong); }
+.agp-subhead, .agp-tir-name { color: var(--rd-text); }
+.agp-cgmactive, .agp-stat-unit, .agp-stat-label, .agp-tir-range, .agp-daily-label { color: var(--rd-muted); }
+.agp-stat-hint, .agp-tir-time, .agp-agp-note, .agp-daily-caption, .agp-empty { color: var(--rd-faint); }
+.agp-tir-bar { border-color: var(--rd-faint); }
+#report-progressbar[role="progressbar"] { border-color: var(--rd-faint); }
+.agp-tir-swatch { box-shadow: inset 0 0 0 1px var(--rd-shadow-agp-tir-swatch); }
+.agp-tir-row.agp-target .agp-tir-name { color: var(--rd-text-is-positive-basal-net); }
+.agp-daily-cell { border-color: var(--rd-border); }
+
+/* ---------- Modern theme ---------- */
+.modern-ui.report-ui { background: var(--rd-page); color-scheme: dark; }
+.modern-ui .report-page { background: var(--rd-page); color: var(--rd-text); color-scheme: dark; }
+.modern-ui .report-page .toolbar-title h2 { color: var(--rd-text-strong); }
+.modern-ui .report-page .editor-content :is(input, select, textarea),
+.modern-ui .report-page .tabplaceholder :is(input, select, textarea),
+.modern-ui .report-page .ui-dialog-content :is(input, textarea, select),
+.modern-ui .report-page #treatments-report .filterbar select { background: var(--rd-surface-2); color: var(--rd-text); border-color: var(--rd-border-strong); }
+.modern-ui .report-page :is(.editor-content, .tabplaceholder) :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--rd-accent-hover); }
+.modern-ui .report-page .editor-content legend, .modern-ui .report-page .report-filters-title,
+.modern-ui .report-page .report-filter-table label { color: var(--rd-muted); }
+.modern-ui .report-page .authentication-status { background: var(--rd-surface); color: var(--rd-muted); border-color: var(--rd-border); }
+.modern-ui .report-page :is(.authentication-status a, .tabplaceholder a, .presetdates) { color: var(--rd-link); }
+.modern-ui .report-page #tabnav { border-color: var(--rd-border); background: var(--rd-surface); }
+.modern-ui .report-page #tabnav .menutab { color: var(--rd-muted); }
+.modern-ui .report-page #tabnav .menutab:hover { background: var(--rd-surface-3); color: var(--rd-text-strong); }
+.modern-ui .report-page #tabnav .selected { border-color: var(--rd-accent); background: var(--rd-accent); color: var(--text-inverse); box-shadow: none; }
+.modern-ui .report-page #tabnav .selected:hover { background: var(--rd-accent-hover); color: var(--text-inverse); }
+.modern-ui .report-page :is(#tabnav .menutab, .report-filter-panel > summary):focus-visible { outline-color: var(--rd-link); }
+.modern-ui .report-page .report-filters { border-color: var(--rd-border); background: var(--rd-surface); }
+.modern-ui .report-page .report-filter-panel, .modern-ui .report-page .report-filter-panel .report-filters { border-color: var(--rd-border); background: var(--rd-surface); }
+.modern-ui .report-page .report-filter-panel > summary { background: var(--rd-surface-2); color: var(--rd-text); }
+.modern-ui .report-page .report-filter-panel[open] > summary { border-bottom-color: var(--rd-border); }
+.modern-ui .report-page .presetdates { border-color: var(--rd-border-strong); }
+.modern-ui .report-page .presetdates:hover { background: var(--rd-surface-3); }
+.modern-ui .report-page #rp_show { border-color: var(--rd-accent); background: var(--rd-accent); color: var(--text-inverse); }
+.modern-ui .report-page #rp_show:hover { border-color: var(--rd-accent-hover); background: var(--rd-accent-hover); }
+.modern-ui .report-page #info { color: var(--rd-muted); }
+.modern-ui .report-page .tabplaceholder { border-color: var(--rd-border); box-shadow: none; background: var(--rd-surface); color: var(--rd-text); color-scheme: dark; }
+.modern-ui .report-page .tabplaceholder h2, .modern-ui .report-page .tabplaceholder :is(h3, h4) { color: var(--rd-text-strong); }
+.modern-ui .report-page .tabplaceholder > b { color: var(--rd-muted); }
+.modern-ui .report-page .tabplaceholder :is(button, input[type="button"]),
+.modern-ui .report-page .ui-dialog-buttonpane button { border-color: var(--rd-border-strong); background: var(--rd-surface-2); color: var(--rd-text); }
+.modern-ui .report-page .tabplaceholder :is(th, td.tdborder) { border-color: var(--rd-border); }
+.modern-ui .report-page .tabplaceholder th { background: var(--rd-surface-2); color: var(--rd-muted); }
+.modern-ui .report-page .tabplaceholder .axis text { fill: var(--rd-axis-text); }
+.modern-ui .report-page .tabplaceholder .axis :is(path, line) { stroke: var(--rd-axis) !important; }
+.modern-ui .report-page :is(#daytodaycharts, #weektoweekcharts) > table { border-top-color: var(--rd-border); }
+.modern-ui .report-page #treatments-placeholder :is(.treatments-classic-header, th),
+.modern-ui .report-page #treatments-placeholder .treatments-classic-day { background: var(--rd-surface) !important; }
+.modern-ui .report-page .tooltip { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); }
+.modern-ui .report-page .agp-header { border-bottom-color: var(--rd-border); }
+.modern-ui .report-page .agp-subhead, .modern-ui .report-page .agp-tir-name { color: var(--rd-text); }
+.modern-ui .report-page :is(.agp-cgmactive, .agp-stat-unit, .agp-tir-range, .agp-agp-note, .agp-daily-caption) { color: var(--rd-muted); }
+.modern-ui .report-page .agp-card { border-color: var(--rd-border); }
+.modern-ui .report-page .agp-card-title { border-bottom-color: var(--rd-border); background: var(--rd-surface-2); color: var(--rd-text-strong); }
+.modern-ui .report-page :is(.agp-stat, .agp-tir-row) { border-bottom-color: var(--rd-border); }
+.modern-ui .report-page .agp-stat-value, .modern-ui .report-page .agp-tir-pct { color: var(--rd-text-strong); }
+.modern-ui .report-page .agp-stat:nth-child(n+5) .agp-stat-value, .modern-ui .report-page .agp-stat-label { color: var(--rd-muted); }
+.modern-ui .report-page :is(.agp-stat-hint, .agp-tir-time) { color: var(--rd-faint); }
+.modern-ui .report-page .agp-target { background: var(--rd-bg-agp-target); }
+.modern-ui .report-page .agp-daily-cell { border-color: var(--rd-border); }
+.modern-ui .report-page .agp-daily-label { border-bottom-color: var(--rd-border); background: var(--rd-surface-2); color: var(--rd-text); }
+.modern-ui .report-page :is(#percentile-tooltip, .hourlystats-tooltip) { background: var(--rd-surface-3); color: var(--rd-text); border-color: var(--rd-border-strong); box-shadow: 0 4px 16px #0009; }
+.modern-ui .report-page .ui-dialog { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border-strong); color-scheme: dark; }
+.modern-ui .report-page :is(.ui-dialog-titlebar, .ui-dialog-content, .ui-dialog-buttonpane) { background: var(--rd-surface); color: var(--rd-text); border-color: var(--rd-border); }
+
+/* Modern day to day. */
+.modern-ui .report-page #daytodaycharts > table.daily-report-card { border-color: var(--rd-border); box-shadow: none; }
+.modern-ui .report-page #daytodaycharts td.daily-chart-aside { border-color: var(--rd-border); background: var(--rd-surface-2); }
+.modern-ui .report-page #daytodaycharts .daily-chart-header h3, .modern-ui .report-page #daytodaycharts .daily-distribution h3 { color: var(--rd-text-strong); }
+.modern-ui .report-page .daily-trend-pill { border-color: var(--rd-border); background: var(--rd-surface-2); color: var(--rd-muted); }
+.modern-ui .report-page #daytodaycharts .axis text { fill: var(--rd-axis-text); }
+.modern-ui .report-page #daytodaycharts .axis .domain { stroke: var(--rd-axis) !important; }
+.modern-ui .report-page #daytodaycharts .x.axis .tick line { stroke: var(--rd-grid) !important; }
+.modern-ui .report-page .daily-axis-label { fill: var(--rd-muted); }
+.modern-ui .report-page .daily-treatment text { stroke: var(--rd-surface); }
+.modern-ui .report-page .daily-chart-legend { border-top-color: var(--rd-border); color: var(--rd-muted); }
+.modern-ui .report-page .daily-chart-legend span::before { background: var(--rd-bg-daily-chart-legend-span); }
+.modern-ui .report-page .daily-chart-legend .daily-legend-target::before { border-color: var(--rd-border-daily-legend-target); background: var(--rd-bg-daily-legend-target); }
+.modern-ui .report-page .daily-chart-legend .daily-legend-basal::before, .modern-ui .report-page .daily-chart-legend :is(.daily-legend-bolus, .daily-legend-carbs)::before { background: var(--rd-insulin); }
+.modern-ui .report-page .daily-chart-legend .daily-legend-carbs::before { background: var(--rd-bg-daily-legend-carbs); }
+.modern-ui .report-page #daytodaycharts .daily-distribution section { border-color: var(--rd-border); background: var(--rd-surface); }
+.modern-ui .report-page #daytodaycharts .daily-insulin-name { color: var(--rd-muted); }
+.modern-ui .report-page #daytodaycharts .daily-insulin-name small, .modern-ui .report-page #daytodaycharts .daily-nutrition-details { color: var(--rd-faint); }
+.modern-ui .report-page #daytodaycharts .daily-carbs-total, .modern-ui .report-page #daytodaycharts .daily-carbs-total > span { color: var(--rd-text-daytodaycharts-daily-carbs-total); }
+.modern-ui .report-page #daytodaycharts .daily-macro-totals { border-top-color: var(--rd-border); }
+.modern-ui .report-page .daily-display-controls { border-color: var(--rd-border); background: var(--rd-surface-2); color: var(--rd-muted); }
+@media (max-width: 1100px) {
+  .modern-ui .report-page #daytodaycharts td.daily-chart-aside { border-top-color: var(--rd-border); }
+}
+
+/* Modern treatments. */
+.modern-ui .report-page #treatments-report .treatments-period,
+.modern-ui .report-page #treatments-report .filterbar label,
+.modern-ui .report-page #treatments-report .recordcount { color: var(--rd-muted); border-color: var(--rd-border); }
+.modern-ui .report-page .treatment-table-wrap { border-color: var(--rd-border); }
+.modern-ui .report-page #treatments-report .treatments-table thead th { border-bottom-color: var(--rd-border); background: var(--rd-surface-3) !important; color: var(--rd-muted); }
+.modern-ui .report-page #treatments-report .treatments-table th small { color: var(--rd-faint); }
+.modern-ui .report-page #treatments-report .treatment-day-row th { border-bottom-color: var(--rd-border); background: var(--rd-surface-2) !important; color: var(--rd-text-strong); }
+.modern-ui .report-page #treatments-report .treatment-data-row { background: var(--rd-surface); }
+.modern-ui .report-page #treatments-report .treatment-data-row.treatment-alt { background: var(--rd-bg-treatment-data-row-treatment-alt); }
+.modern-ui .report-page #treatments-report .treatment-data-row:hover,
+.modern-ui .report-page #treatments-report .treatment-data-row.is-expanded,
+.modern-ui .report-page .treatment-data-row.is-expanded, .modern-ui .report-page .treatment-detail-row { background: var(--rd-surface-3); }
+.modern-ui .report-page #treatments-report .treatment-data-row td, .modern-ui .report-page .treatment-detail-grid dd { border-bottom-color: var(--rd-border); color: var(--rd-text); }
+.modern-ui .report-page #treatments-report .treatment-data-row :is(.treatment-col-3, .treatment-col-5) { color: var(--rd-insulin); }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-col-4 { color: var(--rd-text-daytodaycharts-daily-carbs-total); }
+.modern-ui .report-page #treatments-report .treatment-data-row .treatment-empty, .modern-ui .report-page .treatment-detail-grid dt { color: var(--rd-faint); }
+.modern-ui .report-page .treatment-badge { background: var(--rd-surface-3); color: var(--rd-muted); }
+.modern-ui .report-page .treatment-badge-insulin { background: var(--rd-bg-treatment-badge-insulin); color: var(--rd-text-treatment-badge-insulin); }
+.modern-ui .report-page .treatment-badge-basal { background: var(--rd-bg-treatment-badge-basal); color: var(--rd-text-treatment-badge-basal); }
+.modern-ui .report-page .treatment-badge-meal { background: var(--rd-bg-treatment-badge-meal); color: var(--rd-text-treatment-badge-meal); }
+.modern-ui .report-page .treatment-note-preview { color: var(--rd-muted); }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary) { color: var(--rd-muted); }
+.modern-ui .report-page #treatments-report :is(.treatment-action, .treatment-menu > summary):hover { background: var(--rd-surface-3); border-color: var(--rd-border-strong); color: var(--rd-text-strong); }
+.modern-ui .report-page #treatments-report .treatment-menu[open] > .deleteTreatment { border-color: var(--rd-border-strong); background: var(--rd-surface-2); color: var(--rd-text-basal-net); box-shadow: 0 5px 18px #0009; }
+.modern-ui .report-page #treatments-report .treatment-detail-row > td { border-bottom-color: var(--rd-border); }
