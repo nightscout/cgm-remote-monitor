@@ -37,11 +37,23 @@ describe('PostgreSQL entries write refusals', function () {
     assert.deepEqual(JSON.parse(calls[0].values[1]), doc);
   });
 
+  it('admits negative zero in documents and patches; JSON renders it as 0, as single-tenant responses do', function () {
+    const writer = entriesWrite({ connection: { query () { throw new Error('unexpected query'); } } });
+    for (const doc of [{ _id: 'nz', sgv: -0 }, { _id: 'nz', nested: { a: [-0, 1] }, utcOffset: -0 }]) {
+      assert.doesNotThrow(() => writer.validateDocument(doc));
+    }
+    assert.doesNotThrow(() => writer.validatePatch({ sgv: -0 }));
+    assert.equal(JSON.stringify({ sgv: -0, a: [-0] }), '{"sgv":0,"a":[0]}');
+    for (const value of [NaN, Infinity, -Infinity]) {
+      assert.throws(() => writer.validateDocument({ _id: 'nz', sgv: -0, other: value }), error => error.unsupported === true);
+    }
+  });
+
   it('refuses lossy or ambiguous input before sending SQL', async function () {
     let queries = 0;
     const writer = entriesWrite({ connection: { query () { queries++; throw new Error('unexpected query'); } } });
     const bad = error => error.unsupported === true;
-    for (const value of [undefined, NaN, Infinity, -0, new Date(), new ObjectId(), /x/, Buffer.from('x')]) {
+    for (const value of [undefined, NaN, Infinity, -Infinity, new Date(), new ObjectId(), /x/, Buffer.from('x')]) {
       await assert.rejects(writer.insertOne({ _id: 'bad', sgv: value }), bad);
       await assert.rejects(writer.updateOne('bad', { sgv: value }), bad);
     }

@@ -46,8 +46,9 @@ fallback. The corresponding single-record writes select the same record.
 
 The admitted PostgreSQL document is JSON-safe with a nonempty string or ObjectId
 `_id`; an omitted `_id` can be generated on insert. Nested Date, BSON values,
-undefined, nonfinite numbers, negative zero and other lossy shapes are refused
-rather than serialized away. MongoDB admits broader BSON representations.
+undefined, nonfinite numbers and other lossy shapes are refused rather than
+serialized away. Negative zero is admitted and stored as 0, the value JSON and
+MongoDB API responses show. MongoDB admits broader BSON representations.
 MongoDB's driver generates an ObjectId for submitted `_id: null`; PostgreSQL
 refuses that submitted identity. MongoDB stores boolean and numeric `_id` values,
 which the PostgreSQL identity codec refuses. These differences are capabilities,

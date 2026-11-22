@@ -522,6 +522,45 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await same('get', '/api/v3/devicestatus/history/' + BASE);
     });
 
+    it('accepts negative zero like single tenant: v1 device batch, v3 device and v1 activity answer and read back alike; nonfinite stays refused', async function () {
+      const send = (call, text) => call.set('Content-Type', 'application/json').send(text);
+      const zero = value => { assert.equal(value, 0); assert.equal(Object.is(value, -0), false); };
+      // A literal -0 is valid JSON; a JS object cannot carry it over supertest's serializer.
+      const batch = '[{"_id":"' + ID + '","created_at":"' + CREATED + '","device":"rig","openaps":{"iob":{"iob":-0,"basaliob":-0.0}},'
+        + '"a":[-0],"pump":{"reservoir":-0}},{"_id":"75a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","device":"rig2","uploader":{"battery":-0}}]';
+      const expectedBatch = await send(reference('post', '/api/v1/devicestatus'), batch).expect(200);
+      const batchReply = await send(http('post', '/api/v1/devicestatus'), batch);
+      assert.equal(batchReply.status, 200, JSON.stringify(batchReply.body));
+      assert.deepEqual(comparable(batchReply.body), comparable(expectedBatch.body));
+      const expectedRead = await reference('get', '/api/v1/devicestatus?count=10').expect(200);
+      const read = await http('get', '/api/v1/devicestatus?count=10').expect(200);
+      assert.deepEqual(comparable(read.body), comparable(expectedRead.body));
+      const first = read.body.find(doc => doc._id === ID);
+      zero(first.openaps.iob.iob); zero(first.openaps.iob.basaliob); zero(first.a[0]); zero(first.pump.reservoir);
+      assert.equal((await rows('devicestatus')).length, 2);
+      zero((await rows('devicestatus')).find(doc => doc._id === ID).openaps.iob.iob);
+      // API v3
+      const v3 = '{"identifier":"nz-v3","created_at":"' + CREATED + '","device":"rig","app":"synthetic","openaps":{"iob":{"iob":-0}}}';
+      const v3Expected = await send(reference('post', '/api/v3/devicestatus'), v3);
+      const v3Actual = await send(http('post', '/api/v3/devicestatus'), v3);
+      assert.equal(v3Actual.status, v3Expected.status, JSON.stringify(v3Actual.body));
+      assert.ok(v3Actual.status < 300, JSON.stringify(v3Actual.body));
+      const v3Read = await http('get', '/api/v3/devicestatus/nz-v3').expect(200);
+      zero(v3Read.body.result.openaps.iob.iob);
+      // another domain: v1 activity
+      const act = '{"_id":"85a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","steps":-0,"nested":[{"x":-0}]}';
+      await send(reference('post', '/api/v1/activity'), act).expect(200);
+      const actReply = await send(http('post', '/api/v1/activity'), act);
+      assert.equal(actReply.status, 200, JSON.stringify(actReply.body));
+      const actRead = await http('get', '/api/v1/activity').expect(200);
+      assert.deepEqual(comparable(actRead.body), comparable((await reference('get', '/api/v1/activity').expect(200)).body));
+      zero(actRead.body[0].steps);
+      // control: a document that cannot be represented is still refused, including beside a -0
+      const bad = '[{"_id":"95a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","device":"rig","iob":-0,"extension":"a\\u0000b"}]';
+      await send(http('post', '/api/v1/devicestatus'), bad).expect(400);
+      assert.equal((await rows('devicestatus')).some(doc => doc._id === '95a1b2c3d4e5f60718293a4b'), false);
+    });
+
     it('maps only submitted nonrepresentability and recognized storage outages, retaining internal failures as 500', async function () {
       for (const version of [1, 2]) for (const domain of domains) {
         const doc = { _id: ID, created_at: CREATED, device: 'rig', extension: 'synthetic\u0000extension' };
