@@ -337,7 +337,7 @@ describe('evaluator window levers', function () {
         });
       }
 
-      it('keeps a working set only from the second time-only cycle on an input', async function () {
+      it('keeps a working set only where time-only cycles are likely to use it', async function () {
         const workingSet = require('../lib/data/working-set');
         const real = { keep: workingSet.keep, copy: workingSet.copy };
         const count = async names => {
@@ -350,7 +350,9 @@ describe('evaluator window levers', function () {
         // acquisition, time-only, acquisition 2, three time-only, time-only after expiry (reads again), acquisition 3
         // Off: a copy is kept after every load, and handed out when no window edge has passed since.
         assert.equal(await count('off'), 'keep keep keep keep copy copy keep keep');
-        assert.equal(await count('copies'), 'keep copy');
+        // On: kept at the second time-only cycle on an input; and at the first load of the
+        // input after one that had two or more (here the read after expiry).
+        assert.equal(await count('copies'), 'keep copy keep');
       });
 
       const controls = {
