@@ -476,6 +476,72 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     } finally { await f.store.end(); }
   });
 
+  // The pinned driver's query_timeout rejects with this uncoded error while
+  // the statement may still run: nothing more may be queued behind it.
+  const missedDeadline = () => new Error('Query read timeout');
+  for (const [label, run] of [
+    ['a statement', store => store.query('SELECT slow_work')],
+    ['a statement inside a savepoint', store => store.transaction(() => store.withSavepoint(() => store.query('SELECT slow_work')))],
+    ['a statement whose failure the caller swallows', store => store.transaction(async () => {
+      await store.query('SELECT slow_work').catch(() => {});
+      return 'swallowed';
+    })]
+  ]) {
+    it('refuses ' + label + ' that missed its local deadline as STORAGE_TIMEOUT, sends no ROLLBACK or COMMIT and evicts the client', async function () {
+      const f = await fixture();
+      let used;
+      f.setAction(async (client, text) => { if (text === 'SELECT slow_work') { used = client; throw missedDeadline(); } });
+      try {
+        await scope.withTenant(TENANT, () => assert.rejects(run(f.store), error => {
+          assert.equal(error.code, 'STORAGE_TIMEOUT');
+          assert.equal(error.retryAfter, 1);
+          assert.match(error.cause.message, /Query read timeout|savepoint rollback failed/);
+          return true;
+        }));
+        const after = f.calls.slice(f.calls.findIndex(call => call.text === 'SELECT slow_work') + 1).filter(call => call.client === used);
+        assert.deepEqual(after.map(call => call.text), [], 'NOTHING_QUEUED_BEHIND_UNKNOWN_WORK');
+        assert.equal(used._ending, true, 'EVICTED');
+        f.setAction(async () => undefined);
+        await scope.withTenant(TENANT, () => f.store.query('SELECT healthy_followup'));
+        assert.notEqual(f.calls.find(call => call.text === 'SELECT healthy_followup').client, used);
+      } finally { await f.store.end(); }
+    });
+  }
+
+  it('leaves a COMMIT that missed its deadline an unknown outcome: no refusal code, no ROLLBACK, evicted', async function () {
+    const f = await fixture();
+    let used;
+    f.setAction(async (client, text) => { if (text === 'COMMIT') { used = client; throw missedDeadline(); } });
+    try {
+      await scope.withTenant(TENANT, () => assert.rejects(f.store.query('SELECT work'), error => {
+        assert.equal(error.code, undefined, 'a COMMIT without reply is not reported as nothing written');
+        assert.match(error.message, /Query read timeout/);
+        return true;
+      }));
+      assert.equal(f.calls.some(call => call.client === used && call.text === 'ROLLBACK'), false);
+      assert.equal(used._ending, true);
+    } finally { await f.store.end(); }
+  });
+
+  it('refuses a transaction that found no free pooled client in time as STORAGE_BUSY', async function () {
+    const f = await fixture({ max: 1, connectionTimeoutMillis: 30 });
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    try {
+      const first = scope.withTenant(TENANT, () => f.store.transaction(() => held));
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await scope.withTenant(TENANT, () => assert.rejects(f.store.query('SELECT waiting_work'), error => {
+        assert.equal(error.code, 'STORAGE_BUSY');
+        assert.equal(error.retryAfter, 1);
+        assert.match(error.cause.message, /timeout exceeded when trying to connect/);
+        return true;
+      }));
+      assert.equal(f.calls.some(call => call.text === 'SELECT waiting_work'), false);
+      release();
+      await first;
+    } finally { await f.store.end(); }
+  });
+
   it('preserves a server SQLSTATE and transport rollback cause as distinct failures', async function () {
     const f = await fixture();
     const server = Object.assign(new Error('Synthetic administrator termination'), { code: '57P01' });

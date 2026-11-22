@@ -501,6 +501,7 @@
         "tests/multitenant-preview-replicas.integration.test.js",
         "tests/role-vault-token-scope.integration.test.js",
         "tests/tenant-commit-clock-http.integration.test.js",
+        "tests/tenant-entries-batch-deadline.integration.test.js",
         "tests/tenant-rest-entries.integration.test.js",
         "tests/tenant-rest-identity-differential.integration.test.js",
         "tests/tenant-rest-identifier-race.integration.test.js",
