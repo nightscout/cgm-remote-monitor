@@ -22,6 +22,12 @@
 // Controls: three deliberately wrong delta steps (a changed status keeps its
 // resident copy, a new status is not placed, the placed statuses are not
 // ordered) must each be detected by the same comparison.
+//
+// What a cycle shares with the resident set: the same comparison with a test
+// plugin that writes a field no cycle has a copy of (caught: that cycle runs
+// on a whole copy; and detected by the comparison when the refused write goes
+// unnoticed), and four deliberately missing copies, each noticed as a write
+// into what is shared.
 const assert = require('node:assert/strict');
 const scope = require('../lib/storage/tenant-scope');
 const evaluator = require('../lib/data/tenant-projection-evaluator');
@@ -213,7 +219,8 @@ describe('resident working set (differential against the full rebuild)', functio
       }
       assert.equal(cycles, Object.keys(SCENARIOS).length * 2 * 5);
       const did = since();
-      assert.ok(did.reused > 0 && did.placed > 0 && did.rebuilt > 0, 'the resident paths ran: ' + JSON.stringify(did));
+      assert.ok(did.reused > 0 && did.placed > 0 && did.rebuilt > 0 && did.shared > 0, 'the resident paths ran: ' + JSON.stringify(did));
+      assert.equal(did.tripped, 0, 'no plugin pass wrote into what a cycle shares with the resident set');
     });
   }
 
@@ -222,6 +229,8 @@ describe('resident working set (differential against the full rebuild)', functio
     const did = since();
     assert.ok(did.reused > 300 && did.placed > 150 && did.rebuilt >= 4 && did.statusesPrepared > 150 && did.statusesResident > 10000, 'the resident paths ran: ' + JSON.stringify(did));
     assert.equal(did.plain, 0);
+    assert.ok(did.shared > 300, 'cycles were handed the resident set shared: ' + JSON.stringify(did));
+    assert.deepEqual([did.whole, did.tripped], [0, 0], 'none needed a whole copy, and no plugin pass wrote into what is shared');
   });
 
   it('gives the full rebuild\'s result over the mutations with the window levers off', async function () {
@@ -252,13 +261,116 @@ describe('resident working set (differential against the full rebuild)', functio
   }
   it('does not hold past a row leaving its window when the read reports a later expiry', async function () {
     await lateExpiry(evaluator);
-    assert.equal(since().reused, 1, 'the third time-only cycle inside the window was handed the resident set, the one after it was not');
+    assert.equal(since().reused, 2, 'the second and third time-only cycles inside the window were handed the resident set, the one after them was not');
   });
   it('control: a hold to the reported expiry is detected', async function () {
     const broken = brokenModule('../lib/data/tenant-projection-evaluator',
       'if (residentUntil !== null && Number.isSafeInteger(input.expiresAt) && input.expiresAt < residentUntil) residentUntil = input.expiresAt;',
       'if (residentUntil !== null && Number.isSafeInteger(input.expiresAt)) residentUntil = input.expiresAt;');
     await assert.rejects(lateExpiry(broken), assert.AssertionError);
+  });
+
+  // ---- What a cycle shares with the resident set (resident-working-set.js handOut).
+  // One input with openaps statuses, readings and temp basals: an acquisition,
+  // three time-only cycles (the last two are handed the resident set), then
+  // another acquisition and two more time-only cycles.
+  async function sharedCycles () {
+    const now = Math.floor(clock.RealDate.now() / MIN) * MIN;
+    const pair = arms(ENVS.loop, 'all');
+    try {
+      const fx = SCENARIOS.steady(now), seed = [status('s-shared-1', now - 11 * MIN), status('s-shared-2', now - 6 * MIN), status('s-shared-3', now - MIN),
+        row('devicestatus', { ...status('s-oref0', now - 2 * MIN).doc, openaps: { iob: [{ iob: 1.1, basaliob: 0.3, activity: 0.01, time: iso(now - 2 * MIN) }, { iob: 1.0 }],
+          suggested: { bg: 140, temp: 'absolute', rate: 0.8, duration: 30, timestamp: iso(now - 2 * MIN), predBGs: { IOB: [140, 138, 135], ZT: [140, 130, 120] } } } }),
+        row('treatments', { _id: 't-shared-basal', eventType: 'Temp Basal', created_at: iso(now - 20 * MIN), duration: 30, absolute: 0.6 }),
+        row('treatments', { _id: 't-shared-meal', eventType: 'Meal Bolus', created_at: iso(now - 50 * MIN), carbs: 30, insulin: 3 })];
+      for (const domain of ['entries', 'treatments', 'devicestatus', 'profile']) for (const [i, doc] of fx[domain].entries()) seed.push(row(domain, { ...copy(doc), _id: domain + '-' + i }));
+      pair.write(seed, { exact: false, at: now });
+      await cycle(pair, now, { label: 'acquisition' });
+      for (const [i, seconds] of [20, 40, 61].entries()) await cycle(pair, now + seconds * 1000, { time: true, label: 'time-only ' + (i + 1) });
+      pair.write([reading('shared-reading', 141, now + 2 * MIN - 5000)], { at: now + 2 * MIN });
+      await cycle(pair, now + 2 * MIN, { label: 'second acquisition' });
+      for (const [i, seconds] of [140, 160].entries()) await cycle(pair, now + seconds * 1000, { time: true, label: 'later time-only ' + (i + 1) });
+    } finally { pair.close(); }
+    return since();
+  }
+  // A test plugin: the shipping timeago plugin, writing first. plugins/index.js
+  // takes the module's export when a views instance registers its plugins.
+  function withMutant (write, body) {
+    const file = require.resolve('../lib/plugins/timeago');
+    require(file);
+    const real = require.cache[file].exports;
+    require.cache[file].exports = function init (ctx) {
+      const plugin = real(ctx), setProperties = plugin.setProperties;
+      plugin.setProperties = function mutant (sbx) { write(sbx); return setProperties.call(this, sbx); };
+      return plugin;
+    };
+    return Promise.resolve().then(body).finally(() => { require.cache[file].exports = real; });
+  }
+  // Writes a field no cycle is given a copy of (a treatment), and reports what it then reads.
+  const writesTreatment = sbx => {
+    const treatment = sbx.data.treatments[0];
+    treatment.mutantNote = 'written at ' + sbx.time;
+    sbx.offerProperty('mutant', () => ({ notes: sbx.data.treatments.map(t => t.mutantNote).filter(Boolean) }));
+  };
+
+  it('hands a cycle the resident set shared, with its own copy of what the plugin pass writes', async function () {
+    const did = await sharedCycles();
+    assert.deepEqual([did.shared, did.whole, did.tripped], [5, 0, 0], JSON.stringify(did));
+  });
+  it('shares only a set whose copied objects are each held once', function () {
+    const basal = { eventType: 'Temp Basal', mills: 1, duration: 30 };
+    const set = () => ({ sgvs: [{ mgdl: 100 }], treatments: [{ eventType: 'Note', mills: 2 }], devicestatus: [{ _id: 's', openaps: { iob: [{ iob: 1 }], suggested: { predBGs: { IOB: [1, 2] } } } }], tempbasalTreatments: [{ ...basal }] });
+    assert.equal(residentSet.shareable(residentSet.own(set())), true);
+    const aliased = set(); aliased.treatments.push(aliased.tempbasalTreatments[0]);
+    assert.equal(residentSet.shareable(residentSet.own(aliased)), false, 'a temp basal also among the treatments');
+    const twice = set(); twice.cals = [twice.devicestatus[0].openaps.suggested];
+    assert.equal(residentSet.shareable(residentSet.own(twice)), false, 'a status part held elsewhere');
+    const data = residentSet.own(set()), out = residentSet.handOut(data, () => ({}));
+    assert.deepEqual(out, data);
+    out.devicestatus[0].openaps.iob[0].moment = 1; out.devicestatus[0].openaps.suggested.predBGs.moment = 1; out.sgvs[0].scaled = 5; out.tempbasalTreatments[0].endmills = 9; out.treatments.push(1);
+    assert.ok(out.treatments[0] === data.treatments[0] && out.devicestatus[0].openaps.suggested.predBGs.IOB === data.devicestatus[0].openaps.suggested.predBGs.IOB, 'the rest is the resident set\'s');
+    assert.throws(() => { out.treatments[0].mills = 3; }, residentSet.frozenWrite);
+    assert.throws(() => { out.devicestatus[0].openaps.suggested.predBGs.IOB.push(3); }, residentSet.frozenWrite);
+    assert.deepEqual(data, residentSet.own(set()), 'the resident set is as it was');
+  });
+  it('catches a plugin that writes a field no cycle has a copy of: that cycle runs on a whole copy, and nothing is shared afterwards', async function () {
+    const did = await withMutant(writesTreatment, sharedCycles);
+    assert.deepEqual([did.shared, did.tripped], [1, 1], JSON.stringify(did));
+    assert.ok(did.whole >= 2, 'whole copies afterwards: ' + JSON.stringify(did));
+  });
+  it('control: the same plugin is detected by the comparison when the refused write goes unnoticed', async function () {
+    const real = residentSet.frozenWrite;
+    residentSet.frozenWrite = () => false;
+    try {
+      await assert.rejects(withMutant(writesTreatment, sharedCycles), assert.AssertionError);
+    } finally { residentSet.frozenWrite = real; }
+  });
+  const copies = [
+    ['a reading not copied', "    else if (COPIED[key] === 'record') ddata[key] = value.map(shallow);", "    else if (COPIED[key] === 'record') ddata[key] = key === 'sgvs' ? value.slice() : value.map(shallow);"],
+    ['a temp basal not copied', "    else if (COPIED[key] === 'record') ddata[key] = value.map(shallow);", "    else if (COPIED[key] === 'record') ddata[key] = key === 'sgvs' ? value.map(shallow) : value.slice();"],
+    ['a status copied one level short', 'const STATUS_OBJECT_DEPTH = 4;', 'const STATUS_OBJECT_DEPTH = 3;'],
+    ['a status list not copied', 'const STATUS_ARRAY_DEPTH = 3;', 'const STATUS_ARRAY_DEPTH = 2;']
+  ];
+  for (const [name, needle, replacement] of copies) {
+    it('control: ' + name + ' is noticed as a write into what is shared', async function () {
+      const broken = brokenModule('../lib/data/resident-working-set', needle, replacement);
+      const real = residentSet.handOut;
+      residentSet.handOut = broken.handOut;
+      try {
+        const did = await sharedCycles();
+        assert.deepEqual([did.shared, did.tripped], [1, 1], name + ': ' + JSON.stringify(did));
+      } finally { residentSet.handOut = real; }
+    });
+  }
+  it('runs the plugin pass in strict code only, where a frozen object refuses a write aloud', function () {
+    const fs = require('node:fs'), path = require('node:path'), root = path.join(__dirname, '../lib');
+    const files = ['sandbox.js', 'profilefunctions.js', 'notifications.js', 'data/evaluator-due.js', 'data/ddata.js', 'plugins/index.js']
+      .concat(...['plugins', 'client-core/devicestatus'].map(dir => fs.readdirSync(path.join(root, dir)).filter(name => name.endsWith('.js')).map(name => dir + '/' + name)));
+    const first = name => fs.readFileSync(path.join(root, name), 'utf8').split('\n').map(line => line.trim()).find(line => line && !line.startsWith('//'));
+    const sloppy = files.filter(name => !["'use strict';", '"use strict";', "'use strict'"].includes(first(name)));
+    // The two voice-assistant plugins take no part in the plugin pass.
+    assert.deepEqual(sloppy, ['plugins/alexa.js', 'plugins/googlehome.js']);
+    for (const name of sloppy) assert.doesNotMatch(fs.readFileSync(path.join(root, name), 'utf8'), /setProperties|checkNotifications/);
   });
 
   // Controls: each deliberately wrong delta step must be detected by the comparison above.
