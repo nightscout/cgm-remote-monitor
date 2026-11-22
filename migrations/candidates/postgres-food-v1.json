@@ -56,6 +56,15 @@
       "checksum": "5cde7aa25d99400b377f9fbbcd31e876343b5d0557dd7f8dde150ff33e490779"
     },
     {
+      "name": "0098_food_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "food"
+      },
+      "up": ["CREATE INDEX \"food_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"food\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "40d3be6ab7de5cae0ce4d8d73eb441fb5d7c52cb69d6ab64105880e06a65cbdd"
+    },
+    {
       "name": "0099_food_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",

@@ -75,6 +75,15 @@
       "checksum": "ed999d5afc77013bc2bfb51a4f6a892e31254879b16be6c85e9cdd2b3fe74ae4"
     },
     {
+      "name": "0098_treatments_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "treatments"
+      },
+      "up": ["CREATE INDEX \"treatments_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"treatments\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "38739cb2f2fa11ec9b7bf3896b33573c3c5522de64611128a9380cfb9c649e5f"
+    },
+    {
       "name": "0099_treatments_storage_bytes",
       "operation": {
         "kind": "clinical-storage-size-v1",

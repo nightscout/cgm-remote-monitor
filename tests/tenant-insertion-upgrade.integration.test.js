@@ -59,7 +59,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
     assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
-      {kind:'clinical-storage-size-v1',domain}
+      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain}
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
@@ -76,6 +76,9 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     await run('up',{...options,catalogue});
     assert.deepEqual(await read(),before);
     assert.equal((await admin.query('SELECT bool_and(storage_bytes=pg_column_size(doc)) AS exact FROM '+table)).rows[0].exact,true,'POPULATED_STORAGE_BACKFILL_EXACT');
+    assert.equal((await admin.query(`SELECT pg_get_expr(i.indpred,i.indrelid) AS predicate FROM pg_index i
+      WHERE i.indexrelid=to_regclass($1) AND i.indisvalid`,[namespace+'.'+domain+'_tenant_identifier_array'])).rows[0]?.predicate,
+    "(jsonb_typeof((doc -> 'identifier'::text)) = 'array'::text)",'POPULATED_IDENTIFIER_ARRAY_INDEX');
     assert.equal((await run('check',{...options,catalogue})).current,true);
     assert.deepEqual((await admin.query('SELECT tenant_id,last_ordinal::text AS floor FROM '+q(namespace)+'.tenant_insertion_ordinal ORDER BY tenant_id')).rows,
       [{tenant_id:A,floor:'3'},{tenant_id:B,floor:'2'}]);
