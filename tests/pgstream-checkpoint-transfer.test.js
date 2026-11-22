@@ -23,7 +23,7 @@ function fixture(maxBytes=1024*1024,creator=create){
     const previous=matches&&!values[4]?copy(body):null;if(previous)fallbacks++;
     return {rows:[{...metadata,output_summary:summary,frame_at:matches&&values[4]?body?.frame?.lastUpdated??null:null,previous_output:previous}]};
    }
-   if(text.startsWith('UPDATE')){row.checkpoint=values[2];const patch={completed:values[3],due:values[4],pending:values[5]};if(values[12])patch.output=JSON.parse(values[12])[0].output;patches.push(patch);row.work_completed=values[3];row.work_due_at=values[4];row.work_pending_at=values[5];row.output_identity=values[7];row.output_digest=values[8];row.output_revision=String(values[9]);row.output_restore_generation=values[10];row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(values[11]));if(values[12])row.projection=JSON.parse(values[12]);return {rowCount:1};}
+   if(text.startsWith('UPDATE')){row.checkpoint=values[2];const patch={completed:values[3],due:values[4],pending:values[5]};if(values[11]&&values[12])patch.output=JSON.parse(values[12])[0].output;patches.push(patch);row.work_completed=values[3];row.work_due_at=values[4];row.work_pending_at=values[5];row.output_identity=values[7];row.output_digest=values[8];row.output_revision=String(values[9]);row.output_restore_generation=values[10];row.delivery_revision=String(BigInt(row.delivery_revision)+BigInt(values[11]));if(values[11]&&values[12])row.projection=JSON.parse(values[12]);return {rowCount:1};}
    throw Error('UNEXPECTED_SQL');
   }};
  const store=creator({typed:true,connection,namespace:'synthetic',consumer:'evaluator-test',maxBytes,timeIntervalMs:60,now:()=>50});
