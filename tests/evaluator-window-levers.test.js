@@ -148,7 +148,10 @@ async function cycles (envName, names, { cold = false, narrow } = {}) {
         pump: { clock: iso(state.at - 4000), reservoir: 12, battery: { percent: 15 } },
         openaps: { iob: { iob: 2.2, basaliob: 0.4, activity: 0.03, time: iso(state.at - 4000) }, suggested: { bg: 231, eventualBG: 250, COB: 18, timestamp: iso(state.at - 4000) } } });
       await step('acquisition 2', state.at, at => subject.evaluate({ at }));
-      await step('time-only 2', state.at + 2 * MIN, at => subject.evaluateTime({ at }));
+      // Three time-only cycles on one input: load, load and keep, the kept copy.
+      await step('time-only 2', state.at + 1 * MIN, at => subject.evaluateTime({ at }));
+      await step('time-only 3', state.at + 2 * MIN, at => subject.evaluateTime({ at }));
+      await step('time-only 4', state.at + 3 * MIN, at => subject.evaluateTime({ at }));
       state.at = NOW + 7 * HOUR;
       await step('time-only after expiry', state.at, at => subject.evaluateTime({ at }));
       state.at = NOW + 7 * HOUR + 5 * MIN;
@@ -203,7 +206,7 @@ describe('evaluator window levers', function () {
         replay: { async reconcile () { return { checkpoint: 1, progress: 'p', signature: null, rows: JSON.parse(JSON.stringify(rowsOf(docs))) }; } },
         connection: { async query () { throw new Error('No SQL'); } }, dbstats: async () => ({}), maxRows: 10000, maxBytes: 8388608 });
       const results = [];
-      for (const names of [undefined, '1']) {
+      for (const names of ['off', '1']) {
         const subject = make(names);
         try { results.push(text(await scope.withTenant(TENANT, () => subject.evaluate({ at: NOW })))); } finally { subject.close(); }
       }
@@ -311,7 +314,7 @@ describe('evaluator window levers', function () {
       let reference;
       before(async function () {
         scope.setTenancyMode('multi');
-        reference = { warm: await cycles(envName, undefined), cold: await cycles(envName, undefined, { cold: true }) };
+        reference = { warm: await cycles(envName, 'off'), cold: await cycles(envName, 'off', { cold: true }) };
       });
       it('the history exercises the plugins and the frame', function () {
         const first = reference.warm[0][1];
@@ -334,6 +337,22 @@ describe('evaluator window levers', function () {
         });
       }
 
+      it('keeps a working set only from the second time-only cycle on an input', async function () {
+        const workingSet = require('../lib/data/working-set');
+        const real = { keep: workingSet.keep, copy: workingSet.copy };
+        const count = async names => {
+          const calls = [];
+          workingSet.keep = ddata => { calls.push('keep'); return real.keep(ddata); };
+          workingSet.copy = (kept, create) => { calls.push('copy'); return real.copy(kept, create); };
+          try { await cycles(envName, names); } finally { Object.assign(workingSet, real); }
+          return calls.join(' ');
+        };
+        // acquisition, time-only, acquisition 2, three time-only, time-only after expiry (reads again), acquisition 3
+        // Off: a copy is kept after every load, and handed out when no window edge has passed since.
+        assert.equal(await count('off'), 'keep keep keep keep copy copy keep keep');
+        assert.equal(await count('copies'), 'keep copy');
+      });
+
       const controls = {
         'the older statuses dropped': rows => rows.filter(row => !older(row, NOW, 7)),
         'fitted without iob': (rows, at, env) => levers.fitStatuses(rows, { at, env, now: at }).map((row, i) => {
@@ -350,7 +369,7 @@ describe('evaluator window levers', function () {
       for (const [name, rule] of Object.entries(controls)) {
         if (envName === 'defaults' && /iob|six hours/.test(name)) continue;
         it('control: ' + name + ' gives a different result', async function () {
-          const narrow = await cycles(envName, undefined, { narrow: narrowed(rule) });
+          const narrow = await cycles(envName, 'off', { narrow: narrowed(rule) });
           assert.equal(differs(narrow, reference.warm), true);
         });
       }
