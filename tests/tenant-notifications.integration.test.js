@@ -236,6 +236,100 @@ it('an ACK admitted between the suppression pre-read and the producer lock is ap
   }
 });
 
+// Lane INC-C (NS_CONSUMER_ONE_SELECT): one producer selection per consumer
+// pass. An ACK admitted after the pass's selection, before its attempt, must
+// still stop the alarm and stay pending (or applied) for the next selection.
+// Control: the same component without the attempt's own suppression read (the
+// naive move of the ACK read into the pass's selection) dispatches the alarm.
+it('one select per pass: an ACK admitted after the pass selection stops the attempt and stays pending; control without the attempt read is red', async function () {
+  const { randomBytes } = require('node:crypto');
+  const fs = require('node:fs'), vm = require('node:vm'), { createRequire } = require('node:module');
+  const ns = lab.name + '_onesel', ackRole = lab.name + '_onesel_ack', readRole = lab.name + '_onesel_read';
+  const admission = require('../lib/tenant-notifications/ack-admission');
+  const { createWriter, createReader } = require('../lib/tenant-alarms/postgres');
+  const connect = require('../lib/storage/postgres-connection');
+  const makeProducer = require('../lib/tenant-notifications/producer');
+  const productionComponent = require('../lib/tenant-notifications/component');
+  const withoutAttemptRead = () => {
+    const file = require.resolve('../lib/tenant-notifications/component'), module = { exports: {} };
+    const text = fs.readFileSync(file, 'utf8'), needle = 'return await allows({ tenant, notification: payload, at: c.instant(now()) }) === true && !closed;';
+    assert(text.includes(needle)); vm.runInThisContext('(function(require,module,exports){' + text.replace(needle, 'return !closed;') + '\n})', { filename: file })(createRequire(file), module, module.exports);
+    return module.exports;
+  };
+  const dbs = [];
+  try {
+    await require('../lib/migrations/postgres').run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      namespace: ns, catalogue: require('../migrations/candidates/postgres-alarm-suppression-v1.json') });
+    const login = async role => {
+      const password = randomBytes(24).toString('hex');
+      await lab.admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD \'' + password + '\'');
+      const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = role; url.password = password; return url.toString();
+    };
+    const ackUrl = await login(ackRole), readUrl = await login(readRole);
+    for (const namespace of [ns, lab.name]) await lab.admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + ackRole + '"');
+    await lab.admin.query('GRANT EXECUTE ON FUNCTION "' + lab.name + '".tenant_notification_mark_ack(uuid,text) TO "' + ackRole + '"');
+    for (const table of ['schema_migrations', 'tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state']) {
+      await lab.admin.query('GRANT SELECT ON "' + lab.name + '".' + table + ' TO "' + ackRole + '"');
+    }
+    await lab.admin.query('GRANT SELECT,INSERT,UPDATE(acked_at,expires_at) ON "' + ns + '".tenant_alarm_suppression TO "' + ackRole + '"');
+    await lab.admin.query('GRANT USAGE ON SCHEMA "' + ns + '" TO "' + readRole + '"');
+    await lab.admin.query('GRANT SELECT ON "' + ns + '".tenant_alarm_suppression,"' + ns + '".schema_migrations TO "' + readRole + '"');
+    const ackDb = await connect({ connectionString: ackUrl, max: 1, statement_timeout: 5000 }); dbs.push(ackDb);
+    const readDb = await connect({ connectionString: readUrl, max: 1, statement_timeout: 5000 }); dbs.push(readDb);
+    const consumer = 'inc-c-one-select', identity = 'inc-c-config';
+    const admit = admission({ namespace: lab.name, consumer, alarmNamespace: ns, maxRows: 10, maxBytes: 65536, maxPayloadBytes: 10000 });
+    const writer = createWriter({ connection: ackDb, namespace: ns, authorizeInTransaction: async () => true,
+      admitAckInTransaction: args => admit({ ...args, configIdentity: identity }) });
+    const reader = createReader({ connection: readDb, namespace: ns, maxRows: 10, maxBytes: 65536 });
+    const state = async () => (await lab.admin.query('SELECT producer FROM "' + lab.name + '".tenant_notification_state WHERE tenant_id=$1 AND consumer=$2', [lab.A, consumer])).rows[0]?.producer;
+
+    async function criterion (makeComponent, onePerPass) {
+      await lab.admin.query('TRUNCATE "' + lab.name + '".tenant_notification_requests,"' + lab.name + '".tenant_notification_heads,"' + lab.name + '".tenant_notification_state,"' + ns + '".tenant_alarm_suppression');
+      const output = Object.freeze({ tenant: lab.A, identity, runtimeId: 'inc-c-runtime', outputRevision: 1, inputCheckpoint: 0, eligible: true, contentDigest: 'c'.repeat(64),
+        result: { now: Date.now(), requested: [{ kind: 'notify', level: 2, group: 'default', title: 'Synthetic urgent', message: 'Synthetic', plugin: { name: 'synthetic' } }] } });
+      const p = makeProducer({ store: lab.store, reader, current: async () => output, version: async () => output,
+        currentConfig: async tenant => ({ tenant, identity }), isCurrent: async () => true, consumer, now: () => Date.now(),
+        maxRows: 10, maxBytes: 65536, maxPayloadBytes: 10000 });
+      let selections = 0; const sends = [];
+      const component = makeComponent({ store: lab.store, adapter: { id: consumer, send (row, callback) { sends.push(row.notification); callback(null, { accepted: true }); } },
+        selectCycle: tenant => { selections++; return p.select(tenant); }, isCurrent: async () => true, allows: request => reader.allows(request),
+        now: () => Date.now(), normalPolicy: 'realtime-cycle', requireIntentOrigin: true, maxRows: 10, maxPayloadBytes: 10000, maxInflight: 1,
+        attemptTimeoutMs: 1000, retryDelayMs: 1, ...(onePerPass ? { revalidate: (tenant, selection) => p.revalidate(selection) } : {}) });
+      try {
+        // A pass: the coordinator's selection, an ACK admitted, then the attempt.
+        selections++; const first = await p.select(lab.A);
+        assert(first.result.emitted.some(row => row.level === 2), 'the pass selected the urgent alarm');
+        const admitted = await writer.ack({ tenant: lab.A, args: [2, 'default', 600000] });
+        assert.equal(admitted.accepted, true, 'ACK_ADMITTED');
+        const attempted = await component.retry(lab.A, onePerPass ? first : undefined);
+        const between = await state();
+        lab.trace('inc-c-one-select', { onePerPass, selections, sends: sends.length, results: attempted.results.map(row => row.state), ackPending: between.ackPending === true, acks: between.acks.length });
+        // Without the switch the attempt selects again (here twice; up to three per row).
+        assert(onePerPass ? selections === 1 : selections > 1, 'SELECTIONS_PER_PASS');
+        assert.equal(sends.filter(row => row.level === 2).length, 0, 'ACKED_ALARM_NOT_DISPATCHED');
+        assert(between.acks.length > 0 || between.ackPending === true, 'ADMITTED_ACK_APPLIED_OR_PENDING');
+        // The next pass's selection applies it.
+        const next = await p.select(lab.A);
+        await component.retry(lab.A, onePerPass ? next : undefined);
+        const after = await state();
+        assert(after.acks.length > 0 && after.ackPending !== true, 'ACK_APPLIED_BY_NEXT_SELECTION');
+        assert.equal(sends.filter(row => row.level === 2).length, 0, 'ACKED_ALARM_NOT_DISPATCHED');
+      } finally { p.close(); await component.close(); }
+    }
+    await criterion(productionComponent, false);
+    await criterion(productionComponent, true);
+    await assert.rejects(criterion(withoutAttemptRead(), true), /ACKED_ALARM_NOT_DISPATCHED/);
+    await criterion(productionComponent, true);
+  } finally {
+    for (const db of dbs) await db.end();
+    await lab.admin.query('DROP SCHEMA IF EXISTS "' + ns + '" CASCADE');
+    for (const role of [ackRole, readRole]) {
+      await lab.admin.query('DROP OWNED BY "' + role + '"').catch(() => {});
+      await lab.admin.query('DROP ROLE IF EXISTS "' + role + '"');
+    }
+  }
+});
+
 // The selected ACK ledger is read without evaluator/pool membership. Real SQL
 // proves the narrow reader/writer grants; transport/client admission stays separate.
 it('native stream ACK reads persisted producer state without a live evaluator or pool and refuses a bypassed admission control', async function () {
