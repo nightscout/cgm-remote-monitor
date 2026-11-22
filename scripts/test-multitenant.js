@@ -232,6 +232,8 @@ const INVENTORY = [
     note: 'writer-driven level-triggered evaluator: sweep-only, lost hint recovered from the pending mark, restore generation fence, hard delete' },
   { file: 'tests/s1b-window-rows.integration.test.js', flags: { NS_S1_LEVEL_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'index-bounded level window returns the rows single-tenant MongoDB queries return' },
+  { file: 'tests/resident-window.integration.test.js', flags: { NS_RESIDENT_WINDOW_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'resident window (NS_EVALUATOR_RESIDENT_WINDOW): tail reads from the writers\' window marks equal the bounded full read; controls; migration 0009 brought forward' },
   { file: 'tests/writer-driven-pending.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'pending mark under the work-v2 tenant isolation policy and the core pending-writer grants; provisioning typed row' },
   { file: 'tests/writer-driven-schema.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

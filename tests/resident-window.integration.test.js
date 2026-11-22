@@ -403,6 +403,59 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
       assert.equal(repaired.differences, 1, 'the self-check counts the difference'); assert.equal(repaired.full, 1, 'and repairs from the full read');
     });
 
+    it('a database built from the previous work catalogue is brought forward by migration 0009 and the pending-writer grants', async function () {
+      const { run: migrate } = require('../lib/migrations/postgres');
+      const { check } = require('../lib/writer-driven/schema');
+      const writerDriven = require('../lib/writer-driven');
+      const current = require('../migrations/candidates/postgres-evaluator-work-v2.json');
+      const previous = { ...current, migrations: current.migrations.filter(m => m.name !== '0009_evaluator_window_mark') };
+      assert.equal(previous.migrations.length, current.migrations.length - 1);
+      const namespace = lab.base.name + '_seed', table = '"' + namespace + '".tenant_consumer_checkpoint', admin = lab.admin, writer = lab.base.role;
+      const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI, tenant = lab.tenants[0], selected = { table, consumer: lab.COMPLETED };
+      const exact = { touched: true, full: false, profile: false, entries: '1700000000000', devicestatus: null, treatments: null };
+      // As the writer role, bound to its tenant, in one transaction that is rolled back or committed.
+      async function asWriter (fn, commit = true) {
+        await admin.query('BEGIN');
+        try {
+          await admin.query('SET LOCAL ROLE "' + writer + '"');
+          await admin.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenant]);
+          const value = await fn((text, values) => admin.query(text, values));
+          await admin.query(commit ? 'COMMIT' : 'ROLLBACK');
+          return value;
+        } catch (error) { await admin.query('ROLLBACK'); throw error; }
+      }
+      const row = async () => (await admin.query('SELECT work_observed, window_mark_version::text AS version, window_mark_full AS full, window_mark_entries::text AS entries FROM ' + table + ' WHERE tenant_id=$1', [tenant])).rows[0];
+      await admin.query('CREATE SCHEMA "' + namespace + '"');
+      try {
+        // The seed: the previous catalogue, a provisioned and completed work row, the previous grants.
+        await migrate('up', { direct: true, connectionString: uri, namespace, catalogue: previous });
+        await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint,projection,work_version,work_observed,work_completed,work_observed_at)
+          VALUES ($1,$2,$3,0,'[{"kind":"evaluator-work-v2","output":null}]'::jsonb,2,'{4,NULL,NULL,NULL,NULL,1}','{4,NULL,NULL,NULL,NULL,1}','{1,NULL,NULL,NULL,NULL,1}')`, [tenant, lab.COMPLETED, 'a'.repeat(64)]);
+        await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO "${writer}"`);
+        await admin.query(`GRANT SELECT(tenant_id,consumer,work_version,work_observed,work_pending_at), UPDATE(work_observed,work_observed_at,work_pending_at) ON ${table} TO "${writer}"`);
+        // This build's evaluator refuses to start on it: one migration is pending.
+        await assert.rejects(check([{ connectionString: uri, namespace, catalogue: current }]), { code: 'EVALUATOR_SCHEMA_REFUSED' });
+        // Brought forward: only 0009 runs, and existing rows take the defaults.
+        await migrate('up', { direct: true, connectionString: uri, namespace, catalogue: current });
+        await check([{ connectionString: uri, namespace, catalogue: current }]);
+        assert.deepEqual(await row(), { work_observed: ['4', null, null, null, null, '1'], version: null, full: false, entries: null });
+        // With the previous grants: the mark without the switch is the unchanged statement and still works;
+        // the mark with the switch needs the new column grants.
+        process.env[windowMark.SWITCH] = '0';
+        try { await asWriter(query => writerDriven.mark(query, selected, tenant, { floor: 0, at: 5 })); } finally { process.env[windowMark.SWITCH] = '1'; }
+        assert.deepEqual((await row()).work_observed, ['5', null, null, null, null, '1']);
+        await assert.rejects(asWriter(query => writerDriven.mark(query, selected, tenant, { floor: 0, at: 6, window: exact })), { code: '42501' });
+        for (const sql of writerDriven.grants({ namespace, roles: [writer] })) await admin.query(sql);
+        // The row is pending (the mark above) and was never synchronized: this mark accumulates, the version stays unknown, the evaluator reads in full.
+        await asWriter(query => writerDriven.mark(query, selected, tenant, { floor: 0, at: 6, window: exact }));
+        assert.deepEqual(await row(), { work_observed: ['6', null, null, null, null, '1'], version: null, full: false, entries: '1700000000000' });
+        // Once everything observed is completed, the next mark starts afresh and the row is synchronized.
+        await admin.query("UPDATE " + table + " SET work_completed=work_observed, work_pending_at=NULL WHERE tenant_id=$1", [tenant]);
+        await asWriter(query => writerDriven.mark(query, selected, tenant, { floor: 0, at: 7, window: { ...exact, entries: '1700000300000' } }));
+        assert.deepEqual(await row(), { work_observed: ['7', null, null, null, null, '1'], version: '8', full: false, entries: '1700000300000' });
+      } finally { await admin.query('DROP SCHEMA IF EXISTS "' + namespace + '" CASCADE'); }
+    });
+
     // ---- controls: each wrong build must fail the scenario that guards it
     // A replay factory over a resident-window module with one line replaced.
     const PLAN = '  const selected = plan({ resident, tenant, generation, policy, mark, membership });';

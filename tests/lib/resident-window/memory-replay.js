@@ -47,7 +47,6 @@ module.exports = function memoryReplay ({ tenant, generation = '1', resident: re
   const counters = { full: 0, tail: 0, unchanged: 0, rowsRead: 0, checks: 0, differences: 0, reasons: {} };
   const state = { generation, stamp: 0, calls: 0 };
   let ordinal = 0;
-  const key = row => row.domain + '\u0000' + row.id_kind + '\u0000' + row.doc._id;
   const sum = values => values.reduce((total, value) => total + (value === null ? 0n : BigInt(value)), 0n);
   const least = (domain, a, b) => a === null ? b : b === null ? a : (TIMED[domain].numeric ? (BigInt(b) < BigInt(a) ? b : a) : (compareC(b, a) < 0 ? b : a));
 
