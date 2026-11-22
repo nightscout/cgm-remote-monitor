@@ -87,10 +87,22 @@ joined with `+`, for example `api` or `api+realtime`).
 | `nightscout_evaluator_pending_tenants` | gauge | slice | tenants with input pending completion |
 | `nightscout_evaluator_queued_cycles` | gauge | slice | tenants with a cycle queued or running (backlog) |
 | `nightscout_evaluator_tenants` | gauge | slice | tenants the evaluator holds state for |
+| `nightscout_evaluator_resident_tenants` | gauge | slice | tenants holding an evaluated instance (the resident cache size when `NS_EVALUATOR_RESIDENT_MAX` bounds it); warm-up is complete when it reaches the slice's owned count |
 | `nightscout_pg_statements_total` | counter | application_name, outcome (`ok`, `error`) | SQL statements through each core pool |
 | `nightscout_pg_statement_seconds_total` | counter | application_name | client-side statement time summed, from the query call to its result; divided by the statement count it gives the mean. Statements are accumulated in plain numbers and published at scrape time; a per-statement histogram cost too much at about 170 statements per write. For statement latency distributions, use `postgres_exporter` |
 | `nightscout_http_request_seconds` | histogram | method, route, status_class | api request duration by Express route template, refused requests included |
 | `nightscout_realtime_connected_sockets` | gauge | namespace (`/`, `/storage`, `/alarm`) | connected Socket.IO sockets |
+| `nightscout_evaluator_completion_lag_seconds` | histogram | slice | per durable completion that covers the oldest input the evaluator owed for a tenant: completion time minus that input's mark. The mark is the older of the writer's durable `work_pending_at` (api clock) and the evaluator's own hint receipt or sweep, so the value can include a clock offset between the api and evaluator nodes. Buckets 0.1 to 600 s with edges at 1, 30 and 120 s |
+| `nightscout_realtime_frame_lag_seconds` | histogram | (none) | per fanout that sent a `dataUpdate` frame: send time minus the time this realtime process's output drain first addressed the tenant for that output. It excludes the evaluator-to-realtime hint and drain wait. Same buckets |
+| `nightscout_realtime_pending_oldest_age_seconds` | gauge | (none) | age of the oldest completed-output notice this realtime process has not yet published, 0 when none |
+| `nightscout_realtime_pending_tenants` | gauge | (none) | tenants with such a notice |
+| `nightscout_stage_lag_negative_total` | counter | stage (`evaluator`, `realtime`) | lag observations whose end preceded their start (clock offset); each is observed as 0 |
+
+`NS_TEST_EVALUATOR_COMPLETION_DELAY_MS` (integer 0 to 120000, default 0) is a
+measurement control for tests and the capacity harness only. It makes the
+evaluator wait that long before each durable completion, so the lag series and
+the pending gauges can be shown to see a known delay. Never set it in a
+deployment that serves people.
 
 `slice` is the evaluator's configured slice ordinal, or `all` for an unsliced
 evaluator. The evaluator gauges are read from memory at scrape time. A cycle

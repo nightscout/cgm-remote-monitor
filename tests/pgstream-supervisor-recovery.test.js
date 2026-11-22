@@ -11,7 +11,7 @@ describe('owned evaluator crash fixture source controls', function () {
     const { EventEmitter } = require('node:events');
     const calls = [], fields = Array(24).fill('0');
     Object.assign(fields, { 0:'S', 1:'4000', 2:'4242', 3:'4242', 19:'123' });
-    const lab = { prepareProduct:async () => {}, startStream:async()=>{}, tracePreview:() => {} };
+    const lab = { tracePreview:() => {} };
     const fork = (file, args, options) => {
       calls.push(options);
       const child = Object.assign(new EventEmitter(), { pid:4242, exitCode:null, signalCode:null, stdout:new EventEmitter(), stderr:new EventEmitter() });
@@ -61,7 +61,7 @@ describe('durable pending and due reconstruction discriminators', function () {
     }finally{await value.close();}
   }
   it('detects dropping recovered pending work before clinical execution',async function(){
-    await assert.rejects(criterion(text=>{const needle="enqueue(row.tenant, row.pendingAt !== null ? 'clock' : 'due');";assert(text.includes(needle));return text.replace(needle,'');},false),/RECOVERED_PENDING_MUST_RUN/);
+    await assert.rejects(criterion(text=>{const needle="enqueue(row.tenant, row.pendingAt !== null ? 'clock' : 'due', row.pendingAt !== null ? Math.min(row.pendingAt, row.nextDueAt ?? row.pendingAt) : (row.nextDueAt ?? undefined));";assert(text.includes(needle));return text.replace(needle,'');},false),/RECOVERED_PENDING_MUST_RUN/);
     await criterion(text=>text,false);
   });
   it('detects omitting durable due reconstruction without another input wake',async function(){

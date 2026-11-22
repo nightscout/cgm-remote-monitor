@@ -76,8 +76,8 @@ inventory before starting a resource.
 | `tests/tenant-floor-verification.integration.test.js` | `NS_TEST_POSTGRES_ADMIN_URI` | PostgreSQL | | tenant floor proofs during migration, provisioning, restore and resume |
 | `tests/api-tenant-lru.integration.test.js` | `NS_API_TENANT_LRU_TEST=1` | PostgreSQL | | two API processes check reads, writes, history and settings across tenant cache evictions |
 | `tests/tenant-native-recommission.integration.test.js` | `NS_TEST_POSTGRES_ADMIN_URI` | PostgreSQL | Vault | native source/generation, typed checkpoint and durable recommission link; ordinary restore and deletion/recommission semantics |
-| `tests/pgstream-recovery.integration.test.js` | `NS_PGSTREAM_RECOVERY_TEST=1`, `NS_PGSTREAM_SELECTED_STARTUP_TEST=1` | PostgreSQL | | independent maintained producer, durable receipt catchup, evaluator process loss and due work; requires explicit pinned producer inputs |
-| `tests/evaluator-statements.integration.test.js` | `NS_PGSTREAM_RECOVERY_TEST=1` | PostgreSQL | | statements per accepted write and per time-only cycle on the actual evaluator role, by pool and kind; requires explicit pinned producer inputs |
+| `tests/evaluator-recovery.integration.test.js` | `NS_EVALUATOR_RECOVERY_TEST=1` | PostgreSQL | | writer-driven recovery on the actual role: held-tenant isolation, pending mark across process-group death, recovered due work, unstamped activity mark, generation-advance refusal; `NS_EVALUATOR_LAB_CONTROL=no-mark` is the negative control |
+| `tests/evaluator-statements.integration.test.js` | `NS_EVALUATOR_STATEMENTS_TEST=1` | PostgreSQL | | statements per accepted write and per time-only cycle on the actual evaluator role, by pool and kind; `NS_EVALUATOR_STATEMENTS_BOUND` asserts a ceiling |
 | `tests/evaluator-consumer-statements.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | statements per quiet and per alarming accepted write on the actual evaluator role with its notification consumer; requires explicit pinned producer inputs |
 | `tests/preview-entries-acquisition.integration.test.js` | `NS_REST_ACQUISITION_NATIVE=1` | | PostgreSQL | actual preview entries read/write and current-authority/restore refusal; owned pinned image and verified container/volume cleanup, operation-window adapter is a refusal protocol |
 | `tests/postgres-connection.test.js` | admin URI only | PostgreSQL | | |
@@ -221,12 +221,12 @@ D6 and joined capability inventory additions:
 | `tests/api-fixed-roster.integration.test.js` | `NS_API_ROSTER_DOCKER_TEST=1` | owned PostgreSQL | exact-instance API restore census and omitted/service-aliased/stopped-replica controls |
 | `tests/registry-human-session.integration.test.js` | disposable `NS_TEST_POSTGRES_ADMIN_URI`, `NS_VAULT_DOCKER_TEST=1` | shared disposable PostgreSQL, fixture-owned Vault | registry human-only signing purposes, revocation and wrong-tenant refusal |
 
-Realtime sharding focused native suites are registered in the enabled corpus:
-`realtime-placement-owner.integration.test.js` and
-`realtime-sharding-native.integration.test.js`. They use disposable PostgreSQL;
-the sharding suite owns synthetic Vault fixtures. The checks cover exact static
-ordinal census, duplicate and mixed-K refusal, owner loss and same-ordinal
-replacement, registry live-add/revocation, clinical/raw delivery and alarm origin.
-The actual cohort check runs real API, evaluator and realtime participants; the
-tenant-admin fixture peer is explicitly idle.
+Realtime placement focused native suite `realtime-placement-owner.integration.test.js`
+is registered in the enabled corpus; it uses disposable PostgreSQL. It checks the exact
+static ordinal census, duplicate and mixed-K refusal, owner loss and same-ordinal
+replacement. The retired native sharding suite (real API, evaluator and realtime
+participants fed by the retired stream) is deleted: `tenant-slice-ownership.test.js`
+checks that every tenant is owned exactly once at K = 1, 2, 4 and 8 in the evaluator
+and in realtime, and the placement, storage-hint, live-add and activity suites carry the
+rest (E6 verdict table in the lane's evidence).
 It does not claim a full restore campaign or horizontal capacity measurement.

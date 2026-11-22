@@ -143,6 +143,99 @@ optInSuite(process.env.NS_TENANT_NOTIFICATIONS_TEST === '1' && !!process.env.NS_
     assert.equal(after.find(row => row.payload.clear).state, 'accepted');
   });
 
+// Lane plannable-scale H3 (NS_CONSUMER_PASS_PREREAD): the producer may read ACKs
+// before its outbox transaction. ACK admission takes the same producer lock, so
+// an ACK admitted between that read and the lock must still be applied by the
+// pass, or stay marked pending for the next one. Never consumed unapplied.
+it('an ACK admitted between the suppression pre-read and the producer lock is applied or stays pending', async function () {
+  const { randomBytes } = require('node:crypto');
+  const fs = require('node:fs'), vm = require('node:vm'), { createRequire } = require('node:module');
+  const ns = lab.name + '_h3', ackRole = lab.name + '_h3_ack', readRole = lab.name + '_h3_read';
+  const scope = require('../lib/storage/tenant-scope');
+  const { EventEmitter } = require('node:events');
+  const admission = require('../lib/tenant-notifications/ack-admission');
+  const { createWriter, createReader } = require('../lib/tenant-alarms/postgres');
+  const connect = require('../lib/storage/postgres-connection');
+  const productionProducer = require('../lib/tenant-notifications/producer');
+  // Source-mutation control: the same producer without the ackPending witness.
+  const withoutWitness = () => {
+    const file = require.resolve('../lib/tenant-notifications/producer'), module = { exports: {} };
+    const text = fs.readFileSync(file, 'utf8'), needle = 'previous.producer?.ackPending !== true';
+    assert(text.includes(needle)); vm.runInThisContext('(function(require,module,exports){' + text.replace(needle, 'true') + '\n})', { filename: file })(createRequire(file), module, module.exports);
+    return module.exports;
+  };
+  const dbs = [];
+  try {
+    await require('../lib/migrations/postgres').run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+      namespace: ns, catalogue: require('../migrations/candidates/postgres-alarm-suppression-v1.json') });
+    const login = async role => {
+      const password = randomBytes(24).toString('hex');
+      await lab.admin.query('CREATE ROLE "' + role + '" LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION PASSWORD \'' + password + '\'');
+      const url = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI); url.username = role; url.password = password; return url.toString();
+    };
+    const ackUrl = await login(ackRole), readUrl = await login(readRole);
+    for (const namespace of [ns, lab.name]) await lab.admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + ackRole + '"');
+    await lab.admin.query('GRANT EXECUTE ON FUNCTION "' + lab.name + '".tenant_notification_mark_ack(uuid,text) TO "' + ackRole + '"');
+    for (const table of ['schema_migrations', 'tenant_notification_heads', 'tenant_notification_requests', 'tenant_notification_state']) {
+      await lab.admin.query('GRANT SELECT ON "' + lab.name + '".' + table + ' TO "' + ackRole + '"');
+    }
+    await lab.admin.query('GRANT SELECT,INSERT,UPDATE(acked_at,expires_at) ON "' + ns + '".tenant_alarm_suppression TO "' + ackRole + '"');
+    await lab.admin.query('GRANT USAGE ON SCHEMA "' + ns + '" TO "' + readRole + '"');
+    await lab.admin.query('GRANT SELECT ON "' + ns + '".tenant_alarm_suppression,"' + ns + '".schema_migrations TO "' + readRole + '"');
+    const ackDb = await connect({ connectionString: ackUrl, max: 1, statement_timeout: 5000 }); dbs.push(ackDb);
+    const readDb = await connect({ connectionString: readUrl, max: 1, statement_timeout: 5000 }); dbs.push(readDb);
+    const consumer = 'h3-preread', identity = 'h3-config';
+    const admit = admission({ namespace: lab.name, consumer, alarmNamespace: ns, maxRows: 10, maxBytes: 65536, maxPayloadBytes: 10000 });
+    const writer = createWriter({ connection: ackDb, namespace: ns, authorizeInTransaction: async () => true,
+      admitAckInTransaction: args => admit({ ...args, configIdentity: identity }) });
+    const reader = createReader({ connection: readDb, namespace: ns, maxRows: 10, maxBytes: 65536 });
+    const state = async () => (await lab.admin.query('SELECT producer FROM "' + lab.name + '".tenant_notification_state WHERE tenant_id=$1 AND consumer=$2', [lab.A, consumer])).rows[0]?.producer;
+
+    // One run: an active urgent alarm in producer state, then a pass whose ACK
+    // read is followed by an ACK admission before the pass takes the lock.
+    async function criterion (makeProducer, preread) {
+      await lab.admin.query('TRUNCATE "' + lab.name + '".tenant_notification_state,"' + ns + '".tenant_alarm_suppression');
+      const at = Date.now(), bus = new EventEmitter();
+      const service = require('../lib/notifications').privateState({}, { bus, levels: require('../lib/levels'), ddata: { lastUpdated: at } }, { clock: () => at, maxRows: 10, maxBytes: 65536 });
+      service.notifications.requestNotify({ level: 2, title: 'Synthetic urgent', message: 'Synthetic', plugin: { name: 'synthetic' } });
+      service.notifications.process();
+      const seeded = { alarms: service.snapshot(), effects: [], acks: [], output: null }; bus.emit('teardown');
+      await scope.withTenant(lab.A, () => lab.store.consume({ tenant: lab.A, consumer, transform: async () => ({ configIdentity: identity, producer: seeded, intents: [] }) }));
+      let ack = null;
+      const racing = { allows: reader.allows, async read (args) {
+        const rows = await reader.read(args);
+        if (!ack) {
+          // Without the switch this read is under the producer lock, so the ACK
+          // waits for this pass; with it the ACK commits before the lock.
+          ack = writer.ack({ tenant: lab.A, args: [2, 'default', 600000] });
+          await Promise.race([ack.catch(() => {}), new Promise(resolve => setTimeout(resolve, 750))]);
+        }
+        return rows;
+      } };
+      const p = makeProducer({ store: lab.store, reader: racing, current: async () => null, version: async () => null,
+        currentConfig: async tenant => ({ tenant, identity }), isCurrent: async () => true, consumer, now: () => Date.now(),
+        maxRows: 10, maxBytes: 65536, maxPayloadBytes: 10000, ...(preread ? { preread: true } : {}) });
+      try { await p.select(lab.A); } finally { p.close(); }
+      const admitted = await ack;
+      assert.equal(admitted.accepted, true, 'ACK_ADMITTED');
+      const after = await state();
+      lab.trace('h3-ack-preread', { preread, acks: after.acks.length, ackPending: after.ackPending === true });
+      assert(after.acks.length > 0 || after.ackPending === true, 'ADMITTED_ACK_APPLIED_OR_PENDING');
+    }
+    await criterion(productionProducer, false);
+    await criterion(productionProducer, true);
+    await assert.rejects(criterion(withoutWitness(), true), /ADMITTED_ACK_APPLIED_OR_PENDING/);
+    await criterion(productionProducer, true);
+  } finally {
+    for (const db of dbs) await db.end();
+    await lab.admin.query('DROP SCHEMA IF EXISTS "' + ns + '" CASCADE');
+    for (const role of [ackRole, readRole]) {
+      await lab.admin.query('DROP OWNED BY "' + role + '"').catch(() => {});
+      await lab.admin.query('DROP ROLE IF EXISTS "' + role + '"');
+    }
+  }
+});
+
 // The selected ACK ledger is read without evaluator/pool membership. Real SQL
 // proves the narrow reader/writer grants; transport/client admission stays separate.
 it('native stream ACK reads persisted producer state without a live evaluator or pool and refuses a bypassed admission control', async function () {

@@ -62,9 +62,9 @@ const INVENTORY = [
     note: 'configured pool size bounds serving backends after connection admission retired (census C-06)' },
   { file: 'tests/pgstream-assigned-worker.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'independent fixed-roster worker processes, native held-backend replacement and stale completion refusal' },
-  { file: 'tests/pgstream-recovery.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1', NS_PGSTREAM_SELECTED_STARTUP_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
-    note: 'independent maintained producer restart, same evaluator durable replay and process-loss/due recovery' },
-  { file: 'tests/evaluator-statements.integration.test.js', flags: { NS_PGSTREAM_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+  { file: 'tests/evaluator-recovery.integration.test.js', flags: { NS_EVALUATOR_RECOVERY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'writer-driven recovery on the actual role: held-tenant isolation, pending mark across process-group death, recovered due work, unstamped activity mark, generation-advance refusal' },
+  { file: 'tests/evaluator-statements.integration.test.js', flags: { NS_EVALUATOR_STATEMENTS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'statements per accepted write and per time-only cycle on the actual evaluator role, by pool and kind' },
   { file: 'tests/native-operation-control-readiness.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native source-selected control reads and exact consumer-port operational re-admission; column/schema/identity and held-backend refusal controls' },
@@ -74,6 +74,10 @@ const INVENTORY = [
     note: 'typed catalogue replay, exact bigint/null/epoch codecs, bounded legacy admission, durable receipt COMMIT and revision recovery' },
   { file: 'tests/pgstream-typed-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native typed observed/completed/due/output state and independent output handoff with current source authority' },
+  { file: 'tests/postgres-indexed-lookup.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: PENDING,
+    note: 'upload target and _id lookups read an index range, not the tenant history; answers equal to MongoDB for every bounded field' },
+  { file: 'tests/stage-lag-metrics.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'completion lag (M1) uses the older of the api pending mark and the evaluator hint mark; an injected completion delay shows in the histogram' },
   { file: 'tests/pgstream-bootstrap-batch.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native bounded typed bootstrap receipts preserve completed output, due work, pending age and unknown checkpoint fields' },
   { file: 'tests/pgstream-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -88,8 +92,6 @@ const INVENTORY = [
     note: 'actual held realtime worker owner exclusion, backend loss and independent worker' },
   { file: 'tests/settings-screen-lifecycle.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'display settings screen at open and owner check only: no catalogue statement in any read, unsafe-grant refusal and not-ready health, ablation controls' },
-  { file: 'tests/realtime-sharding-native.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
-    note: 'actual API/realtime roles, assigned live-add, polling/WebSocket/API3 move, alarm routing, deferred warm and observed cohort census; fixture-owned Vault' },
   { file: 'tests/connector-sources.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
     note: 'durable registry connector definitions, encrypted credentials and independent revision refresh; fixture-owned Vault' },
   { file: 'tests/registry-realtime-settings.integration.test.js', flags: { NS_VAULT_DOCKER_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
@@ -118,6 +120,8 @@ const INVENTORY = [
   { file: 'tests/postgres-entries-read.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/postgres-entries-write.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: 'describe.skip, silent' },
   { file: 'tests/api3.entries-crud.http.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
+  { file: 'tests/tenant-entries-batch-deadline.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING,
+    note: 'API v1 entries batch over the shipping HTTP path: finishes or is refused with 503 and nothing written, never a 500 with a timed-out rollback' },
   { file: 'tests/tenant-rest-entries.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-identifier-race.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-identity-differential.integration.test.js', flags: CRUD, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
@@ -125,7 +129,7 @@ const INVENTORY = [
   { file: 'tests/tenant-durable-replay.integration.test.js', flags: { NS_TENANT_DURABLE_REPLAY_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-projection-evaluator.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING },
   { file: 'tests/tenant-current-state-recovery-proof.integration.test.js', flags: { NS_M5_CURRENT_STATE_PROOF_TEST: '1' }, shared: ['postgres'], own: ['vault'], gate: PENDING,
-    note: 'bounded current-state acquisition and provisioned registry evaluator lifecycle; maintained pgstream registry lifecycle and explicit retired static-product refusal; fixture-owned Vault and pinned producer capabilities; no notification/provider acceptance' },
+    note: 'bounded current-state acquisition and provisioned registry evaluator lifecycle; writer-driven registry lifecycle and explicit retired static-product refusal; fixture-owned Vault; no notification/provider acceptance' },
   { file: 'tests/tenant-alarm-state.integration.test.js', flags: { NS_TENANT_ALARM_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'durable tenant-wide alarm suppression and consumed output; actual private transport acceptance is separate' },
   { file: 'tests/tenant-notifications.integration.test.js', flags: { NS_TENANT_NOTIFICATIONS_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
@@ -457,21 +461,9 @@ function start (run, kind, { image, options = [], command = [], env = {} }) {
   return record;
 }
 
-// Product evaluator suites exercise the maintained producer, not a legacy feed.
-// The caller supplies its exact owned binary/helper/image capability; selection
-// never pulls or substitutes an ordinary PostgreSQL image after a refusal.
-function producerSelection (suites, source) {
-  const requiresProducer = suites.some(suite => suite.flags?.NS_PGSTREAM_RECOVERY_TEST === '1' || suite.flags?.NS_EVALUATOR_CONSUMERS_TEST === '1' || suite.flags?.NS_M5_CURRENT_STATE_PROOF_TEST === '1' || suite.file === 'tests/realtime-sharding-native.integration.test.js');
-  if (!requiresProducer) return null;
-  const fields = ['NS_RT_BOOTSTRAP_PGSTREAM_BINARY', 'NS_RT_BOOTSTRAP_PGSTREAM_SHA256', 'NS_RT_BOOTSTRAP_PGSTREAM_RECEIVER_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_SUBSCRIPTIONS_PORT', 'NS_RT_BOOTSTRAP_PGSTREAM_BINDING_JSON'];
-  if (requiresProducer && !fields.every(key => typeof source[key] === 'string' && source[key].length)) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned binary, helper, ports and PostgreSQL plugin image');
-  if (!/^sha256:[a-f0-9]{64}$/.test(source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE || '')) throw new Error('MAINTAINED_PRODUCER_CAPABILITY_REQUIRED: provide the exact owned PostgreSQL wal2json image');
-  return { image: source.NS_MULTITENANT_PGSTREAM_POSTGRES_IMAGE, requiresProducer, command: ['-c', 'wal_level=logical', '-c', 'max_replication_slots=4', '-c', 'max_wal_senders=4', '-c', 'max_slot_wal_keep_size=256MB', '-c', 'output_plugin_libraries=wal2json'] };
-}
-
-async function provisionPostgres (run, producer) {
+async function provisionPostgres (run) {
   const password = crypto.randomBytes(24).toString('hex');
-  const record = start(run, 'postgres', { image: producer?.image || IMAGES.postgres, command: producer?.command || [],
+  const record = start(run, 'postgres', { image: IMAGES.postgres,
     options: ['--publish', '127.0.0.1::5432', '--env', 'POSTGRES_PASSWORD', '--env', 'POSTGRES_DB'],
     env: { POSTGRES_PASSWORD: password, POSTGRES_DB: POSTGRES_DATABASE } });
   // The container's init pass starts a socket-only server and restarts; wait
@@ -595,11 +587,6 @@ async function main (argv) {
     return 2;
   }
   const recommission = recommissionSelection(suites, process.env);
-  const producer = producerSelection(suites, process.env);
-  if (producer?.requiresProducer) {
-    const native = require('../tests/fixtures/pgstream-native');
-    native.capability(process.env); native.binding(process.env);
-  }
   if (dockerFails(['version', '--format', '{{.Server.Version}}'])) {
     log('docker is not available; every suite in the corpus needs it');
     return 2;
@@ -636,7 +623,7 @@ async function main (argv) {
         run.env.NS_TEST_POSTGRES_ADMIN_URI = 'caller-provided';
         log('using the caller\'s NS_TEST_POSTGRES_ADMIN_URI (no PostgreSQL container started)');
       } else {
-        env.NS_TEST_POSTGRES_ADMIN_URI = await provisionPostgres(run, producer);
+        env.NS_TEST_POSTGRES_ADMIN_URI = await provisionPostgres(run);
         run.env.NS_TEST_POSTGRES_ADMIN_URI = 'disposable';
       }
     }
@@ -702,7 +689,7 @@ async function main (argv) {
   return status;
 }
 
-module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs, producerSelection, recommissionSelection };
+module.exports = { INVENTORY, checkInventory, classifyOptInSource, select, mochaArgs, recommissionSelection };
 
 if (require.main === module) {
   main(process.argv.slice(2)).then(status => { process.exitCode = status; }, error => {

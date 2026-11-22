@@ -21,6 +21,7 @@ const configureApi3 = require('../lib/api3');
 const purifier = require('../lib/server/purifier');
 const { optInSuite } = require('./support/opt-in');
 const writeClock = require('./fixtures/native-write-clock');
+const { DATA_CONNECTION } = require('../lib/server/serve/preview-api');
 const domains = ['devicestatus', 'activity'];
 const factories = {
   devicestatus: require('../lib/server/tenant-app/devicestatus'),
@@ -97,8 +98,8 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       };
     }
 
-    async function start ({ max = 1 } = {}) {
-      connection = await connect({ connectionString: appURI, max });
+    async function start ({ max = 1, pool = {} } = {}) {
+      connection = await connect({ connectionString: appURI, max, ...pool });
       authority = await createAuthority({ connectionString: appURI, namespace: auth });
       const data = express.Router();
       const legacyRouter = express.Router();
@@ -222,6 +223,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       for (const domain of domains) {
         await admin.query(`GRANT USAGE ON SCHEMA "${schemas[domain]}" TO "${role}"`);
         await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${schemas[domain]}".${domain} TO "${role}"`);
+        // A windowed created_at column calls it; migration 0001 revokes it from PUBLIC.
+        if (domain === 'devicestatus') {
+          await admin.query(`GRANT EXECUTE ON FUNCTION "${schemas[domain]}".window_time_text(jsonb) TO "${role}"`);
+        }
       }
       await admin.query(`GRANT USAGE ON SCHEMA "${auth}" TO "${role}"`);
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
@@ -554,6 +559,58 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       } finally { connection.query = original; }
       for (const domain of domains) assert.deepEqual(await rows(domain), []);
       assert.deepEqual(pgEvents, []);
+    });
+
+    it('answers a PostgreSQL refusal that committed nothing with its code and Retry-After, as API v1 entries does', async function () {
+      const original = connection.query;
+      try {
+        for (const code of ['STORAGE_TIMEOUT', 'STORAGE_BUSY']) {
+          const refusal = Object.assign(new Error('synthetic refusal'), { code, retryAfter: 1 });
+          connection.query = async () => { throw refusal; };
+          const calls = [];
+          for (const version of [1, 2]) for (const domain of domains) {
+            calls.push(http('get', `/api/v${version}/${domain}`),
+              http('post', `/api/v${version}/${domain}`).send({ _id: ID, created_at: CREATED, device: 'rig' }));
+          }
+          calls.push(http('post', '/api/v3/devicestatus').send({ created_at: CREATED, device: 'rig', app: 'synthetic' }));
+          for (const call of calls) {
+            const reply = await call;
+            assert.equal(reply.status, 503, code + ' ' + reply.req.method + ' ' + reply.req.path + ' ' + reply.text);
+            assert.deepEqual(reply.body, { error: code }, reply.req.method + ' ' + reply.req.path);
+            assert.equal(reply.headers['retry-after'], '1', reply.req.method + ' ' + reply.req.path);
+          }
+        }
+      } finally { connection.query = original; }
+      for (const domain of domains) assert.deepEqual(await rows(domain), []);
+    });
+
+    it('refuses a devicestatus upload whose statement misses the api deadline with 503 STORAGE_TIMEOUT and writes nothing', async function () {
+      await stop(); await start({ pool: { ...DATA_CONNECTION } });
+      const holder = new Client({ connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });
+      await holder.connect();
+      const doc = { created_at: CREATED, device: 'rig', app: 'synthetic' };
+      try {
+        // A competing transaction holds the tenant's write clock row past the
+        // 1 s query deadline (and a queued ROLLBACK's own deadline).
+        await holder.query('BEGIN');
+        await holder.query(`SELECT 1 FROM "${name}_clock".tenant_write_clock WHERE tenant_id = $1 FOR UPDATE`, [A]);
+        for (const [path, body] of [['/api/v1/devicestatus', doc], ['/api/v3/devicestatus', { ...doc, identifier: 'deadline-v3' }]]) {
+          const started = Date.now();
+          const reply = await http('post', path).send(body);
+          assert.equal(reply.status, 503, path + ' ' + reply.text);
+          assert.deepEqual(reply.body, { error: 'STORAGE_TIMEOUT' }, path);
+          assert.equal(reply.headers['retry-after'], '1', path);
+          assert(Date.now() - started < 2000, path + ' answered at the first deadline');
+        }
+        await new Promise(resolve => setTimeout(resolve, 2500));
+      } finally {
+        await holder.query('COMMIT');
+        await holder.end();
+      }
+      assert.deepEqual(await rows('devicestatus'), [], 'NOTHING_COMMITTED');
+      await http('post', '/api/v1/devicestatus').send(doc).expect(200);
+      assert.equal((await rows('devicestatus')).length, 1, 'POOL_USABLE_AFTER_EVICTION');
+      await stop(); await start();
     });
 
     it('rolls legacy writes back before emitting events for either domain and isolates successful tenant events', async function () {

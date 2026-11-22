@@ -4,13 +4,6 @@
 let running, context, startup;
 const encode = value => JSON.parse(JSON.stringify(value));
 const failure = (error, depth = 0) => ({ name: error.name, message: error.message, ...(depth < 3 && Array.isArray(error.errors) ? { errors: error.errors.map(item => failure(item, depth + 1)) } : {}) });
-// Report rejected native transaction receipts through inherited fixture IPC.
-// Only error metadata crosses this diagnostic seam; no clinical payload does.
-const receiverPath=require.resolve('../../lib/pgstream/receiver'),receiver=require(receiverPath);
-require.cache[receiverPath].exports={...receiver,create(options){
-  const receive=receiver.create(options);
-  return async event=>{try{return await receive(event);}catch(error){if(process.connected)process.send({nativeFailure:failure(error)});throw error;}};
-}};
 // Count refusals at the real notification producer even when a later delivery
 // succeeds before health is sampled.
 let scopeRefusals = 0;
@@ -32,13 +25,25 @@ const statements=new Map();
   pg.Client.prototype.query=function(...args){const sql=typeof args[0]==='string'?args[0]:args[0]?.text;
     if(typeof sql==='string'){const shape=(this.connectionParameters?.application_name||'unnamed')+' | '+sql.replace(/\s+/g,' ').trim().slice(0,160);statements.set(shape,(statements.get(shape)||0)+1);}
     return query.apply(this,args);};}
+// Writer-driven input admits a tenant from its pending row (sweep) or a hint; the fixture's
+// acquire and tick wait for that admission, then drive the same cycle the role schedules.
+const admitted = async tenant => {
+  const end = Date.now() + 5000;
+  while (!context.health().tenants.some(row => row.tenant === tenant)) {
+    // A paused or suspended tenant may stay unadmitted: the action then reports what the role holds.
+    if (Date.now() > end) return false;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  return true;
+};
+const driven = async (tenant, action) => { if (await admitted(tenant)) await context[action](tenant); };
 const currentOutput = tenant => context.health().closed || running.generationScope.closed ? null
   : running.generationScope.run(tenant, () => context.last(tenant));
 process.on('message', async request => {
   try {
     let value;
-    if (request.action === 'acquire') { await context.acquire(request.tenant); value = await currentOutput(request.tenant); }
-    else if (request.action === 'tick') { await context.tick(request.tenant); value = await currentOutput(request.tenant); }
+    if (request.action === 'acquire') { await driven(request.tenant, 'acquire'); value = await currentOutput(request.tenant); }
+    else if (request.action === 'tick') { await driven(request.tenant, 'tick'); value = await currentOutput(request.tenant); }
     else if (request.action === 'wake') { await context.consumerWake(request.tenant); value = context.health(); }
     else if (request.action === 'retry') { await context.consumerRetry(request.tenant); value = context.health(); }
     else if (request.action === 'flush') { await context.consumerFlush(request.tenant); value = context.health(); }

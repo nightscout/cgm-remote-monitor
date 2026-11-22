@@ -121,8 +121,6 @@ module.exports = function consumersLab () {
   };
   lab.releaseSink = () => { for (const release of held.splice(0)) release(); };
   lab.workerConsumers = async config => {
-    if(![...children].some(child=>child.exitCode===null&&child.signalCode===null))await lab.stream?.()?.stop();
-    await lab.prepareProduct(config);
     return new Promise((resolve, reject) => {
     const child = fork(path.join(__dirname, 'evaluator-consumer-worker.js'), config.args, {
       silent: true, detached: false, env: lab.environment(config) });
@@ -138,6 +136,8 @@ module.exports = function consumersLab () {
       child.kill('SIGTERM'); reject(new Error('Consumer role startup watchdog'));
     }, 15000);
     const worker = { child, birth, processGroup, logs: () => ({ stdout, stderr }), call (action, tenant = lab.A) {
+      // Demand admission: the same disposable hint the api sends after a write wakes the role for this tenant.
+      if (action === 'acquire') lab.pendingBinding.hint(tenant);
       return new Promise((done, fail) => { const id = ++sequence, timer = setTimeout(() => { pending.delete(id); fail(new Error('Consumer role IPC watchdog')); }, 15000);
         pending.set(id, { done, fail, timer }); child.send({ id, action, tenant }); });
     } };
@@ -148,7 +148,6 @@ module.exports = function consumersLab () {
         if (message.error) p.fail(Object.assign(new Error(message.error.message), { name: message.error.name })); else p.done(message.value); }
     });
     child.once('error', error => { clearTimeout(startup); reject(error); });
-    Promise.resolve().then(() => lab.startStream()).catch(error => { clearTimeout(startup); child.kill('SIGTERM'); reject(error); });
     child.on('exit', (code, signal) => { children.delete(child); clearTimeout(startup);
       for (const p of pending.values()) { clearTimeout(p.timer); p.fail(new Error('Consumer role exited with pending action')); } pending.clear();
       console.log('M5_CONSUMER_CHILD_EXIT ' + JSON.stringify({ pid: child.pid, code, signal })); });
@@ -163,14 +162,12 @@ module.exports = function consumersLab () {
     process.kill(worker.child.pid, 'SIGKILL');
   };
   lab.stopConsumer = async worker => {
-    await lab.stopStream();
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) return;
     await worker.call('close'); const stopped = new Promise(resolve => worker.child.once('exit', (code, signal) => resolve({ code, signal })));
     worker.child.send({ id: 0, action: 'exit' }); return stopped;
   };
   lab.stopConsumers = async () => {
     const errors=[];
-    try{await lab.stopStream?.();}catch(error){errors.push(error);}
     lab.releaseSink();
     for (const child of [...children]) {
       const stopped = new Promise(resolve => child.once('exit', (code, signal) => resolve({ code, signal })));
@@ -192,7 +189,6 @@ module.exports = function consumersLab () {
     schemaReady = false;
     const errors = [];
     const attempt = async fn => {try {await fn();} catch(error) {errors.push(error);}};
-    await attempt(() => lab.stopStream?.());
     await attempt(() => lab.stopConsumers()); lab.releaseSink();
     if (sink) await attempt(() => sink.close());
     if (writer) await attempt(() => writer.end());
