@@ -50,6 +50,18 @@
         "UPDATE tenant_consumer_checkpoint SET notification_work_pending=true WHERE work_version=2 AND jsonb_path_exists(projection,'$[0].output.result.requested[*]')",
         "CREATE INDEX pgstream_evaluator_notification_pending ON tenant_consumer_checkpoint (consumer,tenant_id) WHERE work_version=2 AND work_enabled AND notification_work_pending"
       ]
+    },
+    {
+      "name": "0009_evaluator_window_mark",
+      "checksum": "7530c959b32bdbbfd0b65eda58f76f5fb8ec5a50014239315cb01dfafb912183",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_version numeric CHECK (window_mark_version IS NULL OR (window_mark_version >= 0 AND window_mark_version = trunc(window_mark_version)))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_full boolean NOT NULL DEFAULT false",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_profile boolean NOT NULL DEFAULT false",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_entries bigint",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_devicestatus text COLLATE \"C\"",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN window_mark_treatments text COLLATE \"C\""
+      ]
     }
   ]
 }

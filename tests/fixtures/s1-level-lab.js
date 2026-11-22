@@ -157,7 +157,10 @@ module.exports = function s1Lab ({ tenants: tenantCount = 2, pageSize = 100, aud
     await store.own(() => {});
     const replay = durableReplay({ connection, checkpointTable: base.replayNamespace + '.tenant_consumer_checkpoint',
       clockTable: base.namespaces.clock + '.tenant_write_clock', domains: base.tables, consumer: 'clinical-level',
-      projectionVersion: 'clinical-current-rows-v1', pageSize, maxRows: 10000, level: { lifecycleTable: controlNs + '.tenant_lifecycle_windows' } });
+      projectionVersion: 'clinical-current-rows-v1', pageSize, maxRows: 10000, level: { lifecycleTable: controlNs + '.tenant_lifecycle_windows',
+        // As evaluator-preview: with the resident window switch, the work row that carries the window marks.
+        ...(require('../../lib/writer-driven/window-mark').enabled() ? { work: { table: workNs + '.tenant_consumer_checkpoint', consumer: COMPLETED }, ...(lab.residentCheckMs === undefined ? {} : { checkMs: lab.residentCheckMs }) } : {}) } });
+    lab.replay = replay;
     const evaluators = new Map(), known = new Map();
     const stats = { hints: 0, staleHints: 0, runs: 0, refused: 0, completed: 0, errors: [], cycleCpuUs: 0 };
     const evaluatorOf = tenant => {
