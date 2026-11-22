@@ -102,6 +102,55 @@ describe('Authentication failure throttling', function () {
     third.should.be.below(THROTTLED);
   });
 
+  // An expired JWT is a routine refresh, not a wrong credential (#8900).
+  function bearer (jwtToken, forwardedFor) {
+    return function build (req) {
+      return req.set('Authorization', 'Bearer ' + jwtToken).set('X-Forwarded-For', forwardedFor);
+    };
+  }
+
+  async function adminNotificationsDuring (run) {
+    const notifications = [];
+    const listener = function (notify) { notifications.push(notify); };
+    self.ctx.bus.on('admin-notify', listener);
+    try {
+      await run();
+    } finally {
+      self.ctx.bus.removeListener('admin-notify', listener);
+    }
+    return notifications;
+  }
+
+  it('refuses an expired JWT without counting it as a failed attempt', async function () {
+    await resetThrottle();
+    self.env.enclave.setJWTKey('authdelay-test-jwt-key');
+    const expired = self.env.enclave.signJWT({ accessToken: 'expired-token' }, -10);
+
+    let second;
+    const notifications = await adminNotificationsDuring(async function () {
+      await bearer(expired, '198.51.100.20')(request(self.app).get('/api/v1/entries.json')).expect(401);
+      second = await timeRequest(bearer(expired, '198.51.100.20'));
+    });
+
+    second.should.be.below(THROTTLED);
+    notifications.length.should.equal(0);
+  });
+
+  it('still throttles and reports a JWT signed with another key', async function () {
+    await resetThrottle();
+    self.env.enclave.setJWTKey('authdelay-test-jwt-key');
+    const forged = require('jsonwebtoken').sign({ accessToken: 'forged-token' }, 'not the server key', { expiresIn: -10 });
+
+    let second;
+    const notifications = await adminNotificationsDuring(async function () {
+      await bearer(forged, '198.51.100.21')(request(self.app).get('/api/v1/entries.json')).expect(401);
+      second = await timeRequest(bearer(forged, '198.51.100.21'));
+    });
+
+    second.should.be.aboveOrEqual(THROTTLED);
+    notifications.length.should.be.aboveOrEqual(1);
+  });
+
   it('throttles one wrong secret arriving from many addresses', async function () {
     await resetThrottle();
 
