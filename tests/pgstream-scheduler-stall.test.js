@@ -93,3 +93,34 @@ describe('evaluator scheduler and runtime: a recovery read during a cycle in fli
   }finally{release();await s.close();await runtime.close();}
  });
 });
+
+// The periodic pending sweep is the guarantee for a write whose hint was lost.
+// It must come round every sweep interval while the dispatch pass stays busy:
+// a saturated pass does not end, so a sweep that waits for the pass before it
+// re-arms runs once and leaves the lost hint to whatever else reads the row.
+describe('evaluator scheduler: the periodic sweep under saturation',()=>{
+ for(const oldestFirst of [true,false]){
+  it((oldestFirst?'oldest-first':'arrival')+': a write whose hint was lost is found within one sweep interval while the pass stays busy',async()=>{
+   const STEP=200,SWEEP=5000,LOST_AT=12000;
+   let clock=10000,fed=0,id=0;const ran=[],timers=new Map(),done=new Set();
+   // No hint, no recovery row and no due instant for L: only the sweep reads its mark.
+   const store={async work(){return [];},async nextDue(){return null;},
+    async pending(){return clock>=LOST_AT&&!done.has('L')?[{tenant:'L',pendingAt:LOST_AT}]:[];}};
+   const s=scheduler.start({store,oldestFirst,concurrency:1,retryMs:1000,sweepMs:SWEEP,now:()=>clock,scan:async()=>{},
+    setTimer(fn,delay){const key=++id;timers.set(key,{fn,at:clock+delay});return key;},clearTimer:key=>timers.delete(key),
+    run:async tenant=>{ran.push([tenant,clock]);done.add(tenant);clock+=STEP;if(fed<300)s.wake('n'+String(fed++).padStart(3,'0'));await new Promise(resolve=>setImmediate(resolve));}});
+   const pump=async()=>{for(let turn=0;turn<2000;turn++){await settle(4);const due=[...timers].filter(([,t])=>t.at<=clock);if(!due.length){if(!timers.size||done.has('L')&&fed>=300)return;clock=Math.min(...[...timers.values()].map(t=>t.at));continue;}for(const [key,t]of due){timers.delete(key);t.fn();}}};
+   try{
+    for(const t of ['a','b','c','d'])s.wake(t);
+    s.sweep().catch(()=>{}); // the startup sweep (lib/server/serve/evaluator-preview.js)
+    await pump();
+    const found=ran.find(([tenant])=>tenant==='L');
+    assert(found,'the lost write is evaluated');
+    // Marked at 12 000; the next sweep is due by 15 000 or 20 000 at the latest,
+    // and the queue then holds at most a handful of tenants (one is fed per run).
+    const waited=found[1]-LOST_AT;
+    assert(waited<=SWEEP+10*STEP,'SWEEP_DID_NOT_REARM_UNDER_SATURATION: the lost write waited '+waited+' ms of a pass that stayed busy '+(300*STEP)+' ms; sweeps run '+s.sweepStats().runs);
+   }finally{await s.close();}
+  });
+ }
+});
