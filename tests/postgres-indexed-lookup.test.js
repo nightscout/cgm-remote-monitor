@@ -36,7 +36,9 @@ const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
 const TABLES = {
   entries: { text: ['sysTime', 'type', 'dateString', 'identifier'], number: ['date'] },
-  treatments: { text: ['created_at', 'eventType', 'identifier'], number: [] },
+  // `note` and `carbs` are not indexed: they check array-element equality
+  // (containment) on a field with no bound.
+  treatments: { text: ['created_at', 'eventType', 'identifier', 'note'], number: ['carbs'] },
   devicestatus: { text: ['created_at', 'identifier'], number: [] },
   activity: { text: ['created_at', 'identifier'], number: [] },
   profile: { text: ['identifier'], number: [] },
@@ -69,7 +71,21 @@ function filters ({ text, number }) {
   }
   if (text.length > 1) {
     out.push(and(cmp('eq', text[0], 'v1'), cmp('eq', text[1], 'v1')),
-      or(and(cmp('eq', text[0], 'zz'), cmp('eq', text[1], 'zz')), and(cmp('eq', text[0], 'v2'), cmp('eq', text[1], 'v2'))));
+      or(and(cmp('eq', text[0], 'zz'), cmp('eq', text[1], 'zz')), and(cmp('eq', text[0], 'v2'), cmp('eq', text[1], 'v2'))),
+      // $or bounded once (every branch bounds both columns; operands unioned)
+      or(and(cmp('in', text[0], ['v1', 'zz']), cmp('eq', text[1], 'a')), and(cmp('eq', text[0], 'V1'), cmp('eq', text[1], 'v1')),
+        and(cmp('eq', text[0], 'b'), cmp('in', text[1], ['b', '']))),
+      // no column common to every branch: each branch keeps its own bound
+      or(cmp('eq', text[0], 'v1'), cmp('eq', text[1], 'zz')),
+      // an operand of another type on one column: only the other column is bounded once
+      or(and(cmp('eq', text[0], 'v1'), cmp('eq', text[1], null)), and(cmp('eq', text[0], 'zz'), cmp('eq', text[1], 'b'))),
+      // nested: an $or inside an AND, and an $or inside a branch
+      and(or(cmp('eq', text[0], 'a'), cmp('eq', text[0], 'v2')), cmp('ne', text[1], 'x')),
+      or(and(cmp('eq', text[0], 'v1'), or(cmp('eq', text[1], 'v1'), cmp('eq', text[1], 'zz'))), cmp('eq', text[0], 'a')));
+  }
+  if (number.length) {
+    out.push(or(cmp('eq', number[0], 1000), cmp('eq', number[0], 6), cmp('in', number[0], [999.5, 2000])),
+      or(cmp('eq', number[0], 1000), cmp('eq', number[0], 'x')));
   }
   return out;
 }
@@ -252,6 +268,45 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
             .findFiltered(cmp('in', 'identifier', [`${table}-id-1243`, `${table}-id-1245`]), raw)]
         ])
       ];
+      // A v1 treatments batch's on-deleted and server-date reads: one $or of a
+      // fallback key per document (no client identity, so each carries the
+      // empty-identity and amount clauses). R3 measured a 288-document read at
+      // 577 bitmap index scans and 4,034 correlated SubPlans, 85-125 ms to
+      // plan and 35-65 ms to run on an empty tenant. Here: one bound for the
+      // $or, no subquery, and only the batch's range read.
+      it('treatments v1 batch $or of 64 fallback keys plans one bound and no subquery', async function () {
+        const fallbackKey = require('../lib/server/treatment-fallback-key');
+        const { fromMongo } = require('../lib/storage/filter');
+        const keys = Array.from({ length: 64 }, (_, j) => {
+          const doc = { eventType: 'Temp Basal', created_at: iso(HISTORY - 64 + j), absolute: 1 };
+          return fallbackKey.fallbackQuery(doc, doc.created_at, { withAmounts: true });
+        });
+        const ast = fromMongo({ $and: [{ $or: keys }, { isValid: false }] });
+        const lab = labs.treatments;
+        const statements = (await sent(c => entriesRead({ connection: c, table: lab.qualified }).findFiltered(ast, raw)))
+          .filter(s => /^(WITH|SELECT)/.test(s.text));
+        assert.equal(statements.length, 1);
+        await admin.query('BEGIN');
+        let plan;
+        try {
+          await admin.query(`SET LOCAL ROLE "${role}"`);
+          await admin.query("SELECT set_config('app.current_tenant_id', $1, true)", [A]);
+          plan = (await admin.query('EXPLAIN (ANALYZE, FORMAT JSON) ' + statements[0].text, statements[0].values)).rows[0]['QUERY PLAN'][0].Plan;
+        } finally {
+          await admin.query('ROLLBACK');
+        }
+        const nodes = [];
+        (function walk (node) { nodes.push(node); (node.Plans || []).forEach(walk); })(plan);
+        const subplans = nodes.filter(n => n['Parent Relationship'] === 'SubPlan' || n['Subplan Name']);
+        const indexed = nodes.filter(n => /Index/.test(n['Node Type']));
+        assert.equal(subplans.length, 0, `SUBPLAN_PER_FILTER: ${subplans.length} subqueries`);
+        assert.ok(indexed.length >= 1 && indexed.length <= 2, `INDEX_ARM_PER_FILTER: ${indexed.length} index scans`);
+        assert.ok(!nodes.some(n => n['Node Type'] === 'Seq Scan'), 'SEQ_SCAN');
+        const read = nodes.filter(n => n['Relation Name'] === 'treatments')
+          .reduce((a, n) => a + n['Actual Rows'] * n['Actual Loops'] + (n['Rows Removed by Filter'] || 0) + (n['Rows Removed by Index Recheck'] || 0), 0);
+        assert.ok(read <= 64 + 20, `READS_TENANT_HISTORY: read ${read} rows for a 64-document batch`);
+      });
+
       for (const [label, table, call] of cases) {
         it(label, async function () {
           const lab = labs[table];

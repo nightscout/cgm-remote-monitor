@@ -107,4 +107,50 @@ describe('trusted PostgreSQL collection translation', function () {
     collection.parseDate(supplied);
     assert.equal(Object.is(supplied.utcOffset, -0), true);
   });
+
+  // R3 (plannable-scale, 2026-11-21): a v1 treatments batch's server-date read
+  // (srv-dates findForReplace) and on-deleted read are one $or of a filter per
+  // document. On PostgreSQL each statement cost time in proportion to its
+  // filters and missed the api's 1 s deadline at 288 fallback-key treatments
+  // under seed load. Synthetic values only.
+  describe('a v1 batch read of many per-document filters', function () {
+    const srvDates = require('../lib/server/srv-dates');
+    const fallbackKey = require('../lib/server/treatment-fallback-key');
+    const items = Array.from({ length: 70 }, (_, k) => {
+      const doc = { eventType: k % 2 ? 'Temp Basal' : 'Meal Bolus', created_at: new Date(Date.UTC(2026, 10, 19) + k * 300000).toISOString(), rate: 1 };
+      return { filter: fallbackKey.fallbackQuery(doc, doc.created_at, { withAmounts: true }), doc };
+    });
+    function treatments () {
+      const calls = [];
+      const connection = {
+        async query (sql, values) { calls.push({ sql, values }); return { rows: [] }; },
+        async transaction (fn) { return fn(); }
+      };
+      return { calls, port: create({ connection, table: 'test.treatments', logical: 'treatments', source: 'v1/internal' }) };
+    }
+
+    it('reads 32 filters per PostgreSQL statement; a reader without a bound (MongoDB) still reads 500', async function () {
+      const { port, calls } = treatments();
+      await srvDates.findForReplace(reads.documents(port.storage), items);
+      assert.equal(calls.length, 3, 'ceil(70 / 32) statements');
+      const mongoLike = [];
+      await srvDates.findForReplace({ find: async query => { mongoLike.push(query); return []; }, findOne: async () => null }, items);
+      assert.equal(mongoLike.length, 1);
+      assert.equal(mongoLike[0].$or.length, 70);
+    });
+
+    it('bounds the $or once and plans no subquery per filter', async function () {
+      const { port, calls } = treatments();
+      await srvDates.findForReplace(reads.documents(port.storage), items.slice(0, 32));
+      assert.equal(calls.length, 1);
+      const sql = calls[0].sql;
+      // One created_at range and one eventType bound for the whole $or, not one per branch.
+      assert.equal(sql.match(/"created_at" COLLATE "C" >=/g).length, 1, 'one created_at bound');
+      assert.equal(sql.match(/"eventType" = /g).length, 1, 'one eventType bound');
+      assert.match(sql, /"eventType" = ANY\(/);
+      // Array-element equality by containment: no correlated subquery to plan per leaf.
+      assert.doesNotMatch(sql, /EXISTS/);
+      assert.doesNotMatch(sql, /jsonb_array_elements/);
+    });
+  });
 });
