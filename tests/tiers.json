@@ -118,6 +118,7 @@
         "tests/tenant-operation-window.test.js",
         "tests/m7-diagnostics.test.js",
         "tests/metrics.test.js",
+        "tests/stage-lag-metrics.test.js",
         "tests/m7-diagnostics-output.test.js",
         "tests/pool-config.test.js",
         "tests/realtime-warm-retry.test.js",
