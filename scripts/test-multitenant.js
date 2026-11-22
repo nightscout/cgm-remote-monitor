@@ -166,6 +166,8 @@ const INVENTORY = [
     note: 'canonical history writes versus non-history work across one and three API storage pools; SQL/lock cost only, not process capacity' },
   { file: 'tests/tenant-write-clock-complete.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'decision write-clock-complete: every supported write advances the clock, hard deletes also last_delete_stamp' },
+  { file: 'tests/tenant-clock-late-stamp.integration.test.js', flags: { NS_TENANT_COMMIT_CLOCK_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'NS_CLOCK_LATE_STAMP: the write clock taken last, held across a fixed number of statements, switch on and off' },
   { file: 'tests/evaluator-wake.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'work on change: lost wake, duplicate delivery, restart, hard delete and unstamped update re-evaluated, idle, eviction' },
   { file: 'tests/evaluator-cost.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
