@@ -206,6 +206,28 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
     } finally { protocol.close(); await runtime.close(); scope.setTenancyMode(mode); }
   });
 
+  it('warm-up: nightscout_evaluator_resident_tenants counts evaluated tenants, bounded by the resident cache', async function () {
+    const B = '22222222-2222-4222-8222-222222222222';
+    for (const residentLimit of [undefined, 1]) {
+      let version = 0;
+      const runtime = await startRuntime({ tenants: [A, B], externalRecovery: true, recoveryIntervalMs: 1000, timeIntervalMs: 60000,
+        readCurrent: async tenant => ({ tenant, identity: 'a'.repeat(64) }),
+        create: async () => ({ async evaluate () { return { checkpoint: version, properties: {}, emitted: [], requested: [] }; }, close () {} }),
+        schedule: () => ({}), cancel () {}, ...(residentLimit ? { residentLimit, loadOutput: async () => null } : {}),
+        durable: { pendingMs: 600000, async begin () { return { clock: String(version) }; },
+          async complete (tenant, { result, identity }) { return { changed: true, pendingAt: null, output: { tenant, identity, outputRevision: ++version, contentDigest: 'b'.repeat(64), result } }; } } });
+      metrics.current.evaluator(() => runtime.pendingSummary());
+      const gauge = async () => sample(await metrics.current.text(), 'nightscout_evaluator_resident_tenants', { role, slice: 'all' });
+      try {
+        assert.equal(await gauge(), 0, 'RESIDENT_BEFORE_EVALUATION');
+        await runtime.acquire(A);
+        assert.equal(await gauge(), 1);
+        await runtime.acquire(B);
+        assert.equal(await gauge(), residentLimit ? 1 : 2, 'RESIDENTS limit=' + residentLimit);
+      } finally { await runtime.close(); metrics.reset(); metrics.configure(['evaluator', 'realtime'], { NS_METRICS: 'true' }); }
+    }
+  });
+
   it('control: a fixed completion delay shows in M1 and raises M2 while it holds', async function () {
     assert.equal(delay.fromEnvironment({}), 0);
     assert.equal(delay.fromEnvironment({ [delay.KEY]: '0' }), 0);

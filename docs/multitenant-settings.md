@@ -87,6 +87,7 @@ joined with `+`, for example `api` or `api+realtime`).
 | `nightscout_evaluator_pending_tenants` | gauge | slice | tenants with input pending completion |
 | `nightscout_evaluator_queued_cycles` | gauge | slice | tenants with a cycle queued or running (backlog) |
 | `nightscout_evaluator_tenants` | gauge | slice | tenants the evaluator holds state for |
+| `nightscout_evaluator_resident_tenants` | gauge | slice | tenants holding an evaluated instance (the resident cache size when `NS_EVALUATOR_RESIDENT_MAX` bounds it); warm-up is complete when it reaches the slice's owned count |
 | `nightscout_pg_statements_total` | counter | application_name, outcome (`ok`, `error`) | SQL statements through each core pool |
 | `nightscout_pg_statement_seconds_total` | counter | application_name | client-side statement time summed, from the query call to its result; divided by the statement count it gives the mean. Statements are accumulated in plain numbers and published at scrape time; a per-statement histogram cost too much at about 170 statements per write. For statement latency distributions, use `postgres_exporter` |
 | `nightscout_http_request_seconds` | histogram | method, route, status_class | api request duration by Express route template, refused requests included |
