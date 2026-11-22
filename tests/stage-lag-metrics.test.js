@@ -44,7 +44,7 @@ const lagSum = (text, stage) => sample(text, stage === 'evaluator' ? 'nightscout
 
 // One evaluator with a controllable clock; complete() may report the writer's
 // durable mark (coveredAt), refuse, or take real time.
-async function evaluator ({ runtimeFactory = startRuntime, coveredAt = () => null, refuse = false, clock, completionDelayMs, realTime = false } = {}) {
+async function evaluator ({ runtimeFactory = startRuntime, coveredAt = () => null, refuse = false, clock, completionDelayMs, realTime = false, afterCommit, began } = {}) {
   let version = 0;
   const now = realTime ? Date.now : () => clock.now;
   const runtime = await runtimeFactory({ tenants: [A], externalRecovery: true, recoveryIntervalMs: 1000, timeIntervalMs: 60000,
@@ -52,9 +52,12 @@ async function evaluator ({ runtimeFactory = startRuntime, coveredAt = () => nul
     create: async () => ({ async evaluate () { return { checkpoint: version, properties: {}, emitted: [], requested: [] }; }, close () {} }),
     schedule: () => ({}), cancel () {}, now, ...(completionDelayMs === undefined ? {} : { completionDelayMs }),
     durable: { pendingMs: 600000, async begin () { return { clock: String(version) }; },
-      async complete (tenant, { result, identity }) {
+      async complete (tenant, { result, identity, beganAt }) {
         if (refuse) throw new Error('EVALUATOR_COMPLETION_REFUSED_FOR_TEST');
-        return { changed: true, pendingAt: null, coveredAt: coveredAt(), output: { tenant, identity, outputRevision: ++version, contentDigest: 'b'.repeat(64), result } };
+        began?.(beganAt);
+        const committed = { changed: true, pendingAt: null, coveredAt: coveredAt(), output: { tenant, identity, outputRevision: ++version, contentDigest: 'b'.repeat(64), result } };
+        afterCommit?.();
+        return committed;
       } } });
   return runtime;
 }
@@ -99,6 +102,50 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
       assert.equal(lagCount(text, 'evaluator'), 2);
       assert.equal(lagSum(text, 'evaluator'), 60, 'DURABLE_MARK_IGNORED');
     } finally { await runtime.close(); }
+  });
+
+  // All-input M1 (lane mt-plannable-scale-20261121, R2): every commit that
+  // clears or raises the writer's mark is observed, including a cycle fenced
+  // after its commit (generation change, shutdown); begin() time is handed to
+  // complete() so the carried mark stays at or before every uncovered input.
+  for (const [name, mutate] of [['fixed', null],
+    ['red control: observation after the fence', source => source.replace(
+      'if (committed) settlePending(state, committed, pendingEpoch, !closed && cycleGeneration === state.generation);',
+      'if (committed && !closed && cycleGeneration === state.generation) settlePending(state, committed, pendingEpoch, true);')]]) {
+    it('M1 evaluator: a completion fenced after its commit still observes the mark it cleared (' + name + ')', async function () {
+      const clock = { now: 50000 };
+      let runtime, fence = false;
+      runtime = await evaluator({ clock, runtimeFactory: mutate ? load('../lib/server/serve/evaluator-runtime.js', mutate) : startRuntime,
+        coveredAt: () => fence ? 20000 : null,
+        afterCommit: () => { if (fence) runtime.invalidateTenant(A, { restoring: true }); } });
+      try {
+        await runtime.acquire(A);
+        fence = true;
+        await runtime.acquire(A).catch(() => {});
+        const text = await metrics.current.text();
+        const observed = lagCount(text, 'evaluator') === 1 && lagSum(text, 'evaluator') === 30;
+        if (mutate) assert.equal(observed, false, 'CONTROL_BLIND');
+        else assert.ok(observed, 'FENCED_COMMIT_UNOBSERVED');
+      } finally { await runtime.close(); }
+    });
+  }
+
+  it('M1 evaluator: complete() receives the time taken before the begin() read', async function () {
+    const clock = { now: 70000 };
+    let seen;
+    const runtime = await evaluator({ clock, began: value => { seen = value; } });
+    try { await runtime.acquire(A); } finally { await runtime.close(); }
+    assert.equal(seen, 70000, 'BEGAN_AT_NOT_PASSED');
+  });
+
+  it('the unobserved-completion counter and the M1 histogram exist at zero once the evaluator registers', async function () {
+    const instance = metrics.create({ roles: ['evaluator'] });
+    instance.setSlice(3);
+    instance.evaluator(() => ({ pending: 0, oldestAgeMs: 0, queued: 0, tenants: 0 }));
+    const text = await instance.text();
+    instance.register.clear();
+    assert.equal(sample(text, 'nightscout_evaluator_completion_unobserved_total', { role: 'evaluator', slice: '3', reason: 'commit-unconfirmed' }), 0, 'UNOBSERVED_COUNTER_ABSENT');
+    assert.equal(sample(text, 'nightscout_evaluator_completion_lag_seconds_count', { role: 'evaluator', slice: '3' }), 0, 'M1_SERIES_ABSENT');
   });
 
   it('red control: no observation when the completion is refused', async function () {
