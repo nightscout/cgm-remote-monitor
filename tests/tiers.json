@@ -218,6 +218,7 @@
         "tests/pgstream-checkpoint-transfer.test.js",
         "tests/pgstream-authority-currentness.test.js",
         "tests/pgstream-supervisor-recovery.test.js",
+        "tests/pgstream-scheduler-order.test.js",
         "tests/pgstream-completed-delivery.test.js",
         "tests/postgres-connection-failure.test.js",
         "tests/postgres-local-timeouts.test.js",
