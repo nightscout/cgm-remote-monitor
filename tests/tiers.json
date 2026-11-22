@@ -287,6 +287,7 @@
         "tests/tenant-projection-evaluator.test.js",
         "tests/evaluator-level-input.test.js",
         "tests/resident-window.test.js",
+        "tests/evaluator-window-levers.test.js",
         "tests/json-copy.test.js",
         "tests/moment-memo.test.js",
         "tests/projection-memory-read.test.js",

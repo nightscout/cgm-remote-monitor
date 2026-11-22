@@ -119,10 +119,10 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
         full: require('../lib/storage/postgres-durable-replay')({ ...common, level: { lifecycleTable, resident: false } })
       };
     }
-    function pair (tenant, pairReplays) {
-      const make = replay => { const c = require('../lib/data/tenant-projection-evaluator')({ tenant, replay, connection, env: lab.base.env,
+    function pair (tenant, pairReplays, { residentLevers, fullLevers } = {}) {
+      const make = (replay, levers) => { const c = require('../lib/data/tenant-projection-evaluator')({ tenant, replay, levers, connection, env: lab.base.env,
         language: lab.base.language, dbstats: lab.base.stats, ...SIZE, includeFrame: true }); open.push(c); return c; };
-      return { tenant, replays: pairReplays, resident: make(pairReplays.resident), full: make(pairReplays.full) };
+      return { tenant, replays: pairReplays, resident: make(pairReplays.resident, residentLevers), full: make(pairReplays.full, fullLevers) };
     }
     const text = result => JSON.stringify(result);
     // One cycle of both, at one pinned instant. `between` runs after the
@@ -248,6 +248,25 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
         .then(() => assert.fail('a duplicate must be refused'), error => assert.equal(error.code, 11000)));
       step = await cycle(p, T0 + 7 * MIN, { label: 'duplicate insert' });
       mode(step, { unchanged: 1 }); assert.equal(step.read, 0);
+    });
+
+    it('restores the whole older device status to the frame after a newer status is deleted', async function () {
+      const tenant = lab.tenants[0];
+      const statuses = Array.from({ length: 11 }, (_, i) => ({
+        _id: 'quiet-status-' + i, device: 'quiet-uploader', created_at: iso(T0 - 12 * HOUR + i * MIN),
+        uploader: { name: 'synthetic uploader', battery: 60 + i }
+      }));
+      await lab.writeDocs(tenant, 'devicestatus', statuses);
+      const p = pair(tenant, replays(), { residentLevers: 'all', fullLevers: 'off' });
+      const first = await cycle(p, T0, { label: 'initial ten statuses' });
+      assert.equal(first.result.frame.devicestatus.length, 10);
+      assert.ok(first.result.frame.devicestatus.every(status => status._id !== statuses[0]._id));
+
+      await remove(tenant, 'devicestatus', statuses[10]._id);
+      const after = await cycle(p, T0 + MIN, { label: 'older status re-enters frame' });
+      mode(after, { tail: 1 });
+      const restored = after.result.frame.devicestatus.find(status => status._id === statuses[0]._id);
+      assert.deepEqual(restored.uploader, statuses[0].uploader);
     });
 
     it('deletion of the newest qualifying record and of an old one, and deletion by filter', async function () {
