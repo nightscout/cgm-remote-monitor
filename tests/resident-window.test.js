@@ -145,6 +145,69 @@ describe('resident window plan and merge', function () {
   });
 });
 
+describe('resident window: what a resident row computes once', function () {
+  const T = Date.UTC(2026, 10, 21, 6, 0);
+  // A deterministic spread of rows: canonical and non-canonical times, arrays, invalid rows, both identity kinds.
+  function rows () {
+    const out = [];
+    let seed = 7;
+    const next = n => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+    for (let i = 0; i < 400; i++) {
+      const domain = ['entries', 'devicestatus', 'treatments', 'profile'][next(4)], t = T - next(400 * DAY) + next(3 * DAY);
+      const time = [t, iso(t), iso(t).replace('Z', '+00:00'), [t - 5, t], [iso(t - 5), iso(t)], 'not a time', null][next(7)];
+      const doc = { _id: next(2) ? 'row-' + i : i.toString(16).padStart(24, '0'), note: 'caf\u00e9 \u2603 ' + i, nested: { b: [1, { c: i }], a: null },
+        ...(domain === 'entries' ? { date: time } : { created_at: time }), ...(next(9) === 0 ? { isValid: false } : {}),
+        ...(domain === 'treatments' ? { eventType: ['Temp Basal', 'Site Change', 'Profile Switch'][next(3)], duration: 0 } : {}) };
+      out.push({ domain, id_kind: doc._id.startsWith('row-') ? 'string' : 'objectid', doc, ordinal: next(3) ? String(i + 1) : null,
+        wt: memory.windowTime(domain, doc), bytes: Buffer.byteLength(JSON.stringify(doc)) });
+    }
+    return out;
+  }
+  const policyAt = at => windowPolicy.create({ extendedSettings: {} }, at);
+  const prepare = list => { const m = { observed: ['1', null, null, null, null, null], completed: ['1', null, null, null, null, null], version: '1' };
+    // No membership rule (every row kept), sorted as a read returns them.
+    const sorted = list.map(row => ({ ...row, id: row.doc._id })).sort(residentWindow.compareRows).map(({ id, ...row }) => row);
+    return residentWindow.build({ rows: sorted, tenant: A, generation: '1', policy: policyAt(T), mark: m, membership: {}, checkAt: 0 }).rows; };
+
+  it('gives the policy\'s next expiry at every instant', function () {
+    const list = prepare(rows());
+    for (const at of [T - 500 * DAY, T - 372 * DAY, T - 62 * DAY, T - 60 * HOUR, T - 2 * DAY, T - DAY, T - 1, T, T + 1, T + DAY, T + 400 * DAY]) {
+      for (const devicestatusMs of [86400000, 172800000]) {
+        const policy = { ...policyAt(at), devicestatusMs }, visible = list.filter(row => row.doc.isValid !== false);
+        for (const row of list) row.exp = null; // the cache belongs to one device-status window
+        assert.equal(residentWindow.nextExpiry(list, policy), windowPolicy.nextExpiry(visible, policy), 'at ' + iso(at) + ' with ' + devicestatusMs);
+        assert.equal(residentWindow.nextExpiry(list, policy), windowPolicy.nextExpiry(visible, policy), 'from the cached instants');
+      }
+    }
+  });
+
+  it('gives the exact byte length of the rows in the evaluator\'s input text', function () {
+    const ordinalOf = value => value === null ? null : Number(value);
+    for (const list of [prepare(rows()), prepare(rows().slice(0, 1)), prepare([])]) {
+      const visible = list.filter(row => row.doc.isValid !== false);
+      const { encodeDocument, decodeDocument } = require('../lib/storage/postgres-identity');
+      // As the evaluator builds its input rows from a window's rows.
+      const input = visible.map(row => ({ domain: row.domain, ...encodeDocument(decodeDocument(row)), ordinal: ordinalOf(row.ordinal) }));
+      assert.equal(residentWindow.textBytes(list, ordinalOf), Buffer.byteLength(JSON.stringify(input)));
+      assert.equal(residentWindow.textBytes(list, ordinalOf), Buffer.byteLength(JSON.stringify(input)), 'from the cached lengths');
+    }
+  });
+
+  it('takes the evaluator\'s prepared copy of each document, and only an equal frozen one', function () {
+    const list = prepare(rows().filter(row => row.domain === 'entries').slice(0, 20));
+    const resident = { rows: list };
+    const { deepFreeze } = require('../lib/data/json-copy');
+    const copies = list.slice(0, 19).map(row => ({ id_kind: row.id_kind, doc: deepFreeze(JSON.parse(JSON.stringify(row.doc))) }));
+    const before = list.map(row => row.doc);
+    residentWindow.share(resident, { entries: copies });
+    list.slice(0, 19).forEach((row, i) => { assert.equal(row.doc, copies[i].doc); assert.notEqual(row.doc, before[i]); assert.deepEqual(row.doc, before[i]); assert.equal(row.shared, true); });
+    assert.equal(list[19].doc, before[19], 'a row without a prepared copy keeps its own');
+    residentWindow.share(resident, { entries: [{ id_kind: list[19].id_kind, doc: JSON.parse(JSON.stringify(list[19].doc)) }] });
+    assert.equal(list[19].doc, before[19], 'a copy that is not frozen is not taken');
+    residentWindow.share(null, {});
+  });
+});
+
 describe('resident window: the level component through a resident equals the full read', function () {
   this.timeout(120000);
   const THRESHOLDS = { bgHigh: 200, bgTargetTop: 180, bgTargetBottom: 80, bgLow: 55 };
@@ -257,6 +320,39 @@ describe('resident window: the level component through a resident equals the ful
       s = await cycle(a, now + 2 * MIN, { label: 'unmarked change' });
       assert.equal(s.mode, 'full'); assert.equal(s.differences, 1); assert.deepEqual(s.reasons, ['self-check']);
       assert.ok(s.result.frame.sgvs.some(row => row.mgdl === 55), 'the repaired window holds the changed reading');
+    } finally { close(a); }
+  });
+
+  it('refuses and admits at the byte bound exactly as the full read does, and holds each document once', async function () {
+    const now = Math.floor(clock.RealDate.now() / MIN) * MIN;
+    const evaluator = require('../lib/data/tenant-projection-evaluator'), { encodeDocument } = require('../lib/storage/postgres-identity');
+    const a = arms(A, 'a', now);
+    try {
+      await cycle(a, now, { label: 'first' });
+      a.write([sgv('a-new', 123, now)], { at: now });
+      await cycle(a, now + MIN, { label: 'tail' });
+      // The whole input's text, as the full read's component measures it (no statistics: the plugin set has no dbsize).
+      const at = now + 2 * MIN, policy = windowPolicy.create(env(), at);
+      clock.pin(at);
+      const recovered = await a.full.db.replay.window({ policy });
+      const size = Buffer.byteLength(JSON.stringify({ checkpoint: recovered.checkpoint, progress: recovered.progress,
+        rows: recovered.rows.map(row => ({ domain: row.domain, ...encodeDocument(row.document), ordinal: row.ordinal })),
+        stats: {}, signature: recovered.signature, expiresAt: recovered.expiresAt, generation: recovered.generation }));
+      const resident = (await a.resident.db.replay.window({ policy })).resident;
+      for (const [maxBytes, admitted] of [[size - 1, false], [size, true]]) {
+        const outcomes = [];
+        for (const arm of [a.resident, a.full]) {
+          // A tail read at the bound: the resident arm's replay answers from the resident just read.
+          const replay = arm === a.resident ? { ...arm.db.replay, window: options => arm.db.replay.window({ ...options, resident }) } : arm.db.replay;
+          const c = evaluator({ tenant: A, replay, env: env(), language: require('../lib/language')(), includeFrame: true,
+            connection: { async query () { throw new Error('No SQL'); } }, dbstats: async () => ({}), maxRows: 10000, maxBytes });
+          try { outcomes.push(await scope.withTenant(A, () => c.evaluate({ at })).then(() => 'admitted', error => /byte bound/.test(error.message) ? 'refused' : error.message)); } finally { c.close(); }
+        }
+        assert.deepEqual(outcomes, admitted ? ['admitted', 'admitted'] : ['refused', 'refused'], 'bound ' + maxBytes + ' of ' + size);
+      }
+      // After a completed cycle every resident document is the evaluator's prepared copy.
+      const held = (await a.resident.db.replay.window({ policy, resident })).resident;
+      assert.equal(held.rows.filter(row => !row.shared).length, 0, 'the rows carried from the cycles above are shared');
     } finally { close(a); }
   });
 

@@ -159,7 +159,7 @@ describe('evaluator level-window input preparation (differential)', function () 
   const controls = [
     ['ordinals lost', LEVEL_GROUPING, 'for (const row of input.rows) groups[row.domain].push({ ...row, ordinal: null });', 'differs'],
     ['a row lost', LEVEL_GROUPING, 'for (const row of input.rows.slice(0, -1)) groups[row.domain].push(row);', 'differs'],
-    ['byte bound skipped', "          if (Buffer.byteLength(text) > maxBytes) throw new Error('Evaluator retained input byte bound exceeded');\n          const groups",
+    ['byte bound skipped', "          if (inputBytes > maxBytes) throw new Error('Evaluator retained input byte bound exceeded');\n          const groups",
       '          const groups', 'bound']
   ];
   for (const [name, needle, replacement, kind] of controls) {
