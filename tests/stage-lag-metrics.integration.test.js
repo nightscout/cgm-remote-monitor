@@ -70,8 +70,14 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
         }
         await cycle;
         const observed = await lag();
-        const row = (await lab.admin.query('SELECT work_pending_at, work_completed_at FROM ' + table + ' WHERE consumer=$1 AND tenant_id=$2', [store.consumer, lab.A])).rows[0];
-        console.log('    ' + JSON.stringify({ delayMs: Number(ms || 0), m1: observed, after: service.pendingSummary(), workPendingAt: row.work_pending_at }));
+        const row = (await lab.admin.query('SELECT work_pending_at, work_completed_at, lag_count::int AS count, lag_sum_ms::int AS sum, lag_buckets::int[] AS buckets FROM ' + table + ' WHERE consumer=$1 AND tenant_id=$2', [store.consumer, lab.A])).rows[0];
+        console.log('    ' + JSON.stringify({ delayMs: Number(ms || 0), m1: observed, after: service.pendingSummary(), workPendingAt: row.work_pending_at, durable: { count: row.count, sumMs: row.sum, buckets: row.buckets } }));
+        // Durable M1 on the row (work catalogue 0010): the same count as the
+        // Prometheus M1, and the delay moves it to the 1-2 s bucket.
+        assert.equal(row.count, observed.count, 'DURABLE_COUNT_EQUALS_PROMETHEUS');
+        assert.ok(Math.abs(row.sum / 1000 - observed.sum) < 0.25, 'DURABLE_SUM_NEAR_PROMETHEUS ' + row.sum + ' ' + observed.sum);
+        if (ms) assert.equal(row.buckets[3], 1, 'DELAY_MOVES_DURABLE_BUCKET ' + row.buckets);
+        else assert.equal(row.buckets[0] + row.buckets[1] + row.buckets[2], 1, 'NO_DELAY_DURABLE_BELOW_1S ' + row.buckets);
         assert.equal(observed.count, 1, 'ONE_COVERING_COMPLETION');
         assert.equal(row.work_pending_at, null, 'DURABLE_INPUT_COVERED');
         if (ms) assert.ok(observed.sum >= 1.45 && observed.sum < 5, 'M1_SHOWS_DELAY ' + observed.sum);

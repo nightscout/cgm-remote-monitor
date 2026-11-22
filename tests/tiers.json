@@ -119,6 +119,7 @@
         "tests/m7-diagnostics.test.js",
         "tests/metrics.test.js",
         "tests/stage-lag-metrics.test.js",
+        "tests/pgstream-completion-lag.test.js",
         "tests/m7-diagnostics-output.test.js",
         "tests/pool-config.test.js",
         "tests/realtime-warm-retry.test.js",

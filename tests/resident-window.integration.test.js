@@ -466,8 +466,8 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
       const { check } = require('../lib/writer-driven/schema');
       const writerDriven = require('../lib/writer-driven');
       const current = require('../migrations/candidates/postgres-evaluator-work-v2.json');
-      const previous = { ...current, migrations: current.migrations.filter(m => m.name !== '0009_evaluator_window_mark') };
-      assert.equal(previous.migrations.length, current.migrations.length - 1);
+      const previous = { ...current, migrations: current.migrations.filter(m => !['0009_evaluator_window_mark', '0010_evaluator_completion_lag'].includes(m.name)) };
+      assert.equal(previous.migrations.length, current.migrations.length - 2);
       const namespace = lab.base.name + '_seed', table = '"' + namespace + '".tenant_consumer_checkpoint', admin = lab.admin, writer = lab.base.role;
       const uri = process.env.NS_TEST_POSTGRES_ADMIN_URI, tenant = lab.tenants[0], selected = { table, consumer: lab.COMPLETED };
       const exact = { touched: true, full: false, profile: false, entries: '1700000000000', devicestatus: null, treatments: null };
@@ -493,7 +493,7 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
         await admin.query(`GRANT SELECT(tenant_id,consumer,work_version,work_observed,work_pending_at), UPDATE(work_observed,work_observed_at,work_pending_at) ON ${table} TO "${writer}"`);
         // This build's evaluator refuses to start on it: one migration is pending.
         await assert.rejects(check([{ connectionString: uri, namespace, catalogue: current }]), { code: 'EVALUATOR_SCHEMA_REFUSED' });
-        // Brought forward: only 0009 runs, and existing rows take the defaults.
+        // Brought forward: only 0009 and 0010 run, and existing rows take the defaults.
         await migrate('up', { direct: true, connectionString: uri, namespace, catalogue: current });
         await check([{ connectionString: uri, namespace, catalogue: current }]);
         assert.deepEqual(await row(), { work_observed: ['4', null, null, null, null, '1'], version: null, full: false, entries: null });
