@@ -186,10 +186,16 @@ const older = (row, at, hours) => Date.parse(row.doc.created_at) < at - hours * 
 describe('evaluator window levers', function () {
   this.timeout(180000);
   let previousMode;
-  before(() => clock.install());
-  after(() => clock.uninstall());
-  beforeEach(() => { previousMode = scope.getTenancyMode(); scope.setTenancyMode('multi'); clock.pin(NOW); });
-  afterEach(() => scope.setTenancyMode(previousMode));
+  before(() => {
+    previousMode = scope.getTenancyMode();
+    scope.setTenancyMode('multi');
+    clock.install();
+  });
+  after(() => {
+    clock.uninstall();
+    scope.setTenancyMode(previousMode);
+  });
+  beforeEach(() => clock.pin(NOW));
 
   describe('the switch', function () {
     it('is off unless named, and refuses a lever it does not know', function () {
@@ -313,7 +319,6 @@ describe('evaluator window levers', function () {
     describe('against the switch off, ' + envName + ' plugins', function () {
       let reference;
       before(async function () {
-        scope.setTenancyMode('multi');
         reference = { warm: await cycles(envName, 'off'), cold: await cycles(envName, 'off', { cold: true }) };
       });
       it('the history exercises the plugins and the frame', function () {
