@@ -74,6 +74,8 @@ const INVENTORY = [
     note: 'typed catalogue replay, exact bigint/null/epoch codecs, bounded legacy admission, durable receipt COMMIT and revision recovery' },
   { file: 'tests/pgstream-typed-checkpoint.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'native typed observed/completed/due/output state and independent output handoff with current source authority' },
+  { file: 'tests/postgres-indexed-lookup.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: PENDING,
+    note: 'upload target and _id lookups read an index range, not the tenant history; answers equal to MongoDB for every bounded field' },
   { file: 'tests/stage-lag-metrics.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'completion lag (M1) uses the older of the api pending mark and the evaluator hint mark; an injected completion delay shows in the histogram' },
   { file: 'tests/pgstream-bootstrap-batch.integration.test.js', flags: { NS_PGSTREAM_ROLE_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
