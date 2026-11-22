@@ -526,6 +526,7 @@
         "tests/pgstream-checkpoint.integration.test.js",
         "tests/pgstream-typed-migration.integration.test.js",
         "tests/pgstream-typed-checkpoint.integration.test.js",
+        "tests/stage-lag-metrics.integration.test.js",
         "tests/postgres-connection.test.js",
         "tests/postgres-entries-read.test.js",
         "tests/postgres-entries-write.test.js",
