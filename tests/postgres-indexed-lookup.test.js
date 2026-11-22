@@ -64,10 +64,17 @@ function filters ({ text, number }) {
     for (const v of ['v1', 'zz', 'a', '', 'V1', 'v2', 'missing']) out.push(cmp('eq', f, v));
     out.push(cmp('eq', f, null), cmp('eq', f, 7), cmp('in', f, ['v2', 'b']), cmp('in', f, ['zz', null]),
       cmp('in', f, ['v1', 7]), cmp('ne', f, 'v1'), cmp('nin', f, ['v1', 'a']));
+    // Ranges: a lower bound on a window column is index-bounded.
+    for (const op of ['gt', 'gte', 'lt', 'lte']) {
+      for (const v of ['v1', 'zz', 'a', '', 'V1', 'zzz', 7, null]) out.push(cmp(op, f, v));
+    }
   }
   for (const f of number) {
     for (const v of [1000, 1000.5, 2000, 5, 6, 999.5, 999, 0, -1]) out.push(cmp('eq', f, v));
     out.push(cmp('eq', f, 'x'), cmp('eq', f, null), cmp('in', f, [6, 1000.5]), cmp('ne', f, 1000), cmp('nin', f, [2000]));
+    for (const op of ['gt', 'gte', 'lt', 'lte']) {
+      for (const v of [1000, 1000.5, 999.5, 2000, 2000.5, 6, 0, -1, 'x', null]) out.push(cmp(op, f, v));
+    }
   }
   if (text.length > 1) {
     out.push(and(cmp('eq', text[0], 'v1'), cmp('eq', text[1], 'v1')),
@@ -247,6 +254,15 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
           .findFiltered(and(cmp('eq', 'created_at', iso(HISTORY - 3)), cmp('eq', 'eventType', 'Temp Basal')), raw)],
         ['devicestatus created_at', 'devicestatus', (lab, c) => entriesRead({ connection: c, table: lab.qualified })
           .findFiltered(cmp('eq', 'created_at', iso(HISTORY - 3)), raw)],
+        // The v1 list reads: the newest rows of a created_at (or date)
+        // window, valid records only (GET /api/v1/devicestatus?count=1 reads
+        // the default window, from four days ago). The upper end keeps the
+        // answer matrix's array values, which no sort admits, out of the read.
+        ...[['devicestatus', 'created_at', iso], ['treatments', 'created_at', iso],
+          ['entries', 'date', k => T0 + k * STEP]].map(([table, field, at]) =>
+          [`${table} v1 window read (${field} $gte, newest first)`, table, (lab, c) => entriesRead({ connection: c, table: lab.qualified })
+            .findFiltered(and(cmp('gte', field, at(HISTORY - 10)), cmp('lte', field, at(HISTORY)), cmp('ne', 'isValid', false)),
+              { sort: { [field]: -1 }, limit: 1, options: { normalize: false } })]),
         // The primary key (tenant_id, id_kind, "_id") is in the database's
         // collation; an equality compared under "C" cannot use it.
         ['treatments _id, both kinds (v1 PUT/DELETE, v3 typed identity)', 'treatments', (lab, c) => entriesRead({ connection: c, table: lab.qualified })

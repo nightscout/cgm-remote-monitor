@@ -656,6 +656,44 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await stop(); await start();
     });
 
+    it('answers the default v1 devicestatus read at a 90-day tenant well inside the api deadline', async function () {
+      this.timeout(120000);
+      // 90 days of 5-minute Loop-shaped statuses (25,920, synthetic) for tenant A.
+      const STEP = 300000, n = 90 * 288;
+      const docs = Array.from({ length: n }, (_, i) => {
+        const at = new Date(BASE - (n - 1 - i) * STEP).toISOString();
+        return encodeDocument({ _id: ObjectId.createFromTime(Math.floor(Date.parse(at) / 1000)), created_at: at, device: 'loop://synthetic', utcOffset: 0,
+          loop: { name: 'Loop', version: '3.4', timestamp: at, iob: { iob: 1.2, timestamp: at }, cob: { cob: 10, timestamp: at },
+            predicted: { startDate: at, values: Array.from({ length: 73 }, (_, k) => 100 + (i * 7 + k * k) % 97) },
+            enacted: { rate: 0.5, duration: 30, received: true, timestamp: at },
+            automaticDoseRecommendation: { timestamp: at, bolusVolume: 0.05, tempBasalAdjustment: { rate: 0.5, duration: 30 } } },
+          pump: { clock: at, reservoir: 100, pumpID: 'synthetic', suspended: false, bolusing: false, manufacturer: 'synthetic', model: 'synthetic' },
+          uploader: { battery: 80, name: 'synthetic', timestamp: at }, override: { active: false, timestamp: at } });
+      });
+      for (let i = 0; i < n; i += 2000) {
+        const part = docs.slice(i, i + 2000);
+        await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(
+          `INSERT INTO "${schemas.devicestatus}".devicestatus (tenant_id, id_kind, doc)
+           SELECT $1, kind, doc FROM unnest($2::text[], $3::jsonb[]) AS row(kind, doc)`,
+          [A, part.map(row => row.id_kind), part.map(row => JSON.stringify(row.doc))]));
+      }
+      await admin.query(`VACUUM ANALYZE "${schemas.devicestatus}".devicestatus`);
+      // The api's connection options with a tenth of its 1 s query deadline.
+      // Unbounded, the read detoasts every row the tenant holds: about 290 ms
+      // on an idle workstation (measured, PostgreSQL 16.15), 503 here. Bounded
+      // by created_at it reads the default four-day window: about 16 ms.
+      await stop(); await start({ pool: { ...DATA_CONNECTION, query_timeout: 100 } });
+      try {
+        await http('get', '/api/v1/devicestatus.json?count=1');
+        for (const path of ['/api/v1/devicestatus.json?count=1', '/api/v1/devicestatus.json', '/api/v2/devicestatus.json?count=10']) {
+          const reply = await http('get', path);
+          assert.equal(reply.status, 200, 'READS_TENANT_HISTORY ' + path + ' ' + reply.text.slice(0, 80));
+          assert.equal(reply.body[0].created_at, new Date(BASE).toISOString(), path);
+          assert.equal(reply.body.length, path.includes('count=1') && !path.includes('count=10') ? 1 : 10, path);
+        }
+      } finally { await stop(); await start(); }
+    });
+
     it('rolls legacy writes back before emitting events for either domain and isolates successful tenant events', async function () {
       for (const domain of domains) await seed(domain, [{ _id: new ObjectId(ID), created_at: CREATED,
         device: 'rig', identifier: domain + '-record' }]);
