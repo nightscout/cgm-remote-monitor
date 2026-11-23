@@ -858,12 +858,15 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       audit: (await client.query(`SELECT * FROM ${audits} ORDER BY event_id`)).rows
     });
     const c = { tenant: A, principal: 'root', consumer: 'issuer' };
-    const make = (p, server, token, signingVersion) => createSecrets({
+    // Vault keeps only the tenant data key; token signing keys derive in process
+    // and are not a secrets operation (decision deployment-signing-secret), so
+    // this restore covers ciphertext, audit and the data key's versions.
+    const make = (p, server, token) => createSecrets({
       ...p, providerFor: async tenant => {
         assert.equal(tenant, A);
         return createVaultTransit({
-          address: server.address, mount: 'transit', encryptionKey: 'tenant-a-data', signingKey: 'tenant-a-signing',
-          signingVersion, getToken: async () => token, allowInsecureLoopback: true
+          address: server.address, mount: 'transit', encryptionKey: 'tenant-a-data',
+          getToken: async () => token, allowInsecureLoopback: true
         });
       },
       authorize: async context => context.tenant === A && context.principal === 'root' && context.consumer === 'issuer',
@@ -872,25 +875,19 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
     try {
       const source = await startVault();
       await api(source, 'sys/mounts/transit', { type: 'transit' });
-      for (const key of ['tenant-a-data', 'tenant-a-signing']) {
-        await api(source, 'transit/keys/' + key, { type: 'aes256-gcm96', exportable: false });
-      }
+      await api(source, 'transit/keys/tenant-a-data', { type: 'aes256-gcm96', exportable: false });
       const policy = ['encrypt', 'decrypt'].map(operation =>
-        `path "transit/${operation}/tenant-a-data" { capabilities = ["update"] }`).concat(
-        ['hmac', 'verify'].map(operation =>
-          `path "transit/${operation}/tenant-a-signing" { capabilities = ["update"] }`)).join('\n');
+        `path "transit/${operation}/tenant-a-data" { capabilities = ["update"] }`).join('\n');
       await api(source, 'sys/policies/acl/runtime', { policy });
       const scoped = (await api(source, 'auth/token/create', {
         policies: ['runtime'], no_default_policy: true, ttl: '5m', renewable: false
       })).auth.client_token;
-      const first = make(persistence, source, scoped, 1);
+      const first = make(persistence, source, scoped);
       const oldRef = await first.encrypt(c, 'backup-v1', Buffer.from('synthetic-recovery-v1'));
-      const oldJWT = await first.signJWT(c, 'synthetic-subject', 300);
       const oldKeys = await snapshot(source);
-      for (const key of ['tenant-a-data', 'tenant-a-signing']) await api(source, 'transit/keys/' + key + '/rotate', {});
-      const second = make(persistence, source, scoped, 2);
+      await api(source, 'transit/keys/tenant-a-data/rotate', {});
+      const second = make(persistence, source, scoped);
       const newRef = await second.encrypt(c, 'backup-v2', Buffer.from('synthetic-recovery-v2'));
-      const newJWT = await second.signJWT(c, 'synthetic-subject', 300);
       await persistence.store.insert({ tenant: B, id: 'backup-foreign', format: 1, ciphertext: 'opaque-foreign' });
       const allKeys = await snapshot(source);
       const expected = await state(admin);
@@ -928,28 +925,21 @@ optInSuite(process.env.NS_SECRETS_POSTGRES_DOCKER_TEST === '1', 'NS_SECRETS_POST
       });
       await missing.body.cancel();
       assert.equal(missing.status, 404, 'negative control has no data key, not merely a denied credential');
-      await assert.rejects(make(restored, target, target.root, 1).reveal(c, oldRef),
+      await assert.rejects(make(restored, target, target.root).reveal(c, oldRef),
         { code: 'SECRETS_PROVIDER_REFUSED' });
       docker(['rm', '-f', '-v', source.name]);
       vaults.delete(source.name);
       await restoreSnapshot(target, oldKeys, source);
       assert.equal((await api(target, 'transit/keys/tenant-a-data')).data.latest_version, 1);
-      assert.equal((await make(restored, target, scoped, 1).reveal(c, oldRef)).toString(), 'synthetic-recovery-v1');
-      assert.equal((await make(restored, target, scoped, 1).verifyJWT(c, oldJWT)).accessToken, 'synthetic-subject');
-      await assert.rejects(make(restored, target, scoped, 2).reveal(c, newRef), { code: 'SECRETS_PROVIDER_REFUSED' });
-      await assert.rejects(make(restored, target, scoped, 2).verifyJWT(c, newJWT), { code: 'SECRETS_PROVIDER_REFUSED' });
+      assert.equal((await make(restored, target, scoped).reveal(c, oldRef)).toString(), 'synthetic-recovery-v1');
+      await assert.rejects(make(restored, target, scoped).reveal(c, newRef), { code: 'SECRETS_PROVIDER_REFUSED' });
       await restoreSnapshot(target, allKeys, source);
-      const recovered = make(restored, target, scoped, 2);
-      for (const key of ['tenant-a-data', 'tenant-a-signing']) {
-        const metadata = (await api(target, 'transit/keys/' + key)).data;
-        assert.equal(metadata.latest_version, 2);
-        assert.equal(metadata.exportable, false);
-      }
+      const recovered = make(restored, target, scoped);
+      const metadata = (await api(target, 'transit/keys/tenant-a-data')).data;
+      assert.equal(metadata.latest_version, 2);
+      assert.equal(metadata.exportable, false);
       assert.equal((await recovered.reveal(c, oldRef)).toString(), 'synthetic-recovery-v1');
       assert.equal((await recovered.reveal(c, newRef)).toString(), 'synthetic-recovery-v2');
-      for (const token of [oldJWT, newJWT]) {
-        assert.equal((await recovered.verifyJWT(c, token)).accessToken, 'synthetic-subject');
-      }
       const final = await state(restoredAdmin);
       assert.deepEqual(final.records, expected.records, 'restoration never replaces immutable references');
       const originalEvents = new Set(expected.audit.map(event => event.event_id));
