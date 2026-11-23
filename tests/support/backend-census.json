@@ -144,6 +144,7 @@
     "tests/tenant-rest-entries.integration.test.js": "by mechanism: tenant PostgreSQL legacy entries use the actual shipping MongoDB HTTP oracle",
     "tests/tenant-rest-profile-food.integration.test.js": "by mechanism: tenant PostgreSQL profile and food use the actual shipping MongoDB HTTP oracle",
     "tests/tenant-rest-treatments.integration.test.js": "by mechanism: tenant PostgreSQL treatments use the actual shipping MongoDB HTTP oracle",
-    "tests/treatment-key-official-parity.integration.test.js": "by mechanism: tenant PostgreSQL treatments key indexes compared with an official/dev child server on MongoDB"
+    "tests/treatment-key-official-parity.integration.test.js": "by mechanism: tenant PostgreSQL treatments key indexes compared with an official/dev child server on MongoDB",
+    "tests/v1-resend-official-parity.integration.test.js": "by mechanism: tenant PostgreSQL v1 re-sends compared with an official/dev child server on MongoDB"
   }
 }
