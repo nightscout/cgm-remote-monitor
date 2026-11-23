@@ -66,10 +66,10 @@ const status = (id, at, battery = 70) => row('devicestatus', { _id: id, device: 
     enacted: { bg: 140, temp: 'absolute', rate: 0.8, duration: 30, received: true, reason: 'synthetic', timestamp: iso(at) } } });
 
 // The replay with its mutations; returns the cycles compared.
-async function replay ({ minutes, levers, on: armOn, off: armOff, what }) {
+async function replay ({ minutes, levers, on: armOn, off: armOff, what, factory }) {
   const timeline = TIMELINES.quiet();
   let thresholds = THRESHOLDS;
-  const pair = arms(() => ENVS.loop(thresholds), levers, { on: armOn, off: armOff, what });
+  const pair = arms(() => ENVS.loop(thresholds), levers, { on: armOn, off: armOff, what, ...(factory ? { factory } : {}) });
   const uploadedAt = (domain, d) => d._uploadAt != null ? Number(d._uploadAt)
     : domain === 'entries' ? Number(d.date) : Date.parse(d.created_at) || Date.parse(d.startDate) || timeline.start;
   const queue = Object.entries(timeline.records).flatMap(([domain, records]) => records.map((value, i) => {
