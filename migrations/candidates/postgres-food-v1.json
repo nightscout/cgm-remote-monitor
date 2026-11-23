@@ -83,6 +83,19 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "fbdd361b388825cc92534ad316058f8d4cd4859677a8256a2e470b3bbdc40b47"
+    },
+    {
+      "name": "0100_food_storage_bytes_removed",
+      "operation": {
+        "kind": "clinical-storage-size-removal-v1",
+        "domain": "food"
+      },
+      "up": [
+        "DROP TRIGGER clinical_storage_size ON \"nightscout_migration_namespace\".\"food\"",
+        "DROP FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"food\" DROP COLUMN storage_bytes"
+      ],
+      "checksum": "3f14688f06a5f3933b62f03f3f236ce1deaccd9fa6c575d409cbe1f1c88df9f6"
     }
   ]
 }

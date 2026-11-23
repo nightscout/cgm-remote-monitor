@@ -25,8 +25,8 @@ function profileInputs ({ writerRole, readerRole, realtimeRole, legacy = false }
     // tail is retired with pgstream, in place). Historical recovery input
     // above stays frozen.
     sourceCommit: 'abfb36dfb27288fb06c94b9bb1a30a9586f3f2bb',
-    sourceSha256: 'c6a3e94bbec1dbeff2990dfbfdfcbc1a9439b060bc58bbbd609a99e4b5550e86',
-    candidateDigest: 'bf7f3c2b5f685d8aa48136da779b84d558b144a4becfdec62414b08911e6e69f',
+    sourceSha256: '1a497d60edf0276f7a0f78e43ba259c574d09327a638f91014afce55ac62cc30',
+    candidateDigest: 'bbb34a7bedb85eb5fcb68cb6c41f441ddd00b2bc7b5eb2bfd6005bf68b533fbb',
     selection: { profile: FILE }, counter: 'tenant_insertion_ordinal',
     acl: {
       grants: [

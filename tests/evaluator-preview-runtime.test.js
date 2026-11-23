@@ -68,10 +68,9 @@ describe('evaluator preview readiness protocol', function () {
     async function check (kind) {
       let count = 0;
       const insertion = require('../lib/storage/postgres-insertion-readiness'), metadata = insertion.metadata;
-      const sizes=require('../lib/storage/clinical-storage-size-readiness'),sizeAdmission=sizes.assertReady;
       // This recorder proves evaluator scope checks; insertion physical metadata
       // is independently exercised by its own protocol/native suites.
-      insertion.metadata = async () => {};sizes.assertReady=async()=>{};
+      insertion.metadata = async () => {};
       try { await screen({ async query (sql,args) {
         count++;
         if (count === 1) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false,
@@ -81,7 +80,7 @@ describe('evaluator preview readiness protocol', function () {
         if(checkpoint)assert.deepEqual(args[1],['checkpoint','projection','contract_digest',...require('../lib/pgstream/checkpoint').WORK_COLUMNS],'exact typed bookkeeping grant set');
         return { rows: [{ secured: kind !== 'rls', reads: kind !== 'select', forbidden: kind === 'insert',
           updates: !checkpoint && kind === 'update', bookkeeping: checkpoint && kind !== 'missing-owned-update', extra: kind === 'extra-update' }] };
-      } }, cfg); } finally { insertion.metadata = metadata;sizes.assertReady=sizeAdmission; }
+      } }, cfg); } finally { insertion.metadata = metadata; }
     }
     await check(null);
     for (const kind of ['operator', 'schema', 'unrelated', 'rls', 'select', 'insert', 'update', 'missing-owned-update', 'extra-update']) {

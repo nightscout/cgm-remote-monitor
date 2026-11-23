@@ -53,6 +53,19 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "3ce68b0f5d4c2da58450a3075ccb0bd7c86447c3f87cd2fa54f95fbf5d3c59c5"
+    },
+    {
+      "name": "0100_devicestatus_storage_bytes_removed",
+      "operation": {
+        "kind": "clinical-storage-size-removal-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "DROP TRIGGER clinical_storage_size ON \"nightscout_migration_namespace\".\"devicestatus\"",
+        "DROP FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" DROP COLUMN storage_bytes"
+      ],
+      "checksum": "439d282c3a7c2ac9accb0697905f8e289365cd2b7ec3c294be929a6ebdd8d7ac"
     }
   ]
 }

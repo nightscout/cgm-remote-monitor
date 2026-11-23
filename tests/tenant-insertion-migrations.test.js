@@ -31,7 +31,7 @@ const CANDIDATES = {
 // These immutable prefix controls address insertion conversion/binding. The later
 // clinical-size projection and the identifier-array index are append-only
 // independent operations with their own catalogue controls.
-const INDEPENDENT = ['clinical-storage-size-v1', 'identifier-array-index-v1'];
+const INDEPENDENT = ['clinical-storage-size-v1', 'clinical-storage-size-removal-v1', 'identifier-array-index-v1'];
 const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!INDEPENDENT.includes(m.operation?.kind))});
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorCode = code => error => error.code === code;
