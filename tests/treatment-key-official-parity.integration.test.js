@@ -22,7 +22,7 @@
 //   N2 srvCreated and srvModified are replaced by facts: srvCreated equal to
 //      the value first stored for that row (carried), srvModified at or after
 //      srvCreated, srvModified changed by this step;
-//   N3 the reply's and the read's srvCreated/srvModified are removed (N2 checks
+//   N3 the reply's and the read's srvCreated/srvModified (and a v3 reply's lastModified, the server clock at the write) are removed (N2 checks
 //      the stored values); reply objects keep every other key;
 //   N4 the v1 read is compared as a multiset (rows with an equal created_at
 //      have no defined order on either store);
@@ -123,11 +123,15 @@ const SCENARIOS = {
     read
   ],
   'API v3 records carrying a client id': [
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(4), { identifier: 'v3-identifier-a', date: T0 + 4 * 300000 }) },
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(4), { identifier: 'v3-identifier-b', date: T0 + 4 * 300000 }) },
+    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(4), { app: 'synthetic-app', identifier: 'v3-identifier-a', date: T0 + 4 * 300000 }) },
+    // `app` is required by API v3; without it both sides answer 400 and the scenario compares nothing.
+    // The second record has its own fallback key: two live rows with one key make a v1 re-send ambiguous
+    // (PG-FALLBACK-AMBIGUOUS), which official/dev and the candidate resolve to different rows.
+    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(6), { app: 'synthetic-app', identifier: 'v3-identifier-b', date: T0 + 6 * 300000 }) },
     post([C.loop(4)]),
+    post([C.loop(6)]),
     post([C.loop(5)]),
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(5), { date: T0 + 5 * 300000 }) },
+    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(5), { app: 'synthetic-app', date: T0 + 5 * 300000 }) },
     read
   ],
   'array key parts': [
@@ -301,7 +305,7 @@ async function run (side, scenario) {
   const scrub = value => {
     if (Array.isArray(value)) return value.map(scrub);
     if (value && typeof value === 'object') {
-      return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'srvCreated' && k !== 'srvModified').sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'srvCreated' && k !== 'srvModified' && k !== 'lastModified').sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
         .map(([k, v]) => [k, scrub(v)]));
     }
     return label(value);
@@ -430,6 +434,10 @@ optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO
         it(name, async function () {
           const reference = await run(sides.official, scenario);
           const entry = report.scenarios[name] = { official: reference, arms: {} };
+          // A v3 step that both sides refuse compares nothing (the scenario once omitted `app`).
+          for (const [i, step] of scenario.entries()) {
+            if (step.v === 3 && step.method === 'POST') assert.ok(reference[i].reply.status < 300, 'v3 POST at step ' + i + ' answered ' + reference[i].reply.status);
+          }
           if (revive) {
             const officialRevive = await run(sides.officialRevive, scenario);
             entry.officialRevive = { sameAsStay: !differences(reference, officialRevive).length, observed: officialRevive };

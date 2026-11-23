@@ -102,6 +102,10 @@ function checkingCanonical (seen) {
       const result = await promise;
       const value = contentOf(result), text = runtime.replacerCanonical(value);
       assert.equal(runtime.prepassCanonical(value), text, 'the prepass gives the replacer pass\'s text for a cycle result');
+      // The result's own moments force the fallback; its JSON round trip is plain
+      // data with the result's key order, so this takes the sorting walk.
+      const plain = JSON.parse(JSON.stringify(value));
+      assert.equal(runtime.prepassCanonical(plain), text, 'the sorting walk gives the replacer pass\'s text for the plain copy of a cycle result');
       seen.cycles += 1;
       return result;
     };
@@ -200,8 +204,8 @@ describe('INC-E2 evaluator hotspots, each with the result as before', function (
     // rows, the off arm rebuilds), window levers on and off. The replay runs the
     // loop plugin set, whose properties hold moments (toJSON), so both passes
     // take the replacer's text here: this checks the fallback on real results;
-    // the sorting walk is checked by the edge shapes and random values above
-    // (a prepass that does not sort stays green here, measured 2026-11-22).
+    // the sorting walk runs on each result's plain JSON copy (see checkingCanonical)
+    // and on the edge shapes and random values above.
     const LEVEL = { residentWorkingSet: true, encodeDelta: true };
     for (const [name, levers] of [['window levers on', 'all'], ['window levers off', '0']]) {
       it('gives the replacer pass\'s text on every cycle result of the replay (' + name + ')', async function () {

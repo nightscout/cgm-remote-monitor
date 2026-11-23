@@ -127,6 +127,15 @@ describe('storage refusal counter (nightscout_storage_refusals_total)', function
     assert.equal(series(text).some(line => line.includes('TENANT_WARMING')), false, 'NOT_A_STORAGE_CODE');
   });
 
+  it('the tenant app failure handler answers and counts a wrapped storage refusal by its own code', async function () {
+    metrics.configure(['api'], { NS_METRICS: 'true' });
+    const app = tenantApp(() => wrapped('STORAGE_TIMEOUT', 'statement'));
+    const res = await request(app).post('/api/v3/entries').set('Authorization', 'Bearer x').expect(503, { error: 'STORAGE_TIMEOUT' });
+    assert.equal(res.headers['retry-after'], '1');
+    const text = await metrics.current.text();
+    assert.equal(sample(text, { role: 'api', code: 'STORAGE_TIMEOUT', route_class: 'entries_write', phase: 'statement' }), 1);
+  });
+
   it('labels stay in closed sets: unknown phases, routes and tenant ids never become label values', async function () {
     metrics.configure(['api'], { NS_METRICS: 'true' });
     const app = storageApp(() => wrapped('STORAGE_TIMEOUT', A));
