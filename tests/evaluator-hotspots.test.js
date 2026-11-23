@@ -1,7 +1,7 @@
 'use strict';
 
-// INC-E2: three CPU hotspots of the level evaluator, each with the same
-// result as before.
+// INC-E2: two CPU hotspots of the level evaluator, each with the same result
+// as before. (Its third, NS_EVAL_CACHE_ADOPT, was removed 2026-11-22.)
 //
 // 1. dataloader mergeProcessSort (no switch): the merge that keeps an old
 //    record unless a new record or an old one already kept has its _id, in
@@ -12,24 +12,14 @@
 //    and a plain JSON.stringify instead of a replacer called for every value.
 //    Checked against the replacer pass and the recursive definition on edge
 //    shapes, random values and every cycle result of the 1,201-minute replay.
-// 3. NS_EVAL_CACHE_ADOPT (private-acquisition, cache.js): the acquisition's
-//    cache keeps the entries and treatments it is given without a deep copy
-//    when the copy would be the same value. Checked record by record against
-//    the copy, and as an on/off differential over the resident window
-//    stand-in: every synthetic scenario under two plugin sets, and the
-//    1,201-minute replay with its mutations, window levers on and off.
 const assert = require('node:assert/strict');
-const { isDeepStrictEqual } = require('node:util');
 const scope = require('../lib/storage/tenant-scope');
 const evaluator = require('../lib/data/tenant-projection-evaluator');
 const runtime = require('../lib/server/serve/evaluator-runtime');
 const dataloader = require('../lib/data/dataloader');
-const createCache = require('../lib/server/cache');
-const acquisition = require('../lib/data/private-acquisition');
 const { jsonCopy } = require('../lib/data/json-copy');
 const clock = require('./lib/views-replay/clock');
-const { SCENARIOS, MIN } = require('./lib/views-equality/fixtures');
-const { ENVS, copy, arms, cycle, row, reading, replay } = require('./lib/resident-window/differential');
+const { replay } = require('./lib/resident-window/differential');
 
 // A seeded generator, so a failure names a reproducible case.
 function seeded (seed) {
@@ -204,92 +194,26 @@ describe('INC-E2 evaluator hotspots, each with the result as before', function (
       assert.equal(runtime.prepassCanonical(value), '{"a":{"y":2,"z":1},"b":[{"c":2,"d":1}]}');
       assert.equal(JSON.stringify(value), before);
     });
-  });
 
-  describe('NS_EVAL_CACHE_ADOPT', function () {
-    it('reads its switch strictly, off by default', function () {
-      assert.equal(acquisition.CACHE_ADOPT, 'NS_EVAL_CACHE_ADOPT');
-      for (const off of [undefined, null, '', '0', 'off', false]) assert.equal(acquisition.parseAdopt(off), false);
-      for (const on of ['1', 'on', true]) assert.equal(acquisition.parseAdopt(on), true);
-      assert.throws(() => acquisition.parseAdopt('yes'), /NS_EVAL_CACHE_ADOPT is 1 or 0/);
-    });
-
-    it('adopts only a record whose copy would be the same value', function () {
-      const frozen = Object.freeze({ a: Object.freeze([1, 2]) });
-      const stable = [{}, { _id: 'x', mills: 5, s: 'a', b: false, n: null, child: frozen }, Object.assign(Object.create(null), { _id: 'y' })];
-      const unstable = [{ mills: NaN }, { mills: Infinity }, { mills: -Infinity }, { mills: -0 }, { u: undefined }, { f () {} }, { d: new Date(0) }, { child: { a: 1 } },
-        { child: Object.freeze({ toJSON () { return 1; } }) }, new Instance(), { n: 1n }, { s: Symbol('s') }];
-      for (const record of stable) assert.equal(createCache.jsonStable(record), true, JSON.stringify(record));
-      for (const record of unstable) assert.equal(createCache.jsonStable(record), false, String(Object.keys(record)));
-    });
-
-    it('holds what the copy holds, record by record, adopting the stable ones', function () {
-      const ctx = { bus: { on () {} }, ddata: require('../lib/data/ddata')({ copy: jsonCopy }) };
-      const env = { extendedSettings: {} };
-      const now = Date.now();
-      const records = () => [{ _id: 'a', mills: now - 1000, sgv: 100, child: Object.freeze({ x: 1 }) }, { _id: 'b', mills: now - 2000, date: NaN, sgv: 101 },
-        { _id: 'c', mills: now - 3000, child: { x: 2 } }, { _id: 'd', created_at: new Date(now - 4000).toISOString(), mills: now - 4000, at: new Date(now) },
-        { _id: 'e', mills: now - 500, u: undefined, z: -0 }];
-      const plain = createCache(env, ctx, { copy: jsonCopy });
-      const adopting = createCache(env, ctx, { copy: jsonCopy, adopt: jsonCopy });
-      const before = { ...createCache.adoptCounters };
-      for (const datatype of ['entries', 'treatments']) {
-        const given = records();
-        const a = plain.insertDataRef(datatype, records()), b = adopting.insertDataRef(datatype, given);
-        assert.ok(isDeepStrictEqual(b, a), datatype + ': the same values as the copies');
-        assert.equal(b.find(r => r._id === 'a'), given[0], datatype + ': a stable record is kept as given');
-        for (const id of ['b', 'c', 'd', 'e']) assert.notEqual(b.find(r => r._id === id), given.find(r => r._id === id), datatype + ': ' + id + ' is copied');
-      }
-      assert.deepEqual({ adopted: createCache.adoptCounters.adopted - before.adopted, copied: createCache.adoptCounters.copied - before.copied }, { adopted: 2, copied: 8 });
-      // insertData (device statuses, which the loader writes to) copies as before.
-      const given = records();
-      assert.ok(adopting.insertData('devicestatus', given).every(r => !given.includes(r)));
-    });
-
+    // The prepass on every cycle result of the 1,201-minute replay through the
+    // resident window stand-in (the on arm keeps the working set and the encoded
+    // rows, the off arm rebuilds), window levers on and off. The replay runs the
+    // loop plugin set, whose properties hold moments (toJSON), so both passes
+    // take the replacer's text here: this checks the fallback on real results;
+    // the sorting walk is checked by the edge shapes and random values above
+    // (a prepass that does not sort stays green here, measured 2026-11-22).
     const LEVEL = { residentWorkingSet: true, encodeDelta: true };
     for (const [name, levers] of [['window levers on', 'all'], ['window levers off', '0']]) {
-      it('gives the unswitched result for every synthetic scenario under two plugin sets (' + name + ')', async function () {
+      it('gives the replacer pass\'s text on every cycle result of the replay (' + name + ')', async function () {
         clock.install();
-        const before = createCache.adoptCounters.adopted;
+        const seen = { cycles: 0 };
         try {
-          const now = Math.floor(clock.RealDate.now() / MIN) * MIN;
-          for (const scenario of Object.keys(SCENARIOS)) {
-            for (const envName of ['loop', 'defaults']) {
-              const pair = arms(ENVS[envName], levers, { on: { ...LEVEL, cacheAdopt: true }, off: { ...LEVEL, cacheAdopt: false }, what: 'the adopting cache gives the copying cache\'s cycle result' });
-              const fx = SCENARIOS[scenario](now), label = scenario + ' ' + envName + ' ';
-              try {
-                const seed = [];
-                for (const domain of ['entries', 'treatments', 'devicestatus', 'profile']) for (const [i, doc] of fx[domain].entries()) seed.push(row(domain, { ...copy(doc), _id: domain + '-' + i }));
-                pair.write(seed, { exact: false, at: now });
-                await cycle(pair, now, { label: label + 'acquisition' });
-                await cycle(pair, now + 61000, { time: true, label: label + 'time-only' });
-                pair.write([reading('new-reading', 222, now + 2 * MIN - 5000)], { at: now + 2 * MIN });
-                await cycle(pair, now + 2 * MIN, { label: label + 'second acquisition' });
-              } finally { pair.close(); }
-            }
-          }
-        } finally { clock.uninstall(); }
-        assert.ok(createCache.adoptCounters.adopted > before, 'records were adopted');
-      });
-
-      it('gives the unswitched result on every minute of the replay (' + name + '), and the prepass on every cycle result', async function () {
-        clock.install();
-        const before = createCache.adoptCounters.adopted, seen = { cycles: 0 };
-        try {
-          const cycles = await replay({ minutes: 1200, levers, on: { ...LEVEL, cacheAdopt: true }, off: { ...LEVEL, cacheAdopt: false },
-            what: 'the adopting cache gives the copying cache\'s cycle result', factory: checkingCanonical(seen) });
+          const cycles = await replay({ minutes: 1200, levers, on: LEVEL, off: { residentWorkingSet: false, encodeDelta: false },
+            what: 'the resident window gives the full rebuild\'s cycle result', factory: checkingCanonical(seen) });
           assert.equal(cycles, 1201);
           assert.equal(seen.cycles, 1201);
         } finally { clock.uninstall(); }
-        assert.ok(createCache.adoptCounters.adopted > before, 'records were adopted');
       });
     }
-
-    it('is off unless the level evaluator is given it', async function () {
-      const memory = require('./lib/resident-window/memory-replay');
-      const { TENANT } = require('./lib/resident-window/differential');
-      assert.throws(() => evaluator({ tenant: TENANT, replay: memory({ tenant: TENANT }).replay, env: ENVS.loop(), language: require('../lib/language')(), includeFrame: true,
-        cacheAdopt: 'yes', connection: { async query () {} }, dbstats: async () => ({}), maxRows: 10, maxBytes: 1000 }), /NS_EVAL_CACHE_ADOPT is 1 or 0/);
-    });
   });
 });
