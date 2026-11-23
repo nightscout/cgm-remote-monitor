@@ -4,13 +4,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const inventory = require('../scripts/test-multitenant');
+const tiers = require('../scripts/test-tiers');
 const root = path.resolve(__dirname, '..');
 const readSource = file => fs.readFileSync(path.join(root, file), 'utf8');
 const unlisted = (file, source) => inventory.checkInventory({inventory: [], testFiles: [file], tierOf: () => 'integration', readSource: () => source});
 
 describe('multitenant inventory executable environment consumption', function () {
-  it('covers actual opt-in files and selects the new native groups with their required resources', function () {
-    assert.deepEqual(inventory.checkInventory(),[],'ACTUAL_CORPUS_INVENTORY_COMPLETE');
+  // Check every file once. Missing or misplaced declarations still fail in the
+  // integration group, including when that tier has no files on disk.
+  const filesByTier = {
+    integration: [],
+    ...Object.groupBy(tiers.listTestFiles(), file => tiers.tierOf(file) || 'unassigned')
+  };
+  for (const [tier, testFiles] of Object.entries(filesByTier)) {
+    it(`checks opt-in inventory for the ${tier} tier`, function () {
+      const declarations = tier === 'integration' ? inventory.INVENTORY : [];
+      assert.deepEqual(inventory.checkInventory({inventory: declarations, testFiles}), []);
+    });
+  }
+
+  it('selects the new native groups with their required resources and detects their omission', function () {
     const rows=new Map(inventory.INVENTORY.map(row=>[row.file,row]));
     const pgstream=['tests/pgstream-bootstrap-batch.integration.test.js','tests/pgstream-checkpoint.integration.test.js','tests/pgstream-single-receipt.integration.test.js'];
     for(const file of pgstream){const row=rows.get(file);assert(row);assert.deepEqual(row.flags,{NS_PGSTREAM_ROLE_TEST:'1'});assert.deepEqual(row.shared,['postgres']);assert.deepEqual(row.own,[]);}
@@ -18,8 +31,8 @@ describe('multitenant inventory executable environment consumption', function ()
     assert.equal(rows.has('tests/pgstream-recovery.integration.test.js'),false,'the retired stream recovery suite is not in the corpus');
     assert.equal(rows.has('tests/realtime-sharding-native.integration.test.js'),false,'the retired native sharding suite is not in the corpus');
     const rest=rows.get('tests/preview-entries-acquisition.integration.test.js');assert.deepEqual(rest.flags,{NS_REST_ACQUISITION_NATIVE:'1'});assert.deepEqual(rest.shared,[]);assert.deepEqual(rest.own,['postgres']);
-    const omitted=inventory.INVENTORY.filter(row=>!pgstream.includes(row.file));
-    const red=inventory.checkInventory({inventory:omitted});assert.equal(red.length,3);assert(red.every(value=>value.includes('opt-in test file missing')),'MISSING_NATIVE_GROUPS_MUST_REFUSE');
+    const missing = inventory.checkInventory({inventory: [], testFiles: pgstream});
+    assert.deepEqual(missing, pgstream.map(file => file + ': opt-in test file missing from scripts/test-multitenant.js INVENTORY'), 'MISSING_NATIVE_GROUPS_MUST_REFUSE');
   });
   it('registers API history cost with its actual clock flag and catches omission before any allocation', function () {
     const file='tests/tenant-api-write-cost.integration.test.js';
@@ -27,9 +40,9 @@ describe('multitenant inventory executable environment consumption', function ()
     assert.deepEqual(selected[0].flags,{NS_TENANT_COMMIT_CLOCK_TEST:'1'});
     assert.deepEqual(selected[0].shared,['postgres']);assert.deepEqual(selected[0].own,[]);
     assert(inventory.classifyOptInSource(readSource(file)).optIn,'ACTUAL_API_COST_SUITE_IS_OPT_IN');
-    const omitted=inventory.checkInventory({inventory:inventory.INVENTORY.filter(row=>row.file!==file)});
+    const omitted=inventory.checkInventory({inventory:[], testFiles:[file]});
     assert.deepEqual(omitted,[file+': opt-in test file missing from scripts/test-multitenant.js INVENTORY'],'OMITTED_API_COST_SUITE_MUST_REFUSE');
-    assert.deepEqual(inventory.checkInventory(),[],'RESTORED_COMPLETE_CORPUS');
+    assert.deepEqual(inventory.checkInventory({inventory:selected, testFiles:[file]}),[],'RESTORED_API_COST_SUITE');
   });
   it('has no producer capability gate: no suite selection requires a stream binary, ports or a replication image', function () {
     assert.equal(inventory.producerSelection, undefined, 'RETIRED_STREAM_PRODUCER_SELECTION_REMOVED');
