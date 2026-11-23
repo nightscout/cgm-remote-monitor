@@ -90,10 +90,9 @@ operator-supplied and are not on the owner settings surface.
 A tenant's status route and realtime status frame report
 `"devicestatus": {"advanced": true, "days": 1}` when the operator leaves them
 unset, as a single site does. An operator may set `devicestatus.advanced` (a
-boolean) and `devicestatus.days` (1 or 2) per tenant. `advanced` is reported
-for display parity only: the browser merges device status only for incremental
-updates, and tenant realtime updates are always full snapshots (`delta:false`),
-so its value does not change what the browser shows. `days: 2` keeps loading
+boolean) and `devicestatus.days` (1 or 2) per tenant. `advanced` selects how
+the browser merges device status in delta frames, as on a single site; a removed
+device status reaches the browser in a full frame (`delta:false`). `days: 2` keeps loading
 two days of device status, as before.
 
 The default remains API3 entries only. To opt into the implemented collection
