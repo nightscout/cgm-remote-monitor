@@ -82,6 +82,77 @@ describe('dataloader', function () {
 
   });
 
+  function loadWithTreatments (listTreatments, callback) {
+    const ddata = createDData();
+    const empty = function (query, cb) { cb(null, []); };
+    const ctx = {
+      settings: {},
+      bus: new (require('events').EventEmitter)(),
+      language: { translate: function (value) { return value; } },
+      ddata: ddata,
+      entries: { list: empty },
+      treatments: { list: listTreatments },
+      profile: { last: function (cb) { cb(null, []); } },
+      food: { list: function (cb) { cb(null, []); } },
+      devicestatus: { list: empty },
+      activity: { list: empty },
+      store: { db: { stats: function () { return Promise.resolve({ dataSize: 1, indexSize: 1 }); } } }
+    };
+    const env = {
+      settings: { isEnabled: function () { return false; }, units: 'mg/dl' },
+      extendedSettings: {}
+    };
+    ctx.cache = require('../lib/server/cache')(env, ctx);
+    dataloaderInit(env, ctx).update(ddata, function (err) {
+      // leave the loader's callback before asserting, so a failed
+      // assertion reaches mocha instead of the loader
+      setImmediate(callback, err, ddata);
+    });
+  }
+
+  describe('overlapping treatment reads', function () {
+    const load = require('node:util').promisify(loadWithTreatments);
+
+    it('merges normalized window IDs even when the targeted lookups return no rows', async function () {
+      const id = new (require('mongodb').ObjectId)();
+      const note = { eventType: 'Note', created_at: new Date().toISOString() };
+      const data = await load((query, cb) => cb(null, query.find.eventType ? [] : [
+        { ...note, _id: id }, { ...note, _id: id.toHexString() }
+      ]));
+      data.treatments.map(t => t._id).should.eql([id.toHexString()]);
+    });
+
+    for (const hoursAgo of [1, 72]) {
+      it('keeps the same Profile Switch in both callback orders ' + (hoursAgo < 60 ? 'inside' : 'outside') + ' the recent window', async function () {
+        const at = new Date(Date.now() - hoursAgo * 3600000).toISOString();
+        const profile = { _id: 'switch', eventType: 'Profile Switch', created_at: at, duration: 0, profile: 'Other' };
+
+        async function inOrder (order) {
+          const replies = new Map();
+          let windowHasSwitch;
+          const data = await load((query, cb) => {
+            const type = query.find.eventType;
+            if (type && type !== 'Profile Switch') return cb(null, []);
+            const source = type ? 'switch' : 'window';
+            const included = at >= query.find.created_at.$gte;
+            if (!type) windowHasSwitch = included;
+            replies.set(source, () => cb(null, included ? [{ ...profile }] : []));
+            if (replies.size === 2) order.forEach(name => replies.get(name)());
+          });
+          windowHasSwitch.should.equal(hoursAgo < 60);
+          data.treatments.map(t => t._id).should.eql(['switch']);
+          data.profileTreatments.map(t => t._id).should.eql(['switch']);
+          data.lastProfileFromSwitch.should.equal('Other');
+          return [data.treatments, data.profileTreatments];
+        }
+
+        const windowFirst = await inOrder(['window', 'switch']);
+        const switchFirst = await inOrder(['switch', 'window']);
+        switchFirst.should.eql(windowFirst);
+      });
+    }
+  });
+
   describe('records with the same mills (BF-205)', function () {
     const mills = Date.now() - 10 * 60000;
     const at = new Date(mills).toISOString();
@@ -90,41 +161,13 @@ describe('dataloader', function () {
     const sensor = { _id: '5f0000000000000000000003', eventType: 'Sensor Start', created_at: at };
     const meal = { _id: '5f0000000000000000000004', eventType: 'Meal Bolus', created_at: at, insulin: 1 };
 
-    // The main treatments query answers with the same documents in the
-    // order given; the newest-of-type query answers with the Sensor Start.
     function load (order, callback) {
-      const ddata = createDData();
-      const empty = function (query, cb) { cb(null, []); };
-      const ctx = {
-        settings: {},
-        bus: new (require('events').EventEmitter)(),
-        language: { translate: function (value) { return value; } },
-        ddata: ddata,
-        entries: { list: empty },
-        treatments: {
-          list: function (query, cb) {
-            const type = query.find && query.find.eventType;
-            if (type && type.$eq === 'Sensor Start') return cb(null, [JSON.parse(JSON.stringify(sensor))]);
-            if (type) return cb(null, []);
-            cb(null, JSON.parse(JSON.stringify(order)));
-          }
-        },
-        profile: { last: function (cb) { cb(null, []); } },
-        food: { list: function (cb) { cb(null, []); } },
-        devicestatus: { list: empty },
-        activity: { list: empty },
-        store: { db: { stats: function () { return Promise.resolve({ dataSize: 1, indexSize: 1 }); } } }
-      };
-      const env = {
-        settings: { isEnabled: function () { return false; }, units: 'mg/dl' },
-        extendedSettings: {}
-      };
-      ctx.cache = require('../lib/server/cache')(env, ctx);
-      dataloaderInit(env, ctx).update(ddata, function (err) {
-        // leave the loader's callback before asserting, so a failed
-        // assertion reaches mocha instead of the loader
-        setImmediate(callback, err, ddata);
-      });
+      loadWithTreatments(function (query, cb) {
+        const type = query.find && query.find.eventType;
+        if (type && type.$eq === 'Sensor Start') return cb(null, [JSON.parse(JSON.stringify(sensor))]);
+        if (type) return cb(null, []);
+        cb(null, JSON.parse(JSON.stringify(order)));
+      }, callback);
     }
 
     // Loads twice, in two query orders, and hands both results to check.
