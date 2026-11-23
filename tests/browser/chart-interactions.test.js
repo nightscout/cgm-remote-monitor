@@ -185,6 +185,94 @@ describe('D3 chart interaction compatibility in a real browser', function () {
     });
   }
 
+  // wheel scrolling of the context window (#6676); the window starts at now: [675, 900]
+
+  // real input through the browser
+  async function realWheel(page, deltaX, deltaY, shift) {
+    const box = await page.locator('#chartContainer .x.brush .overlay').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // wait until the chart handled the event
+    const handled = page.evaluate(() => new Promise(resolve => {
+      window.addEventListener('wheel', event => resolve(event.defaultPrevented), {once: true});
+    }));
+    if (shift) await page.keyboard.down('Shift');
+    await page.mouse.wheel(deltaX, deltaY);
+    if (shift) await page.keyboard.up('Shift');
+    const prevented = await handled;
+    return page.evaluate(prevented => {
+      const {client, d3} = window.chartFixture;
+      return {prevented, selection: d3.brushSelection(client.chart.theBrush.node()), retro: client.chart.inRetroMode()};
+    }, prevented);
+  }
+
+  // several events in one gesture; {wait: ms} pauses
+  async function wheelEvents(page, ...steps) {
+    return page.evaluate(async steps => {
+      const {client, d3} = window.chartFixture;
+      const overlay = client.chart.theBrush.select('.overlay').node();
+      let event;
+      for (const step of steps) {
+        if (step.wait) {
+          await new Promise(resolve => setTimeout(resolve, step.wait));
+        } else {
+          event = new WheelEvent('wheel', Object.assign({bubbles: true, cancelable: true, view: window}, step));
+          overlay.dispatchEvent(event);
+        }
+      }
+      return {prevented: event.defaultPrevented, selection: d3.brushSelection(client.chart.theBrush.node()), retro: client.chart.inRetroMode()};
+    }, steps);
+  }
+
+  it('stops the context window at the start of the chart', async function () {
+    await withChart(async page => {
+      assert.deepEqual(await realWheel(page, -5000, 0), {prevented: true, selection: [0, 225], retro: true});
+    });
+  });
+
+  it('goes back to live when the context window reaches now again', async function () {
+    await withChart(async page => {
+      await realWheel(page, -100, 0); // back in time first
+      assert.deepEqual(await realWheel(page, 5000, 0), {prevented: true, selection: [675, 900], retro: false});
+    });
+  });
+
+  // horizontal moves the window; vertical scrolls the page, or the window with Shift
+  const pageScrolls = {prevented: false, selection: [675, 900], retro: false};
+  for (const [gesture, deltaX, deltaY, shift, expected] of [
+    ['mouse wheel', 0, 100, false, pageScrolls],
+    ['mouse wheel + Shift', 0, -100, true, {prevented: true, selection: [575, 800], retro: true}],
+    ['trackpad, mostly vertical', -2, 40, false, pageScrolls],
+    ['trackpad + Shift, mostly vertical', 2, -40, true, {prevented: true, selection: [635, 860], retro: true}],
+    ['trackpad, mostly horizontal', -100, 5, false, {prevented: true, selection: [575, 800], retro: true}],
+    ['trackpad + Shift, mostly horizontal', -100, 5, true, {prevented: true, selection: [575, 800], retro: true}]
+  ]) {
+    it('handles a real wheel gesture: ' + gesture, async function () {
+      await withChart(async page => {
+        assert.deepEqual(await realWheel(page, deltaX, deltaY, shift), expected);
+      });
+    });
+  }
+
+  // finger wobble during a vertical scroll is ignored
+  it('ignores finger wobble during a vertical scroll', async function () {
+    await withChart(async page => {
+      assert.deepEqual(await wheelEvents(page, {deltaY: 3}, {deltaX: 1}), {prevented: false, selection: [675, 900], retro: false});
+    });
+  });
+
+  it('ignores finger wobble during a vertical scroll with Shift', async function () {
+    await withChart(async page => {
+      // follows the 3 px up, not the wobble
+      assert.deepEqual(await wheelEvents(page, {deltaY: -3, shiftKey: true}, {deltaX: 1, shiftKey: true}), {prevented: false, selection: [672, 897], retro: true});
+    });
+  });
+
+  it('scrolls horizontally again once the vertical gesture is over', async function () {
+    await withChart(async page => {
+      assert.deepEqual(await wheelEvents(page, {deltaY: 3}, {wait: 200}, {deltaX: -50}), {prevented: true, selection: [625, 850], retro: true});
+    });
+  });
+
   it('keeps treatments read-only when editing is disabled', async function () {
     await withChart(async page => {
       const result = await page.evaluate(() => {
