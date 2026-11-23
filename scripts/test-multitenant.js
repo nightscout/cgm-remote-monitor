@@ -223,6 +223,8 @@ const INVENTORY = [
   { file: 'tests/tenant-rest-treatments.integration.test.js', flags: { NS_REST_TREATMENTS_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
   { file: 'tests/tenant-rest-context.integration.test.js', flags: { NS_REST_CONTEXT_HTTP_TEST: '1' }, shared: ['postgres', 'mongo'], own: ['vault'], gate: PENDING },
   { file: 'tests/tenant-rest-device-activity.integration.test.js', flags: { NS_REST_DEVICE_ACTIVITY_TEST: '1' }, shared: ['postgres', 'mongo'], own: [], gate: PENDING },
+  { file: 'tests/copy-table-capture.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'lifecycle COPY capture keeps each CopyData payload (an export larger than one network read parses exactly)' },
   { file: 'tests/tenant-rest-profile-food.integration.test.js', flags: { NS_PROFILE_FOOD_HTTP_TEST: '1' }, shared: ['postgres', 'mongo', 'vault'], own: [], gate: PENDING,
     vaultEnv: { address: 'NS_PROFILE_FOOD_VAULT_ADDRESS', token: 'NS_PROFILE_FOOD_VAULT_TOKEN' },
     note: 'mounts transit at the fixed path "transit": one run per Vault' },
