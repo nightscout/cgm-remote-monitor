@@ -138,8 +138,21 @@ const SCENARIOS = {
     { v: 3, method: 'DELETE', ref: 0 },
     post([C.careportal(2)]),
     post([C.loop(3)]),
-    { v: 3, method: 'DELETE', refStored: 1 },
+    // rows: the deleted careportal record, its re-send (a time key: a new
+    // record), the Loop record; the Loop record is deleted.
+    { v: 3, method: 'DELETE', refStored: 2 },
     post([C.loop(3)]),
+    read
+  ],
+  // A single object (not an array): the single form, whose reply reads the
+  // stored record its target names (write-intent 'stored-id').
+  'single-object re-send': [
+    post(C.careportal(4)),
+    post(C.careportal(4)),
+    post(C.loop(4)),
+    post(C.loop(4)),
+    post(Object.assign(C.careportal(4), { _id: sent(hex(0xc0f0)) })),
+    post(C.careportal(4)),
     read
   ],
   'resend after soft delete': [
@@ -302,7 +315,9 @@ async function run (side, scenario) {
       delete body.srvCreated; delete body.srvModified;
     }
     let resource = step.path;
-    if (step.method === 'DELETE') resource = '/api/v3/treatments/' + (step.refStored !== undefined ? (await side.rows())[step.refStored].doc._id : sentIds[step.ref]);
+    // A row missing on one side (an earlier step diverged) is deleted as
+    // `missing` (a 404), recorded as a difference rather than thrown.
+    if (step.method === 'DELETE') resource = '/api/v3/treatments/' + (step.refStored !== undefined ? ((await side.rows())[step.refStored]?.doc._id ?? 'missing') : sentIds[step.ref]);
     const reply = step.concurrent
       ? await Promise.all([side.call({ ...step, path: resource }, body), side.call({ ...step, path: resource }, body)])
       : await side.call({ ...step, path: resource }, body);
@@ -338,29 +353,37 @@ function differences (a, b, at = '', out = []) {
   return out;
 }
 
-// Named exceptions, pre-existing in the round core (not INC-U's): measured
-// identically with and without the key indexes, and in the candidate's default
-// configuration (late stamp off). official/dev answers 200; the candidate 500:
+// Formerly named exceptions, now asserted parity (INC-P). Each was a step at
+// which official/dev answers 200 and the candidate 500; a failure names the
+// shape it returns to, for the reader of the report:
 //   PG-FALLBACK-AMBIGUOUS  a v1 fallback-key re-send whose filter reaches two
-//     live rows: official/dev's replaceOne replaces one of them (the earliest
-//     stored, here); the candidate's replace reads LIMIT 2 and refuses
-//     ("ambiguous replacement filter", postgres-entries-write.js replace);
+//     live rows: official/dev's replaceOne replaces the first MongoDB finds,
+//     which for equal index keys is insertion order (the earliest stored); the
+//     candidate's replace takes the row of lowest insertion_ordinal
+//     (postgres-entries-write.js replace, `natural`);
 //   PG-DELETED-REACHED-UNSORTED  a v1 re-send whose filter reaches a
 //     soft-deleted record: write-intent deletedReached reads findOne (a limit
-//     without a sort), which the candidate's PostgreSQL read refuses.
-// Every step before the first such step must be equal to official/dev; the
-// steps after it start from different stored rows and are compared with the
-// candidate without the index only.
+//     without a sort); the candidate's v1 treatments port reads it in
+//     insertion order (postgres-collection-intent.js, naturalOrder).
+// E4 MT-WRITE-SETTINGS-UNREAD: the multitenant api's tenant environment
+// (lib/server/tenant-app/environment.js) carries no `write` member, so
+// WRITE_DELETED_RESEND (like every WRITE_* setting lib/server/env.js parses
+// into env.write) is at its default there: a revive arm runs `stay`. The
+// revive arms are therefore compared with official/dev under `stay`, and
+// official/dev under `revive` is recorded beside them (report:
+// officialRevive). Should the setting reach the api, these arms go red.
+// E3 (official/dev storing duplicates for concurrent identical batches) is
+// official/dev's behaviour and stays outside the comparison (the last test).
 function classify (body) {
   const description = body && body.description;
   if (!description || description.unsupported !== true) return null;
   return description.name === 'UnsupportedQueryError' ? 'PG-DELETED-REACHED-UNSORTED' : 'PG-FALLBACK-AMBIGUOUS';
 }
-function firstException (diffs, observedOfficial, observedCandidate) {
+function divergence (diffs, observedOfficial, observedCandidate) {
   const step = Math.min(...diffs.map(d => Number(d.at.split('/')[1])));
   const o = observedOfficial[step], c = observedCandidate[step];
   const name = o && c && o.reply.status === 200 && c.reply.status === 500 ? classify(c.reply.body) : null;
-  return name ? { step, name } : null;
+  return { step, name };
 }
 
 optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO,
@@ -384,7 +407,8 @@ optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO
         indexOff: candidate(lab, { index: true, keyed: false }), indexOn: candidate(lab, { index: true, keyed: true }),
         noIndex: candidate(lab, { index: false, keyed: true }), candidateDefault: candidate(lab, { index: false, keyed: false, late: false }),
         indexOnRevive: candidate(lab, { index: true, keyed: true, resend: 'revive' }),
-        noIndexRevive: candidate(lab, { index: false, keyed: true, resend: 'revive' })
+        noIndexRevive: candidate(lab, { index: false, keyed: true, resend: 'revive' }),
+        defaultRevive: candidate(lab, { index: false, keyed: false, late: false, resend: 'revive' })
       })) { sides[name] = side; await side.open(); }
       const probe = new MongoClient(MONGO);
       await probe.connect();
@@ -397,29 +421,35 @@ optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO
       if (REPORT) fs.writeFileSync(REPORT, JSON.stringify(report, null, 2));
     });
 
-    const arms = (revive) => revive ? ['indexOnRevive', 'noIndexRevive'] : ['indexOff', 'indexOn', 'noIndex', 'candidateDefault'];
+    const arms = (revive) => revive ? ['indexOnRevive', 'noIndexRevive', 'defaultRevive'] : ['indexOff', 'indexOn', 'noIndex', 'candidateDefault'];
     for (const [title, scenario] of Object.entries(SCENARIOS)) {
       for (const revive of title.startsWith('resend after soft delete') ? [false, true] : [false]) {
         const name = title + (revive ? ' (WRITE_DELETED_RESEND=revive)' : '');
         it(name, async function () {
-          const reference = await run(sides[revive ? 'officialRevive' : 'official'], scenario);
+          const reference = await run(sides.official, scenario);
           const entry = report.scenarios[name] = { official: reference, arms: {} };
+          if (revive) {
+            const officialRevive = await run(sides.officialRevive, scenario);
+            entry.officialRevive = { sameAsStay: !differences(reference, officialRevive).length, observed: officialRevive };
+          }
           const observedBy = {};
           for (const arm of arms(revive)) {
             const observed = observedBy[arm] = await run(sides[arm], scenario);
             const diffs = differences(reference, observed);
-            const exception = diffs.length ? firstException(diffs, reference, observed) : null;
-            entry.arms[arm] = { equal: !diffs.length, exception, differences: diffs.length && !exception ? diffs.slice(0, 20) : undefined,
+            const diverged = diffs.length ? divergence(diffs, reference, observed) : null;
+            entry.arms[arm] = { equal: !diffs.length, diverged, differences: diffs.length ? diffs.slice(0, 20) : undefined,
               exempt: await sides[arm].exempt(), built: sides[arm].built, observed: diffs.length ? observed : undefined };
             sides[arm].built = undefined;
           }
           const control = revive ? 'noIndexRevive' : 'noIndex';
           for (const arm of arms(revive)) entry.arms[arm].sameAsNoIndex = JSON.stringify(observedBy[arm]) === JSON.stringify(observedBy[control]);
-          console.log('PARITY ' + JSON.stringify({ name, arms: Object.fromEntries(Object.entries(entry.arms).map(([k, v]) =>
-            [k, { official: v.equal ? 'equal' : v.exception ? v.exception.name + ' from step ' + v.exception.step : v.differences,
+          console.log('PARITY ' + JSON.stringify({ name, ...(revive ? { officialReviveSameAsStay: entry.officialRevive.sameAsStay } : {}), arms: Object.fromEntries(Object.entries(entry.arms).map(([k, v]) =>
+            [k, { official: v.equal ? 'equal' : (v.diverged.name || 'differs') + ' from step ' + v.diverged.step,
               sameAsNoIndex: v.sameAsNoIndex, exempt: v.exempt.length }])) }));
           for (const arm of arms(revive)) {
-            assert.ok(entry.arms[arm].equal || entry.arms[arm].exception, arm + ' differs from official/dev: ' + JSON.stringify(entry.arms[arm].differences));
+            const d = entry.arms[arm].diverged;
+            assert.ok(entry.arms[arm].equal, arm + ' differs from official/dev' + (d ? ' (' + (d.name || 'first') + ' at step ' + d.step + ')' : '') +
+              ': ' + JSON.stringify(entry.arms[arm].differences));
             if (arm.startsWith('index')) assert.ok(entry.arms[arm].sameAsNoIndex, arm + ' differs from the candidate without the index');
           }
         });
