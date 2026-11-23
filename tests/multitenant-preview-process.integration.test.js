@@ -163,7 +163,18 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
     });
 
     it('serves data JWTs (fixture-signed and exchanged) during Vault outage and refuses an unavailable PostgreSQL authority', async function () {
-      const worker = start(); await ready(worker);
+      // A paused database answers no new connection, so a request that needs a
+      // fresh data-pool client refuses at the api pool's checkout bound
+      // (NS_POOL_API_CONNECT_TIMEOUT_MS, default 5000 ms: lib/server/serve/pool-config.js),
+      // not at the 1 s query deadline. The fixture client gives up at 5 s, so
+      // the bound is set below it and each refusal must arrive within it.
+      const CHECKOUT_MS = 2000;
+      const worker = start({ NS_POOL_API_CONNECT_TIMEOUT_MS: String(CHECKOUT_MS) }); await ready(worker);
+      const refusedWithin = async request => {
+        const started = Date.now(), result = await request;
+        assert.equal(result.status, 503, JSON.stringify(result.body));
+        assert.ok(Date.now() - started < CHECKOUT_MS + 1500, 'refusal arrives within the configured checkout bound');
+      };
       const token = await localToken(A), exchanged = await exchange(worker, A);
       assert.equal(exchanged.status, 200);
       await fixture.whilePaused('vault', async () => {
@@ -180,11 +191,13 @@ optInSuite(process.env.NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST === '1',
       process.stdout.write('PREVIEW_OUTAGE_STAGE PG_PREWARM_CONFIRMED\n');
       await fixture.whilePaused('postgres', async () => {
         process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_STARTED\n');
-        assert.equal((await http(worker, A, 'GET', '/api/v3/entries', token)).status, 503);
+        await refusedWithin(http(worker, A, 'GET', '/api/v3/entries', token));
         process.stdout.write('PREVIEW_OUTAGE_STAGE PG_GET_REFUSED_POST_STARTED\n');
-        assert.equal((await http(worker, A, 'POST', '/api/v3/entries', token, {
+        await refusedWithin(http(worker, A, 'POST', '/api/v3/entries', token, {
           identifier: 'local-pg-down', date: 1793664000000, utcOffset: 0, type: 'sgv', sgv: 999, app: 'synthetic-local'
-        })).status, 503);
+        }));
+        // A further request now needs a new backend: the checkout bound answers it.
+        await refusedWithin(http(worker, A, 'GET', '/api/v3/entries', token));
       });
       process.stdout.write('PREVIEW_OUTAGE_STAGE PG_RESTORED\n');
       assert.equal((await http(worker, A, 'GET', '/api/v3/entries/local-pg-down', token)).status, 404);
