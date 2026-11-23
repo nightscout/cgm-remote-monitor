@@ -6,6 +6,12 @@
 //
 //   node tools/treatment-key-index.js census [--table schema.treatments] [--json]
 //   node tools/treatment-key-index.js ensure --mode off|try|require [--table schema.treatments]
+//   node tools/treatment-key-index.js drop [--table schema.treatments]
+//
+// ensure adds the column key_exempt (boolean, default false; metadata only),
+// marks all but the earliest live row of each equal-key group exempt and
+// builds the indexes. drop reverses it: the indexes, then the column. No
+// document is written by either.
 //
 // Connects with NS_POSTGRES_ADMIN_URI (an owner or superuser: the census reads
 // every tenant, so row security must not apply, and only the owner can build an
@@ -38,7 +44,7 @@ async function tables (client, only) {
 
 async function main () {
   const o = args(process.argv.slice(2));
-  if (!['census', 'ensure'].includes(o.command)) throw new TypeError('usage: census|ensure');
+  if (!['census', 'ensure', 'drop'].includes(o.command)) throw new TypeError('usage: census|ensure|drop');
   const uri = process.env.NS_POSTGRES_ADMIN_URI;
   if (!uri) throw new TypeError('NS_POSTGRES_ADMIN_URI is required');
   const client = new Client({ connectionString: uri, application_name: 'treatment-key-index' });
@@ -53,9 +59,12 @@ async function main () {
         const sum = key => result.tenants.reduce((n, t) => n + (t[key] || 0), 0);
         report.tables.push({ table, ms: Date.now() - started, tenants: result.tenants.length, live: sum('live'),
           collisions: result.totals, unindexable: sum('unindexable'), multiId: sum('multiId'),
-          identifierWithClientId: sum('identifierWithClientId'), identifierOnly: sum('identifierOnly'),
+          identifierWithClientId: sum('identifierWithClientId'), identifierOnly: sum('identifierOnly'), exempt: sum('exempt'),
           tenantsWithCollisions: result.tenants.filter(t => Object.keys(t.classes).length).length,
           perTenant: o.json ? result.tenants : undefined });
+      } else if (o.command === 'drop') {
+        await keyIndex.drop(client, table);
+        report.tables.push({ table, dropped: true });
       } else {
         const status = await keyIndex.ensure(client, table, o.mode);
         report.tables.push({ table, status });

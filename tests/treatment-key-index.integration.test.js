@@ -21,14 +21,17 @@ const RESERVE = 'GREATEST(last_stamp + $2::bigint';
 const WRITE_FILE = path.resolve(__dirname, '../lib/storage/postgres-entries-write.js');
 const INTENT_FILE = path.resolve(__dirname, '../lib/storage/postgres-collection-intent.js');
 
-// A collection-intent module whose writer carries one edit (red controls).
-function brokenIntent (from, to) {
-  const source = fs.readFileSync(WRITE_FILE, 'utf8');
-  assert.equal(source.split(from).length, 2, 'The red edit must apply exactly once');
+// A collection-intent module whose writer carries edits (red controls): [from, to] pairs.
+function brokenIntent (...edits) {
+  let source = fs.readFileSync(WRITE_FILE, 'utf8');
+  for (const [from, to] of edits) {
+    assert.equal(source.split(from).length, 2, 'The red edit must apply exactly once');
+    source = source.replace(from, to);
+  }
   const writeModule = new Module(WRITE_FILE, module);
   writeModule.filename = WRITE_FILE;
   writeModule.paths = Module._nodeModulePaths(path.dirname(WRITE_FILE));
-  writeModule._compile(source.replace(from, to), WRITE_FILE);
+  writeModule._compile(source, WRITE_FILE);
   const saved = require.cache[WRITE_FILE];
   const savedIntent = require.cache[INTENT_FILE];
   try {
@@ -40,8 +43,10 @@ function brokenIntent (from, to) {
     require.cache[INTENT_FILE] = savedIntent;
   }
 }
-const PK_ARBITER = brokenIntent("const target = cls === '_id' ? '(tenant_id, id_kind, \"_id\")' : keyIndex.conflictTarget(cls);",
-  "const target = '(tenant_id, id_kind, \"_id\")';");
+// The arbiter on the primary key, and (INC-U2) the validation's decline
+// removed, so the statement alone decides as it did in INC-U.
+const PK_ARBITER = brokenIntent(["const target = cls === '_id' ? '(tenant_id, id_kind, \"_id\")' : keyIndex.conflictTarget(cls);",
+  "const target = '(tenant_id, id_kind, \"_id\")';"], ['    if (await lateStamp.lock()) return null;\n    let written;', '    await lateStamp.lock();\n    let written;']);
 const createLegacy = require('../lib/storage/postgres-collection-intent');
 
 const T0 = Date.UTC(2026, 10, 20);
@@ -135,7 +140,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       return observed;
     }
 
-    it('census: a clean table builds every class; equal keys block only their class, with counts', async function () {
+    it('census and build: equal live keys are marked exempt (all but the earliest), every class builds, drop restores the table', async function () {
       await dropIndexes();
       const census = await keyIndex.census(lab.admin, table());
       assert.equal(census.tenants.length, 0);
@@ -155,23 +160,38 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.deepEqual(after.totals.none, { groups: 1, rows: 2, tenants: 1 });
       assert.deepEqual(after.totals.syncIdentifier, { groups: 1, rows: 2, tenants: 1 });
       assert.equal(after.tenants[0].unindexable, 1);
-      const status = await buildIndexes();
-      assert.equal(status.classes.none.state, 'blocked');
-      assert.equal(status.classes.none.rows, 2);
-      assert.equal(status.classes.syncIdentifier.state, 'blocked');
-      for (const cls of ['id', 'uuid', 'NSCLIENT_ID']) assert.equal(status.classes[cls].state, 'built');
-      const required = await keyIndex.ensure(lab.admin, table(), 'require');
-      assert.equal(required.errors.length, 2);
-      // Case 3 (equal keys already stored): with the switch on, a re-send of
-      // that key runs as today (the class has no index): PostgreSQL's replace
-      // refuses the two-row key the same way in both arms.
+      const docsBefore = (await stored()).map(doc => JSON.stringify(doc));
+      // Case 3 without the index: the re-send of the two-row key.
       const refusals = [];
+      setKeyed(false);
+      await assert.rejects(writeBatch([CLIENTS.careportal(1), CLIENTS.careportal(7)]), error => { refusals.push(error.message); return true; });
+      const status = await buildIndexes();
+      assert.deepEqual(status.errors, []);
+      assert.equal(status.ready, true);
+      assert.deepEqual(status.classes.none, { state: 'built', marked: 1, tenants: 1 });
+      assert.deepEqual(status.classes.syncIdentifier, { state: 'built', marked: 1, tenants: 1 });
+      for (const cls of ['id', 'uuid', 'NSCLIENT_ID']) assert.deepEqual(status.classes[cls], { state: 'built', marked: 0, tenants: 0 });
+      const marked = (await lab.admin.query(`SELECT doc->>'_id' AS id FROM "${lab.namespaces.treatments}".treatments WHERE key_exempt ORDER BY 1`)).rows.map(r => r.id);
+      assert.deepEqual(marked, [hex(0xbee0), hex(0xbeef)], 'the later copy of each group, not the earliest');
+      assert.deepEqual((await stored()).map(doc => JSON.stringify(doc)), docsBefore, 'no document written by the migration');
+      const after2 = await keyIndex.census(lab.admin, table());
+      assert.deepEqual(after2.totals.none, { groups: 0, rows: 0, tenants: 0 });
+      assert.equal(after2.tenants[0].exempt, 2);
+      const required = await keyIndex.ensure(lab.admin, table(), 'require');
+      assert.deepEqual(required.errors, []);
+      // Case 3 with the index, switch off and on: the same answer as without the index.
       for (const on of [false, true]) {
         setKeyed(on);
         await assert.rejects(writeBatch([CLIENTS.careportal(1), CLIENTS.careportal(7)]), error => { refusals.push(error.message); return true; });
       }
-      assert.equal(refusals[1], refusals[0]);
+      assert.deepEqual(refusals, [refusals[0], refusals[0], refusals[0]]);
       console.log('CASE3_REFUSAL ' + refusals[0]);
+      // Reversal: indexes, then the column; documents untouched.
+      await keyIndex.drop(lab.admin, table());
+      keyIndex.forget();
+      assert.deepEqual(await keyIndex.existing(lab.admin, table()), Object.fromEntries(keyIndex.CLASSES.map(c => [c, 'absent'])));
+      assert.equal((await keyIndex.columnState(lab.admin, table())).exempt, false);
+      assert.deepEqual((await stored()).map(doc => JSON.stringify(doc)), docsBefore);
     });
 
     it('differential: re-send outcomes per client class are the same switch on and off', async function () {
@@ -205,7 +225,7 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.equal(off[3].rows.length, 15 + 7 + 1);
     });
 
-    it('on: a re-send batch is one keyed statement per class under the clock, no validation read, no per-document fallback', async function () {
+    it('on: a re-send batch is one keyed statement per run under the clock after the validation read, no per-document fallback', async function () {
       setKeyed(true);
       await writeBatch([...batchOf('loop', 0, 3), ...batchOf('careportal', 0, 3)]);
       const probe = holdProbe(lab.role);
@@ -216,8 +236,8 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
         log = probe.stop();
       } finally { probe.restore(); }
       assert.equal(log.holds.length, 1);
-      // reserve, SAVEPOINT, one INSERT .. ON CONFLICT per run (loop, careportal, loop), RELEASE, COMMIT
-      assert.equal(log.holds[0].statements, 7);
+      // reserve, validation read, SAVEPOINT, one INSERT .. ON CONFLICT per run (loop, careportal, loop), RELEASE, COMMIT
+      assert.equal(log.holds[0].statements, 8);
     });
 
     it('gate: a 288-treatment batch with re-sends holds the clock for a fixed number of statements on; off it falls back per document', async function () {
@@ -246,8 +266,8 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       console.log('KEYED_RESEND_HOLD ' + JSON.stringify(report));
       // Off (INC-G alone): a batch with any re-send runs the per-document path under the clock.
       assert.ok(report.off[1].statements > 288, 'off: the per-document fallback');
-      assert.deepEqual(report.on.map(row => row.statements), [5, 5], 'on: reserve, savepoint, one upsert, release, commit');
-      assert.ok(report.on[1].ms * 5 < report.off[1].ms, 'on: a fifth of the off hold or less');
+      assert.deepEqual(report.on.map(row => row.statements), [6, 6], 'on: reserve, validation, savepoint, one upsert, release, commit');
+      assert.ok(report.on[1].ms * 4 < report.off[1].ms, 'on: a quarter of the off hold or less (INC-U2: the validation read is back under the clock)');
     });
 
     async function duplicateRace (factory) {
@@ -281,8 +301,10 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       const { outcomes, rows, keyed, validated } = await duplicateRace();
       assert.deepEqual(outcomes.map(o => o.status), ['fulfilled', 'fulfilled'], String(outcomes.find(o => o.reason)?.reason?.stack));
       assert.equal(rows.length, 20);
-      assert.equal(keyed, 4, 'both batches wrote by two keyed statements each (careportal run, loop run)');
-      assert.equal(validated, 0, 'no validation read under the clock');
+      // The first batch to hold the clock writes keyed (two runs); the second's
+      // validation sees the first's rows and declines to the per-document path.
+      assert.ok(keyed >= 2, 'the keyed statements ran: ' + keyed);
+      assert.ok(validated >= 2, 'each batch validated its reads: ' + validated);
     });
 
     it('off (control for the counters above): the same race runs INC-G\'s validation and per-document path, one row per key', async function () {
@@ -354,55 +376,52 @@ optInSuite(process.env.NS_TENANT_COMMIT_CLOCK_TEST === '1' && !!process.env.NS_T
       assert.ok(held.length >= 5);
     });
 
-    // --- the three cases the index turns into refusals ---------------------
+    // --- INC-U2: the three cases official/dev stores as two records -------
 
-    for (const on of [false, true]) {
-      it((on ? 'on' : 'off') + ': case 1, a new 24-hex _id onto a stored no-id key is answered as that record\'s re-send', async function () {
+    for (const [label, indexed, on] of [['index, switch off', true, false], ['index, switch on', true, true], ['no index', false, true]]) {
+      it(label + ': case 1, a new 24-hex _id onto a stored no-id key stores a second record, as official/dev', async function () {
+        if (!indexed) await dropIndexes();
         setKeyed(on);
         const first = await writeBatch([CLIENTS.careportal(0)]);
         const storedId = String(first.docs[0]._id);
         const { docs, items } = await writeBatch([Object.assign(CLIENTS.careportal(0), { _id: hex(0xc0ffee), notes: 'with id' }), CLIENTS.careportal(5)]);
         const rows = await stored();
-        assert.equal(rows.length, 2);
-        assert.equal(rows[0]._id, storedId);
-        assert.equal(rows[0].notes, 'with id');
-        assert.equal(rows[0].srvCreated, first.docs[0].srvCreated, 'srvCreated carried');
-        assert.equal(String(docs[0]._id), storedId, 'the reply names the stored record');
-        assert.equal(items[0].outcome, 'replaced');
+        assert.deepEqual(rows.map(row => row._id), [storedId, hex(0xc0ffee), String(docs[1]._id)]);
+        assert.equal(rows[0].notes, undefined, 'the stored record is unchanged');
+        assert.equal(rows[1].notes, 'with id');
+        assert.equal(String(docs[0]._id), hex(0xc0ffee), 'the reply names the client _id');
+        assert.deepEqual(items.map(item => item.outcome), ['inserted', 'inserted']);
+        if (indexed) {
+          const exempt = (await lab.admin.query(`SELECT doc->>'_id' AS id FROM "${lab.namespaces.treatments}".treatments WHERE key_exempt`)).rows.map(r => r.id);
+          assert.deepEqual(exempt, [storedId], 'the stored holder of the key was marked; the new row is indexed');
+        }
       });
     }
 
-    it('without the index: case 1 stores a second record (today)', async function () {
-      await dropIndexes();
-      setKeyed(true);
-      await writeBatch([CLIENTS.careportal(0)]);
-      await writeBatch([Object.assign(CLIENTS.careportal(0), { _id: hex(0xc0ffee) })]);
-      assert.equal((await stored()).length, 2);
-    });
-
-    it('case 2: a PUT or socket edit onto another record\'s key is refused 409 with the index, applied without it', async function () {
+    it('case 2: a PUT or socket edit onto another record\'s key is applied with the index and without it', async function () {
+      const outcomes = [];
       for (const indexed of [true, false]) {
         await lab.reset();
         if (indexed) await buildIndexes(); else await dropIndexes();
         setKeyed(true);
-        const first = await writeBatch([CLIENTS.careportal(0), Object.assign(CLIENTS.careportal(0), { carbs: 40 })]);
-        const second = first.docs[1];
+        const first = await writeBatch([CLIENTS.careportal(0), Object.assign(CLIENTS.careportal(0), { carbs: 40 }), Object.assign(CLIENTS.careportal(0), { carbs: 41 })]);
         const put = () => scope.withTenant(lab.A, async () => {
+          const second = first.docs[1];
           const p = port(lab.clocks[0]);
           return p.write(p.plan({ op: 'update', docs: [Object.assign({}, second, { _id: String(second._id), carbs: CLIENTS.careportal(0).carbs })] }));
         });
         const socket = () => scope.withTenant(lab.A, () => port(lab.clocks[0], 'socket')
-          .write({ op: 'update', form: 'merge', target: { _id: String(second._id) }, fields: { carbs: CLIENTS.careportal(0).carbs } }));
-        for (const edit of [put, socket]) {
-          if (indexed) {
-            await assert.rejects(edit(), error => error.status === 409 && error.name === 'TreatmentKeyConflictError');
-            const rows = await stored();
-            assert.equal(rows.find(row => row._id === String(second._id)).carbs, 40, 'the edit was not applied');
-          } else {
-            await edit();
-          }
+          .write({ op: 'update', form: 'merge', target: { _id: String(first.docs[2]._id) }, fields: { carbs: CLIENTS.careportal(0).carbs } }));
+        const replies = [];
+        for (const edit of [put, socket]) replies.push((await edit()).items.map(item => item.outcome));
+        const rows = await stored();
+        outcomes.push({ replies, carbs: rows.map(row => row.carbs) });
+        if (indexed) {
+          const exempt = (await lab.admin.query(`SELECT doc->>'_id' AS id FROM "${lab.namespaces.treatments}".treatments WHERE key_exempt ORDER BY insertion_ordinal`)).rows.map(r => r.id);
+          assert.deepEqual(exempt, [String(first.docs[1]._id), String(first.docs[2]._id)], 'the edited rows were marked');
         }
-        if (!indexed) assert.equal((await stored()).filter(row => row.carbs === CLIENTS.careportal(0).carbs).length, 2);
       }
+      assert.deepEqual(outcomes[0], outcomes[1]);
+      assert.deepEqual(outcomes[0].carbs, [15, 15, 15]);
     });
   });
