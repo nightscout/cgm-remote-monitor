@@ -22,7 +22,7 @@
 //   N2 srvCreated and srvModified are replaced by facts: srvCreated equal to
 //      the value first stored for that row (carried), srvModified at or after
 //      srvCreated, srvModified changed by this step;
-//   N3 the reply's and the read's srvCreated/srvModified are removed (N2 checks
+//   N3 the reply's and the read's srvCreated/srvModified (and a v3 reply's lastModified, the server clock at the write) are removed (N2 checks
 //      the stored values); reply objects keep every other key;
 //   N4 the v1 read is compared as a multiset (rows with an equal created_at
 //      have no defined order on either store);
@@ -70,6 +70,7 @@ const everyClass = () => [...many('loop', 0, 3), ...many('trio', 0, 3), ...many(
   ...many('nsclient', 0, 3), C.loopOverride(1)];
 const post = body => ({ v: 1, method: 'POST', path: '/api/v1/treatments', body });
 const put = body => ({ v: 1, method: 'PUT', path: '/api/v1/treatments', body });
+const v3post = body => ({ v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign({ app: 'synthetic-app' }, body) });
 const read = { v: 1, method: 'GET', path: '/api/v1/treatments?count=1000&find[created_at][$gte]=2026-01-01', read: true };
 
 // Each scenario starts from an empty table. `index: 'after-seed'` builds the
@@ -122,12 +123,54 @@ const SCENARIOS = {
     post([C.loop(0)]),
     read
   ],
+  // Two live rows on one fallback key (v3 identifier a and b, one Loop
+  // syncIdentifier and created_at), then v1 re-sends: official/dev's
+  // replaceOne takes the row its treatments index {eventType, created_at: -1,
+  // identifier: -1, date: -1} finds first, b (lib/storage/treatment-key-order.js).
   'API v3 records carrying a client id': [
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(4), { identifier: 'v3-identifier-a', date: T0 + 4 * 300000 }) },
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(4), { identifier: 'v3-identifier-b', date: T0 + 4 * 300000 }) },
+    // `app` is required by API v3; without it both sides answer 400 and the scenario compares nothing.
+    v3post(Object.assign(C.loop(4), { identifier: 'v3-identifier-a', date: T0 + 4 * 300000 })),
+    v3post(Object.assign(C.loop(4), { identifier: 'v3-identifier-b', date: T0 + 4 * 300000 })),
     post([C.loop(4)]),
     post([C.loop(5)]),
-    { v: 3, method: 'POST', path: '/api/v3/treatments', body: Object.assign(C.loop(5), { date: T0 + 5 * 300000 }) },
+    v3post(Object.assign(C.loop(5), { date: T0 + 5 * 300000 })),
+    read
+  ],
+  // The pair stored in the other order: the greater identifier is now the
+  // earliest stored, and the single-object form (reply 'stored-id').
+  'API v3 records, the greater identifier stored first': [
+    v3post(Object.assign(C.loop(4), { identifier: 'v3-identifier-b', date: T0 + 4 * 300000 })),
+    v3post(Object.assign(C.loop(4), { identifier: 'v3-identifier-a', date: T0 + 4 * 300000 })),
+    post(C.loop(4)),
+    post([C.loop(4)]),
+    read
+  ],
+  // Mixed: a record with an identifier and one without on one key. The one
+  // with an identifier comes first whichever was stored first. A v1 record
+  // then a v3 POST is one record (v3 matches a record without an identifier),
+  // so the record without one is stored first by v1 _id, then one by v1
+  // identifier.
+  'a record with an identifier and one without on one key': [
+    v3post(Object.assign(C.loop(4), { identifier: 'v3-identifier-a', date: T0 + 4 * 300000 })),
+    post([Object.assign(C.loop(4), { _id: sent(hex(0xa001)) })]),
+    post([C.loop(4)]),
+    post([Object.assign(C.loop(7), { _id: sent(hex(0xa002)) })]),
+    v3post(Object.assign(C.loop(7), { identifier: 'v3-identifier-c', date: T0 + 7 * 300000 })),
+    post([C.loop(7)]),
+    post([Object.assign(C.loop(8), { _id: sent(hex(0xa003)) })]),
+    post([Object.assign(C.loop(8), { identifier: 'v1-identifier-d' })]),
+    post([C.loop(8)]),
+    read
+  ],
+  // v1 records alone: equal identifiers (none), so `date` decides before
+  // insertion order; without dates the earliest stored (case 1).
+  'v1 records on one key, the later stored carrying a later date': [
+    post([Object.assign(C.loop(4), { _id: sent(hex(0xa0f2)), date: T0 + 4 * 300000 })]),
+    post([Object.assign(C.loop(4), { _id: sent(hex(0xa0f1)), date: T0 + 4 * 300000 + 1000 })]),
+    post([C.loop(4)]),
+    post([Object.assign(C.loop(6), { _id: sent(hex(0xa0f4)) })]),
+    post([Object.assign(C.loop(6), { _id: sent(hex(0xa0f3)), date: T0 + 6 * 300000 })]),
+    post([C.loop(6)]),
     read
   ],
   'array key parts': [
@@ -301,7 +344,7 @@ async function run (side, scenario) {
   const scrub = value => {
     if (Array.isArray(value)) return value.map(scrub);
     if (value && typeof value === 'object') {
-      return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'srvCreated' && k !== 'srvModified').sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'srvCreated' && k !== 'srvModified' && k !== 'lastModified').sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
         .map(([k, v]) => [k, scrub(v)]));
     }
     return label(value);
@@ -359,10 +402,11 @@ function differences (a, b, at = '', out = []) {
 // which official/dev answers 200 and the candidate 500; a failure names the
 // shape it returns to, for the reader of the report:
 //   PG-FALLBACK-AMBIGUOUS  a v1 fallback-key re-send whose filter reaches two
-//     live rows: official/dev's replaceOne replaces the first MongoDB finds,
-//     which for equal index keys is insertion order (the earliest stored); the
-//     candidate's replace takes the row of lowest insertion_ordinal
-//     (postgres-entries-write.js replace, `natural`);
+//     live rows: official/dev's replaceOne replaces the first MongoDB finds
+//     through the treatments index {eventType, created_at: -1, identifier: -1,
+//     date: -1}: the greatest identifier, then the latest date, then the
+//     earliest stored; the candidate's replace orders the rows the same way
+//     (postgres-entries-write.js replace, lib/storage/treatment-key-order.js);
 //   PG-DELETED-REACHED-UNSORTED  a v1 re-send whose filter reaches a
 //     soft-deleted record: write-intent deletedReached reads findOne (a limit
 //     without a sort); the candidate's v1 treatments port reads it in
@@ -430,6 +474,10 @@ optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO
         it(name, async function () {
           const reference = await run(sides.official, scenario);
           const entry = report.scenarios[name] = { official: reference, arms: {} };
+          // A v3 step that both sides refuse compares nothing (the scenario once omitted `app`).
+          for (const [i, step] of scenario.entries()) {
+            if (step.v === 3 && step.method === 'POST') assert.ok(reference[i].reply.status < 300, 'v3 POST at step ' + i + ' answered ' + reference[i].reply.status);
+          }
           if (revive) {
             const officialRevive = await run(sides.officialRevive, scenario);
             entry.officialRevive = { sameAsStay: !differences(reference, officialRevive).length, observed: officialRevive };
