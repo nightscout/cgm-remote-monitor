@@ -42,7 +42,9 @@ const keyIndex = require('../lib/storage/treatment-key-index');
 const { optInSuite } = require('./support/opt-in');
 
 const TREE = process.env.NS_OFFICIAL_DEV_TREE;
-const MONGO = process.env.NS_PARITY_MONGO_URI;
+// NS_PARITY_MONGO_URI, else the corpus runner's disposable CUSTOMCONNSTR_mongo
+// (scripts/test-multitenant.js); official/dev gets a database of its own.
+const MONGO = process.env.NS_PARITY_MONGO_URI || process.env.CUSTOMCONNSTR_mongo;
 const REPORT = process.env.NS_PARITY_REPORT;
 // The candidate fixture's subject display name (modifiedBy on a v3 delete).
 const SUBJECT_NAME = 'Synthetic Viewer 0';
@@ -387,7 +389,7 @@ function divergence (diffs, observedOfficial, observedCandidate) {
 }
 
 optInSuite(process.env.NS_TREATMENT_KEY_PARITY_TEST === '1' && !!TREE && !!MONGO,
-  'NS_TREATMENT_KEY_PARITY_TEST=1, NS_OFFICIAL_DEV_TREE (a scratch tree of official/dev) and NS_PARITY_MONGO_URI (disposable MongoDB), Docker')(
+  'NS_TREATMENT_KEY_PARITY_TEST=1, NS_OFFICIAL_DEV_TREE (a scratch tree of official/dev) and NS_PARITY_MONGO_URI or CUSTOMCONNSTR_mongo (disposable MongoDB), Docker')(
   'treatments fallback-key indexes: outcome parity with official/dev (INC-U2)', function () {
     this.timeout(900000);
     const lab = require('./fixtures/multitenant-preview-replicas')();
