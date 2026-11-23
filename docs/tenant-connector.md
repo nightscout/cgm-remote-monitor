@@ -35,8 +35,24 @@ The admin listener exposes the resources in the [operator OpenAPI description](.
 `devicestatus`, `profiles`), `sourceCredentialKind` (`token` or `api-secret`), and
 `sourceEndpoint`, `sourceCredential`, `writeCredential` (distinct secret-reference IDs).
 The referenced secrets must exist under the requested tenant's RLS binding. Secret
-values are entered through existing tenant credential authority, never this resource.
-Source responses and history contain references, not decrypted values.
+values never pass through this resource; they enter through the write-only secret resource
+below. Source responses and history contain references, not decrypted values.
+
+## Secret entry (write-only)
+
+`PUT /v1/tenants/{id}/secrets/{ref}` with `{"value": "..."}` on the admin listener (decision
+`connector-secret-entry-admin`). The admin role's provisioning identity encrypts the value with the
+tenant's data key and stores the record and one `encrypt` audit row in one transaction, under the
+tenant's row binding and the shared tenant maintenance lock. `ref` is `connector-` plus 1..118 of
+`[A-Za-z0-9_-]`; the value is 1..4096 bytes. Answers: 201 `{id, ref, outcome: "created"}`; 409
+`TENANT_SECRET_EXISTS` (a reference is never replaced; rotation is a separate act); 409
+`TENANT_SECRET_REQUIRES_ACTIVE`; 404 `TENANT_NOT_FOUND`; 422 `TENANT_SECRET_INVALID`. The value is never
+returned or logged, and no other caller writes secret records for connectors.
+
+On a deployment whose control namespace carries the native lifecycle catalogue, the admin's
+`connectorSources` and the vcpool role receive the deployment's native selection
+(`lib/server/serve/deployment-settings.js`): definition writes admit the lifecycle window with it, and the
+vcpool start check reads the control ledger as the native catalogue.
 
 Admin configuration adds:
 

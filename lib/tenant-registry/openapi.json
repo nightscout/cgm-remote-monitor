@@ -94,6 +94,27 @@
         }
       }
     },
+    "/v1/tenants/{id}/secrets/{ref}": {
+      "put": {
+        "operationId": "enterTenantSecret",
+        "description": "Write-only entry of one tenant connector secret (decision connector-secret-entry-admin). The value is encrypted with the tenant's data key and stored with one audit row in one transaction; it is never returned or logged. An existing reference is refused (409 TENANT_SECRET_EXISTS), never replaced. The tenant must be active (409 TENANT_SECRET_REQUIRES_ACTIVE). References are `connector-` plus 1..118 of [A-Za-z0-9_-]; the value is 1..4096 bytes.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "$ref": "#/components/schemas/TenantId" } },
+          { "name": "ref", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^connector-[A-Za-z0-9_-]{1,118}$" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["value"], "properties": { "value": { "type": "string", "minLength": 1 } } } } } },
+        "responses": {
+          "201": { "description": "Stored", "content": { "application/json": { "schema": { "type": "object", "additionalProperties": false, "required": ["id", "ref", "outcome"],
+            "properties": { "id": { "$ref": "#/components/schemas/TenantId" }, "ref": { "type": "string" }, "outcome": { "const": "created" } } } } } },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "409": { "$ref": "#/components/responses/Problem" },
+          "413": { "$ref": "#/components/responses/Problem" },
+          "415": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" },
+          "503": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    },
     "/v1/tenants/{id}/connector-sources": {
       "get": {
         "operationId": "listConnectorSources",

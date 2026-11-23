@@ -51,7 +51,10 @@ describe('deployment settings: the environment builds the deployment\'s document
     expected.provisioning.accessTokens = { ...golden.configs.api.accessTokens };
     // Provisioning creates this row typed and pending (lib/writer-driven).
     expected.provisioning.pendingConsumer = { namespace: completed.namespace, consumer: completed.consumer };
-    assert.deepStrictEqual(built, expected);
+    // Connector definitions admit the lifecycle window with the native selection (vcpool-core).
+    assert.deepStrictEqual(built.connectorSources.nativeSelection.binding, settings.nativeSelection(settings.layout(env)).binding);
+    const { nativeSelection, ...connectorSources } = built.connectorSources; // eslint-disable-line no-unused-vars
+    assert.deepStrictEqual({ ...built, connectorSources }, expected);
     // Each admin service is composed when the process has its connection secret.
     assert.deepStrictEqual(Object.keys(settings.configuration('admin', { NS_OWNERSHIP_PG: env.NS_OWNERSHIP_PG })), ['version', 'maxBytes', 'timeoutMs', 'ownership']);
   });
