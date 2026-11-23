@@ -42,7 +42,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
       if(populated){
         await assert.rejects(run('up',{...options,catalogue:catalogues[domain]}),/socket_order_requires_empty|check constraint/);
         assert.deepEqual(await history(),before,'POPULATED_ORDERING_REFUSAL_RETAINS_LEDGER');
-        assert.equal((await admin.query('SELECT doc,storage_bytes=pg_column_size(doc) AS exact FROM '+table)).rows[0].exact,true);
+        assert.equal((await admin.query('SELECT count(*)::int AS n FROM pg_attribute WHERE attrelid=$1::regclass AND attname=$2 AND NOT attisdropped',[namespace+'.'+domain,'storage_bytes'])).rows[0].n,0,'STORAGE_BYTES_REMOVED');
       }else{
         const upgraded=await run('up',{...options,catalogue:catalogues[domain]});
         assert.deepEqual(upgraded.done,catalogues[domain].migrations.filter(m=>!before.some(row=>row.name===m.name)).map(m=>m.name));
@@ -59,7 +59,9 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
     assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
-      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain}
+      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
+      // 0101_<domain>_redundant_indexes, an ordinary migration where one exists.
+      ...(['entries','treatments','devicestatus'].includes(domain)?[undefined]:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
@@ -75,7 +77,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     const before = await read();
     await run('up',{...options,catalogue});
     assert.deepEqual(await read(),before);
-    assert.equal((await admin.query('SELECT bool_and(storage_bytes=pg_column_size(doc)) AS exact FROM '+table)).rows[0].exact,true,'POPULATED_STORAGE_BACKFILL_EXACT');
+    assert.equal((await admin.query('SELECT count(*)::int AS n FROM pg_attribute WHERE attrelid=$1::regclass AND attname=$2 AND NOT attisdropped',[namespace+'.'+domain,'storage_bytes'])).rows[0].n,0,'STORAGE_BYTES_REMOVED');
     assert.equal((await admin.query(`SELECT pg_get_expr(i.indpred,i.indrelid) AS predicate FROM pg_index i
       WHERE i.indexrelid=to_regclass($1) AND i.indisvalid`,[namespace+'.'+domain+'_tenant_identifier_array'])).rows[0]?.predicate,
     "(jsonb_typeof((doc -> 'identifier'::text)) = 'array'::text)",'POPULATED_IDENTIFIER_ARRAY_INDEX');

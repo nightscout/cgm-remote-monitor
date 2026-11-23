@@ -41,14 +41,19 @@ describe('trusted PostgreSQL collection translation', function () {
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
-      const tails = catalogues[logical].migrations.filter(m => m.name === '0098_'+logical+'_identifier_arrays' || m.name === '0099_'+logical+'_storage_bytes');
-      assert.deepEqual(tails.map(m=>m.operation),[{kind:'identifier-array-index-v1',domain:logical},{kind:'clinical-storage-size-v1',domain:logical}]);
+      const tails = catalogues[logical].migrations.filter(m => m.name === '0098_'+logical+'_identifier_arrays' || m.name === '0099_'+logical+'_storage_bytes' || m.name === '0100_'+logical+'_storage_bytes_removed');
+      assert.deepEqual(tails.map(m=>m.operation),[{kind:'identifier-array-index-v1',domain:logical},{kind:'clinical-storage-size-v1',domain:logical},{kind:'clinical-storage-size-removal-v1',domain:logical}]);
       const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m)) };
       const next = selected.catalogues[logical];
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
-      assert.deepEqual(next.migrations.slice(-tails.length), tails, 'independent size and identity tails are identical in both variants');
+      // storage-machinery-removal: the successor alone ends with an ordinary
+      // drop of the indexes its own 0002 and 0001 made redundant.
+      const redundant = next.migrations.at(-1);
+      assert.equal(redundant.name, '0101_' + logical + '_redundant_indexes');
+      assert.deepEqual(redundant.up, logical === 'devicestatus' ? ['DROP INDEX devicestatus_tenant_created_at', 'DROP INDEX devicestatus_tenant_insertion'] : ['DROP INDEX treatments_tenant_insertion']);
+      assert.deepEqual(next.migrations.slice(-tails.length - 1, -1), tails, 'independent size and identity tails are identical in both variants');
       const validated = validateCatalogue(next);
-      assert.equal(validated.length, old.migrations.length + 3 + tails.length);
+      assert.equal(validated.length, old.migrations.length + 3 + tails.length + 1);
       // The original socket ordering DDL stays at its immutable prefix position.
       const sql = validated[old.migrations.length].up;
       assert.match(sql[0], /CHECK \(false\) NOT VALID/);

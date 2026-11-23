@@ -45,6 +45,19 @@
         "SET LOCAL row_security = on"
       ],
       "checksum": "80b9bbe0dc378e264f3c4ac2f16b85cbad0879e537ad31b18742138ef0d49b5f"
+    },
+    {
+      "name": "0100_profile_storage_bytes_removed",
+      "operation": {
+        "kind": "clinical-storage-size-removal-v1",
+        "domain": "profile"
+      },
+      "up": [
+        "DROP TRIGGER clinical_storage_size ON \"nightscout_migration_namespace\".\"profile\"",
+        "DROP FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"profile\" DROP COLUMN storage_bytes"
+      ],
+      "checksum": "a5d965d382b7fa5b54fff01fa353745ed7ece2279d95990346ce7d905f2ea4bb"
     }
   ]
 }
