@@ -502,6 +502,7 @@
         "tests/tenant-clock-late-stamp.integration.test.js",
         "tests/treatment-key-index.integration.test.js",
         "tests/treatment-key-official-parity.integration.test.js",
+        "tests/v1-resend-official-parity.integration.test.js",
         "tests/read-statement-read-only.integration.test.js",
         "tests/writer-driven-schema.integration.test.js",
         "tests/role-readiness.integration.test.js",

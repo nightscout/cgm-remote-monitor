@@ -172,6 +172,8 @@ const INVENTORY = [
     note: 'INC-U: equality unique indexes over the treatments fallback key and the set-based re-send path (NS_TREATMENT_KEY_UPSERT)' },
   { file: 'tests/treatment-key-official-parity.integration.test.js', flags: { NS_TREATMENT_KEY_PARITY_TEST: '1' }, shared: ['mongo'], own: ['postgres', 'vault'], gate: PENDING,
     note: 'v1 treatments outcome parity with official/dev (INC-U2, INC-P); also needs NS_OFFICIAL_DEV_TREE from the caller (a git archive of official/dev with node_modules), pending without it' },
+  { file: 'tests/v1-resend-official-parity.integration.test.js', flags: { NS_V1_RESEND_PARITY_TEST: '1' }, shared: ['mongo'], own: ['postgres', 'vault'], gate: PENDING,
+    note: 'v1 entries, device status and profile re-send outcome parity with official/dev (INC-P2); also needs NS_OFFICIAL_DEV_TREE from the caller, pending without it' },
   { file: 'tests/evaluator-wake.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
     note: 'work on change: lost wake, duplicate delivery, restart, hard delete and unstamped update re-evaluated, idle, eviction' },
   { file: 'tests/evaluator-cost.integration.test.js', flags: { NS_TENANT_PROJECTION_EVALUATOR_TEST: '1' }, shared: ['postgres'], own: [], gate: PENDING,
