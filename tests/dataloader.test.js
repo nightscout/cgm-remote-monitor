@@ -237,3 +237,146 @@ describe('dataloader', function () {
     });
   });
 });
+
+// BF-246: mergeProcessSort kept an old record unless a new record or an old
+// record already kept had its _id, by walking the merged list for every old
+// record, so each merge was quadratic in the records held. The merge is now
+// linear where every id is a string. The loop as it was is kept here verbatim
+// and both are run on the same random inputs.
+describe('dataloader mergeProcessSort (BF-246)', function () {
+  const assert = require('assert');
+  const { mergeProcessSort } = dataloaderInit;
+
+  function byMillsThenId (a, b) {
+    const byMills = a.mills - b.mills;
+    if (byMills) return byMills;
+    const aId = String(a._id);
+    const bId = String(b._id);
+    return aId < bId ? -1 : aId > bId ? 1 : 0;
+  }
+
+  // official/dev 79144cbd0 lib/data/dataloader.js, processForRuntime and
+  // mergeProcessSort, unchanged apart from layout.
+  function referenceMergeProcessSort (oldData, newData, ageLimit) {
+    Object.keys(newData).forEach(key => {
+      if (typeof newData[key] === 'object' && newData[key]) {
+        if (Object.prototype.hasOwnProperty.call(newData[key], '_id') && newData[key]._id != null) {
+          newData[key]._id = newData[key]._id.toString();
+        }
+        if (Object.prototype.hasOwnProperty.call(newData[key], 'created_at') && !Object.prototype.hasOwnProperty.call(newData[key], 'mills')) {
+          newData[key].mills = new Date(newData[key].created_at).getTime();
+        }
+      }
+    });
+    const filtered = newData.filter(function hasId (object) {
+      const hasId = object._id != null;
+      const isFresh = (ageLimit && object.mills >= ageLimit) || (!ageLimit);
+      return isFresh && hasId;
+    });
+    let merged;
+    if (oldData && filtered) {
+      merged = filtered;
+      for (let i = 0; i < oldData.length; i++) {
+        const oldElement = oldData?.[i];
+        let found = false;
+        for (let j = 0; j < filtered.length; j++) {
+          if (oldElement?._id == filtered[j]._id) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) merged.push(oldElement);
+      }
+    } else {
+      merged = filtered;
+    }
+    return merged.sort(byMillsThenId);
+  }
+
+  // A seeded generator, so a failure names a reproducible case.
+  function seeded (seed) {
+    return function () {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+  }
+
+  function outcome (fn) {
+    try {
+      return { value: fn() };
+    } catch (error) {
+      return { error: error.constructor.name };
+    }
+  }
+
+  it('keeps the records the loop kept, in its order, over repeated, numeric, missing and null ids and an age limit', function () {
+    const random = seeded(246);
+    const stringIds = ['a', 'b', 'c', 'd', 'e', '1'];
+    const anyIds = stringIds.concat([1, 2, null, undefined]);
+    function record (k, stringOnly) {
+      const ids = stringOnly ? stringIds : anyIds;
+      const id = ids[Math.floor(random() * ids.length)];
+      const out = { k: k, mills: Math.floor(random() * 4) };
+      // An undefined id is either absent or present as undefined.
+      if (id !== undefined || random() < 0.5) out._id = id;
+      if (random() < 0.2) {
+        delete out.mills;
+        out.created_at = new Date(Math.floor(random() * 4)).toISOString();
+      }
+      return out;
+    }
+    let linear = 0;
+    let loop = 0;
+    let errors = 0;
+    let dropped = 0;
+    for (let i = 0; i < 4000; i++) {
+      const stringOnly = i % 2 === 0;
+      let k = 0;
+      const old = Array.from({ length: Math.floor(random() * 12) }, () => (stringOnly || random() > 0.05 ? record(k++, stringOnly) : null));
+      const fresh = Array.from({ length: Math.floor(random() * 5) }, () => record(k++, stringOnly));
+      const ageLimit = random() < 0.2 ? 2 : undefined;
+      const oldArg = random() < 0.05 ? undefined : old;
+      const expected = outcome(() => referenceMergeProcessSort(oldArg && structuredClone(oldArg), structuredClone(fresh), ageLimit));
+      const actual = outcome(() => mergeProcessSort(oldArg && structuredClone(oldArg), structuredClone(fresh), ageLimit));
+      assert.deepStrictEqual(actual, expected, 'case ' + i);
+      if (expected.error) errors += 1;
+      else if (expected.value.length < (oldArg ? oldArg.length : 0) + fresh.length) dropped += 1;
+      if (stringOnly && oldArg) linear += 1;
+      else if (oldArg) loop += 1;
+    }
+    // Both paths ran, records were dropped as duplicates, and the loop's own
+    // failures (a missing old record reaching the sort) were reproduced.
+    assert.ok(linear > 1500 && loop > 1500 && dropped > 1000 && errors > 0,
+      'linear ' + linear + ', loop ' + loop + ', dropped ' + dropped + ', errors ' + errors);
+  });
+
+  it('prefers the new record and keeps the first of repeated old ids', function () {
+    const old = [
+      { _id: 'a', mills: 1, k: 'old a' },
+      { _id: 'b', mills: 2, k: 'old b 1' },
+      { _id: 'b', mills: 2, k: 'old b 2' },
+      { _id: 'c', mills: 3, k: 'old c' }
+    ];
+    const merged = mergeProcessSort(old, [{ _id: 'c', mills: 3, k: 'new c' }]);
+    assert.deepStrictEqual(merged.map(r => r.k), ['old a', 'old b 1', 'new c']);
+  });
+
+  it('reads each old id a bounded number of times where every id is a string', function () {
+    // The loop compared every old record with every record already kept:
+    // about n^2 / 2 reads of _id. The set reads each id a fixed number of times.
+    const n = 2000;
+    let reads = 0;
+    const old = Array.from({ length: n }, (_, i) => {
+      const id = 'o' + String(i).padStart(5, '0');
+      return Object.defineProperty({ mills: i }, '_id', {
+        enumerable: true,
+        get () { reads += 1; return id; }
+      });
+    });
+    const merged = mergeProcessSort(old, [{ _id: 'o00005', mills: 5, k: 'new' }]);
+    assert.strictEqual(merged.length, n);
+    assert.strictEqual(merged[5].k, 'new');
+    const merging = reads;
+    assert.ok(merging <= 3 * n, 'reads of an old _id while merging: ' + merging + ' for ' + n + ' records');
+  });
+});
