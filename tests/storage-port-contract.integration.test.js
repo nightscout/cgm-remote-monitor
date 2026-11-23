@@ -308,12 +308,18 @@ optInSuite(process.env.NS_STORAGE_PORT_CONTRACT_DOCKER_TEST === '1',
   });
 
   it('refuses PG lossy representations and identity kinds without silently dropping fields', async function () {
-    for (const [index, value] of [new Date(0), /synthetic/, Buffer.from('synthetic'), NaN, -0].entries()) {
+    for (const [index, value] of [new Date(0), /synthetic/, Buffer.from('synthetic'), NaN, Infinity].entries()) {
       const doc = { _id: 'bson-' + index, value };
       await ports.mongo.run(() => ports.mongo.write.insertOne({ ...doc }, { normalize: false }));
       await assert.rejects(ports.pg.run(() => ports.pg.write.insertOne({ ...doc }, { normalize: false })), unsupported);
       assert.equal((await ports.pg.run(() => ports.pg.read.findOne(doc._id))).length, 0);
     }
+    // Negative zero is admitted and stored as 0, as single-tenant JSON responses
+    // render it (lib/storage/PORT-CONTRACT.md; 6f8c96556).
+    await ports.pg.run(() => ports.pg.write.insertOne({ _id: 'negative-zero', value: -0 }, { normalize: false }));
+    const [zero] = await ports.pg.run(() => ports.pg.read.findOne('negative-zero', undefined, { normalize: false }));
+    assert.equal(zero.value, 0);
+    assert.equal(Object.is(zero.value, -0), false);
     for (const id of [false, 0]) {
       await db.collection('entries_a').insertOne({ _id: id });
       const rows = await ports.mongo.run(() => ports.mongo.read.findFiltered(cmp('eq', '_id', id), raw));
