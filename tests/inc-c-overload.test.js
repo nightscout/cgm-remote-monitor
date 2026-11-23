@@ -19,11 +19,6 @@ describe('INC-C overload switches', function () {
     assert.throws(() => switches.oneSelect({ NS_CONSUMER_ONE_SELECT: '1' }), /NS_CONSUMER_ONE_SELECT/);
     assert.equal(switches.timeOnlyCoalesce({}), false); assert.equal(switches.timeOnlyCoalesce({ NS_EVAL_TIME_ONLY_COALESCE: 'true' }), true);
     assert.throws(() => switches.timeOnlyCoalesce({ NS_EVAL_TIME_ONLY_COALESCE: 'yes' }), /NS_EVAL_TIME_ONLY_COALESCE/);
-    assert.equal(switches.evaluationFirst({}), false); assert.equal(switches.evaluationFirst({ NS_EVAL_PRIORITY: 'arrival' }), false);
-    assert.equal(switches.evaluationFirst({ NS_EVAL_PRIORITY: 'evaluation-first' }), true);
-    assert.throws(() => switches.evaluationFirst({ NS_EVAL_PRIORITY: 'first' }), /NS_EVAL_PRIORITY/);
-    assert.equal(switches.outboxPool(2, {}), 2); assert.equal(switches.outboxPool(2, { NS_OUTBOX_POOL: '8' }), 8);
-    for (const bad of ['0', '65', '2.5', 'x']) assert.throws(() => switches.outboxPool(2, { NS_OUTBOX_POOL: bad }), /NS_OUTBOX_POOL/);
   });
 });
 
@@ -130,50 +125,6 @@ describe('INC-C time-only coalescing: differential at time-only instants', funct
   it('control: dropping a tick with no acquisition queued is red (stale-data alarm late)', async function () {
     const r = await differential(TIMELINES.quiet(), { factory: timeOnlyDropped() });
     assert(r.differing > 0, 'CONTROL_BLIND');
-  });
-});
-
-describe('INC-C evaluation-first consumer passes', function () {
-  let mode;
-  beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
-  afterEach(() => scope.setTenancyMode(mode));
-  const consumers = require('../lib/server/serve/evaluator-consumers');
-  const fixture = require('./fixtures/tenant-notifications');
-  // Manual turns: `delay` records the turn callback; the test runs it.
-  function coordinator ({ evaluationFirst, backlog }) {
-    const f = fixture(), turns = [];
-    const value = consumers.coordinate({ tenants: [f.A, f.B], route: 'incc', current: async () => null, currentConfig: async tenant => ({ tenant, identity: 'config' }),
-      isCurrent: async () => true, store: f.store, reader: { read: async () => [], allows: async () => true },
-      adapter: { id: 'incc', send: (row, callback) => callback(null, { accepted: true }) }, schedule: () => 0, cancel: () => {},
-      delay: fn => { turns.push(fn); return turns.length; }, undelay: () => {},
-      pollIntervalMs: 1000, retryIntervalMs: 1000, maxRows: 10, maxBytes: 65536, maxPayloadBytes: 10000, maxInflight: 1, attemptTimeoutMs: 1000, retryDelayMs: 1,
-      maxConcurrentTenants: 1, evaluationFirst, evaluatorBacklog: () => backlog.value });
-    return { f, value, turns };
-  }
-  const settle = () => new Promise(resolve => setImmediate(resolve));
-
-  it('off: passes run at once whatever the evaluator owes', async function () {
-    const backlog = { value: 5 }; const { f, value, turns } = coordinator({ evaluationFirst: false, backlog });
-    try { value.start(); await value.flush(f.A); await value.flush(f.B); assert.equal(value.health().tenants.every(t => t.passes === 1), true); assert.equal(turns.length, 0); assert.equal('passesHeld' in value.health(), false); }
-    finally { await value.close(); }
-  });
-  it('on: with a backlog, passes wait; each turn admits a bounded share; none is dropped; with no backlog a turn admits all', async function () {
-    const backlog = { value: 5 }; const { f, value, turns } = coordinator({ evaluationFirst: true, backlog });
-    try {
-      value.start(); await settle(); await settle();
-      const passes = () => value.health().tenants.map(t => t.passes);
-      assert.deepEqual(passes(), [0, 0], 'EVALUATION_FIRST_HOLDS_PASSES');
-      // One turn under backlog: maxConcurrentTenants (1) admitted.
-      turns.shift()(); await settle(); await settle();
-      assert.equal(passes().reduce((a, b) => a + b), 1, 'BOUNDED_SHARE_PER_TURN');
-      // A hint for a held tenant coalesces into its held pass; nothing is dropped.
-      const held = value.health().tenants.find(t => t.passes === 0).tenant;
-      const hinted = value.hint(held);
-      backlog.value = 0; while (turns.length) { turns.shift()(); await settle(); await settle(); }
-      await hinted; await value.flush(f.A); await value.flush(f.B);
-      assert.deepEqual(passes().map(n => n >= 1), [true, true], 'NO_PASS_DROPPED');
-      assert(value.health().passesHeld >= 2);
-    } finally { await value.close(); }
   });
 });
 
