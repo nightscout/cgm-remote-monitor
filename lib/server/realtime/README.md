@@ -57,7 +57,11 @@ Ownership and restore-generation fences also cover asynchronous publication.
 Compatible authorized viewers share Socket.IO packet encoding per publication.
 Slow viewers with bounded output queues are disconnected.
 
-Main clients receive full `dataUpdate` frames (`delta:false`), so absent SGVs
+Main clients receive the evaluator's frame as a single-site delta
+(`lib/data/calcdelta.js`) against the frame that socket last received (decision
+no-realtime-fast-path). A new or re-authorized socket, a lost or out-of-order
+base, a settings identity change, and a change a delta cannot express (a removed
+SGV or device status) get the full frame (`delta:false`), so absent SGVs
 replace browser state. Connected storage viewers receive `create`, `update` and
 `delete` events for the APIv3 writes that fire them on a single site (decision
 storage-events-single-tenant-parity): the api sends them after commit as a

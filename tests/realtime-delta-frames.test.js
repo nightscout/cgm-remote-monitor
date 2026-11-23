@@ -112,6 +112,19 @@ describe('realtime delta frames (decision no-realtime-fast-path)', function () {
     assert.deepEqual(shown(browser(socket.frames())), shown(browser([removed.frame])));
   });
 
+  it('RT_DELTA_REMOVED_WITH_ADD: a reading removed in the same cycle as an addition is sent as a full frame', async function () {
+    const f = await fixture(p2);
+    const socket = await f.socket();
+    const next = publication(3, { sgvs: [sgv(1), sgv(3), sgv(4)], treatments: p2.frame.treatments });
+    await f.protocol.fanout({ tenant: A, previous: p2, next });
+    assert.equal(socket.frames()[1].delta, false, 'RT_DELTA_REMOVED_READING_FULL');
+    assert.deepEqual(shown(browser(socket.frames())), shown(browser([next.frame])));
+    // The window moving past old readings is not a delete.
+    const slid = publication(4, { sgvs: [sgv(3), sgv(4), sgv(5)], treatments: p2.frame.treatments });
+    await f.protocol.fanout({ tenant: A, previous: next, next: slid });
+    assert.equal(socket.frames()[2].delta, true, 'RT_DELTA_WINDOW_SLIDE');
+  });
+
   it('RT_DELTA_DUPLICATE: a repeated publication sends nothing', async function () {
     const f = await fixture(p1);
     const socket = await f.socket();
