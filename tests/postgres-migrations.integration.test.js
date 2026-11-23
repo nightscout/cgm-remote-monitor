@@ -147,10 +147,10 @@ optInSuite(process.env.NS_MIGRATION_DOCKER_TEST === '1', 'NS_MIGRATION_DOCKER_TE
     const qualified = '"' + o.namespace + '".entries';
     await observer.query('CREATE ROLE "' + role + '" NOSUPERUSER NOBYPASSRLS');
     await observer.query('GRANT USAGE ON SCHEMA "' + o.namespace + '" TO "' + role + '"');
-    await observer.query('GRANT SELECT, INSERT ON ' + qualified + ' TO "' + role + '"');
-    // Stored-size AFTER trigger updates only its protected projection.
-    await observer.query('GRANT UPDATE(storage_bytes) ON ' + qualified + ' TO "' + role + '"');
-    for (const statement of require('../lib/tenant-lifecycle/tenant-insertion-sql').build({ namespace: o.namespace, domain: 'entries' }).servingGrants(role)) await observer.query(statement);
+    // The serving grants production gives the api role (table privileges,
+    // EXECUTE on the windowed time function migration 0001 revokes from
+    // PUBLIC, and the insertion-ordinal serving grants).
+    for (const statement of require('../lib/server/ordinary-deployment-grants').insertionGrants({ namespace: o.namespace, domain: 'entries', role })) await observer.query(statement);
 
     const insert = (tenantId, kind, id, identifier, valid = true) => observer.query(
       'INSERT INTO ' + qualified + ' (tenant_id, id_kind, doc) VALUES ($1, $2, $3::jsonb)',
