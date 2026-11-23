@@ -93,7 +93,7 @@ optInSuite(process.env.NS_S1_LEVEL_TEST === '1' && !!process.env.NS_TEST_POSTGRE
       clockTable: lab.base.namespaces.clock + '.tenant_write_clock', domains: lab.base.tables, consumer: 'clinical-level',
       projectionVersion: 'clinical-current-rows-v1', pageSize: 100, maxRows: 10000, level: { lifecycleTable: lab.lifecycleTable.replace(/"/g, '') } });
   });
-  after(async () => { await connection?.close?.(); await lab?.close(); });
+  after(async () => { await connection?.end(); await lab?.close(); });
 
   it('reads every windowed table by its stored time column only, bounded by an index', () => {
     const policy = policyOf.create(lab.base.env, Date.now());

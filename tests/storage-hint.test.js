@@ -149,8 +149,11 @@ optInSuite(process.env.NS_S2_STORAGE_HINT_PG_TEST === '1' && !!uri, 'NS_S2_STORA
     connection = await require('../lib/storage/postgres-connection')({ connectionString: url.toString(), max: 4 });
   });
   after(async function () {
+    // The storage connection's teardown is end(); a live one keeps the process
+    // from selecting an operation window for a later suite in the corpus.
+    await connection?.end();
     for (const d of [...domains, 'clock']) await admin?.query('DROP SCHEMA IF EXISTS "' + ns + '_' + d + '" CASCADE');
-    await connection?.close?.(); await admin?.query('DROP ROLE IF EXISTS "' + ns + '_app"'); await admin?.end(); scope.setTenancyMode(mode);
+    await admin?.query('DROP ROLE IF EXISTS "' + ns + '_app"'); await admin?.end(); scope.setTenancyMode(mode);
   });
   async function stack ({ previewModule = require('../lib/server/serve/preview-domains'), deliver } = {}) {
     const w = windowFor(new Map([[A, 1], [B, 1]])), r = realtime({ operationWindow: w });
