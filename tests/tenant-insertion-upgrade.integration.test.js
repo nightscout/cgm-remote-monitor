@@ -59,7 +59,9 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
     assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
-      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain}
+      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
+      // 0101_<domain>_redundant_indexes, an ordinary migration where one exists.
+      ...(['entries','treatments','devicestatus'].includes(domain)?[undefined]:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
