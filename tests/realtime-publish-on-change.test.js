@@ -167,7 +167,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       assert.ok(await until(() => a.every(s => s.frames().length === 2), 1000), 'every A socket receives the new frame');
       const latency = Math.max(...a.map(s => s.frames()[1].at)) - at;
       assert.ok(latency <= 50 + 40, 'RT_WRITE_BOUND on an addressed control event (+ scheduling): ' + latency + ' ms');
-      assert.equal(a[0].frames()[1].value.sgvs.length, 1); assert.equal(a[0].frames()[1].value.delta, false, 'frames stay full');
+      assert.equal(a[0].frames()[1].value.sgvs.length, 1); assert.equal(a[0].frames()[1].value.delta, true, 'RT_DELTA a socket holding the previous frame is sent the delta');
       assert.equal(b.frames().length, 1, 'RT_TENANT_FANOUT B receives nothing');
       f.write(A, false); const acquisitions = f.state.acquisitions;
       assert.ok(await until(() => f.state.acquisitions > acquisitions, 1000));
