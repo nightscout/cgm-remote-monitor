@@ -326,7 +326,10 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
       for (const [label, table, call] of cases) {
         it(label, async function () {
           const lab = labs[table];
-          const statements = (await sent(c => call(lab, c))).filter(s => /^(WITH|SELECT)/.test(s.text));
+          // The treatments key-index lookup (lib/storage/treatment-key-index.js
+          // existing(), cached) reads the system catalogue, not the table.
+          const statements = (await sent(c => call(lab, c))).filter(s => /^(WITH|SELECT)/.test(s.text) &&
+            !/\bFROM pg_index\b/.test(s.text));
           assert.ok(statements.length, label + ': a statement was sent');
           for (const statement of statements) bounded(label, await scans(table, statement));
         });
