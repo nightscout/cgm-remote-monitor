@@ -30,12 +30,12 @@ describe('clinical storage-size removal',()=>{
  for(const domain of builder.DOMAINS)it('removes the '+domain+' column, trigger and function after the historical projection',()=>{
   const files=['postgres-'+domain+'-v1.json',...(['treatments','devicestatus','profile'].includes(domain)?['postgres-'+domain+'-socket-order-v1.json']:[])];
   for(const file of files){
-   const migrations=catalogue.validateCatalogue(require('../migrations/candidates/'+file)),last=migrations.at(-1);
+   const migrations=catalogue.validateCatalogue(require('../migrations/candidates/'+file)),last=migrations.find(m=>m.operation?.kind==='clinical-storage-size-removal-v1');
    assert.equal(last.name,'0100_'+domain+'_storage_bytes_removed');
    assert.deepEqual(last.operation,{kind:'clinical-storage-size-removal-v1',domain});
    assert.deepEqual(catalogue.renderMigration(last,'synthetic_'+domain),['DROP TRIGGER clinical_storage_size ON "synthetic_'+domain+'"."'+domain+'"','DROP FUNCTION "synthetic_'+domain+'".clinical_storage_size()','ALTER TABLE "synthetic_'+domain+'"."'+domain+'" DROP COLUMN storage_bytes']);
    assert.deepEqual(catalogue.operationTables(last),[]);
-   assert(migrations.findIndex(m=>m.operation?.kind==='clinical-storage-size-v1')<migrations.length-1);
+   assert(migrations.findIndex(m=>m.operation?.kind==='clinical-storage-size-v1')<migrations.indexOf(last));
   }
  });
  it('leaves no runtime reader of the statistic',()=>{
@@ -47,9 +47,10 @@ describe('clinical storage-size removal',()=>{
  it('treats the removal as an independent tail and refuses a misnamed or weakened one',()=>{
   const original=require('../migrations/candidates/postgres-entries-v1.json');
   const renamed=structuredClone(original),weak=structuredClone(original);
-  renamed.migrations.at(-1).name='0101_entries_storage_bytes_removed';
+  const at=m=>m.migrations.find(x=>x.name==='0100_entries_storage_bytes_removed');
+  at(renamed).name='0102_entries_storage_bytes_removed';
   assert.throws(()=>catalogue.validateCatalogue(renamed),error=>error.code==='MIG_OPERATION');
-  weak.migrations.at(-1).up=weak.migrations.at(-1).up.slice(0,2);weak.migrations.at(-1).checksum=catalogue.checksum(weak.migrations.at(-1).up);
+  const w=at(weak);w.up=w.up.slice(0,2);w.checksum=catalogue.checksum(w.up);
   assert.throws(()=>catalogue.validateCatalogue(weak),error=>error.code==='MIG_OPERATION_SQL');
   catalogue.validateCatalogue(original);
  });

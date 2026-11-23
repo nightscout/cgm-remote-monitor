@@ -118,6 +118,13 @@
         "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" DROP COLUMN storage_bytes"
       ],
       "checksum": "a3625da5a25111555524f7ce6ada021477af88448441b2ab95b613455145db4f"
+    },
+    {
+      "name": "0101_entries_redundant_indexes",
+      "up": [
+        "DROP INDEX entries_tenant_date"
+      ],
+      "checksum": "8056082fbd56466078caceeacedd320ede295a86f3f3de174c35aee3e5145f3f"
     }
   ]
 }

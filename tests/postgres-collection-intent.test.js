@@ -46,9 +46,14 @@ describe('trusted PostgreSQL collection translation', function () {
       const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m)) };
       const next = selected.catalogues[logical];
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
-      assert.deepEqual(next.migrations.slice(-tails.length), tails, 'independent size and identity tails are identical in both variants');
+      // storage-machinery-removal: the successor alone ends with an ordinary
+      // drop of the indexes its own 0002 and 0001 made redundant.
+      const redundant = next.migrations.at(-1);
+      assert.equal(redundant.name, '0101_' + logical + '_redundant_indexes');
+      assert.deepEqual(redundant.up, logical === 'devicestatus' ? ['DROP INDEX devicestatus_tenant_created_at', 'DROP INDEX devicestatus_tenant_insertion'] : ['DROP INDEX treatments_tenant_insertion']);
+      assert.deepEqual(next.migrations.slice(-tails.length - 1, -1), tails, 'independent size and identity tails are identical in both variants');
       const validated = validateCatalogue(next);
-      assert.equal(validated.length, old.migrations.length + 3 + tails.length);
+      assert.equal(validated.length, old.migrations.length + 3 + tails.length + 1);
       // The original socket ordering DDL stays at its immutable prefix position.
       const sql = validated[old.migrations.length].up;
       assert.match(sql[0], /CHECK \(false\) NOT VALID/);
