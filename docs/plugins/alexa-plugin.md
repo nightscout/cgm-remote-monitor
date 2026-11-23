@@ -51,7 +51,7 @@ To add Alexa support for a plugin, [check this out](#adding-alexa-support-to-a-p
 1. Select "Alexa Skills Kit" in the main menu bar.
 1. Click the "Start a Skill" button. This will take you to the Skills console.
 1. Click the "Create Skill" button on the Skills console page.
-1. Name your new skill "Nightscout" (or something else, if you like). Use English (US) as your language. Click "Next".
+1. Name your new skill "Nightscout" (or something else, if you like). Choose the language matching your interaction-model template (for example, German (DE) for `de-de.json`). Click "Next".
 1. Choose a model to add to your skill. Click "Select" under "Custom" model, then click "Create skill" on the upper right.
 1. Congrats! Your empty custom skill should now be created.
 
@@ -61,7 +61,9 @@ Your Alexa skill's "interaction model" defines how your spoken questions get tra
 
 To get up and running with an interaction model, which will allow you to ask Alexa a few basic questions about your Nightscout site, you can copy and paste the configuration code for your language from [the list of templates](alexa-templates/).
 
-- If you're language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
+- For German, use the [de-de template](alexa-templates/de-de.json) and set Nightscout's `LANGUAGE=de` for German responses.
+
+- If your language doesn't have a template, please consider starting with [the en-us template](alexa-templates/en-us.json), then [modifying it to work with your language](#adding-support-for-additional-languages), and [making a pull request](/CONTRIBUTING.md) or [submitting an issue](https://github.com/nightscout/cgm-remote-monitor/issues) with your translated template to share it with others.
 
 Select "JSON Editor" in the left-hand menu on your skill's edit page (which you should be on if you followed the above instructions). Replace everything in the textbox with the code from your chosen template. Then click "Save Model" at the top. A success message should appear indicating that the model was saved.
 
@@ -88,7 +90,7 @@ If you use Authentication Roles, you will need to add a token to the end of your
 1. In your Nightscout Admin Tools, add a new subject and give it the "readable" role.
     - If you **really** would like to be super specific, you could create a new role and set the permissions to `api:*:read`.
 1. After the new subject is created, copy the "Access Token" value for the new row in your subject table (**don't** copy the link, just copy the text).
-1. At the end of your Nighscout URL, add `?token={yourtoken}`, where `{yourtoken}` is the Access Token you just copied. Your new URL should look like `https://{yourdomain}/api/v1/googlehome?token={yourtoken}`.
+1. At the end of your Nighscout URL, add `?token={yourtoken}`, where `{yourtoken}` is the Access Token you just copied. Your new URL should look like `https://{yourdomain}/api/v1/alexa?token={yourtoken}`.
 
 ### Test your skill out with the test tool
 

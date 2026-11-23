@@ -1,0 +1,713 @@
+[
+  {
+    "created_at": "2026-05-08T23:55:17.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 140,
+    "_id": "a1c8c5e0e9cc7e2fc4d50367"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T22:57:29.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.1,
+    "type": "SMB",
+    "_id": "5bfa37169bbc4e4447823d11"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T22:35:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "71b07467c1992a22e04cda7a"
+  },
+  {
+    "created_at": "2026-05-08T20:07:30.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 15,
+    "eventType": "Temporary Target",
+    "targetBottom": 99,
+    "targetTop": 99,
+    "_id": "bd2ea2ea122e8f31fc2d39e7"
+  },
+  {
+    "carbs": null,
+    "created_at": "2026-05-08T20:06:58.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Correction Bolus",
+    "insulin": 3,
+    "_id": "e860c1b6103f11e969db8fb6"
+  },
+  {
+    "created_at": "2026-05-08T11:16:38.000Z",
+    "device": "openaps://AndroidAPS",
+    "eventType": "BG Check",
+    "glucose": 5.488888888888889,
+    "glucoseType": "Finger",
+    "_id": "46aec5c448a70bfd9bb90890"
+  },
+  {
+    "created_at": "2026-05-08T23:35:29.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "78b33a884cbf78741c27d11c"
+  },
+  {
+    "created_at": "2026-05-08T23:25:16.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 300,
+    "_id": "5a375c315fcbd11924e7059c"
+  },
+  {
+    "created_at": "2026-05-08T23:08:16.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 270,
+    "_id": "b2bdaaf55abf7c909acd2ada"
+  },
+  {
+    "created_at": "2026-05-08T23:03:16.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 220,
+    "_id": "f59df6fad16b3b4039127508"
+  },
+  {
+    "created_at": "2026-05-08T22:58:25.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 150,
+    "_id": "c99b86f1ea1ccbc83373b1c9"
+  },
+  {
+    "created_at": "2026-05-08T22:53:13.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 120,
+    "_id": "ae3aaee98f4a3e7a7f4386f3"
+  },
+  {
+    "created_at": "2026-05-08T22:48:14.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 70,
+    "_id": "60d4c9cea93375fc73aaacc8"
+  },
+  {
+    "created_at": "2026-05-08T22:38:15.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 15,
+    "eventType": "Temp Basal",
+    "rate": 90,
+    "_id": "9e7b329c37abe6b35394251a"
+  },
+  {
+    "created_at": "2026-05-08T22:28:08.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 90,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "f398c1eb78810f1fd05f6877"
+  },
+  {
+    "created_at": "2026-05-08T22:23:14.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 70,
+    "_id": "cdf725decdb0c820d4f744f5"
+  },
+  {
+    "carbs": 5,
+    "created_at": "2026-05-08T22:20:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "58b6a9b8a881dde2a86d64e1"
+  },
+  {
+    "created_at": "2026-05-08T22:15:34.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 190,
+    "_id": "567c224270b4ff3047d202f1"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T22:14:30.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.2,
+    "type": "SMB",
+    "_id": "85dca343f252129a7ab812e4"
+  },
+  {
+    "created_at": "2026-05-08T22:10:45.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 15,
+    "eventType": "Temp Basal",
+    "rate": 90,
+    "_id": "87882f1fcd7f53238e9e1b4f"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T22:05:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "f91971d296d4af3a0696707c"
+  },
+  {
+    "carbs": 5,
+    "created_at": "2026-05-08T21:50:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "f967e50d0cbffed409286fea"
+  },
+  {
+    "created_at": "2026-05-08T21:45:36.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 60,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "565abc7c3452cd4c1cc1cc6d"
+  },
+  {
+    "created_at": "2026-05-08T21:40:43.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "010b5b98a33eb432fe3375f2"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T21:39:35.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.7,
+    "type": "SMB",
+    "_id": "a6efad3a3e054cc63f916836"
+  },
+  {
+    "created_at": "2026-05-08T21:35:48.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 250,
+    "_id": "595d67b0e50296c62816db6f"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T21:35:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "4aef362e173789c2c7fdf3ed"
+  },
+  {
+    "created_at": "2026-05-08T21:30:32.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 29,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "063d4ca2aa0331232d2741de"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T21:29:36.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.8,
+    "type": "SMB",
+    "_id": "5b465eb04921aafe7c7fedff"
+  },
+  {
+    "created_at": "2026-05-08T21:25:35.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 70,
+    "_id": "e1116d83c97fe9dcb02af364"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T21:24:34.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.6,
+    "type": "SMB",
+    "_id": "72defeadb5c6a639d418d05b"
+  },
+  {
+    "created_at": "2026-05-08T21:20:35.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 40,
+    "_id": "778db17dd2e99e8563fc03b5"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T21:20:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "2f63c8657b427dc00268d946"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T21:19:34.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.6,
+    "type": "SMB",
+    "_id": "a56944fe21b6c6f64f0c2400"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T21:05:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "a879b970c7c40b5bb8f7ef48"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T20:50:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "b144296ae9cac6081c524d28"
+  },
+  {
+    "created_at": "2026-05-08T20:39:04.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 120,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "8ef24dda10415756b5eafd72"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T20:35:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "bd9b0426213d26f7af9eb8e6"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T20:20:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "7c802e765e90c28ecde28f1c"
+  },
+  {
+    "created_at": "2026-05-08T20:09:06.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 120,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "5638d9d6c08ae3fdcfaccaca"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T20:05:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "270b10bb284ea42e5f3aed24"
+  },
+  {
+    "created_at": "2026-05-08T20:04:07.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 15,
+    "eventType": "Temp Basal",
+    "rate": 90,
+    "_id": "0fd0ab034c9b315203ee1fd5"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T19:50:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "6a719d8f9a8b3bf27083e8fc"
+  },
+  {
+    "created_at": "2026-05-08T19:49:03.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 120,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "ac5a3c92b21c942a234edd12"
+  },
+  {
+    "created_at": "2026-05-08T19:44:02.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 90,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "f2aa8b7f2efb49d8a4547407"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:37:34.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.6,
+    "type": "SMB",
+    "_id": "a8f97176780409694376f128"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T19:35:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "d899ce88113a5230c89fc3c4"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:32:33.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.5,
+    "type": "SMB",
+    "_id": "1174ba7db7fc68c60e2a1d29"
+  },
+  {
+    "created_at": "2026-05-08T19:29:12.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 60,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "b7959de48f6305fcf98689f9"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:27:38.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 1,
+    "type": "SMB",
+    "_id": "66a53eac1e546b9fadddc011"
+  },
+  {
+    "created_at": "2026-05-08T19:24:08.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 340,
+    "_id": "1219fde0ab481ed09974ca28"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:22:39.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 1.2,
+    "type": "SMB",
+    "_id": "db5f1774fe85146c96c8192a"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T19:20:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "0bf27ee65f5d07b1c77bc3d1"
+  },
+  {
+    "created_at": "2026-05-08T19:19:12.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 120,
+    "_id": "e461b987d2bba14a9dc18c9f"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:12:32.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.4,
+    "type": "SMB",
+    "_id": "2c18099511db8cc30f2c5ddd"
+  },
+  {
+    "created_at": "2026-05-08T19:09:18.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 300,
+    "_id": "42a4415fd105c00745180be4"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:07:30.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.3,
+    "type": "SMB",
+    "_id": "8c6c3f05a21f3df4138194a2"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T19:05:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "aac73a26ae0d27a15277553a"
+  },
+  {
+    "created_at": "2026-05-08T19:04:03.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 180,
+    "_id": "d9830f37b7bf72ac906cbb79"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T19:02:29.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.1,
+    "type": "SMB",
+    "_id": "8a3a0879a2f2c1bfcbedc21a"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T18:57:29.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.1,
+    "type": "SMB",
+    "_id": "7fac3676781e5ab39ed2acaf"
+  },
+  {
+    "created_at": "2026-05-08T18:54:05.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 160,
+    "_id": "df6fd82ffa076303e58895af"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T18:52:29.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.1,
+    "type": "SMB",
+    "_id": "7382ccd79c8fecea03aff514"
+  },
+  {
+    "carbs": 4,
+    "created_at": "2026-05-08T18:50:10.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "Meal Bolus",
+    "insulin": null,
+    "_id": "44f28eb85e98264ac3abaa1f"
+  },
+  {
+    "created_at": "2026-05-08T18:49:06.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 70,
+    "_id": "82cfb06ee7df3a97372008b4"
+  },
+  {
+    "created_at": "2026-05-08T18:45:22.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 15,
+    "eventType": "Temporary Target",
+    "targetBottom": 99,
+    "targetTop": 99,
+    "_id": "6b80c5a88cc16738208ee034"
+  },
+  {
+    "created_at": "2026-05-08T18:39:02.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 60,
+    "eventType": "Temporary Target",
+    "targetBottom": 90.00000000000003,
+    "targetTop": 90.00000000000003,
+    "_id": "612b3a4c4999cf5c0f75c903"
+  },
+  {
+    "created_at": "2026-05-08T18:24:04.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 120,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "462d95419c145e3ca012a16b"
+  },
+  {
+    "created_at": "2026-05-08T18:19:19.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 60,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "d5f13bb86cba2ebe53e690e0"
+  },
+  {
+    "created_at": "2026-05-08T18:14:07.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 180,
+    "_id": "b868cfda0e4857bfc706304d"
+  },
+  {
+    "created_at": "2026-05-08T18:09:38.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 110,
+    "_id": "a1bac811dc7fb6c3ce089a75"
+  },
+  {
+    "created_at": "2026-05-08T18:04:19.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 340,
+    "_id": "d67047b78a2b75031693e0a3"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T18:03:34.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.6,
+    "type": "SMB",
+    "_id": "e4f1cdfe7630dbd6b417bf61"
+  },
+  {
+    "created_at": "2026-05-08T17:59:06.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 210,
+    "_id": "dd018b76246bd3e32b143d20"
+  },
+  {
+    "automatic": true,
+    "carbs": null,
+    "created_at": "2026-05-08T17:57:30.000Z",
+    "device": "openaps://AndroidAPS",
+    "enteredBy": "openaps://AndroidAPS",
+    "eventType": "SMB",
+    "insulin": 0.2,
+    "type": "SMB",
+    "_id": "37b3c34aad8c505630613b3b"
+  },
+  {
+    "created_at": "2026-05-08T17:54:16.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 10,
+    "_id": "fc85e34b93f9c3137e0c6025"
+  },
+  {
+    "created_at": "2026-05-08T17:49:20.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 50,
+    "_id": "67cd56409904422718d16f65"
+  },
+  {
+    "created_at": "2026-05-08T17:34:06.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 60,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "6708c167fb97733c5357ec8f"
+  },
+  {
+    "created_at": "2026-05-08T17:29:18.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 30,
+    "eventType": "Temp Basal",
+    "rate": 70,
+    "_id": "69491d067b1e6f9380e5843b"
+  },
+  {
+    "created_at": "2026-05-08T17:04:37.000Z",
+    "device": "openaps://AndroidAPS",
+    "duration": 120,
+    "eventType": "Temp Basal",
+    "rate": 0,
+    "_id": "3d1941375b1dda25904a65ce"
+  }
+]

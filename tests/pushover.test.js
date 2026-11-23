@@ -3,6 +3,10 @@
 var should = require('should');
 var levels = require('../lib/levels');
 
+var ctx = {
+  levels:levels
+}
+
 describe('pushover', function ( ) {
 
   var baseurl = 'https://nightscout.test';
@@ -17,9 +21,10 @@ describe('pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels:levels
   };
 
-  var pushover = require('../lib/plugins/pushover')(env);
+  var pushover = require('../lib/plugins/pushover')(env, ctx);
 
   it('convert a warning to a message and send it', function (done) {
 
@@ -75,9 +80,10 @@ describe('support legacy pushover groupkey', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
-  var pushover = require('../lib/plugins/pushover')(env);
+  var pushover = require('../lib/plugins/pushover')(env, ctx);
 
   it('send', function (done) {
 
@@ -111,9 +117,10 @@ describe('multi announcement pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
-  var pushover = require('../lib/plugins/pushover')(env);
+  var pushover = require('../lib/plugins/pushover')(env, ctx);
 
   it('send multiple pushes if there are multiple keys', function (done) {
 
@@ -155,9 +162,10 @@ describe('announcement only pushover', function ( ) {
         , apiToken: '6789'
       }
     }
+    , levels: levels
   };
 
-  var pushover = require('../lib/plugins/pushover')(env);
+  var pushover = require('../lib/plugins/pushover')(env, ctx);
 
   it('send push if announcement', function (done) {
 

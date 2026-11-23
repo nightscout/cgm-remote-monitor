@@ -29,4 +29,16 @@ describe('units', function ( ) {
     units.mmolToMgdl(units.mgdlToMMOL(99)).should.equal(99);
   });
 
+  it('should convert negative delta -9 mgdl to mmol preserving sign', function () {
+    units.mgdlToMMOL(-9).should.equal('-0.5');
+  });
+
+  it('should convert negative delta -18 mgdl to mmol preserving sign', function () {
+    units.mgdlToMMOL(-18).should.equal('-1.0');
+  });
+
+  it('should convert 0 delta to 0.0', function () {
+    units.mgdlToMMOL(0).should.equal('0.0');
+  });
+
 });

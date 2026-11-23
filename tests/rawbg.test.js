@@ -1,11 +1,12 @@
 'use strict';
 
 require('should');
+const fs = require('fs');
 
 describe('Raw BG', function ( ) {
   var ctx =  {
       settings: { units: 'mg/dl'}
-      , language: require('../lib/language')()
+      , language: require('../lib/language')(fs)
       , pluginBase: {}
   };
   ctx.language.set('en');

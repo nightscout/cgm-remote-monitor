@@ -2,7 +2,11 @@ var should = require('should');
 var levels = require('../lib/levels');
 
 describe('maker', function ( ) {
-  var maker = require('../lib/plugins/maker')({extendedSettings: {maker: {key: '12345'}}});
+  var maker = require('../lib/plugins/maker')(
+    {
+      extendedSettings: {maker: {key: '12345'}}
+      , levels: levels
+  });
 
   //prevent any calls to iftt
   function noOpMakeRequest (key, event, eventName, callback) {

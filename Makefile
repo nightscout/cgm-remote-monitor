@@ -2,9 +2,10 @@
 # Nightscout tests/builds/analysis
 TESTS=tests/*.js
 MONGO_CONNECTION?=mongodb://localhost:27017/test_db
+AUTH_FAIL_DELAY?=50
 CUSTOMCONNSTR_mongo_settings_collection?=test_settings
 CUSTOMCONNSTR_mongo_collection?=test_sgvs
-MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
+MONGO_SETTINGS=AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY} MONGO_CONNECTION=${MONGO_CONNECTION} \
 	CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}
 
 # XXX.bewest: Mocha is an odd process, and since things are being
@@ -15,7 +16,7 @@ MONGO_SETTINGS=MONGO_CONNECTION=${MONGO_CONNECTION} \
 # coverage reporter's ability to instrument the tests correctly.
 # Hard coding it to the local with our pinned version is bigger for
 # initial installs, but ensures a consistent environment everywhere.
-# On Travis, ./node_modules/.bin and other `nvm` and `npm` bundles are
+# On GA, ./node_modules/.bin and other `nvm` and `npm` bundles are
 # inserted into the default `$PATH` enviroinment, making pointing to
 # the unwrapped mocha executable necessary.
 MOCHA=./node_modules/mocha/bin/_mocha
@@ -25,9 +26,18 @@ ANALYZED=./coverage/lcov.info
 # Following token deprecated
 # export CODACY_REPO_TOKEN=e29ae5cf671f4f918912d9864316207c
 
-DOCKER_IMAGE=nightscout/cgm-remote-monitor-travis
+DOCKER_IMAGE=nightscout/cgm-remote-monitor
 
 all: test
+
+my.test.env:
+	@echo "Creating my.test.env from Makefile defaults..."
+	@echo "MONGO_CONNECTION=${MONGO_CONNECTION}" > my.test.env
+	@echo "CUSTOMCONNSTR_mongo_collection=${CUSTOMCONNSTR_mongo_collection}" >> my.test.env
+	@echo "CUSTOMCONNSTR_mongo_settings_collection=${CUSTOMCONNSTR_mongo_settings_collection}" >> my.test.env
+	@echo "API_SECRET=test-secret-key" >> my.test.env
+	@echo "AUTH_FAIL_DELAY=${AUTH_FAIL_DELAY}" >> my.test.env
+	@echo "INSECURE_USE_HTTP=true" >> my.test.env
 
 coverage:
 	NODE_ENV=test ${MONGO_SETTINGS} \
@@ -48,37 +58,40 @@ test_onebyone:
 test:
 	${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap ${TESTS}
 
-travis:
+ci_tests:
 	python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'
 #	NODE_ENV=test ${MONGO_SETTINGS} \
-#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}	
+#	${ISTANBUL} cover ${MOCHA} --report lcovonly -- --timeout 5000 -R tap ${TESTS}
 	for var in tests/*.js; do ${MONGO_SETTINGS} ${MOCHA} --timeout 30000 --exit --bail -R tap $$var; done
+
+docker_build:
+	# Containerise a local build of a working feature branch.
+	$(eval GIT_BRANCH=$(shell git rev-parse --abbrev-ref HEAD))
+	$(eval TIMESTAMP=$(shell date +%Y%m%d-%H%M%S))
+	docker build -t $(DOCKER_IMAGE):local-$(GIT_BRANCH)-$(TIMESTAMP) .
 
 docker_release:
 	# Get the version from the package.json file
 	$(eval DOCKER_TAG=$(shell cat package.json | jq '.version' | tr -d '"'))
-	$(eval NODE_VERSION=$(shell cat .nvmrc))
+	$(eval BRANCH=$(lastword $(subst /, ,$(GITHUB_REF))))
 	#
-	# Create a Dockerfile that contains the correct NodeJS version
-	cat Dockerfile.example | sed -e "s/^FROM node:.*/FROM node:${NODE_VERSION}/" > Dockerfile
 	#
 	# Rebuild the image. We do this with no-cache so that we have all security upgrades,
 	# since that's more important than fewer layers in the Docker image.
 	docker build --no-cache=true -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-	# Push an image to Docker Hub with the version from package.json:
-	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 	#
 	# Push the master branch to Docker hub as 'latest'
-	if [ "$(TRAVIS_BRANCH)" = "master" ]; then \
+	if [ "$(BRANCH)" = "master" ]; then \
 		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest && \
+		docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 		docker push $(DOCKER_IMAGE):latest; \
 	fi
 	#
 	# Push the dev branch to Docker Hub as 'latest_dev'
-	if [ "$(TRAVIS_BRANCH)" = "dev" ]; then \
+	if [ "$(BRANCH)" = "dev" ]; then \
 		docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(DOCKER_IMAGE):latest_dev && \
+		docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 		docker push $(DOCKER_IMAGE):latest_dev; \
 	fi
-	rm -f Dockerfile
 
-.PHONY: all coverage docker_release report test travis
+.PHONY: all coverage docker_build docker_release report test ci_tests

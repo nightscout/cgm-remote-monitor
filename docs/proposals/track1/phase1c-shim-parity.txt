@@ -1,0 +1,54 @@
+Phase 1c — USE_BENV_SHIM=1 parity scoreboard (Node 24.15.0)
+==============================================================
+Captured: 2026-04-23 (wip/bewest/track1-modern-harness)
+
+Default mode (real benv@3.3.0 + nested jsdom 11):
+  hashauth        5 passing  (~600 ms)
+  pluginbase      1 passing  (~190 ms)
+  admintools      1 passing  (~250 ms)
+  careportal      1 passing  (~250 ms)
+  profileeditor   1 passing  (~580 ms)
+  reports         2 passing  (~8 s)
+  ----
+  Full suite: 878 passing, 1 pending, 0 failing  (~55 s)
+
+USE_BENV_SHIM=1 mode (modern jsdom 24 via tests/fixtures/benv-shim.js):
+  hashauth        5 passing  (~700 ms)   PARITY
+  pluginbase      1 passing  (~240 ms)   PARITY
+  admintools      1 passing  (~310 ms)   PARITY
+  careportal      1 passing  (~300 ms)   PARITY
+  profileeditor   0 passing, 1 failing   GAP — see below
+  reports         2 passing  (~12 s)     PARITY
+
+Known parity gap
+================
+profileeditor under USE_BENV_SHIM=1 throws
+
+  TypeError: Cannot read properties of null (reading 'split')
+    at C (bundle.app.js:2:1292338)
+    at u (bundle.app.js:2:1286922)
+    ...
+    at Context.<anonymous> (tests/profileeditor.test.js:133:26)
+       --> $('#pe_records_add').click();
+
+This is a behavior diff between jsdom 11 (returns "" for some absent
+attribute or property) and jsdom 24 (returns null). It surfaces deep
+inside the minified webpack bundle's jQuery click handler chain, so
+pinpointing the exact attribute requires either a debug bundle build or
+a bisect of jsdom intermediate versions. Not blocking — Phase 3.6
+modernizes this test directly (red/green) and the new test will not
+load the bundle at all.
+
+Adminnotifies correction
+========================
+Earlier survey listed adminnotifies as benv-using (7 tests). Re-grep on
+2026-04-23 shows tests/adminnotifies.test.js does NOT import benv and
+exercises the notifier in pure Node. Real count: **6 benv-using tests**.
+
+Decision
+========
+Phase 2 (deps lift) proceeds with USE_BENV_SHIM=1 as the CI default for
+5 of 6 tests. profileeditor stays on real benv (USE_BENV_SHIM=0 in its
+test invocation) until Phase 3.6 retires it. This is documented as the
+gating condition for Phase 4 ("drop benv") — benv must remain installed
+until profileeditor's modernized test exists.

@@ -1,0 +1,1622 @@
+[
+  {
+    "created_at": "2026-05-08T07:53:53.593Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingStrategy": "tempBasalOnly",
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "overridePresets": [
+        {
+          "duration": 3600,
+          "targetRange": [
+            120,
+            125
+          ],
+          "insulinNeedsScaleFactor": 0.5,
+          "name": "preset-1",
+          "symbol": "🤸‍♀️"
+        },
+        {
+          "targetRange": [
+            135,
+            136
+          ],
+          "name": "preset-2",
+          "duration": 10800,
+          "symbol": "🚵‍♂️",
+          "insulinNeedsScaleFactor": 1.5
+        },
+        {
+          "targetRange": [
+            165,
+            180
+          ],
+          "symbol": "⛹️‍♂️",
+          "name": "preset-3",
+          "insulinNeedsScaleFactor": 0.7,
+          "duration": 5400
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-4",
+          "duration": 8100,
+          "targetRange": [
+            155,
+            170
+          ],
+          "symbol": "⚽️"
+        },
+        {
+          "name": "preset-5",
+          "symbol": "🎾",
+          "duration": 7200,
+          "targetRange": [
+            160,
+            165
+          ]
+        },
+        {
+          "symbol": "🏹",
+          "targetRange": [
+            110,
+            115
+          ],
+          "insulinNeedsScaleFactor": 1.2,
+          "duration": 0,
+          "name": "preset-6"
+        },
+        {
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "name": "preset-7",
+          "insulinNeedsScaleFactor": 0.8,
+          "targetRange": [
+            150,
+            180
+          ],
+          "duration": 6300
+        },
+        {
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 2,
+          "symbol": "💃",
+          "name": "preset-8"
+        },
+        {
+          "duration": 7200,
+          "insulinNeedsScaleFactor": 0.9,
+          "targetRange": [
+            108,
+            112
+          ],
+          "name": "preset-9",
+          "symbol": "➖"
+        }
+      ],
+      "dosingEnabled": true,
+      "maximumBolus": 9.9,
+      "minimumBGGuard": 69,
+      "maximumBasalRatePerHour": 6
+    },
+    "mills": "1778226771451.128",
+    "startDate": "2026-05-08T07:52:51.372Z",
+    "store": {
+      "Default": {
+        "units": "mg/dL",
+        "sens": [
+          {
+            "time": "00:00",
+            "value": 40,
+            "timeAsSeconds": 0
+          }
+        ],
+        "timezone": "ETC/GMT+7",
+        "delay": "0",
+        "target_low": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 97
+          }
+        ],
+        "basal": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 1.8
+          },
+          {
+            "timeAsSeconds": 19800,
+            "value": 1.7,
+            "time": "05:30"
+          },
+          {
+            "value": 1.8,
+            "time": "22:30",
+            "timeAsSeconds": 81000
+          }
+        ],
+        "carbratio": [
+          {
+            "value": 10,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "carbs_hr": "0",
+        "target_high": [
+          {
+            "value": 102,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "dia": 6
+      }
+    },
+    "units": "mg/dL",
+    "_id": "b1be254d4e93a5f6cff19c14"
+  },
+  {
+    "created_at": "2026-04-28T03:53:03.485Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "overridePresets": [
+        {
+          "insulinNeedsScaleFactor": 0.5,
+          "symbol": "🤸‍♀️",
+          "duration": 3600,
+          "name": "preset-1",
+          "targetRange": [
+            120,
+            125
+          ]
+        },
+        {
+          "duration": 10800,
+          "symbol": "🚵‍♂️",
+          "name": "preset-2",
+          "insulinNeedsScaleFactor": 1.5,
+          "targetRange": [
+            135,
+            136
+          ]
+        },
+        {
+          "name": "preset-3",
+          "symbol": "⛹️‍♂️",
+          "insulinNeedsScaleFactor": 0.7,
+          "targetRange": [
+            165,
+            180
+          ],
+          "duration": 5400
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-4",
+          "duration": 8100,
+          "targetRange": [
+            155,
+            170
+          ],
+          "symbol": "⚽️"
+        },
+        {
+          "targetRange": [
+            160,
+            165
+          ],
+          "duration": 7200,
+          "symbol": "🎾",
+          "name": "preset-5"
+        },
+        {
+          "symbol": "🏹",
+          "name": "preset-6",
+          "duration": 0,
+          "insulinNeedsScaleFactor": 1.2,
+          "targetRange": [
+            110,
+            115
+          ]
+        },
+        {
+          "targetRange": [
+            150,
+            180
+          ],
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "duration": 6300,
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-7"
+        },
+        {
+          "symbol": "💃",
+          "insulinNeedsScaleFactor": 2,
+          "name": "preset-8",
+          "duration": 10800
+        },
+        {
+          "insulinNeedsScaleFactor": 0.9,
+          "targetRange": [
+            108,
+            112
+          ],
+          "symbol": "➖",
+          "name": "preset-9",
+          "duration": 7200
+        }
+      ],
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "maximumBolus": 9.9,
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingStrategy": "tempBasalOnly",
+      "dosingEnabled": true,
+      "maximumBasalRatePerHour": 6,
+      "minimumBGGuard": 69
+    },
+    "mills": "1777348342303.128",
+    "startDate": "2026-04-28T03:52:21.372Z",
+    "store": {
+      "Default": {
+        "delay": "0",
+        "carbs_hr": "0",
+        "timezone": "ETC/GMT+7",
+        "sens": [
+          {
+            "timeAsSeconds": 0,
+            "value": 40,
+            "time": "00:00"
+          }
+        ],
+        "basal": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 1.8
+          },
+          {
+            "value": 1.7,
+            "timeAsSeconds": 19800,
+            "time": "05:30"
+          },
+          {
+            "time": "22:30",
+            "value": 1.8,
+            "timeAsSeconds": 81000
+          }
+        ],
+        "target_low": [
+          {
+            "value": 97,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "dia": 6,
+        "carbratio": [
+          {
+            "timeAsSeconds": 0,
+            "value": 10,
+            "time": "00:00"
+          }
+        ],
+        "units": "mg/dL",
+        "target_high": [
+          {
+            "time": "00:00",
+            "value": 102,
+            "timeAsSeconds": 0
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "86af66de1640602b02cf8135"
+  },
+  {
+    "created_at": "2026-04-24T16:12:15.819Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "minimumBGGuard": 69,
+      "maximumBasalRatePerHour": 6,
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "dosingStrategy": "tempBasalOnly",
+      "overridePresets": [
+        {
+          "symbol": "🤸‍♀️",
+          "insulinNeedsScaleFactor": 0.5,
+          "duration": 3600,
+          "name": "preset-1",
+          "targetRange": [
+            120,
+            125
+          ]
+        },
+        {
+          "symbol": "🚵‍♂️",
+          "duration": 10800,
+          "targetRange": [
+            135,
+            136
+          ],
+          "insulinNeedsScaleFactor": 1.5,
+          "name": "preset-2"
+        },
+        {
+          "targetRange": [
+            165,
+            180
+          ],
+          "insulinNeedsScaleFactor": 0.7,
+          "name": "preset-3",
+          "symbol": "⛹️‍♂️",
+          "duration": 5400
+        },
+        {
+          "name": "preset-4",
+          "symbol": "⚽️",
+          "insulinNeedsScaleFactor": 0.8,
+          "targetRange": [
+            155,
+            170
+          ],
+          "duration": 8100
+        },
+        {
+          "duration": 7200,
+          "targetRange": [
+            160,
+            165
+          ],
+          "symbol": "🎾",
+          "name": "preset-5"
+        },
+        {
+          "targetRange": [
+            110,
+            115
+          ],
+          "name": "preset-6",
+          "duration": 0,
+          "symbol": "🏹",
+          "insulinNeedsScaleFactor": 1.2
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-7",
+          "duration": 6300,
+          "targetRange": [
+            150,
+            180
+          ],
+          "symbol": "🏊‍♂️🏊‍♂️"
+        },
+        {
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 2,
+          "name": "preset-8",
+          "symbol": "💃"
+        },
+        {
+          "targetRange": [
+            108,
+            112
+          ],
+          "name": "preset-9",
+          "duration": 7200,
+          "insulinNeedsScaleFactor": 0.9,
+          "symbol": "➖"
+        }
+      ],
+      "maximumBolus": 9.9,
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingEnabled": true
+    },
+    "mills": "1777047135384.128",
+    "startDate": "2026-04-24T16:12:15.372Z",
+    "store": {
+      "Default": {
+        "target_high": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 102
+          }
+        ],
+        "carbs_hr": "0",
+        "sens": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 40
+          }
+        ],
+        "carbratio": [
+          {
+            "value": 10,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "units": "mg/dL",
+        "dia": 6,
+        "basal": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 1.8
+          },
+          {
+            "value": 1.7,
+            "time": "05:30",
+            "timeAsSeconds": 19800
+          },
+          {
+            "time": "22:30",
+            "value": 1.8,
+            "timeAsSeconds": 81000
+          }
+        ],
+        "timezone": "ETC/GMT+7",
+        "delay": "0",
+        "target_low": [
+          {
+            "time": "00:00",
+            "value": 97,
+            "timeAsSeconds": 0
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "1762e9e3c0e8fea9e405ca70"
+  },
+  {
+    "created_at": "2026-04-24T16:11:04.615Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "maximumBasalRatePerHour": 6,
+      "minimumBGGuard": 69,
+      "dosingStrategy": "tempBasalOnly",
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "overridePresets": [
+        {
+          "targetRange": [
+            120,
+            125
+          ],
+          "name": "preset-1",
+          "insulinNeedsScaleFactor": 0.5,
+          "symbol": "🤸‍♀️",
+          "duration": 3600
+        },
+        {
+          "insulinNeedsScaleFactor": 1.5,
+          "targetRange": [
+            135,
+            136
+          ],
+          "name": "preset-2",
+          "symbol": "🚵‍♂️",
+          "duration": 10800
+        },
+        {
+          "name": "preset-3",
+          "targetRange": [
+            165,
+            180
+          ],
+          "duration": 5400,
+          "insulinNeedsScaleFactor": 0.7,
+          "symbol": "⛹️‍♂️"
+        },
+        {
+          "name": "preset-4",
+          "symbol": "⚽️",
+          "targetRange": [
+            155,
+            170
+          ],
+          "duration": 8100,
+          "insulinNeedsScaleFactor": 0.8
+        },
+        {
+          "targetRange": [
+            160,
+            165
+          ],
+          "name": "preset-5",
+          "duration": 7200,
+          "symbol": "🎾"
+        },
+        {
+          "targetRange": [
+            110,
+            115
+          ],
+          "name": "preset-6",
+          "symbol": "🏹",
+          "duration": 0,
+          "insulinNeedsScaleFactor": 1.2
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "duration": 6300,
+          "targetRange": [
+            150,
+            180
+          ],
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "name": "preset-7"
+        },
+        {
+          "name": "preset-8",
+          "insulinNeedsScaleFactor": 2,
+          "symbol": "💃",
+          "duration": 10800
+        },
+        {
+          "targetRange": [
+            108,
+            112
+          ],
+          "name": "preset-9",
+          "symbol": "➖",
+          "insulinNeedsScaleFactor": 0.9,
+          "duration": 7200
+        }
+      ],
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingEnabled": false,
+      "maximumBolus": 9.9
+    },
+    "mills": "1777047064519.128",
+    "startDate": "2026-04-24T16:11:04.372Z",
+    "store": {
+      "Default": {
+        "delay": "0",
+        "target_low": [
+          {
+            "value": 97,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "sens": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 40
+          }
+        ],
+        "target_high": [
+          {
+            "value": 102,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "units": "mg/dL",
+        "timezone": "ETC/GMT+7",
+        "carbratio": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 10
+          }
+        ],
+        "dia": 6,
+        "carbs_hr": "0",
+        "basal": [
+          {
+            "timeAsSeconds": 0,
+            "value": 1.8,
+            "time": "00:00"
+          },
+          {
+            "value": 1.7,
+            "time": "05:30",
+            "timeAsSeconds": 19800
+          },
+          {
+            "value": 1.8,
+            "timeAsSeconds": 81000,
+            "time": "22:30"
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "f98f6e9377f437fd7cf1470b"
+  },
+  {
+    "created_at": "2026-04-16T05:14:07.861Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "overridePresets": [
+        {
+          "duration": 3600,
+          "name": "preset-1",
+          "targetRange": [
+            120,
+            125
+          ],
+          "symbol": "🤸‍♀️",
+          "insulinNeedsScaleFactor": 0.5
+        },
+        {
+          "targetRange": [
+            135,
+            136
+          ],
+          "insulinNeedsScaleFactor": 1.5,
+          "duration": 10800,
+          "name": "preset-2",
+          "symbol": "🚵‍♂️"
+        },
+        {
+          "insulinNeedsScaleFactor": 0.7,
+          "duration": 5400,
+          "symbol": "⛹️‍♂️",
+          "targetRange": [
+            165,
+            180
+          ],
+          "name": "preset-3"
+        },
+        {
+          "duration": 8100,
+          "name": "preset-4",
+          "symbol": "⚽️",
+          "targetRange": [
+            155,
+            170
+          ],
+          "insulinNeedsScaleFactor": 0.8
+        },
+        {
+          "duration": 7200,
+          "name": "preset-5",
+          "symbol": "🎾",
+          "targetRange": [
+            160,
+            165
+          ]
+        },
+        {
+          "symbol": "🏹",
+          "duration": 0,
+          "targetRange": [
+            110,
+            115
+          ],
+          "insulinNeedsScaleFactor": 1.2,
+          "name": "preset-6"
+        },
+        {
+          "duration": 6300,
+          "insulinNeedsScaleFactor": 0.8,
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "name": "preset-7",
+          "targetRange": [
+            150,
+            180
+          ]
+        },
+        {
+          "name": "preset-8",
+          "insulinNeedsScaleFactor": 2,
+          "duration": 10800,
+          "symbol": "💃"
+        },
+        {
+          "insulinNeedsScaleFactor": 0.9,
+          "symbol": "➖",
+          "name": "preset-9",
+          "duration": 7200,
+          "targetRange": [
+            108,
+            112
+          ]
+        }
+      ],
+      "dosingEnabled": true,
+      "maximumBolus": 9.9,
+      "maximumBasalRatePerHour": 6,
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingStrategy": "tempBasalOnly",
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "minimumBGGuard": 69
+    },
+    "mills": "1776316404600.128",
+    "startDate": "2026-04-16T05:13:24.372Z",
+    "store": {
+      "Default": {
+        "timezone": "ETC/GMT+7",
+        "units": "mg/dL",
+        "carbratio": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 10
+          }
+        ],
+        "target_low": [
+          {
+            "time": "00:00",
+            "value": 97,
+            "timeAsSeconds": 0
+          }
+        ],
+        "dia": 6,
+        "target_high": [
+          {
+            "time": "00:00",
+            "value": 102,
+            "timeAsSeconds": 0
+          }
+        ],
+        "sens": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 40
+          }
+        ],
+        "carbs_hr": "0",
+        "delay": "0",
+        "basal": [
+          {
+            "time": "00:00",
+            "value": 1.8,
+            "timeAsSeconds": 0
+          },
+          {
+            "time": "05:30",
+            "value": 1.7,
+            "timeAsSeconds": 19800
+          },
+          {
+            "timeAsSeconds": 81000,
+            "time": "22:30",
+            "value": 1.8
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "e8ab0b044365e528ec8d19d3"
+  },
+  {
+    "created_at": "2026-04-15T22:50:55.448Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "dosingStrategy": "tempBasalOnly",
+      "dosingEnabled": true,
+      "bundleIdentifier": "test.bundle.identifier",
+      "maximumBolus": 9.9,
+      "maximumBasalRatePerHour": 6,
+      "minimumBGGuard": 69,
+      "overridePresets": [
+        {
+          "insulinNeedsScaleFactor": 0.5,
+          "name": "preset-1",
+          "symbol": "🤸‍♀️",
+          "duration": 3600,
+          "targetRange": [
+            120,
+            125
+          ]
+        },
+        {
+          "symbol": "🚵‍♂️",
+          "insulinNeedsScaleFactor": 1.5,
+          "targetRange": [
+            135,
+            136
+          ],
+          "duration": 10800,
+          "name": "preset-2"
+        },
+        {
+          "name": "preset-3",
+          "symbol": "⛹️‍♂️",
+          "targetRange": [
+            165,
+            180
+          ],
+          "duration": 5400,
+          "insulinNeedsScaleFactor": 0.7
+        },
+        {
+          "symbol": "⚽️",
+          "targetRange": [
+            155,
+            170
+          ],
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-4",
+          "duration": 8100
+        },
+        {
+          "symbol": "🎾",
+          "name": "preset-5",
+          "targetRange": [
+            160,
+            165
+          ],
+          "duration": 7200
+        },
+        {
+          "symbol": "🏹",
+          "name": "preset-6",
+          "insulinNeedsScaleFactor": 1.2,
+          "duration": 0,
+          "targetRange": [
+            110,
+            115
+          ]
+        },
+        {
+          "name": "preset-7",
+          "insulinNeedsScaleFactor": 0.8,
+          "duration": 6300,
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "targetRange": [
+            150,
+            180
+          ]
+        },
+        {
+          "symbol": "💃",
+          "insulinNeedsScaleFactor": 2,
+          "name": "preset-8",
+          "duration": 10800
+        },
+        {
+          "symbol": "➖",
+          "insulinNeedsScaleFactor": 0.9,
+          "name": "preset-9",
+          "duration": 7200,
+          "targetRange": [
+            108,
+            112
+          ]
+        }
+      ],
+      "preMealTargetRange": [
+        69,
+        69
+      ]
+    },
+    "mills": "1776293454786.128",
+    "startDate": "2026-04-15T22:50:54.372Z",
+    "store": {
+      "Default": {
+        "carbs_hr": "0",
+        "dia": 6,
+        "delay": "0",
+        "target_high": [
+          {
+            "timeAsSeconds": 0,
+            "value": 102,
+            "time": "00:00"
+          }
+        ],
+        "sens": [
+          {
+            "value": 40,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "carbratio": [
+          {
+            "time": "00:00",
+            "value": 10,
+            "timeAsSeconds": 0
+          }
+        ],
+        "target_low": [
+          {
+            "timeAsSeconds": 0,
+            "value": 97,
+            "time": "00:00"
+          }
+        ],
+        "units": "mg/dL",
+        "timezone": "ETC/GMT+7",
+        "basal": [
+          {
+            "value": 1.8,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          },
+          {
+            "value": 1.7,
+            "time": "05:30",
+            "timeAsSeconds": 19800
+          },
+          {
+            "value": 1.8,
+            "timeAsSeconds": 81000,
+            "time": "22:30"
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "2cbe6fa901c2be6bccf5e841"
+  },
+  {
+    "created_at": "2026-04-10T20:51:02.442Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "dosingStrategy": "tempBasalOnly",
+      "maximumBasalRatePerHour": 6,
+      "maximumBolus": 9.9,
+      "dosingEnabled": true,
+      "minimumBGGuard": 69,
+      "bundleIdentifier": "test.bundle.identifier",
+      "overridePresets": [
+        {
+          "symbol": "🤸‍♀️",
+          "targetRange": [
+            120,
+            125
+          ],
+          "insulinNeedsScaleFactor": 0.5,
+          "name": "preset-1",
+          "duration": 3600
+        },
+        {
+          "targetRange": [
+            135,
+            136
+          ],
+          "duration": 10800,
+          "name": "preset-2",
+          "insulinNeedsScaleFactor": 1.5,
+          "symbol": "🚵‍♂️"
+        },
+        {
+          "symbol": "⛹️‍♂️",
+          "insulinNeedsScaleFactor": 0.7,
+          "targetRange": [
+            165,
+            180
+          ],
+          "duration": 5400,
+          "name": "preset-3"
+        },
+        {
+          "duration": 8100,
+          "symbol": "⚽️",
+          "name": "preset-4",
+          "insulinNeedsScaleFactor": 0.8,
+          "targetRange": [
+            155,
+            170
+          ]
+        },
+        {
+          "symbol": "🎾",
+          "targetRange": [
+            160,
+            165
+          ],
+          "name": "preset-5",
+          "duration": 7200
+        },
+        {
+          "duration": 0,
+          "symbol": "🏹",
+          "insulinNeedsScaleFactor": 1.2,
+          "targetRange": [
+            110,
+            115
+          ],
+          "name": "preset-6"
+        },
+        {
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "targetRange": [
+            150,
+            180
+          ],
+          "insulinNeedsScaleFactor": 0.8,
+          "duration": 6300,
+          "name": "preset-7"
+        },
+        {
+          "symbol": "💃",
+          "insulinNeedsScaleFactor": 2,
+          "duration": 10800,
+          "name": "preset-8"
+        },
+        {
+          "targetRange": [
+            108,
+            112
+          ],
+          "insulinNeedsScaleFactor": 0.9,
+          "name": "preset-9",
+          "symbol": "➖",
+          "duration": 7200
+        }
+      ],
+      "preMealTargetRange": [
+        69,
+        69
+      ]
+    },
+    "mills": "1775854262065.128",
+    "startDate": "2026-04-10T20:51:01.372Z",
+    "store": {
+      "Default": {
+        "carbratio": [
+          {
+            "value": 10,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "delay": "0",
+        "target_high": [
+          {
+            "value": 102,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "sens": [
+          {
+            "timeAsSeconds": 0,
+            "value": 40,
+            "time": "00:00"
+          }
+        ],
+        "carbs_hr": "0",
+        "target_low": [
+          {
+            "timeAsSeconds": 0,
+            "value": 97,
+            "time": "00:00"
+          }
+        ],
+        "units": "mg/dL",
+        "basal": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 1.8
+          },
+          {
+            "time": "05:30",
+            "value": 1.7,
+            "timeAsSeconds": 19800
+          },
+          {
+            "time": "22:30",
+            "value": 1.8,
+            "timeAsSeconds": 81000
+          }
+        ],
+        "dia": 6,
+        "timezone": "ETC/GMT+7"
+      }
+    },
+    "units": "mg/dL",
+    "_id": "82f16c363679dd816aafe486"
+  },
+  {
+    "created_at": "2026-04-10T17:33:00.050Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "maximumBolus": 9.9,
+      "dosingEnabled": false,
+      "minimumBGGuard": 69,
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingStrategy": "tempBasalOnly",
+      "maximumBasalRatePerHour": 6,
+      "overridePresets": [
+        {
+          "name": "preset-1",
+          "symbol": "🤸‍♀️",
+          "duration": 3600,
+          "insulinNeedsScaleFactor": 0.5,
+          "targetRange": [
+            120,
+            125
+          ]
+        },
+        {
+          "name": "preset-2",
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 1.5,
+          "symbol": "🚵‍♂️",
+          "targetRange": [
+            135,
+            136
+          ]
+        },
+        {
+          "duration": 5400,
+          "symbol": "⛹️‍♂️",
+          "insulinNeedsScaleFactor": 0.7,
+          "name": "preset-3",
+          "targetRange": [
+            165,
+            180
+          ]
+        },
+        {
+          "duration": 8100,
+          "targetRange": [
+            155,
+            170
+          ],
+          "symbol": "⚽️",
+          "name": "preset-4",
+          "insulinNeedsScaleFactor": 0.8
+        },
+        {
+          "symbol": "🎾",
+          "targetRange": [
+            160,
+            165
+          ],
+          "duration": 7200,
+          "name": "preset-5"
+        },
+        {
+          "name": "preset-6",
+          "insulinNeedsScaleFactor": 1.2,
+          "targetRange": [
+            110,
+            115
+          ],
+          "duration": 0,
+          "symbol": "🏹"
+        },
+        {
+          "name": "preset-7",
+          "targetRange": [
+            150,
+            180
+          ],
+          "symbol": "🏊‍♂️🏊‍♂️",
+          "duration": 6300,
+          "insulinNeedsScaleFactor": 0.8
+        },
+        {
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 2,
+          "name": "preset-8",
+          "symbol": "💃"
+        },
+        {
+          "targetRange": [
+            108,
+            112
+          ],
+          "insulinNeedsScaleFactor": 0.9,
+          "name": "preset-9",
+          "duration": 7200,
+          "symbol": "➖"
+        }
+      ]
+    },
+    "mills": "1775842379610.128",
+    "startDate": "2026-04-10T17:32:59.372Z",
+    "store": {
+      "Default": {
+        "dia": 6,
+        "sens": [
+          {
+            "time": "00:00",
+            "timeAsSeconds": 0,
+            "value": 40
+          }
+        ],
+        "target_high": [
+          {
+            "time": "00:00",
+            "value": 102,
+            "timeAsSeconds": 0
+          }
+        ],
+        "carbs_hr": "0",
+        "carbratio": [
+          {
+            "timeAsSeconds": 0,
+            "value": 10,
+            "time": "00:00"
+          }
+        ],
+        "target_low": [
+          {
+            "time": "00:00",
+            "value": 97,
+            "timeAsSeconds": 0
+          }
+        ],
+        "basal": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 1.8
+          },
+          {
+            "value": 1.7,
+            "time": "05:30",
+            "timeAsSeconds": 19800
+          },
+          {
+            "time": "22:30",
+            "value": 1.8,
+            "timeAsSeconds": 81000
+          }
+        ],
+        "units": "mg/dL",
+        "delay": "0",
+        "timezone": "ETC/GMT+7"
+      }
+    },
+    "units": "mg/dL",
+    "_id": "8c0066c64628b80ada34a613"
+  },
+  {
+    "created_at": "2026-04-10T02:47:47.465Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "minimumBGGuard": 69,
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingEnabled": false,
+      "overridePresets": [
+        {
+          "duration": 3600,
+          "name": "preset-1",
+          "targetRange": [
+            120,
+            125
+          ],
+          "symbol": "🤸‍♀️",
+          "insulinNeedsScaleFactor": 0.5
+        },
+        {
+          "targetRange": [
+            135,
+            136
+          ],
+          "duration": 10800,
+          "name": "preset-2",
+          "insulinNeedsScaleFactor": 1.5,
+          "symbol": "🚵‍♂️"
+        },
+        {
+          "symbol": "⛹️‍♂️",
+          "insulinNeedsScaleFactor": 0.7,
+          "targetRange": [
+            165,
+            180
+          ],
+          "name": "preset-3",
+          "duration": 5400
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "targetRange": [
+            155,
+            170
+          ],
+          "duration": 8100,
+          "name": "preset-4",
+          "symbol": "⚽️"
+        },
+        {
+          "targetRange": [
+            160,
+            165
+          ],
+          "symbol": "🎾",
+          "name": "preset-5",
+          "duration": 7200
+        },
+        {
+          "targetRange": [
+            110,
+            115
+          ],
+          "name": "preset-6",
+          "symbol": "🏹",
+          "duration": 0,
+          "insulinNeedsScaleFactor": 1.2
+        },
+        {
+          "targetRange": [
+            150,
+            180
+          ],
+          "duration": 6300,
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-7",
+          "symbol": "🏊‍♂️🏊‍♂️"
+        },
+        {
+          "insulinNeedsScaleFactor": 2,
+          "name": "preset-8",
+          "duration": 10800,
+          "symbol": "💃"
+        },
+        {
+          "targetRange": [
+            108,
+            112
+          ],
+          "symbol": "➖",
+          "duration": 7200,
+          "insulinNeedsScaleFactor": 0.9,
+          "name": "preset-9"
+        }
+      ],
+      "maximumBasalRatePerHour": 6,
+      "maximumBolus": 9.9,
+      "dosingStrategy": "tempBasalOnly"
+    },
+    "mills": "1775789266759.128",
+    "startDate": "2026-04-10T02:47:46.372Z",
+    "store": {
+      "Default": {
+        "delay": "0",
+        "carbratio": [
+          {
+            "value": 10,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "target_low": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 97
+          }
+        ],
+        "timezone": "ETC/GMT+7",
+        "basal": [
+          {
+            "timeAsSeconds": 0,
+            "time": "00:00",
+            "value": 1.8
+          },
+          {
+            "time": "05:30",
+            "value": 1.7,
+            "timeAsSeconds": 19800
+          },
+          {
+            "value": 1.8,
+            "time": "22:30",
+            "timeAsSeconds": 81000
+          }
+        ],
+        "carbs_hr": "0",
+        "units": "mg/dL",
+        "sens": [
+          {
+            "value": 40,
+            "time": "00:00",
+            "timeAsSeconds": 0
+          }
+        ],
+        "dia": 6,
+        "target_high": [
+          {
+            "timeAsSeconds": 0,
+            "value": 102,
+            "time": "00:00"
+          }
+        ]
+      }
+    },
+    "units": "mg/dL",
+    "_id": "9884e19c4719ce6319e753d7"
+  },
+  {
+    "created_at": "2026-04-10T01:28:41.757Z",
+    "defaultProfile": "Default",
+    "enteredBy": "test-user",
+    "loopSettings": {
+      "overridePresets": [
+        {
+          "symbol": "🤸‍♀️",
+          "duration": 3600,
+          "targetRange": [
+            120,
+            125
+          ],
+          "insulinNeedsScaleFactor": 0.5,
+          "name": "preset-1"
+        },
+        {
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 1.5,
+          "symbol": "🚵‍♂️",
+          "targetRange": [
+            135,
+            136
+          ],
+          "name": "preset-2"
+        },
+        {
+          "symbol": "⛹️‍♂️",
+          "targetRange": [
+            165,
+            180
+          ],
+          "insulinNeedsScaleFactor": 0.7,
+          "duration": 5400,
+          "name": "preset-3"
+        },
+        {
+          "insulinNeedsScaleFactor": 0.8,
+          "name": "preset-4",
+          "duration": 8100,
+          "symbol": "⚽️",
+          "targetRange": [
+            155,
+            170
+          ]
+        },
+        {
+          "targetRange": [
+            160,
+            165
+          ],
+          "name": "preset-5",
+          "duration": 7200,
+          "symbol": "🎾"
+        },
+        {
+          "symbol": "🏹",
+          "name": "preset-6",
+          "duration": 0,
+          "targetRange": [
+            110,
+            115
+          ],
+          "insulinNeedsScaleFactor": 1.2
+        },
+        {
+          "targetRange": [
+            150,
+            180
+          ],
+          "insulinNeedsScaleFactor": 0.8,
+          "duration": 6300,
+          "name": "preset-7",
+          "symbol": "🏊‍♂️🏊‍♂️"
+        },
+        {
+          "symbol": "💃",
+          "name": "preset-8",
+          "duration": 10800,
+          "insulinNeedsScaleFactor": 2
+        },
+        {
+          "symbol": "➖",
+          "name": "preset-9",
+          "insulinNeedsScaleFactor": 0.9,
+          "targetRange": [
+            108,
+            112
+          ],
+          "duration": 7200
+        }
+      ],
+      "bundleIdentifier": "test.bundle.identifier",
+      "dosingStrategy": "tempBasalOnly",
+      "preMealTargetRange": [
+        69,
+        69
+      ],
+      "minimumBGGuard": 69,
+      "dosingEnabled": false,
+      "maximumBolus": 9.9,
+      "maximumBasalRatePerHour": 6
+    },
+    "mills": "1775784521127.128",
+    "startDate": "2026-04-10T01:28:40.372Z",
+    "store": {
+      "Default": {
+        "dia": 6,
+        "target_high": [
+          {
+            "time": "00:00",
+            "value": 102,
+            "timeAsSeconds": 0
+          }
+        ],
+        "target_low": [
+          {
+            "value": 97,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "delay": "0",
+        "sens": [
+          {
+            "time": "00:00",
+            "value": 40,
+            "timeAsSeconds": 0
+          }
+        ],
+        "basal": [
+          {
+            "timeAsSeconds": 0,
+            "value": 1.8,
+            "time": "00:00"
+          },
+          {
+            "time": "05:30",
+            "value": 1.7,
+            "timeAsSeconds": 19800
+          },
+          {
+            "value": 1.8,
+            "timeAsSeconds": 81000,
+            "time": "22:30"
+          }
+        ],
+        "carbratio": [
+          {
+            "value": 10,
+            "timeAsSeconds": 0,
+            "time": "00:00"
+          }
+        ],
+        "carbs_hr": "0",
+        "timezone": "ETC/GMT+7",
+        "units": "mg/dL"
+      }
+    },
+    "units": "mg/dL",
+    "_id": "7eec9768bf3cb93bfc9aba91"
+  }
+]

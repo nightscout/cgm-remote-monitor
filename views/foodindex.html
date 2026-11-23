@@ -29,7 +29,7 @@
       <link rel="preload" href="/css/drawer.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/food.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
       <link rel="preload" href="/css/ui-darkness/jquery-ui.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-      <% include preloadCSS %>
+      <%- include('preloadCSS')%>
 
     </head>
   <body>
@@ -114,6 +114,6 @@
 
     <script src="<%= locals.bundle %>/js/bundle.app.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/food/js/food.js"></script>
+    <script src="/js/foodinit.js"></script>
   </body>
 </html>

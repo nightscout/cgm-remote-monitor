@@ -1,0 +1,83 @@
+{
+  "defaultProfile": "",
+  "startDate": "2026-01-01T00:00:00.000Z",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "enteredBy": "test-reproduction",
+  "units": "mmol/L",
+  "store": {
+    "": {
+      "dia": 6,
+      "carbs_hr": 20,
+      "delay": 20,
+      "timezone": "UTC",
+      "units": "mmol/L",
+      "basal": [
+        {
+          "time": "00:00",
+          "value": 0.5
+        }
+      ],
+      "carbratio": [
+        {
+          "time": "00:00",
+          "value": 10
+        }
+      ],
+      "sens": [
+        {
+          "time": "00:00",
+          "value": 2.5
+        }
+      ],
+      "target_low": [
+        {
+          "time": "00:00",
+          "value": 5
+        }
+      ],
+      "target_high": [
+        {
+          "time": "00:00",
+          "value": 6
+        }
+      ]
+    },
+    "Named": {
+      "dia": 5,
+      "carbs_hr": 15,
+      "delay": 15,
+      "timezone": "UTC",
+      "units": "mmol/L",
+      "basal": [
+        {
+          "time": "00:00",
+          "value": 0.7
+        }
+      ],
+      "carbratio": [
+        {
+          "time": "00:00",
+          "value": 12
+        }
+      ],
+      "sens": [
+        {
+          "time": "00:00",
+          "value": 3
+        }
+      ],
+      "target_low": [
+        {
+          "time": "00:00",
+          "value": 5.5
+        }
+      ],
+      "target_high": [
+        {
+          "time": "00:00",
+          "value": 6.5
+        }
+      ]
+    }
+  }
+}

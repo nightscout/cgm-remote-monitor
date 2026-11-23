@@ -50,6 +50,15 @@
   border: 2px solid #000;
 }
 
+/* jQuery UI's .ui-draggable-handle and .ui-sortable-handle set touch-action: none,
+   so a swipe that starts on a food or a quick pick doesn't scroll. jQuery UI
+   drags with the mouse only, so touch is left to the browser. The ids outrank
+   jquery-ui.min.css, which the page loads after this file. */
+#fe_data .draggablefood,
+#fe_picklist .sortablequickpick {
+  touch-action: auto;
+}
+
 .fe_foodinsideqp {
   background-color:gray;
   border: 2px solid;

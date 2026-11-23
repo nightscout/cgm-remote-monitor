@@ -33,7 +33,7 @@ describe('sandbox', function ( ) {
   });
 
   function createServerSandbox() {
-    var env = require('../env')();
+    var env = require('../lib/server/env')();
     var ctx = {};
     ctx.ddata = require('../lib/data/ddata')();
     ctx.notifications = require('../lib/notifications')(env, ctx);
@@ -52,6 +52,36 @@ describe('sandbox', function ( ) {
     sbx.lastSGVMgdl().should.equal(100);
 
     done();
+  });
+
+  it('gets the last entry that is not in the future', function () {
+    var sbx = createServerSandbox();
+    sbx.time = now;
+
+    var older = {mgdl: 90, mills: now - 60000};
+    var latest = {mgdl: 100, mills: now};
+    var future = {mgdl: 110, mills: now + 60000};
+    var entries = [older, latest, future];
+
+    sbx.lastEntry(entries).should.equal(latest);
+    entries.should.deepEqual([older, latest, future]);
+  });
+
+  it('does not crash when lastEntry receives a non-array value', function () {
+    var sbx = createServerSandbox();
+
+    should.not.exist(sbx.lastEntry({}));
+  });
+
+  it('gets the last entry from profile helper data', function () {
+    var sbx = createServerSandbox();
+    sbx.time = now;
+
+    var older = {defaultProfile: 'Default', mills: now - 60000};
+    var latest = {defaultProfile: 'Default', mills: now};
+    var future = {defaultProfile: 'Default', mills: now + 60000};
+
+    sbx.lastEntry({data: [older, latest, future]}).should.equal(latest);
   });
 
   it('display 39 as LOW and 401 as HIGH', function () {

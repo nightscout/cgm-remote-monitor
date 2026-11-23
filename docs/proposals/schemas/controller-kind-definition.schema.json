@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightscout.github.io/schemas/controller-kind-definition.schema.json",
+  "title": "ControllerKindDefinition",
+  "description": "Declared capabilities and schema for a type of AID controller (Loop, Trio, AAPS, etc.)",
+  "type": "object",
+  "required": ["kindId", "name", "version"],
+  "properties": {
+    "kindId": {
+      "type": "string",
+      "description": "Unique identifier for this controller type",
+      "examples": ["loop", "trio", "aaps", "openaps", "tidepool-loop"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of this controller definition"
+    },
+    "vendor": {
+      "type": "string",
+      "description": "Organization or project responsible"
+    },
+    "supportedFeatures": {
+      "type": "object",
+      "description": "Feature flags for this controller type",
+      "properties": {
+        "tempBasal": {
+          "type": "boolean",
+          "description": "Can set temporary basal rates"
+        },
+        "microBolus": {
+          "type": "boolean",
+          "description": "Uses micro-bolus (SMB) strategy"
+        },
+        "suspend": {
+          "type": "boolean",
+          "description": "Can suspend insulin delivery"
+        },
+        "overrides": {
+          "type": "boolean",
+          "description": "Supports override presets"
+        },
+        "autoSens": {
+          "type": "boolean",
+          "description": "Has autosensitivity detection"
+        },
+        "dynamicISF": {
+          "type": "boolean",
+          "description": "Supports dynamic ISF adjustments"
+        },
+        "dynamicCR": {
+          "type": "boolean",
+          "description": "Supports dynamic carb ratio adjustments"
+        },
+        "smbWithCOB": {
+          "type": "boolean",
+          "description": "Allows SMB when carbs on board"
+        },
+        "uam": {
+          "type": "boolean",
+          "description": "Supports unannounced meals detection"
+        },
+        "profileSwitching": {
+          "type": "boolean",
+          "description": "Supports switching between profiles"
+        },
+        "remoteCommands": {
+          "type": "boolean",
+          "description": "Can accept remote commands"
+        }
+      }
+    },
+    "supportedPumps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of compatible pump types"
+    },
+    "supportedCGMs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of compatible CGM types"
+    },
+    "algorithmType": {
+      "type": "string",
+      "enum": ["oref0", "oref1", "dosing-decision", "custom"],
+      "description": "Core algorithm family"
+    },
+    "eventCapabilities": {
+      "type": "object",
+      "description": "What events this controller can emit",
+      "properties": {
+        "canEmitNativeEvents": {
+          "type": "boolean",
+          "description": "Whether it can emit canonical events directly"
+        },
+        "minimalEventSet": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Minimum set of event types it can emit"
+        },
+        "deviceStatusFields": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Fields available in devicestatus uploads"
+        }
+      }
+    },
+    "documentation": {
+      "type": "string",
+      "format": "uri",
+      "description": "Link to controller documentation"
+    }
+  }
+}

@@ -18,31 +18,34 @@ The server replies with `406 Not Acceptable` HTTP status in case of not supporte
 
 Default content type is JSON, output can look like this:
 
-```
-[
-  {
-    "type":"sgv",
-    "sgv":"171",
-    "dateString":"2014-07-19T02:44:15.000-07:00",
-    "date":1405763055000,
-    "device":"dexcom",
-    "direction":"Flat",
-    "identifier":"5c5a2404e0196f4d3d9a718a",
-    "srvModified":1405763055000,
-    "srvCreated":1405763055000
-  },
-  {
-    "type":"sgv",
-    "sgv":"176",
-    "dateString":"2014-07-19T03:09:15.000-07:00",
-    "date":1405764555000,
-    "device":"dexcom",
-    "direction":"Flat",
-    "identifier":"5c5a2404e0196f4d3d9a7187",
-    "srvModified":1405764555000,
-    "srvCreated":1405764555000
-  }
-]
+```json
+{
+  "status": 200,
+  "result": [
+    {
+      "type": "sgv",
+      "sgv": "171",
+      "dateString": "2014-07-19T02:44:15.000-07:00",
+      "date": 1405763055000,
+      "device": "dexcom",
+      "direction": "Flat",
+      "identifier": "5c5a2404e0196f4d3d9a718a",
+      "srvModified": 1405763055000,
+      "srvCreated": 1405763055000
+    },
+    {
+      "type": "sgv",
+      "sgv": "176",
+      "dateString": "2014-07-19T03:09:15.000-07:00",
+      "date": 1405764555000,
+      "device": "dexcom",
+      "direction": "Flat",
+      "identifier": "5c5a2404e0196f4d3d9a7187",
+      "srvModified": 1405764555000,
+      "srvCreated": 1405764555000
+    }
+  ]
+}
 ```
 
 ### XML
