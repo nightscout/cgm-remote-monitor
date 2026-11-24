@@ -139,6 +139,7 @@
    },
    "extendedSettings": {},
    "uuidHandling": true,
+   "predictionsMaxSize": 288,
    "entries_collection": "entries",
    "treatments_collection": "treatments",
    "devicestatus_collection": "devicestatus",
@@ -363,6 +364,7 @@
    },
    "extendedSettings": {},
    "uuidHandling": true,
+   "predictionsMaxSize": 288,
    "entries_collection": "entries",
    "treatments_collection": "treatments",
    "devicestatus_collection": "devicestatus",
@@ -600,6 +602,7 @@
     }
    },
    "uuidHandling": true,
+   "predictionsMaxSize": 288,
    "entries_collection": "entries",
    "treatments_collection": "treatments",
    "devicestatus_collection": "devicestatus",
@@ -824,6 +827,7 @@
     }
    },
    "uuidHandling": true,
+   "predictionsMaxSize": 288,
    "entries_collection": "entries",
    "treatments_collection": "treatments",
    "devicestatus_collection": "devicestatus",
@@ -1033,6 +1037,7 @@
     }
    },
    "uuidHandling": true,
+   "predictionsMaxSize": 288,
    "entries_collection": "entries",
    "treatments_collection": "treatments",
    "devicestatus_collection": "devicestatus",

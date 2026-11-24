@@ -12,6 +12,8 @@
 // The unset display theme now follows the adopted shipping Modern default
 // (bfe46155b); only those four display values changed. Saved choices and the
 // complete clinical/settings/storage fingerprint remain asserted.
+// Every tenant environment now also carries predictionsMaxSize 288, the
+// single-site default cap (tests/predictions-max-size-parity.test.js).
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const { createRequire } = require('node:module');

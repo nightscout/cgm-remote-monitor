@@ -126,6 +126,7 @@
         "tests/realtime-warm-retry.test.js",
         "tests/tenant-readiness.test.js",
         "tests/preview-domains-equivalence.test.js",
+        "tests/predictions-max-size-parity.test.js",
         "tests/write-boundary-clock.test.js",
         "tests/no-trigger-notify.test.js",
         "tests/tenant-maintenance-window.test.js",
