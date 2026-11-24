@@ -8,7 +8,13 @@ function fixture(ids){
  const states=new Map(ids.map(tenant=>[tenant,{enabled:true,active:true,identity:tenant,revision:1}]));
  const invalidated=[];
  const detector=completed.detector({config:{completedOutput:{namespace:'test_completed',consumer:'evaluator-test'}},
-   connection:{readOnly:async(text,args)=>{counts.revisions+=args[1].length;return {rows:args[1].map(tenant=>({tenant,revision:String(states.get(tenant).revision),work_enabled:states.get(tenant).enabled}))};}},
+   connection:{readOnly:async(text,args)=>{
+     counts.revisions+=args[1].length;
+     return {rows:args[1].map(tenant=>{
+       const state=states.get(tenant);
+       return {tenant,revision:String(state.revision),work_enabled:state.enabled,work_observed:state.observed,work_completed:state.completed};
+     })};
+   }},
    trusted:{scan:async tenants=>{counts.scanned+=tenants.length;return new Map(tenants.map(tenant=>[tenant,{activity:{state:states.get(tenant).active?'active':'paused'}}]));}},
    readAll:async tenants=>{counts.identities+=tenants.length;return new Map(tenants.map(tenant=>[tenant,{identity:states.get(tenant).identity}]));},
    owner:()=>{},onIneligible:tenant=>invalidated.push(tenant)});
@@ -206,6 +212,41 @@ describe('durable output retry ownership and upstream pending',()=>{
    assert.equal(service.health().upstreamPending,1);assert.equal(service.health().failed,0);assert.equal(acquired,0);assert.equal(timers.length,0,'NO_DUPLICATE_PENDING_RETRY');
    pending=false;const next=await service.check([tenant]);assert.equal(next.get(tenant),true);assert.equal(acquired,1);assert.equal(service.warm(tenant),true);assert.equal(timers.length,0);
   }finally{await service.close();}
+ });
+ it('retains a watched output revision across an overlapping input until the quiet completion can publish it', async () => {
+   const tenant = id(1), f = fixture([tenant]), state = f.states.get(tenant);
+   const timers = [], sent = [];
+   let watched = [tenant];
+   const service = await runtime({
+     tenants: [tenant], durableOutput: true, readiness: 'serve', watchedTenants: () => watched,
+     detect: f.detector, readCurrent: async () => ({tenant, identity: state.identity}),
+     create: () => ({acquire: async () => ({tenant, checkpoint: state.revision, frame: {}})}),
+     fanout: async ({next}) => sent.push(next.checkpoint),
+     schedule: fn => { timers.push(fn); return 1; }, cancel () {}
+   });
+   const check = async () => (await service.check([tenant])).get(tenant);
+   try {
+     assert.equal(await check(), true);
+     assert.deepEqual(sent, [1]);
+     Object.assign(state, {observed: ['3'], completed: ['2']});
+     assert.equal(await check(), true, 'the pending input owes no new publication yet');
+     state.revision = 2;
+     assert.equal(await check(), false, 'the receipt must retain the unpublished output');
+     assert.deepEqual(sent, [1]);
+     assert.equal(service.pendingSummary().pending, 1);
+     assert.equal(timers.length, 0, 'only the receipt schedules a retry');
+     state.completed = ['3'];
+     assert.equal(await check(), true, 'a quiet completion can publish the same revision');
+     assert.deepEqual(sent, [1, 2]);
+     assert.equal(service.pendingSummary().pending, 0);
+     state.revision = 3;
+     state.observed = ['4'];
+     assert.equal(await check(), false);
+     watched = [];
+     assert.equal(await check(), true, 'the last viewer disconnected during the retry');
+     assert.deepEqual(sent, [1, 2]);
+     assert.equal(service.pendingSummary().pending, 0);
+   } finally { await service.close(); }
  });
  it('keeps actual failed delivery owed to durable retry without a second runtime retry timer',async()=>{
   const tenant=id(1),timers=[];let refuse=true,deliveries=0;
