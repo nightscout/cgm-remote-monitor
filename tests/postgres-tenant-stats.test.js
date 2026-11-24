@@ -58,4 +58,30 @@ describe('tenant statistics batched aggregates', function () {
     await assert.rejects(read(stats), error => error === failure);
     assert.equal(calls, 1);
   });
+
+  it('keeps its answer while the tenant clock stamp is unchanged, and reads again on a new stamp, an old answer or a failed stamp', async function () {
+    let stamp = '7', time = 1000, aggregates = 0, bytes = 5;
+    const stats = createStats({ tables: { entries: 'stats_entries.entries' }, clock: 'stats_clock.tenant_write_clock', now: () => time,
+      connection: { async query (sql, values) {
+        assert.equal(scope.requireTenant('statistics supplied port'), 'tenant-a');
+        if (sql.includes('"stats_clock"."tenant_write_clock"')) { assert.deepEqual(values, ['tenant-a']); return { rows: stamp === null ? [] : [{ stamp }] }; }
+        aggregates++; return { rows: [{ bytes }] };
+      } } });
+    assert.deepEqual(await read(stats), { dataSize: 5, indexSize: undefined });
+    bytes = 9; time += 299999 - 1;
+    assert.deepEqual(await read(stats), { dataSize: 5, indexSize: undefined });
+    assert.equal(aggregates, 1, 'an unchanged stamp reuses the aggregate');
+    stamp = '8';
+    assert.deepEqual(await read(stats), { dataSize: 9, indexSize: undefined });
+    assert.equal(aggregates, 2, 'a new stamp reads the tenant again');
+    bytes = 11; time += 300000;
+    assert.deepEqual(await read(stats), { dataSize: 11, indexSize: undefined });
+    assert.equal(aggregates, 3, 'an answer older than its bound is read again');
+    stamp = null; bytes = 13;
+    assert.deepEqual(await read(stats), { dataSize: 13, indexSize: undefined });
+    stamp = '8'; bytes = 15;
+    assert.deepEqual(await read(stats), { dataSize: 15, indexSize: undefined });
+    assert.equal(aggregates, 5, 'a missing clock row keeps nothing');
+    assert.throws(() => createStats({ tables, clock: 'pg_catalog.tenant_write_clock', connection: { query () {} } }), /schema\.table/);
+  });
 });
