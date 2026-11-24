@@ -50,6 +50,21 @@ describe('vcpool tenant-side connector', function () {
       assert.deepEqual(parsed.egress, { proxy: null });
       assert.equal(parsed.retryMs, config.DEFAULTS.retryMs);
     });
+    it('uses the deployment registry population bound when enumerating connector tenants', function () {
+      const plan = require('./fixtures/multitenant-plan');
+      const layout = plan.layout('nstest');
+      const { environment } = plan.documents({ layout, urls: plan.syntheticUrls(layout) }).vcpool;
+      const defaults = config.load(environment);
+      assert.equal(defaults.maxTenants, defaults.registry.maxTenants);
+      for (const population of [250, 20000]) {
+        const parsed = config.load({ ...environment, NS_REGISTRY_MAX_TENANTS: String(population) });
+        assert.equal(parsed.maxTenants, population);
+        assert.equal(parsed.maxSources, defaults.maxSources);
+      }
+      const explicit = config.parse({ ...document(), maxTenants: 75, maxSources: 20 }, env);
+      assert.equal(explicit.maxTenants, 75);
+      assert.equal(explicit.maxSources, 20);
+    });
     it('refuses a document without activity, allow-list or registry, or with a tenant list, and a connector without distinct references or a known collection', function () {
       const cases = [
         doc => { delete doc.activity; },
