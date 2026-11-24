@@ -8,7 +8,7 @@ function fixture(ids){
  const states=new Map(ids.map(tenant=>[tenant,{enabled:true,active:true,identity:tenant,revision:1}]));
  const invalidated=[];
  const detector=completed.detector({config:{completedOutput:{namespace:'test_completed',consumer:'evaluator-test'}},
-   connection:{readOnly:async(text,args)=>{counts.revisions+=args[1].length;return {rows:args[1].map(tenant=>({tenant,revision:String(states.get(tenant).revision),work_enabled:states.get(tenant).enabled}))};}},
+   connection:{readOnly:async(text,args)=>{counts.revisions+=args[1].length;return {rows:args[1].map(tenant=>({tenant,revision:String(states.get(tenant).revision),work_enabled:states.get(tenant).enabled,work_observed:states.get(tenant).observed,work_completed:states.get(tenant).completed}))};}},
    trusted:{scan:async tenants=>{counts.scanned+=tenants.length;return new Map(tenants.map(tenant=>[tenant,{activity:{state:states.get(tenant).active?'active':'paused'}}]));}},
    readAll:async tenants=>{counts.identities+=tenants.length;return new Map(tenants.map(tenant=>[tenant,{identity:states.get(tenant).identity}]));},
    owner:()=>{},onIneligible:tenant=>invalidated.push(tenant)});
@@ -86,6 +86,50 @@ describe('addressed realtime output demand',function(){
    assert.deepEqual(f.invalidated,ids.slice(0,2));assert.equal(f.counts.identities,0,'NO_INELIGIBLE_OR_UNWATCHED_SETTINGS');
    for(const tenant of ids.slice(0,2))assert.deepEqual(seen.get(tenant),{identity:null,stamp:null});
    assert.equal(seen.get(ids[2]).deferred,true);
+ });
+ it('loads settings only for completed interested output and checks control for every tenant', async function () {
+   const [ready, first, behind, deferred, disabled] = Array.from({ length: 5 }, (_, i) => id(i + 1));
+   const tenants = [ready, first, behind, deferred, disabled];
+   const f = fixture(tenants);
+   f.states.get(first).revision = 0;
+   Object.assign(f.states.get(behind), { observed: ['9007199254740993'], completed: ['9007199254740992'] });
+   f.states.get(disabled).enabled = false;
+   const seen = await f.detector(tenants, { interested: [first, disabled, ready, behind] });
+   assert.equal(f.counts.identities, 1);
+   assert.equal(f.counts.scanned, tenants.length);
+   assert.equal(f.counts.revisions, tenants.length);
+   assert.deepEqual(f.invalidated, [disabled]);
+   assert.deepEqual(seen.get(ready), { identity: ready, stamp: '1' });
+   assert.deepEqual(seen.get(first), { pending: true });
+   assert.deepEqual(seen.get(behind), { pending: true });
+   assert.deepEqual(seen.get(deferred), { deferred: true });
+   assert.deepEqual(seen.get(disabled), { identity: null, stamp: null });
+   await f.detector([first, behind]);
+   assert.equal(f.counts.identities, 1, 'all-pending batch requires no settings');
+   Object.assign(f.states.get(behind), { completed: ['9007199254740993'], identity: 'new-settings' });
+   assert.deepEqual((await f.detector([behind])).get(behind), { identity: 'new-settings', stamp: '1' });
+   assert.equal(f.counts.identities, 2);
+ });
+ it('propagates checkpoint and completed settings failures while pending readers need no settings', async function () {
+   const tenant = id(1);
+   const settingsError = new Error('unavailable settings'), controlError = new Error('unavailable checkpoint');
+   let revision = '0', failControl = false;
+   const detect = completed.detector({
+     config: { completedOutput: { namespace: 'test_completed', consumer: 'evaluator-test' } },
+     trusted: { scan: async () => new Map([[tenant, { activity: { state: 'active' } }]]) },
+     connection: { readOnly: async () => {
+       if (failControl) throw controlError;
+       return { rows: [{ tenant, revision, work_enabled: true }] };
+     } },
+     readAll: async () => { throw settingsError; }, owner() {}, onIneligible() {}
+   });
+   assert.deepEqual((await detect([tenant])).get(tenant), { pending: true });
+   failControl = true;
+   await assert.rejects(detect([tenant]), error => error === controlError);
+   failControl = false;
+   revision = '7';
+   await assert.rejects(detect([tenant]), error => error === settingsError);
+   assert.deepEqual(detect.stats(), { polls: 3, failures: 2 });
  });
  it('keeps direct detector callers eager and never reads ineligible settings',async()=>{
    const ids=[id(1),id(2)],f=fixture(ids);f.states.get(ids[0]).enabled=false;
