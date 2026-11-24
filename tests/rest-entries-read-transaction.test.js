@@ -17,6 +17,9 @@ function accessImplementation (mutate) {
   assert.notEqual(source, changed, 'control mutation landed');
   loaded._compile(changed, file); return loaded.exports;
 }
+function readsPreviewEntries (sql) {
+  return sql.includes('FROM "source_entries"."entries"');
+}
 async function fixture (mutate) {
   const calls = [], events = [], clients = [], states = new Map([[A, true], [B, true]]);
   let action = async () => undefined;
@@ -32,7 +35,7 @@ async function fixture (mutate) {
         const override = await action(this, text, values);
         if (override) return override;
         if (text.includes("current_setting('server_version')")) return { rows: [{ version: 'synthetic' }] };
-        if (text.startsWith('SELECT id_kind, doc')) return { rows: [{ id_kind: 'string', doc: { _id: 'reading', type: 'sgv', sgv: 123, date: Date.now() - 1000 } }] };
+        if (readsPreviewEntries(text) || text.startsWith('SELECT id_kind, doc')) return { rows: [{ id_kind: 'string', doc: { _id: 'reading', type: 'sgv', sgv: 123, date: Date.now() - 1000 } }] };
         if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
         if (text.includes('FROM pg_class')) return { rows: Array.from({ length: 4 }, () =>
           ({ secured: true, owns: false, reads: true, writes: false, column_reads: true })) };
@@ -156,7 +159,7 @@ describe('private current-authority and raw entries read transaction', function 
       const result = await request(app, '/api/v1/entries/sgv.json?token=synthetic&count=1');
       assert.equal(result.status, 200);
       assert.equal(result.body[0].sgv, 123); oneTransaction(f);
-      assert.equal(f.calls.filter(x => x.text.startsWith('SELECT id_kind, doc')).length, 1, 'committed frame reused without another acquisition');
+      assert.equal(f.calls.filter(x => readsPreviewEntries(x.text)).length, 1, 'committed frame reused without another acquisition');
       f.calls.length = 0;
       const commitFailure = Error('synthetic commit refused');
       f.action(async (client, text) => { if (text === 'COMMIT') throw commitFailure; });
