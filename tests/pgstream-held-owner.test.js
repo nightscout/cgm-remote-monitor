@@ -13,7 +13,7 @@ async function fixture(broken=false){
   constructor(){super();this.processID=1001+clients.length;this._queryable=true;this._ending=false;clients.push(this);}
   connect(done){queueMicrotask(()=>done(null));}
   query(input,values,done){if(typeof values==='function'){done=values;values=undefined;}const text=typeof input==='string'?input:input.text;if(typeof input==='object')values=input.values;
-   const work=(async()=>{calls.push({text,pid:this.processID});if(text.includes('pg_try_advisory_lock(')||text.includes("locktype='advisory'"))return {rows:[{held:true}]};const result=await protocol.client.query(text,values);return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID})};})();
+   const work=(async()=>{calls.push({text,pid:this.processID});if(text.includes('pg_try_advisory_lock(')||text.includes("locktype='advisory'"))return {rows:[{held:true}]};const result=await protocol.client.query(text,values);if(Array.isArray(result))return result;return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID})};})();
    if(done){work.then(value=>done(null,value),done);return;}return work;
   }
   end(done){this._ending=true;this.emit('end');if(done)queueMicrotask(done);}

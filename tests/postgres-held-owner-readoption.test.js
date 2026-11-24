@@ -19,7 +19,7 @@ async function fixture (trustedWorker = true) {
         calls.push({text,pid:this.processID});const override=await action(this,text,values);if(override)return override;
         if(text.includes('pg_try_advisory_lock(')||text.includes("locktype='advisory'"))return {rows:[{held:lock}]};
         const result=await protocol.client.query(text,values);
-        return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID})};
+        if(Array.isArray(result))return result;return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID})};
       })();if(done){work.then(value=>done(null,value),done);return;}return work;
     }
     end (done) {this._ending=true;this.emit('end');if(done)queueMicrotask(done);}

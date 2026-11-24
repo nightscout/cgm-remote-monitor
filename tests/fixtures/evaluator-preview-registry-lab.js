@@ -206,8 +206,6 @@ module.exports = function evaluatorPreviewRegistryLab () {
       NS_SERVE_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'), NS_EVALUATOR_INTERNAL_SOCKET: path.join(directory, 'evaluator.sock'),
       NS_API_INTERNAL_SOCKET: path.join(directory, 'api.sock'), NS_TENANT_ADMIN_INTERNAL_SOCKET: path.join(directory, 'tenant-admin.sock'),
       NS_REALTIME_INTERNAL_SOCKET: path.join(directory, 'realtime.sock'),
-      // The fewer-round-trips switch passes through, so any suite can run in either arm.
-      ...(process.env.NS_EVAL_FEWER_ROUNDTRIPS !== undefined ? { NS_EVAL_FEWER_ROUNDTRIPS: process.env.NS_EVAL_FEWER_ROUNDTRIPS } : {}),
       ...lab.extraEnvironment,
       // Results are read right after boot: all-tenants readiness (decision readiness-serve-then-warm).
       NS_TENANT_READINESS: config?.tenantReadiness || process.env.NS_TENANT_READINESS || 'all' };

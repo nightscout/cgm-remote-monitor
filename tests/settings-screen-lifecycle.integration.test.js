@@ -21,7 +21,7 @@ const ABLATIONS = {
   // Control B sensitivity: the screen put back into every tenant read.
   perRead: ['return connection.readOnlySnapshot(tenant, async ({ query }) => {', 'return connection.readOnlySnapshot(tenant, async ({ query }) => { await screen(query);'],
   // Control A sensitivity: the catalogue privilege scan removed from the screen.
-  scope: ['await readinessCheck(query);', 'void readinessCheck;']
+  scope: ['await readinessCheck(query, [], { memberless: true });', 'void readinessCheck;']
 };
 function reader (ablation) {
   if (!ablation) return require(SOURCE);
@@ -97,12 +97,34 @@ optInSuite(!!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'disposable NS_TEST_POSTGRE
       const warm = await readsOf(settings, 20);
       performance.now = () => realNow.call(performance) + 61000; Date.now = () => realDate() + 61000;
       const later = await readsOf(settings, 5);
-      const all = [...warm, ...later], counts = [...new Set(all.map(texts => texts.length))];
-      console.log('    SL_READS statements: open=' + built.texts.length + ' per-read=' + JSON.stringify(counts) + ' screen-statements-in-reads=' + all.flat().filter(text => SCREEN.test(text)).length);
+      // A backend's first read adds its one identity observation (session and
+      // current role, backend birth, datastore): per client, never per read.
+      const OBSERVATION = /^SELECT pg_backend_pid\(\) AS pid,current_user AS role,.*,session_user AS login FROM pg_catalog\.pg_stat_get_activity\(pg_catalog\.pg_backend_pid\(\)\)$/;
+      const all = [...warm, ...later], observed = all.flat().filter(text => OBSERVATION.test(text)).length;
+      const counts = [...new Set(all.map(texts => texts.filter(text => !OBSERVATION.test(text)).length))];
+      console.log('    SL_READS statements: open=' + built.texts.length + ' per-read=' + JSON.stringify(counts) + ' identity-observations-in-25-reads=' + observed + ' screen-statements-in-reads=' + all.flat().filter(text => SCREEN.test(text)).length);
       assert.equal(counts.length, 1, 'every read sends the same statements');
+      assert.ok(observed <= 1, 'reads on one pooled backend observe its identity at most once, not per read');
       assert(all.every(texts => !texts.some(text => SCREEN.test(text))), 'no catalogue screen statement in any read');
       assert.equal((await settings.read(tenant)).version, 1);
     } finally { performance.now = realNow; Date.now = realDate; await settings.close(); }
+  });
+  it('SL_MEMBERSHIP: the open screen refuses a settings login that belongs to any role, and serves again once it belongs to none', async function () {
+    const group = 'sc_group_' + tag;
+    await q(`CREATE ROLE "${group}" NOLOGIN NOSUPERUSER NOBYPASSRLS`);
+    try {
+      await q(`GRANT "${group}" TO "${role}"`);
+      // With a membership the session role could be changed after its one observation.
+      const probe = new Client({ connectionString: url.toString() }); await probe.connect();
+      try { assert.equal((await probe.query(`SET ROLE "${group}"`)).command, 'SET'); } finally { await probe.end(); }
+      await assert.rejects(open(), /unsafe settings membership/);
+      await q(`REVOKE "${group}" FROM "${role}"`);
+      const settings = await open();
+      try { assert.equal((await settings.read(tenant)).version, 1); } finally { await settings.close(); }
+    } finally {
+      await q(`REVOKE "${group}" FROM "${role}"`).catch(() => {});
+      await q(`DROP ROLE IF EXISTS "${group}"`);
+    }
   });
   it('control B: a screen put back into the read is detected by the same counter', async function () {
     const settings = await open('perRead');

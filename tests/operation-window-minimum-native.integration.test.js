@@ -141,7 +141,7 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
     await active();
   });
 
-  // NS_EVAL_FEWER_ROUNDTRIPS sends lock and generation read as separate statements of one
+  // The scope sends lock and generation read as separate statements of one
   // simple-protocol query. Each statement must take its own READ COMMITTED snapshot, so a
   // replacement committed while the lock waited is seen. The single-statement form is the
   // red control: its snapshot predates the lock.
@@ -200,7 +200,8 @@ optInSuite(process.env.NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST === '1',
       const query = client.query.bind(client);
       client.query = async (...args) => {
         const result = await query(...args);
-        if (args[0] === 'COMMIT') throw Object.assign(new Error('synthetic COMMIT reply loss'), { code: 'OWNED_COMMIT_REPLY_LOST' });
+        // The observation is one simple-protocol query that ends with its COMMIT.
+        if (args[0] === 'COMMIT' || typeof args[0] === 'string' && args[0].endsWith(';COMMIT')) throw Object.assign(new Error('synthetic COMMIT reply loss'), { code: 'OWNED_COMMIT_REPLY_LOST' });
         return result;
       };
     });

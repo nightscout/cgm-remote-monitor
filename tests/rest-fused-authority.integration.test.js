@@ -79,7 +79,9 @@ optInSuite(process.env.NS_REST_FUSED_AUTHORITY_NATIVE === '1', 'NS_REST_FUSED_AU
   // Classify that exact control-only transaction; retain physical fusion checks.
   function applicationTransactions (seen) {
     const groups=[];let current;
-    for(const text of seen){
+    // The scope opens a transaction as one simple-protocol query: BEGIN and its
+    // fixed fence statements. Classify each statement of it.
+    for(const text of seen.flatMap(text=>typeof text==='string'&&/^BEGIN[^;]*;/.test(text)?text.split(';'):[text])){
       if(typeof text!=='string')continue;
       if(/^BEGIN/.test(text)){assert.equal(current,undefined,'NO_OVERLAPPING_TRANSACTION_IN_REQUEST');current=[];}
       if(current)current.push(text);

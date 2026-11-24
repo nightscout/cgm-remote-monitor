@@ -31,8 +31,8 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.includes('pg_catalog.pg_control_system()')) return options.clusterRead ? options.clusterRead() : { rows: [{ cluster: options.cluster || '7000000000000000001' }] };
     const metadata = admission(text, values); if (metadata) return metadata;
     if (text.includes('FROM pg_roles')) return { rows: [{ role_oid: options.roleOid || 61, rolcreaterole: !!options.createrole, rolcreatedb: !!options.createdb, rolreplication: !!options.replication, rolsuper: !!options.superuser, rolbypassrls: false,
-      ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
-    if (text.startsWith('SELECT pg_backend_pid()')) return { rows: [{ ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', birth: options.sqlBirth || '1700000000.000001' }] };
+      ...(text.includes('pg_backend_pid') ? { ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', login: options.sqlLogin || options.sqlRole || 'synthetic_worker', member: options.sqlMember === true, birth: options.sqlBirth || '1700000000.000001' } : {}) }] };
+    if (text.startsWith('SELECT pg_backend_pid()')) return { rows: [{ ...datastore, ...options.datastore, pid: options.sqlPid || 123, role: options.sqlRole || 'synthetic_worker', login: options.sqlLogin || options.sqlRole || 'synthetic_worker', member: options.sqlMember === true, birth: options.sqlBirth || '1700000000.000001' }] };
     if (text.includes('pg_control_system()')) return { rows: [{ cluster: options.cluster || '7300000000000000001' }] };
     if (text.includes('pg_try_advisory_lock_shared') || text.includes('pg_try_advisory_xact_lock_shared')) return { rows: [{ held: options.held !== false }] };
     if (text.includes('pg_advisory_unlock_shared')) return { rows: [{ released: options.unlock !== false }] };
@@ -41,6 +41,20 @@ module.exports = function fixture (options = {}, createWindow = create) {
     if (text.startsWith('INSERT INTO')) { pending.set(values[1], false); return { rows: [], rowCount: 1 }; }
     if (text.startsWith('UPDATE')) { pending.set(values[1], true); return { rows: [], rowCount: 1 }; }
     return { rows: [], ...(['COMMIT','ROLLBACK'].includes(text) ? { command: text } : {}) };
+  };
+  // The scope sends its fixed fence statements as one simple-protocol query
+  // with validated literals. Answer each statement as the single-statement
+  // protocol above does, with the tenant literal as its first value.
+  const answer = client.query;
+  client.query = async (text, values) => {
+    if (typeof text !== 'string' || values !== undefined || !text.includes(';')) return answer(text, values);
+    const results = [];
+    for (const statement of text.split(';')) {
+      const tenant = /'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'/.exec(statement);
+      const key = /pg_try_advisory_xact_lock_shared\(([0-9]+)::bigint\)/.exec(statement);
+      results.push({ command: statement.split(' ')[0], ...await answer(statement, tenant ? [tenant[1], ...(key ? [key[1]] : [])] : []) });
+    }
+    return results;
   };
   const pool = { options: { max: 1 }, connect: async () => client };
   return { client, pool, log, pending, window: createWindow({ namespace: 'synthetic_window', available: options.available, availabilityEpoch:options.availabilityEpoch, invalidate:options.invalidate, leaseSessionCount: options.leaseSessionCount, trustedWorker: options.trustedWorker, ...(options.lockRule ? {lockRule:options.lockRule} : {locks: [{ tenant: A, key: '17' }, { tenant: B, key: '19' }]}), intakeProfile:options.intakeProfile, pool }) };

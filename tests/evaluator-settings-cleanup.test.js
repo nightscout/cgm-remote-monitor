@@ -101,6 +101,7 @@ describe('direct PostgreSQL cleanup outcome preservation', function () {
         async connect () { if (phase === 'connect') throw primary; }
         async query (sql) {
           if (phase === 'query') throw primary;
+          if (sql.includes('pg_auth_members')) return { rows: [{ member: false }] };
           if (sql.includes('pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
           return { rows: [{ present: false, creates: false, mutates: false }] };
         }

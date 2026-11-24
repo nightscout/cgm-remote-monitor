@@ -47,7 +47,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
           if (this.dead) throw new Error('Synthetic connection is closed');
           const override = await action(this, text, values);
           if (override) return override;
-          if (text.includes('pg_backend_pid() AS pid')) return { rows: [{ rolsuper: false, rolbypassrls: false, pid: this.processID, role: this.options.user || 'synthetic', birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' }] };
+          if (text.includes('pg_backend_pid() AS pid')) return { rows: [{ rolsuper: false, rolbypassrls: false, pid: this.processID, role: this.options.user || 'synthetic', login: this.options.user || 'synthetic', member: false, birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' }] };
           if (text.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false }] };
           if (text.includes("current_setting('transaction_read_only')")) return { rows: [{ read_only: 'on', isolation: 'repeatable read' }] };
           if (text.includes('SELECT last_stamp')) return { rows: [{ last_stamp: '100' }] };
@@ -213,7 +213,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     } finally { await f.store.end(); }
   });
 
-  it('keeps selected physical lease/admission identity fresh and preserves cleanup failure with the primary', async function () {
+  it('observes a strict backend once per client, a replacement client again, and preserves cleanup failure with the primary', async function () {
     const calls = []; let lease, actual, failUnlock = false;
     const unlock = Error('synthetic snapshot unlock'), primary = Error('synthetic snapshot value');
     const window = {
@@ -225,11 +225,44 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     try {
       for (let i = 0; i < 2; i++) await f.store.readOnlySnapshot(TENANT, async ({ query }) => { calls.push('value'); await query('SELECT selected'); });
       assert.deepEqual(calls, ['acquire', 'admit', 'value', 'release', 'acquire', 'admit', 'value', 'release']);
-      assert.equal(f.calls.filter(call => call.text.endsWith('FROM pg_catalog.pg_stat_get_activity(pg_catalog.pg_backend_pid())')).length, 2, 'each strict checkout freshly observes its own backend');
+      const probes = () => f.calls.filter(call => call.text.endsWith('FROM pg_catalog.pg_stat_get_activity(pg_catalog.pg_backend_pid())'));
+      assert.equal(probes().length, 1, 'one client is one backend: its identity is read once, not per settings read');
+      assert.match(probes()[0].text, /current_user AS role,.*,session_user AS login FROM/, 'the one observation compares the session and current roles');
+      assert.doesNotMatch(probes()[0].text, /pg_roles|pg_auth_members/, 'no catalogue statement is triggered by a read');
       failUnlock = true;
       await assert.rejects(f.store.readOnlySnapshot(TENANT, () => { throw primary; }), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause === primary && error.cleanupError === unlock);
       assert.equal(f.clients[0]._ending, true);
+      assert.equal(probes().length, 1);
+      // The retired client's observation is not inherited by its replacement.
+      failUnlock = false;
+      await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT selected'); });
+      assert.equal(f.clients.length, 2);
+      assert.equal(probes().length, 2, 'a replacement client is observed before its first read');
+      assert.equal(probes()[1].client, f.clients[1]);
     } finally { await f.store.end(); }
+  });
+
+  it('refuses a strict backend whose session role differs from its login, and a snapshot statement that could change it', async function () {
+    const identity = client => ({ rolsuper: false, rolbypassrls: false, pid: client.processID, role: 'synthetic', login: 'synthetic', birth: '100',
+      database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' });
+    for (const change of [{ login: 'other' }, { role: 'other' }, { login: undefined }]) {
+      const f = await fixture(); let ran = false;
+      f.setAction(async (client, text) => text.includes('session_user AS login') ? { rows: [{ ...identity(client), ...change }] } : undefined);
+      try {
+        await assert.rejects(f.store.readOnlySnapshot(TENANT, () => { ran = true; }), { code: 'POSTGRES_SNAPSHOT_IDENTITY_CHANGED' }, JSON.stringify(change));
+        assert.equal(ran, false);
+        assert(!f.calls.some(call => call.text.startsWith('BEGIN')), 'no transaction opens on a refused backend');
+        // The refusal is not remembered as an observation: the next read asks again.
+        f.setAction(async () => undefined);
+        await f.store.readOnlySnapshot(TENANT, async ({ query }) => { await query('SELECT selected'); });
+        assert.equal(f.calls.filter(call => call.text.includes('session_user AS login')).length, 2);
+        for (const text of ["SELECT set_config('role', 'other', false)", "SELECT pg_catalog.SET_CONFIG('role', 'other', false)"]) {
+          const sent = f.calls.length;
+          await assert.rejects(f.store.readOnlySnapshot(TENANT, ({ query }) => query(text)), /requires one SELECT/);
+          assert(!f.calls.slice(sent).some(call => call.text === text), 'the statement never reaches the backend');
+        }
+      } finally { await f.store.end(); }
+    }
   });
 
   it('refuses wrong server read-only/isolation proof before caller work', async function () {

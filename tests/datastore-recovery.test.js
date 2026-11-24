@@ -104,7 +104,8 @@ describe('Datastore recovery in place: source protocol and controls (not Postgre
       const observing = new Promise(resolve => { entered = resolve; });
       const resume = new Promise(resolve => { release = resolve; });
       client.query = async (sql, values) => {
-        if (sql === 'COMMIT') { entered(); await resume; }
+        // The observation is one simple-protocol query that ends with its COMMIT.
+        if (sql === 'COMMIT' || typeof sql === 'string' && sql.endsWith(';COMMIT')) { entered(); await resume; }
         return query(sql, values);
       };
       try {

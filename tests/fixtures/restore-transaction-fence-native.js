@@ -210,6 +210,49 @@ module.exports = function register (fixture) {
       }
     });
 
+    // The request read transaction (readTenant) sends no commit fence. What it
+    // relies on instead: PostgreSQL refuses any write in it, its shared lock
+    // makes replacement wait until it ends, and a suspended tenant refuses a new one.
+    it('keeps the fence for a request read transaction without a commit check', async function () {
+      await assert.rejects(lower.readTenant(fixture.A, async () => {
+        assert.equal((await lower.query('SHOW transaction_read_only')).rows[0].transaction_read_only, 'on');
+        assert.equal((await lower.query('SHOW transaction_isolation')).rows[0].transaction_isolation, 'read committed');
+        await marker('request-read-must-rollback');
+      }), { code: '25006' }, 'POSTGRES_MUST_REFUSE_REQUEST_READ_WRITE');
+      assert.equal(await stored('request-read-must-rollback'), 0);
+      const first = gate(), again = gate(), attempt = gate();
+      const value = async () => (await lower.query('SELECT value FROM ' + data)).rows[0].value;
+      await fixture.sql('UPDATE ' + data + ' SET value=$2 WHERE tenant_id=$1', [fixture.A, 'before-request-read']);
+      const reading = fixture.window.run(fixture.A, () => lower.readTenant(fixture.A, async () => {
+        const old = await value();
+        first.resolve(old);
+        await again.promise;
+        return [old, await value()];
+      }));
+      reading.catch(() => {});
+      let restoring;
+      try {
+        assert.equal(await reached(first, reading, 'first statement of the request read'), 'before-request-read');
+        await fixture.sql('UPDATE ' + data + ' SET value=$2 WHERE tenant_id=$1', [fixture.A, 'concurrent-request-edit']);
+        firstExclusiveAttempt = attempt;
+        restoring = restore('request-read-replacement');
+        assert.equal(await reached(attempt, restoring, 'replacement waits for the request read'), false, 'REPLACEMENT_MUST_WAIT_FOR_REQUEST_READ');
+        const state = await fixture.sql('SELECT phase FROM ' + fixture.control('tenant_lifecycle_windows') + ' WHERE tenant_id=$1', [fixture.A]);
+        assert.equal(state.rows[0].phase, 'suspended');
+        let entered = false;
+        await assert.rejects(independent.readTenant(fixture.A, () => { entered = true; }), retryable);
+        assert.equal(entered, false, 'a suspended tenant refuses a new request read before its callback');
+        again.resolve();
+        // Each statement reads current committed state; none can see the replacement.
+        assert.deepEqual(await reading, ['before-request-read', 'concurrent-request-edit']);
+        await restoring;
+        assert.equal(await lower.readTenant(fixture.A, value), 'request-read-replacement');
+      } finally {
+        firstExclusiveAttempt = null; again.resolve();
+        await Promise.allSettled([reading, restoring]);
+      }
+    });
+
     it('joins an existing writable transaction and still refuses its crossing commit', async function () {
       const selected = gate(), finish = gate(), attempt = gate();
       const identity = async () => (await lower.query("SELECT pg_backend_pid() AS pid,pg_current_xact_id()::text AS xid,current_setting('transaction_read_only') AS mode")).rows[0];

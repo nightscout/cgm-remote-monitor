@@ -156,6 +156,7 @@ describe('owner configuration serving source composition', function () {
         async end () {}
         async query (sql) {
           seen.queries.push(sql);
+          if (sql.includes('pg_auth_members')) return { rows: [{ member: false }] };
           if (sql.includes('rolsuper')) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
           return { rows: [{ creates: false, mutates: false }] };
         }
@@ -280,6 +281,7 @@ describe('owner configuration serving source composition', function () {
       const connection = {
         async readOnly (sql, params) {
           assert.equal(scope.currentTenant(), undefined, 'the screen binds no tenant');
+          if (sql.includes('pg_auth_members')) return { rows: [{ member: false }] };
           if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: unsafe, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false }] };
           if (sql.includes(' AS creates,')) return { rows: [{ creates: false, mutates: false }] };
           assert(sql.includes('FROM pg_class'), 'only screen statements run outside a snapshot');

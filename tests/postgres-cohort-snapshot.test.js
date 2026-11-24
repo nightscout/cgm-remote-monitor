@@ -19,7 +19,7 @@ async function fixture({failBaseline=false}={}){
    // Constructor admission now queries the actual structural protocol. Identity
    // rows alone cannot stand in for catalogue, grant, policy and ledger rows.
    const result=await f.client.query(text,values);
-   return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID,...extra})};
+   if(Array.isArray(result))return result;return {...result,rows:result.rows.map(row=>row.pid===undefined?row:{...row,pid:this.processID,...extra})};
   })();if(done){result.then(value=>done(null,value),done);return;}return result;}
   end(done){this._ending=true;this.emit('end');if(done)queueMicrotask(done);}
  }

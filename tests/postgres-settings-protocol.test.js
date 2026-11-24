@@ -42,7 +42,7 @@ async function snapshotFixture (extra = {}) {
       calls.push(sql);
       const finish = () => {
         let row;
-        if (sql.includes('pg_backend_pid() AS pid')) row = { rolsuper: false, rolbypassrls: false, pid: this.processID, role: 'synthetic', birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' };
+        if (sql.includes('pg_backend_pid() AS pid')) row = { rolsuper: false, rolbypassrls: false, pid: this.processID, role: 'synthetic', login: 'synthetic', member: false, birth: '100', database: 'synthetic_test', database_oid: '123', server_address: '127.0.0.1', server_port: 5432, postmaster_birth: '1' };
         if (sql.includes("current_setting('transaction_read_only')")) row = { read_only: 'on', isolation: 'repeatable read' };
         if (row) {
           connection.emit('rowDescription', { fields: Object.entries(row).map(([name, value]) => ({ name, tableID: 0, columnID: 0, dataTypeID: typeof value === 'boolean' ? 16 : typeof value === 'number' ? 23 : 25, dataTypeSize: -1, dataTypeModifier: -1, format: 'text' })) });

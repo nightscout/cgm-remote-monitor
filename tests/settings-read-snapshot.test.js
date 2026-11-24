@@ -27,6 +27,7 @@ function fixture (ablation) {
   const answer = backend => async (sql, args) => {
     calls.push({ sql, args, tenant: scope.currentTenant(), backend });
     if (/^(BEGIN|ROLLBACK)/.test(sql)) return { rows: [] };
+    if (sql.includes('pg_auth_members')) return { rows: state.member === undefined ? [{ member: false }] : state.member };
     if (sql.includes('FROM pg_roles')) return { rows: [{ rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcreatedb: false, rolreplication: false, ...state.role }] };
     if (sql.includes('AS creates')) return { rows: [{ creates: false, mutates: false, ...state.scope }] };
     if (sql.includes('to_regclass')) return { rows: [{ present: state.ledger !== 'missing' }] };
@@ -61,6 +62,7 @@ function fixture (ablation) {
 }
 const mutations = [
   ...['rolsuper', 'rolbypassrls', 'rolcreaterole', 'rolcreatedb', 'rolreplication'].map(key => ['role', { [key]: true }, /unsafe settings identity/]),
+  ...[[{ member: true }], [{ member: null }], []].map(rows => ['member', rows, /unsafe settings membership/]),
   ...['creates', 'mutates'].map(key => ['scope', { [key]: true }, /unsafe settings scope/]),
   ...Object.entries({ secured: false, owns: true, reads: false, writes: true }).map(([key, value]) => ['object', { [key]: value }, /SETTINGS_STORE_UNSAFE/]),
   ...[['missing', 'MIG_STALE'], ['stale', 'MIG_STALE'], ['unknown', 'MIG_UNKNOWN'], ['checksum', 'MIG_DRIFT'], ['order', 'MIG_HISTORY']].map(([value, code]) => ['ledger', value, { code }])
@@ -74,7 +76,7 @@ describe('settings owned read snapshot guard sequence', function () {
     const realNow = performance.now, realDate = Date.now;
     try {
       assert.equal(f.screens(), 1, 'opening screens once');
-      assert.deepEqual(f.calls.map(call => call.backend), Array(7).fill('pool'), 'the screen runs outside any tenant snapshot');
+      assert.deepEqual(f.calls.map(call => call.backend), Array(8).fill('pool'), 'the screen runs outside any tenant snapshot');
       assert(f.calls.every(call => call.tenant === undefined));
       assert.equal(f.pools.length, 1); assert.equal(f.pools[0].max, 4); assert.equal(f.pools[0].direct, true);
       assert.equal(f.pools[0].admitBackend, undefined, 'no per-backend admission screen');
@@ -83,7 +85,7 @@ describe('settings owned read snapshot guard sequence', function () {
       // A wall or monotonic clock more than 60 s later changes nothing: there is no cadence.
       performance.now = () => realNow.call(performance) + 61000; Date.now = () => realDate() + 61000;
       for (let i = 0; i < 5; i++) await reader.read(A);
-      const reads = f.calls.slice(7);
+      const reads = f.calls.slice(8);
       assert.equal(reads.length, 7, 'one statement per read'); assert(reads.every(call => call.backend === 'snapshot' && call.tenant === A && call.sql.includes('JOIN')));
       assert.equal(f.screens(), 1, 'no read screens');
     } finally { performance.now = realNow; Date.now = realDate; await reader.close(); }
