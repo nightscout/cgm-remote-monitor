@@ -54,21 +54,15 @@ function observe (promise) {
   result.promise = Promise.resolve(promise).then(() => { result.settled++; }, error => { result.rejected++; result.error = error; });
   return result;
 }
-function fixture ({ warm = true, freshFails = false, authorize } = {}) {
+function fixture ({ authorize } = {}) {
   const clock = new Clock(), requests = [], releases = [];
   const frame = { identity: 'current', frame: { lastUpdated: 0, sgvs: [] }, rows: [] };
-  const control = { warm, freshFails, freshGate: null, readNextGate: null };
+  const control = { readNextGate: null };
   const rights = read => ({ permissions: { read, write: false, write_treatment: false, ack: false }, collections: ['entries', 'treatments'] });
-  const runtime = {
-    warm: () => control.warm,
-    wake () {},
-    last: () => frame,
-    async fresh () {
-      if (control.freshGate) await control.freshGate.promise;
-      if (control.freshFails) throw Object.assign(new Error('synthetic refresh unavailable'), { code: 'REALTIME_TENANT_NOT_WARM' });
-      return frame;
-    }
-  };
+  const runtime = { wake () {}, last: () => frame };
+  // A request stays pending only while its authority is unanswered: in
+  // flight, or not available and being retried.
+  const unavailable = () => { throw Object.assign(new Error('synthetic authority unavailable'), { code: 'REALTIME_API_UNAVAILABLE' }); };
   const protocol = protocolFactory.create({
     admission: { resolve: async () => A },
     api: { authorizeSocket: async request => { requests.push(request); return authorize ? authorize(request, rights) : rights(true); }, executeSocketMutation: async () => ({}) },
@@ -80,7 +74,7 @@ function fixture ({ warm = true, freshFails = false, authorize } = {}) {
     now: () => clock.at, setTimer: clock.set, clearTimer: clock.clear, retry: { minMs: 500, maxMs: 2000 }
   });
   return {
-    clock, protocol, control, requests, releases, rights,
+    clock, protocol, control, requests, releases, rights, unavailable,
     async socket (namespace = '/') { const socket = new Socket(); await protocol.prepare(socket); protocol.bind(socket, namespace); await flush(); return socket; },
     start (socket, message, event = 'authorize') {
       const callbacks = [];
@@ -117,63 +111,30 @@ describe('realtime logical request lifetime', function () {
     } finally { await f.close(); }
   });
 
-  for (const mode of ['cold park', 'fresh failure']) {
-    it('keeps a successful authority request pending through repeated ' + mode + ', then delivers once', async function () {
-      const f = fixture({ warm: mode !== 'cold park', freshFails: mode === 'fresh failure' });
-      try {
-        const socket = await f.socket(); socket.sent.length = 0;
-        const request = f.start(socket, { token: 'synthetic-current' }); await flush();
-        // The bind-time anonymous request may already have armed a retry.
-        // Cross that retry so this explicit credential has actually answered.
-        await f.clock.advance(1000);
-        assert.equal(request.settled, 0, 'accepted authority is still awaiting a frame');
-        assert.equal(f.protocol.stats().queued, 1);
-        assert.equal(f.protocol.watched(A), true, 'pending demand remains registered');
-        const initialCalls = f.requests.length;
-        await f.clock.advance(2000);
-        assert.equal(f.requests.length, initialCalls, 'short retries reuse the current authority answer');
-        await f.clock.advance(60001);
-        assert.equal(socket.connected, true, 'pending work is not an unauthorized idle socket');
-        assert.equal(request.settled, 0);
-        assert.equal(f.protocol.watched(A), true);
-        assert.equal(f.frames(socket).length, 0);
-        assert(f.protocol.stats().deadlineDeferred >= 1);
-        assert.deepEqual(f.protocol.stats().disconnects, {});
-        assert(f.requests.length > initialCalls, 'long retries recheck authority instead of retaining it indefinitely');
-        assert(f.protocol.stats().primeRetries < 200, 'retry work remains bounded');
-        f.control.warm = true; f.control.freshFails = false; f.protocol.tenantReady(A); await flush();
-        assert.equal(request.settled, 1); assert.equal(request.rejected, 0); assert.equal(request.callbacks.length, 1);
-        assert.equal(f.frames(socket).length, 1); assert.equal(f.protocol.stats().queued, 0);
-        await f.clock.advance(61001);
-        assert.equal(request.settled, 1); assert.equal(request.callbacks.length, 1); assert.equal(f.frames(socket).length, 1);
-      } finally { await f.close(); }
-    });
-  }
 
   for (const phase of ['pending', 'authority in flight']) {
     it('supersedes the old ' + phase + ' request without its callback or frame', async function () {
       let gate;
-      const f = fixture({ warm: phase !== 'pending', authorize: (request, rights) => request.credential.token === 'synthetic-old' && phase !== 'pending' ? gate.promise : rights(true) });
+      let f;
+      f = fixture({ authorize: (request, rights) => request.credential.token !== 'synthetic-old' ? rights(true) : phase === 'pending' ? f.unavailable() : gate.promise });
       gate = f.hold();
       try {
         const socket = await f.socket(); socket.sent.length = 0;
         const old = f.start(socket, { token: 'synthetic-old' }); await flush();
         if (phase === 'pending') await f.clock.advance(1000);
         assert.equal(old.settled, 0, 'the old request has not completed before supersession');
-        f.control.warm = false;
         const current = f.start(socket, { token: 'synthetic-new' }); await flush();
         assert.equal(old.settled, 1, 'supersession settles even an outstanding authority await');
-        assert.equal(old.callbacks.length, 0); assert.equal(f.frames(socket).length, 0);
-        assert.equal(current.settled, 0);
+        assert.equal(old.callbacks.length, 0);
+        // The tenant's batch that carries the old request is still waiting on its authority.
+        if (phase === 'pending') { assert.equal(current.settled, 1); assert.equal(current.callbacks.length, 1); assert.equal(f.frames(socket).length, 1); }
         gate.resolve(f.rights(true)); await flush();
         await f.clock.advance(60001);
-        assert.equal(current.settled, 0);
-        assert.equal(f.protocol.watched(A), true, 'late old completion cannot consume the replacement pending interest');
+        assert.equal(f.protocol.watched(A), true, 'late old completion cannot consume the replacement interest');
         assert.equal(socket.connected, true);
-        f.control.warm = true; f.protocol.tenantReady(A); await flush();
         assert.equal(old.settled, 1); assert.equal(old.rejected, 0); assert.equal(old.callbacks.length, 0);
         assert.equal(current.settled, 1); assert.equal(current.callbacks.length, 1);
-        assert.equal(f.frames(socket).length, 1); assert.equal(f.protocol.stats().queued, 0);
+        assert.equal(f.frames(socket).length, 1, 'the superseded request sends no frame of its own'); assert.equal(f.protocol.stats().queued, 0);
       } finally { await f.close(); }
     });
   }
@@ -182,7 +143,8 @@ describe('realtime logical request lifetime', function () {
     for (const cancellation of ['close', 'disconnect', 'invalidation']) {
       it(cancellation + ' settles a ' + phase + ' request before a late authority answer', async function () {
         let gate;
-        const f = fixture({ warm: phase !== 'pending', authorize: (request, rights) => request.credential.token === 'synthetic-held' && phase !== 'pending' ? gate.promise : rights(true) });
+        let f;
+        f = fixture({ authorize: (request, rights) => request.credential.token !== 'synthetic-held' ? rights(true) : phase === 'pending' ? f.unavailable() : gate.promise });
         gate = f.hold();
         try {
           const socket = await f.socket(); socket.sent.length = 0;
@@ -229,7 +191,7 @@ describe('realtime logical request lifetime', function () {
     });
   }
 
-  it('supersedes a held same-revision resend when a newer permission recheck queues another', async function () {
+  it('a send held on its configuration read does not repeat the frame a newer permission recheck already sent', async function () {
     let phase = 0, holdNext = false, gate, f;
     f = fixture({ authorize: (_request, rights) => {
       const current = rights(true); current.permissions.ack = phase % 2 === 1;
@@ -240,13 +202,13 @@ describe('realtime logical request lifetime', function () {
     try {
       const socket = await f.socket(); socket.sent.length = 0;
       phase = 1; holdNext = true;
-      await f.protocol.recheckTenant(A); await flush();
-      assert.equal(f.control.readNextGate, null, 'the first resend entered its held configuration read');
+      const first = f.protocol.recheckTenant(A); await flush();
+      assert.equal(f.control.readNextGate, null, 'the first send entered its held configuration read');
       assert.equal(f.frames(socket).length, 0);
       phase = 2; await f.protocol.recheckTenant(A); await flush();
-      assert.equal(f.frames(socket).length, 0, 'neither pending resend has emitted a frame');
-      gate.resolve(); await flush();
-      assert.equal(f.frames(socket).length, 1, 'only the current logical resend may publish');
+      assert.equal(f.frames(socket).length, 1, 'the newer recheck sent the full frame for the changed permissions');
+      gate.resolve(); await first; await flush();
+      assert.equal(f.frames(socket).length, 1, 'the held send finds the socket current and sends nothing');
       assert.equal(socket.connected, true); assert.equal(f.protocol.stats().queued, 0);
       assert.deepEqual(f.protocol.stats().disconnects, {});
     } finally { await f.close(); }
@@ -277,7 +239,7 @@ describe('realtime logical request lifetime', function () {
       await f.clock.advance(60001);
       assert.equal(socket.connected, true); assert.equal(request.settled, 0); assert.equal(f.protocol.watched(A), true);
       assert(f.protocol.stats().deadlineDeferred >= 1); assert.deepEqual(f.protocol.stats().disconnects, {});
-      available = true; f.protocol.tenantReady(A); await flush();
+      available = true; await f.clock.advance(63000); // the next retry (at most 2 s later) reaches the recovered authority
       assert.equal(request.settled, 1); assert.equal(request.callbacks.length, 1); assert.equal(f.frames(socket).length, 1);
     } finally { await f.close(); }
   });

@@ -247,17 +247,19 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
       executeSocketMutation: async () => { ctl.mutations++; return { replyArgs: [] }; } };
     const runtime = { warm: () => true, fresh: async () => ctl.frame, last: () => ctl.frame };
     const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime,
-      domains: ['entries'], retry: { minMs: 1, maxMs: 2 }, authorizationRecheckMs: 600000 });
+      domains: ['entries'], retry: { minMs: 1, maxMs: 2 }, authorizationRecheckMs: 600000,
+      // lapse() moves the protocol's clock past the authorization validity bound (1.5 recheck intervals).
+      now: () => Date.now() + (ctl.elapsed || 0) });
     const socket = new Socket();
     await protocol.prepare(socket); protocol.bind(socket, '/');
     for (let i = 0; i < 100 && protocol.stats().primed !== 1; i++) await new Promise(resolve => setImmediate(resolve));
     assert.equal(protocol.stats().primed, 1, 'actual protocol primed before fault');
-    return { ctl, resolver, admission, protocol, socket, stale () { clock += 3001; }, close () { protocol.close(); resolver.close(); } };
+    return { ctl, resolver, admission, protocol, socket, stale () { clock += 3001; }, lapse () { ctl.elapsed = 900001; }, close () { protocol.close(); resolver.close(); } };
   }
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
-  it('holds a primed socket across a stale post-settings read and releases its missed frame after recheck', async function () {
+  it('keeps a primed socket across a stale post-settings read, withholds its frames past the validity bound and sends the missed frame after recheck', async function () {
     const { registrySet, open } = readerRuntime();
     registrySet.tenants.set(A, { tenant: A, identity: 'same', env });
     const settings = { version: 1 };
@@ -274,11 +276,12 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
       await f.protocol.recheckTenant(A);
       assert.equal(f.socket.connected, true);
       assert.equal(f.protocol.stats().recheckFailures, 1);
+      f.lapse();
       invalidate = false;
       registrySet.isActive = tenant => registrySet.tenants.has(tenant);
       f.ctl.frame = frame(2);
       await f.protocol.fanout({ tenant: A, previous: prior, next: f.ctl.frame });
-      assert.equal(f.socket.sent.length, before, 'fresh lookup alone must not release held data');
+      assert.equal(f.socket.sent.length, before, 'a fresh lookup alone must not release data to an authorization that was not renewed in time');
       await f.protocol.recheckTenant(A);
       const delivered = () => f.socket.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs?.[0]?.mills === 2);
       for (let i = 0; i < 100 && !delivered(); i++) await new Promise(resolve => setImmediate(resolve));
@@ -294,9 +297,10 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
         await f.protocol.recheckTenant(A);
         assert.equal(f.socket.connected, true, 'uncertainty must not permanently disconnect');
         assert.equal(f.protocol.stats().recheckFailures, 1);
+        f.lapse();
         const before = f.socket.sent.length, previous = f.ctl.frame; f.ctl.frame = frame(2);
         await f.protocol.fanout({ tenant: A, previous, next: f.ctl.frame });
-        assert.equal(f.socket.sent.length, before, 'held socket receives no changed frame');
+        assert.equal(f.socket.sent.length, before, 'a socket whose authorization was not renewed in time receives no changed frame');
         let acknowledged = false;
         const blocked = await f.socket.listeners('dbAdd')[0]({ collection: 'entries', data: {} }, () => { acknowledged = true; });
         assert.equal(blocked.delivered, false);

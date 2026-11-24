@@ -305,7 +305,7 @@ for (const kind of ['uds','http']) describe('Bounded realtime inspection over '+
     const binding={create(token){const ops=make(token);return{...ops,async inspectRealtime(request){const result=await ops.inspectRealtime(request);return retired?{...result,placement:{assignmentIncarnation:A}}:result;},async inspectRealtimeTenants(request,body){const result=await ops.inspectRealtimeTenants(request,body);if(mismatch)result.tenants.reverse();return result;}};}};
     try {
       const rows=internal.plan(['realtime'],{realtimePreview:{maxMessageBytes:4096,operationTimeoutMs:1000,ownership:{},completedOutput:{}}});
-      assert.equal(contracts.realtimeInspection.version,5);assert.deepEqual(rows.map(row=>row.id),['alarm-delivery','completed-output','realtime-inspection']);
+      assert.equal(contracts.realtimeInspection.version,6);assert.deepEqual(rows.map(row=>row.id),['alarm-delivery','completed-output','realtime-inspection']);
       opened=await internal.open({listen:e.options,shutdownTimeoutMs:1000},rows);
       assert.throws(()=>opened.bind('evaluator',{'realtime-inspection':binding}),{code:'INTERNAL_API_CONTRACT_UNOWNED'});
       opened.bind('realtime',{'completed-output':{create:()=>({hintCompletedOutput:async()=>({accepted:true})})},'alarm-delivery':{create:()=>({deliverAlarm:async()=>{alarmCalls++;return {accepted:true,receipt:null,clearedRequestIds:[]};}})},'realtime-inspection':binding});opened.assertBound();

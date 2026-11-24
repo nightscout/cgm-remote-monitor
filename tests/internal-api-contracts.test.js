@@ -21,7 +21,7 @@ describe('Internal service API contracts', function () {
     const paths = Object.values(contracts).flatMap(service => {
       // Explicit versions refuse mixed role/operator upgrades. Evaluator v3
       // distinguishes immutable static configuration from observed peer state.
-      assert.equal(service.version, service.id==='realtime-inspection' ? 5 : service.id==='alarm-delivery' ? 4 : ['completed-output','evaluator-inspection'].includes(service.id) ? 3 : service.id==='connector-inspection' ? 2 : 1);
+      assert.equal(service.version, service.id==='realtime-inspection' ? 6 : service.id==='alarm-delivery' ? 4 : ['completed-output','evaluator-inspection'].includes(service.id) ? 3 : service.id==='connector-inspection' ? 2 : 1);
       assert(Object.isFrozen(service.operations));
       return Object.values(service.operations).map(operation => {
         assert(Object.isFrozen(operation.request)); assert(Object.isFrozen(operation.response));

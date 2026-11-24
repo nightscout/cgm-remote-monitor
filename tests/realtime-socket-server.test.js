@@ -21,7 +21,7 @@ function realtime (port) {
   const protocol = protocolFactory.create({ admission, readCurrent: async tenant => ({ tenant, identity: 'same', env }),
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: [] }) },
-    runtime: () => ({ refresh: async () => frame }), domains: ['entries'] });
+    runtime: () => ({ last: () => frame, wake () {}, refresh: async () => frame }), domains: ['entries'] });
   const sockets = socketServer.attach(server, { protocol, admission, maxMessageBytes: 100000 });
   return new Promise(resolve => server.listen(port, '127.0.0.1', () => resolve({ server, protocol, sockets,
     async stop () { const t0 = Date.now(); protocol.close(); await sockets.close(); await new Promise(done => server.close(() => done())); return Date.now() - t0; } })));
@@ -66,54 +66,50 @@ describe('realtime handshake refusal observations with native polling clients', 
   const summary = require('../lib/diagnostics/realtime-handshake');
   const fail = code => { throw Object.assign(Error(code), { code }); };
   it('retains fixed refusal categories and cumulative counts without arbitrary codes or duplicate intervals', function () {
-    let raw = { TENANT_WARMING: 2, 'REALTIME_HANDSHAKE_REFUSED:synthetic-private-detail': 3, 'synthetic-private-code': 4, REALTIME_WRONG_OWNER: -1 };
+    let raw = { REALTIME_OWNER_UNAVAILABLE: 2, 'REALTIME_HANDSHAKE_REFUSED:synthetic-private-detail': 3, 'synthetic-private-code': 4, REALTIME_WRONG_OWNER: -1 };
     const lines = [], timer = logDisconnects({ stats: () => ({ handshakeRefusals: raw }) }, 60000, line => lines.push(line));
     try {
       timer.flush(); timer.flush();
       assert.equal(lines.length, 1);
       const value = JSON.parse(lines[0].split('realtime handshake refusals: ')[1]);
-      assert.deepEqual(value.refusals, { TENANT_WARMING: 2, REALTIME_HANDSHAKE_REFUSED: 3, UNCLASSIFIED: 4 });
+      assert.deepEqual(value.refusals, { REALTIME_OWNER_UNAVAILABLE: 2, REALTIME_HANDSHAKE_REFUSED: 3, UNCLASSIFIED: 4 });
       assert.deepEqual(value.totals, value.refusals);
       assert(!lines[0].includes('synthetic-private'));
-      raw = { ...raw, TENANT_WARMING: 5 };
+      raw = { ...raw, REALTIME_OWNER_UNAVAILABLE: 5 };
       timer.flush();
-      assert.deepEqual(JSON.parse(lines[1].split('realtime handshake refusals: ')[1]).refusals, { TENANT_WARMING: 3 });
-      assert.equal(JSON.parse(lines[1].split('realtime handshake refusals: ')[1]).totals.TENANT_WARMING, 5);
-      assert.deepEqual(summary.counts({ TENANT_WARMING: NaN, arbitrary: Infinity }), {});
+      assert.deepEqual(JSON.parse(lines[1].split('realtime handshake refusals: ')[1]).refusals, { REALTIME_OWNER_UNAVAILABLE: 3 });
+      assert.equal(JSON.parse(lines[1].split('realtime handshake refusals: ')[1]).totals.REALTIME_OWNER_UNAVAILABLE, 5);
+      assert.deepEqual(summary.counts({ REALTIME_OWNER_UNAVAILABLE: NaN, arbitrary: Infinity }), {});
     } finally { clearInterval(timer); }
   });
-  it('distinguishes identical public 403s, observes output waiting without warming, and connects after actual model completion', async function () {
+  it('distinguishes identical public 403s, accepts a handshake for a tenant with no output without reading it, and reads the output once it completes', async function () {
     const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const ownership = require('../lib/realtime-ownership').create({ count: 1, ordinal: 0 });
     const bucket = require('../lib/pool-membership/slice').bucket(A, 2);
     const foreign = require('../lib/realtime-ownership').create({ count: 2, ordinal: 1 - bucket });
     const token = {}, lines = [], sockets = [];
-    let mode = 'normal', pending = true, acquired = 0, initialized = 0, protocol, rt, blocked, release;
+    let mode = 'normal', pending = true, acquired = 0, initialized = 0, protocol, rt;
     const startup = require('../lib/server/serve/tenant-startup').create([A], undefined, async () => { initialized++; },
       { readiness: 'serve', warmOnStart: false, coldAlertMs: null });
     const current = tenant => ({ tenant, identity: 'synthetic-current', env });
-    const detector = require('../lib/pgstream/realtime-output').detector({
+    const detector = require('../lib/pgstream/realtime-output').revisions({
       config: { completedOutput: { namespace: 'synthetic_completed', consumer: 'evaluator-test' } },
-      connection: { async readOnly () {
-        if (blocked) { const hold = blocked; blocked = null; await hold; }
-        return { rows: [{ tenant: A, revision: pending ? '0' : '1', work_enabled: true }] };
-      } },
-      trusted: { scan: async () => new Map([[A, { activity: { state: 'active' } }]]) },
-      readAll: async () => new Map([[A, current(A)]]), owner: () => {}, onIneligible: () => {}
+      connection: { async readOnly () { return { rows: [{ tenant: A, revision: pending ? '0' : '1', work_enabled: true }] }; } },
+      trusted: { scan: async () => new Map([[A, { activity: { state: 'active' } }]]) }, owner: () => {}
     });
     const base = require('../lib/server/realtime/registry-admission').create({
       resolver: { resolve: async request => request.headers.host?.split(':')[0] === 'a.synthetic.test' ? A : fail('TENANT_HOST_UNKNOWN') },
       active: async () => true, enabled: () => [A]
     });
-    // These are the same guard order and warm demand as preview-realtime;
-    // the controlled collaborators exercise the native source and transport,
-    // without claiming a PostgreSQL or Kubernetes workload measurement.
+    // The same guard order as preview-realtime: the handshake reads nothing
+    // about the tenant's output. The controlled collaborators exercise the
+    // native source and transport, without claiming a PostgreSQL or
+    // Kubernetes workload measurement.
     const admission = { ...base, async resolve (request) {
       const tenant = await base.resolve(request);
       if (mode === 'platform') fail('PLATFORM_VERIFICATION_REQUIRED');
       if (mode === 'owner') fail('REALTIME_OWNER_UNAVAILABLE');
       (mode === 'foreign' ? foreign : ownership).assert(tenant);
-      if (!rt.requestWarm(tenant)) fail('TENANT_WARMING');
       return tenant;
     } };
     const server = http.createServer(), agent = new http.Agent({ lookup: (host, options, done) => options?.all ? done(null, [{ address: '127.0.0.1', family: 4 }]) : done(null, '127.0.0.1', 4) });
@@ -130,8 +126,9 @@ describe('realtime handshake refusal observations with native polling clients', 
       });
     };
     try {
-      rt = await require('../lib/server/realtime/runtime')({ tenants: [A], readiness: 'serve', durableOutput: true,
-        detect: detector, isWatched: () => false, readCurrent: async tenant => current(tenant), prepareTenant: startup.ensure,
+      rt = await require('../lib/server/realtime/runtime')({ readRevisions: detector, levelMs: 60000,
+        watched: () => protocol.watchedTenants(), isWatched: tenant => protocol.watched(tenant), lagging: () => protocol.lagging(),
+        readCurrent: async tenant => current(tenant), prepareTenant: startup.ensure,
         create: () => ({ acquire: async () => { acquired++; return { tenant: A, identity: 'synthetic-current', checkpoint: 1, rows: [], frame: { sgvs: [], lastUpdated: 1 } }; } }),
         fanout: async operation => protocol.fanout(operation), concurrency: 2 });
       protocol = protocolFactory.create({ admission, readCurrent: async tenant => current(tenant),
@@ -155,23 +152,20 @@ describe('realtime handshake refusal observations with native polling clients', 
       mode = 'platform'; await refusal('PLATFORM_VERIFICATION_REQUIRED');
       mode = 'owner'; await refusal('REALTIME_OWNER_UNAVAILABLE');
       mode = 'foreign'; await refusal('REALTIME_WRONG_OWNER'); mode = 'normal';
-      await refusal('TENANT_WARMING'); await rt.tick();
+      // A tenant with no completed output: the handshake is accepted, the
+      // socket connects, and nothing about the tenant's output is read for it.
+      const early = await connect(); assert.equal(early.connected, true, 'COLD_HANDSHAKE_ACCEPTED');
+      assert(await until(() => protocol.watched(A), 2000));
+      await rt.tick();
       const waiting = await snapshot(), beforeRead = rt.stats();
       assert.equal(waiting.tenants[0].owned, true); assert.equal(waiting.ownerAvailable, true);
       assert.equal(waiting.tenants[0].startupComplete, false); assert.equal(waiting.tenants[0].modelAvailable, false);
       for (let i = 0; i < 3; i++) await snapshot();
       assert.deepEqual(rt.stats(), beforeRead, 'PRIVATE_INSPECTION_MUST_NOT_CREATE_DEMAND');
       await assert.rejects(inspect.inspectRealtimeTenants({ transport: {} }, { tenants: [A] }), /REALTIME_INSPECTION_REFUSED/);
-      await refusal('TENANT_WARMING'); await rt.tick();
       assert.equal(initialized, 0); assert.equal(acquired, 0);
-      assert(rt.stats().detected > beforeRead.detected, 'PENDING_OUTPUT_STILL_MAKES_CONTROL_READ_PROGRESS');
-      assert.equal(rt.health().upstreamPending, 1); assert.equal(rt.health().failed, 0);
-      // A held actual detector read differs from repeated completed pending
-      // reads: both polling attempts refuse, while tick/detected stay still.
-      blocked = new Promise(resolve => { release = resolve; });
-      await refusal('TENANT_WARMING'); const heldStats = rt.stats();
-      await refusal('TENANT_WARMING'); assert.deepEqual(rt.stats(), heldStats);
-      pending = false; release(); release = null; await rt.tick();
+      assert(beforeRead.detected > 0, 'THE_LEVEL_READ_COVERS_A_WATCHED_TENANT_WITH_NO_OUTPUT');
+      pending = false; await rt.tick();
       assert(await until(() => rt.warm(A), 2000));
       const ready = await snapshot(); assert.equal(ready.tenants[0].ready, true);
       assert.equal(initialized, 1); assert.equal(acquired, 1);
@@ -183,11 +177,11 @@ describe('realtime handshake refusal observations with native polling clients', 
       assert.equal(disconnectReason, 'io server disconnect'); assert.equal(frames, 0);
       logger.flush();
       const captured = JSON.parse(lines.find(line => line.startsWith('realtime handshake refusals: ')).split('realtime handshake refusals: ')[1]);
-      assert.equal(captured.totals.TENANT_WARMING, 4);
+      assert.equal('TENANT_WARMING' in captured.totals, false, 'a handshake is never refused for a tenant without a frame');
       for (const code of ['REALTIME_ORIGIN_REFUSED', 'SOCKET_ADMISSION_REFUSED', 'PLATFORM_VERIFICATION_REQUIRED', 'REALTIME_OWNER_UNAVAILABLE', 'REALTIME_WRONG_OWNER']) assert.equal(captured.totals[code], 1);
       assert(!JSON.stringify(captured).includes(A)); assert(!JSON.stringify(captured).includes('synthetic-invalid'));
     } finally {
-      release?.(); for (const socket of sockets) socket.close();
+      for (const socket of sockets) socket.close();
       if (logger) clearInterval(logger); protocol?.close(); await attached?.close();
       if (server.listening) await new Promise(resolve => server.close(resolve));
       await rt?.close(); await startup.close(); scope.setTenancyMode(previous);

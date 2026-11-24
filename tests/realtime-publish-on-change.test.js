@@ -59,12 +59,14 @@ async function fixture ({ recoveryIntervalMs = 20, authorizationRecheckMs = 6000
     current: () => true } : undefined;
   protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime, domains: ['entries'],
     operationWindow, authorizationRecheckMs, retry: { minMs: 5, maxMs: 40 } });
-  const detector={poll:async list=>{
-    const seen=new Map(list.map(t=>[t,{stamp:String(state.writes.get(t)),identity:activity&&state.activity.get(t)!=='active'?null:'same'}]));
-    for(const [tenant,row]of seen)if(row.identity===null)protocol.invalidateTenant(tenant);
-    return seen;
+  // The level read: each asked tenant's eligibility and durable revision.
+  const detector={polls:0,poll:async list=>{
+    detector.polls++;
+    return new Map(list.map(t=>[t,activity&&state.activity.get(t)!=='active'?{eligible:false}:{eligible:true,revision:String(state.writes.get(t))}]));
   }};
-  runtime = await runtimeFactory({ tenants, readCurrent, retryMs:recoveryIntervalMs, detect: detector.poll, concurrency: 2,
+  runtime = await runtimeFactory({ tenants, readCurrent, levelMs:recoveryIntervalMs, flushMs:5, readRevisions: detector.poll, concurrency: 2,
+    watched: () => protocol.watchedTenants(), isWatched: tenant => protocol.watched(tenant), lagging: () => protocol.lagging(),
+    onIneligible: tenant => protocol.invalidateTenant(tenant),
     create: selected => ({ async acquire () {
       state.acquisitions++;
       if (acquireMs) await sleep(acquireMs);
@@ -94,7 +96,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
 
-  it('RT_SHARED_ENCODING: compatible authorized viewers share one native Socket.IO encoding and slow viewers are bounded', async function () {
+  it('RT_SHARED_ENCODING: compatible authorized viewers share one native Socket.IO encoding; a slow viewer is withheld, not closed, and catches up', async function () {
     const f = await fixture();
     try {
       const a=await f.socket(), b=await f.socket(), slow=await f.socket();
@@ -114,7 +116,9 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       f.write(A);await f.runtime.tick();
       assert.equal(encodes,1,'COMPATIBLE_VIEWERS_MUST_ENCODE_ONCE');
       assert.equal(deliveries,2,'ONLY_BOUNDED_AUTHORIZED_VIEWERS_RECEIVE');
-      assert.equal(slow.disconnected,true,'SLOW_VIEWER_MUST_CLOSE');
+      assert.notEqual(slow.disconnected,true,'SLOW_VIEWER_IS_WITHHELD_NOT_CLOSED');
+      slow.conn={writeBuffer:[]};
+      assert.ok(await until(()=>deliveries===3,2000),'SLOW_VIEWER_CATCHES_UP once its buffer drains: '+deliveries);
     } finally {await f.close();}
   });
 
@@ -125,7 +129,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
       assert.ok(sockets.every(s => s.frames().length === 1), 'each socket primed with one frame');
       const calls = f.state.calls, acquisitions = f.state.acquisitions, ticks = f.runtime.stats().ticks;
       await sleep(400);
-      assert.equal(f.runtime.stats().ticks,ticks,'NO_IDLE_DISCOVERY_TICKS');
+      assert.ok(f.runtime.stats().ticks>ticks,'the level pass ran while idle');
       assert.equal(sockets.reduce((sum, s) => sum + s.frames().length, 0), 20, 'RT_IDLE_NO_FRAME no frame after priming');
       assert.equal(f.state.acquisitions, acquisitions, 'RT_IDLE_NO_ACQUISITION no projection read while the stamp is unchanged');
       assert.equal(f.state.calls, calls, 'RT_IDLE_NO_AUTHORIZATION no api call while idle');
@@ -181,7 +185,7 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     try {
       f.write(A); f.write(A);
       const sockets = await Promise.all(Array.from({ length: 3 }, () => f.socket()));
-      assert.equal(sockets[0].frames().at(-1).value.sgvs.length, 2);
+      assert.ok(await until(() => sockets.every(s => s.frames().at(-1)?.value.sgvs.length === 2), 1000), 'writes made while nobody watched reach the new sockets');
       const at = Date.now(); f.hardDelete(A);
       assert.ok(await until(() => sockets.every(s => s.frames().at(-1).value.sgvs.length === 1), 2000), 'RT_HARD_DELETE the deleted reading leaves every display');
       const latency = Math.max(...sockets.map(s => s.frames().at(-1).at)) - at;
@@ -265,13 +269,15 @@ describe('realtime publish on change (actual protocol, runtime and detector)', f
     } finally { await f.close(); }
   });
 
-  it('RT_EXPIRY: authorization lapses at the credential expiry without waiting for the periodic recheck', async function () {
-    const f = await fixture({ authorizationRecheckMs: 60000 });
+  it('RT_EXPIRY: no frame is sent past the credential expiry, and the next sweep retires the socket', async function () {
+    const f = await fixture({ authorizationRecheckMs: 300 });
     try {
       const exp = Math.floor(Date.now() / 1000) + 1, socket = await f.socket('a.test', { token: jwt(exp) });
       assert.equal(socket.frames().length, 1);
-      assert.ok(await until(() => socket.disconnected, 2500), 'disconnected at expiry');
-      assert.ok(socket.disconnectedAt >= exp * 1000 && socket.disconnectedAt - exp * 1000 < 200, 'RT_EXPIRY_BOUND ' + (socket.disconnectedAt - exp * 1000) + ' ms after exp');
+      await sleep(exp * 1000 - Date.now() + 2); f.write(A);
+      assert.ok(await until(() => socket.disconnected, 2500), 'disconnected after expiry');
+      assert.equal(socket.frames().length, 1, 'RT_EXPIRY_NO_FRAME the write after exp is not sent');
+      assert.ok(socket.disconnectedAt >= exp * 1000 && socket.disconnectedAt - exp * 1000 < 300, 'RT_EXPIRY_BOUND one sweep after exp: ' + (socket.disconnectedAt - exp * 1000) + ' ms');
     } finally { await f.close(); }
   });
 

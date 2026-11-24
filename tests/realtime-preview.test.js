@@ -46,9 +46,9 @@ async function fixture () {
   runtime = await runtimeFactory({ tenants: [A, B], readCurrent,
     create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: 0, rows: structuredClone(state.rows),
       frame: { delta: false, lastUpdated: 1000, sgvs: state.rows.filter(row => row.domain === 'entries').map(row => ({ _id: row.document._id, mgdl: row.document.sgv, mills: 1000 })) } }) }),
-    fanout: protocol.fanout, retryMs: 100,
-    schedule: callback => { schedule.callback = callback; return 1; }, cancel: () => { schedule.closed = true; } });
-  schedule.callback=()=>runtime.check([A,B]);
+    fanout: protocol.fanout, watched: () => protocol.watchedTenants(), isWatched: protocol.watched, lagging: protocol.lagging });
+  // One level pass over the watched tenants, as the runtime's own timer runs it.
+  schedule.callback=()=>runtime.tick();
   return { A, B, state, runtime, protocol, schedule,
     async socket (host = 'a.test', namespace = '/') { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, namespace); return socket; },
     async close () { protocol.close(); await runtime.close(); } };
@@ -184,14 +184,14 @@ describe('explicit realtime preview source contracts', function () {
       assert.ok(a.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs.length === 0), 'RT_QUIET_BACKSTOP no wake still repairs current absence');
     } finally { await f.close(); }
     let failA = false, b = 0;
-    const rt = await runtimeFactory({ tenants: [A, B], retryMs: 10, readCurrent: async t => current(t),
+    const rt = await runtimeFactory({ tenants: [A, B], readCurrent: async t => current(t),
       create: selected => ({ acquire: async () => { if (selected.tenant === A && failA) throw new Error('ROW_BOUND'); return { tenant: selected.tenant, rows: [], frame: {} }; } }),
-      fanout: async ({ tenant }) => { if (tenant === B) b++; }, schedule: () => 1, cancel: () => {} });
+      fanout: async ({ tenant }) => { if (tenant === B) b++; } });
     const before = b; failA = true;
     const failures = await Promise.allSettled([rt.refresh(A), rt.refresh(B)]);
     assert.equal(failures[0].status, 'rejected'); assert.equal(failures[1].status, 'fulfilled');
     assert.equal(b, before + 1, 'RT_TENANT_FAILURE B progresses despite A bound failure');
-    assert.equal(rt.last(A), null); await rt.close();
+    assert.notEqual(rt.last(A), null, 'a failed read withholds the new frame and keeps the one the cell holds'); await rt.close();
   });
   it('wires the actual private receiver to canonical source and durable alarm while refusing forged host or transport', async function () {
     const f = require('./fixtures/tenant-alarm-protocol')();
@@ -312,14 +312,14 @@ describe('explicit realtime preview source contracts', function () {
     assert.notEqual(protocolFactory.room(A, '/storage', 'entries'), protocolFactory.room(B, '/storage', 'entries'));
   });
   it('separates recovery scheduling from writes and fences late acquisition after close/config change', async function () {
-    let timer, count = 0; const held = deferred(); let block = false, enabled = true;
-    const runtime = await runtimeFactory({ tenants: [A], retryMs: 10, readCurrent: async tenant => enabled ? current(tenant) : null,
+    let count = 0; const held = deferred(); let block = false, enabled = true;
+    const runtime = await runtimeFactory({ tenants: [A], readCurrent: async tenant => enabled ? current(tenant) : null,
       create: () => ({ acquire: async () => { count++; if (block) await held.promise; return { tenant: A, rows: [], frame: { sgvs: [] } }; } }),
-      fanout: async () => {}, schedule: callback => { timer = callback; return 1; }, cancel: () => {} });
+      fanout: async () => {} });
     block = true; const pending = runtime.refresh(A); await Promise.resolve(); await Promise.resolve();
     const closing = runtime.close(); held.resolve(); await assert.rejects(pending, /CHANGED/); await closing;
     assert.equal(runtime.last(A), null, 'RT_CLOSE_FENCE no late result');
-    assert.equal(timer,undefined,'WARM_RUNTIME_HAS_NO_DISCOVERY_TIMER');assert.ok(count>=1);
+    assert.ok(count>=1);
     enabled = false;
   });
   it('private handler uses fixed owned operations and bounded bodies without network listeners', async function () {

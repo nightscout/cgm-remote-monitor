@@ -205,7 +205,7 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
     assert.ok(text.split('\n').some(line => /tenant="/.test(line)) && metrics.tenantLike(A), 'GUARD_BLIND');
   });
 
-  it('M1 realtime: drain notice to frame sent, only when a frame is sent; M2 realtime backlog while publishing', async function () {
+  it('M1 realtime: revision seen behind to frame sent, only when a frame is sent; M2 realtime backlog as of the level pass', async function () {
     const mode = scope.getTenancyMode(); scope.setTenancyMode('multi');
     const protocolFactory = require('../lib/server/realtime/protocol');
     const runtimeFactory = require('../lib/server/realtime/runtime');
@@ -217,16 +217,16 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
       disconnect () { super.emit('disconnect'); }
     }
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
-    let writes = 0, visible = 0, acquireMs = 0, runtime, watched = true, backlog = null;
+    let writes = 0, visible = 0, acquireMs = 0, runtime, watched = true;
     const readCurrent = async tenant => ({ tenant, identity: 'same', env });
     const protocol = protocolFactory.create({ admission: { resolve: async () => A }, readCurrent, runtime: () => runtime, domains: ['entries'],
       api: { executeSocketMutation: async () => ({}), authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) },
       authorizationRecheckMs: 60000, retry: { minMs: 5, maxMs: 40 } });
-    runtime = await runtimeFactory({ tenants: [A], readCurrent, retryMs: 60000, concurrency: 2, schedule: () => 1, cancel () {},
-      isWatched: tenant => watched && tenant === A,
-      detect: async list => new Map(list.map(t => [t, { stamp: String(writes), identity: 'same' }])),
+    runtime = await runtimeFactory({ tenants: [A], readCurrent, levelMs: 60000, flushMs: 5, concurrency: 2,
+      watched: () => watched ? [A] : [], isWatched: tenant => watched && tenant === A,
+      readRevisions: async list => new Map(list.map(t => [t, { eligible: true, revision: String(writes) }])),
       create: () => ({ async acquire () {
-        if (acquireMs) { backlog = runtime.pendingSummary(); await sleep(acquireMs); }
+        if (acquireMs) await sleep(acquireMs);
         return { tenant: A, checkpoint: writes, rows: [], frame: { delta: false, lastUpdated: Date.now(), sgvs: Array.from({ length: visible }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } };
       } }), fanout: protocol.fanout });
     try {
@@ -236,20 +236,22 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
       let text = await metrics.current.text();
       assert.equal(lagCount(text, 'realtime'), 0, 'PRIMING_FRAME_HAS_NO_NOTICE');
       writes++; visible++; acquireMs = 200;
-      await runtime.check([A]);
+      const pass = runtime.tick(); await sleep(50);
+      const backlog = runtime.pendingSummary(); await pass;
       text = await metrics.current.text();
       assert.equal(lagCount(text, 'realtime'), 1, 'FRAME_SENT_NOT_OBSERVED');
       assert.ok(lagSum(text, 'realtime') >= 0.19 && lagSum(text, 'realtime') < 5, 'LAG ' + lagSum(text, 'realtime'));
-      assert.equal(backlog.pending, 1, 'PUBLISHING_NOTICE_IS_BACKLOG');
-      assert.equal(runtime.pendingSummary().pending, 0, 'PUBLISHED_NOTICE_SETTLED');
-      // A new stamp whose view is unchanged: the fanout runs, sends no frame, observes nothing.
-      acquireMs = 0; writes++; await runtime.check([A]);
+      assert.equal(backlog.pending, 1, 'A_TENANT_BEHIND_IS_BACKLOG');
+      await runtime.tick();
+      assert.equal(runtime.pendingSummary().pending, 0, 'PUBLISHED_REVISION_SETTLED');
+      // A new revision whose view is unchanged: the fanout runs, sends no frame, observes nothing.
+      acquireMs = 0; writes++; await runtime.tick(); await runtime.tick();
       text = await metrics.current.text();
       assert.equal(lagCount(text, 'realtime'), 1, 'OBSERVED_WITHOUT_FRAME');
-      assert.equal(runtime.pendingSummary().pending, 0, 'UNCHANGED_NOTICE_STUCK');
-      // No viewer: the notice settles without a frame.
-      watched = false; writes++; await runtime.check([A]);
-      assert.equal(runtime.pendingSummary().pending, 0, 'UNWATCHED_NOTICE_STUCK');
+      assert.equal(runtime.pendingSummary().pending, 0, 'UNCHANGED_REVISION_STUCK');
+      // No viewer: the tenant is not read and is no backlog.
+      watched = false; writes++; await runtime.tick();
+      assert.equal(runtime.pendingSummary().pending, 0, 'UNWATCHED_TENANT_IS_NOT_BACKLOG');
     } finally { protocol.close(); await runtime.close(); scope.setTenancyMode(mode); }
   });
 
