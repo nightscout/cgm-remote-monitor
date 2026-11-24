@@ -96,6 +96,27 @@ function fixture ({ warm = true, freshFails = false, authorize } = {}) {
 
 describe('realtime logical request lifetime', function () {
   this.timeout(10000);
+  it('keeps one periodic authority sweep when a socket binds during a recheck', async function () {
+    let gate;
+    const f = fixture({ authorize: async (_request, rights) => {
+      if (gate) await gate.promise;
+      return rights(true);
+    } });
+    try {
+      const socket = await f.socket('/storage');
+      await f.start(socket, { accessToken: 'synthetic-current' }, 'subscribe').promise;
+      assert.equal(f.protocol.stats().primed, 1);
+      const interval = protocolFactory.DEFAULT_RECHECK_MS;
+      gate = f.hold();
+      await f.clock.advance(interval);
+      assert.equal(f.requests.length, 2, 'subscription and first periodic recheck');
+      await f.socket('/storage');
+      gate.resolve(); await flush();
+      await f.clock.advance(2 * interval);
+      assert.equal(f.requests.length, 3, 'only the original sweep rechecks the subscribed socket');
+    } finally { await f.close(); }
+  });
+
   for (const mode of ['cold park', 'fresh failure']) {
     it('keeps a successful authority request pending through repeated ' + mode + ', then delivers once', async function () {
       const f = fixture({ warm: mode !== 'cold park', freshFails: mode === 'fresh failure' });
