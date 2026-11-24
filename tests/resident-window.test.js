@@ -103,6 +103,9 @@ describe('resident window plan and merge', function () {
     assert.equal(reason(null), 'no-work-row');
     assert.equal(reason(mark(next, seen, { version: null })), 'marks-not-current');
     assert.equal(reason(mark(next, seen, { version: '6' })), 'marks-not-current', 'a mark that did not maintain the version');
+    assert.equal(reason(mark(seen, none, { version: null })), 'marks-not-current', 'completion has not covered the resident');
+    const otherSources = ['4', '1', null, null, null, '1'];
+    assert.equal(reason(mark(otherSources, otherSources, { version: null })), 'marks-not-current', 'equal totals with different source versions');
     assert.equal(reason(mark(['4', null, null, null, null, '1'], none)), 'work-row-replaced');
     assert.equal(reason(mark(['7', null, null, null, null, '1'], ['6', null, null, null, null, '1'])), 'completed-beyond-resident');
     assert.equal(reason(mark(['6', null, '1', null, null, '1'], ['5', null, '1', null, null, '1'])), 'completed-beyond-resident', 'a source the resident never read');
@@ -110,6 +113,7 @@ describe('resident window plan and merge', function () {
     assert.equal(reason(mark(next, seen, { entries: '1.5' })), 'mark-invalid');
     // Everything observed is completed and the resident read all of it: nothing to read, whatever the marks say.
     assert.deepEqual(planned(r, mark(seen, seen, { full: true, entries: '1' })), { full: false, from: {}, profile: false, consumed: true });
+    assert.deepEqual(planned(r, mark(seen, seen, { version: null })), { full: false, from: {}, profile: false, consumed: true });
     assert.deepEqual(planned(r, mark(next, seen, { entries: String(T), profile: true })), { full: false, from: { entries: String(T) }, profile: true, consumed: false });
     assert.deepEqual(planned(r, mark(next, seen)), { full: false, from: {}, profile: false, consumed: false }, 'pending with no window change');
   });

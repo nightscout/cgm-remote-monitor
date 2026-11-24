@@ -368,6 +368,34 @@ optInSuite(process.env.NS_RESIDENT_WINDOW_TEST === '1' && !!process.env.NS_TEST_
       mode(step, { tail: 1 }); assert.equal(step.read, 1);
     });
 
+    it('reuses a completed resident at a time boundary after a bulk write with stale window marks', async function () {
+      const { p } = await warm(lab.tenants[0], 'a');
+      const urgentReading = request => request.kind === 'notify' && request.plugin?.name === 'simplealarms' && request.level === 2;
+      process.env[windowMark.SWITCH] = '0';
+      try {
+        await lab.writeDocs(p.tenant, 'entries', [
+          sgv('a-latest', 49, T0 + MIN), sgv('a-backfill', 190, T0 - 25 * HOUR), sgv('a-archived', 270, T0 - 4 * DAY)
+        ]);
+        const acquired = await cycle(p, T0 + 2 * MIN, { label: 'new and historical readings from a writer without window marks' });
+        mode(acquired, { full: 1 }); assert.equal(acquired.result.properties.bgnow.mean, 49);
+        assert.equal(acquired.completed.pendingAt, null);
+
+        const expiry = await cycle(p, T0 + 6 * MIN, { time: true, label: 'original entries expire while the source versions stay put' });
+        mode(expiry, { unchanged: 1 }); assert.equal(expiry.read, 0);
+        assert.ok(expiry.result.requested.some(urgentReading));
+        const repeated = await cycle(p, T0 + 6 * MIN, { label: 'same snapshot during a new write',
+          between: () => remove(p.tenant, 'entries', 'a-latest') });
+        assert.equal(repeated.completed.output.outputRevision, expiry.completed.output.outputRevision);
+        assert.ok(Number.isSafeInteger(repeated.completed.pendingAt), 'the concurrent delete remains pending');
+
+        const changed = await cycle(p, T0 + 7 * MIN, { label: 'recover the unversioned hard delete' });
+        mode(changed, { full: 1 }); assert.deepEqual(changed.reasons, { 'marks-not-current': 1 });
+        assert.notEqual(changed.result.properties.bgnow.mean, 49);
+        assert.equal(changed.result.requested.some(urgentReading), false);
+        assert.ok(changed.completed.output.outputRevision > repeated.completed.output.outputRevision);
+      } finally { process.env[windowMark.SWITCH] = '1'; }
+    });
+
     it('a restore generation change while work is in flight refuses the completion and the next read is full', async function () {
       const { p } = await warm(lab.tenants[0], 'a');
       await insert(p.tenant, 'entries', sgv('a-before-restore', 111, T0 + MIN));
