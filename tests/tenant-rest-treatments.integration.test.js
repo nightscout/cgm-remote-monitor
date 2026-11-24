@@ -319,6 +319,23 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
       } finally { if (mode !== undefined) scope.setTenancyMode(mode); }
     });
 
+    it('matches the token-based ten-treatment HTTP page and its conditional header', async function () {
+      const docs = Array.from({ length: 14 }, (_, i) => treatment({
+        _id: 'page-' + i, identifier: 'treatment-' + i, created_at: time.iso(i * 60000)
+      }));
+      docs[13].isValid = false;
+      await seed(docs);
+      const path = '/api/v1/treatments.json?count=10&token=' + tokens[0];
+      const expected = await request(referenceApp).get(path).set('Accept', 'application/json').expect(200);
+      const actual = await http('get', path, { credential: null }).expect(200);
+      assert.deepEqual(actual.body, expected.body);
+      assert.deepEqual(actual.body.map(doc => doc._id), docs.slice(3, 13).reverse().map(doc => doc._id));
+      assert.equal(actual.headers['last-modified'], expected.headers['last-modified']);
+      const later = new Date(BASE + 86400000).toUTCString();
+      await request(referenceApp).get(path).set('If-Modified-Since', later).expect(304);
+      await http('get', path, { credential: null }).set('If-Modified-Since', later).expect(304);
+    });
+
     it('serves legacy inheritance, query defaults, created_at order, suffixes and conditional responses', async function () {
       await seed([treatment(), treatment({ _id: 'older', identifier: 'older', created_at: time.day(-1) + 'T00:00:00.000Z' })]);
       for (const version of [1, 2]) {

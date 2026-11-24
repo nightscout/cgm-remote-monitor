@@ -64,8 +64,8 @@ describe('trusted PostgreSQL collection translation', function () {
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
-      const latest = logical === 'devicestatus' ? [catalogues[logical].migrations.at(-1)] : [];
-      if (latest.length) assert.equal(latest[0].name, '0102_devicestatus_created_at_arrays');
+      const latest = [catalogues[logical].migrations.at(-1)];
+      assert.equal(latest[0].name, '0102_' + logical + '_created_at_arrays');
       const tails = catalogues[logical].migrations.filter(m => m.name === '0098_'+logical+'_identifier_arrays' || m.name === '0099_'+logical+'_storage_bytes' || m.name === '0100_'+logical+'_storage_bytes_removed');
       assert.deepEqual(tails.map(m=>m.operation),[{kind:'identifier-array-index-v1',domain:logical},{kind:'clinical-storage-size-v1',domain:logical},{kind:'clinical-storage-size-removal-v1',domain:logical}]);
       const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m) && !latest.includes(m)) };
