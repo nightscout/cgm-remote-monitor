@@ -1,8 +1,12 @@
 'use strict';
-const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const inspection=require('../lib/server/serve/evaluator-inspection');
 const transport=require('../lib/server/internal-api/transport'),service=require('../lib/server/internal-api/contracts').evaluatorInspection;
 const A='11111111-1111-4111-8111-111111111111';
+function createSocketDirectory () {
+  // The listener binds a longer private name before publishing inspect.sock.
+  return fs.mkdtempSync(path.join(fs.realpathSync('/tmp'), 'ns-inspect-'));
+}
 function fixture(count=10000, due={dueAt:null,dueReason:null}, clinical, factory=inspection){
  const ids=Array.from({length:count},(_,i)=>String(i).padStart(8,'0')+'-1111-4111-8111-111111111111');
  let visited=0;const map=new Map(ids.map(id=>[id,true]));
@@ -28,7 +32,7 @@ describe('bounded evaluator inspection v3',function(){
   async function criterion(factory){
    const f=fixture(0,undefined,undefined,options=>factory({...options,tenants:new Map(),registry:undefined,consumers:undefined,
     startup:{health:()=>({...startup.health(),warmOnStart:false})},runtime:{health:()=>({runtimeId:A,tenants:[]})}}));
-   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'startup-wire-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
+   const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
    try{
     listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>f.inspect(body)})}]);
     const dto=await transport.client(endpoint,service).inspectEvaluator({});
@@ -58,7 +62,7 @@ describe('bounded evaluator inspection v3',function(){
   const counts={snapshotAttempts:2,snapshotCompleted:1,catalogueAttempts:1,catalogueCompleted:1,dataAttempts:4,dataCompleted:4,residentTenants:1,residentEncodedBytes:123,evictions:0};let reads=0;
   const f=fixture(1,undefined,undefined,options=>inspection({...options,sourceAccess:()=>{reads++;return {...counts};}}));
   await f.inspect({tenants:[]});assert.equal(reads,0);
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'source-access-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener;
+  const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener;
   try{listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>f.inspect(body)})}]);
    const observed=await transport.client(endpoint,service).inspectEvaluator({tenants:[],diagnostics:'source-access-v1'});
    assert.deepEqual(observed.diagnostics.sourceAccess,counts);assert.equal(observed.runtimeId,A);assert.equal(reads,1);
@@ -80,7 +84,7 @@ describe('bounded evaluator inspection v3',function(){
   for(const diagnostics of [false,true,'unknown'])await assert.rejects(ordinary.inspect({tenants:[],diagnostics}),/diagnostics selector refused/);
  });
  it('preserves ordinary paired clients and refuses retired requests and response shapes on the private wire',async function(){
-  const f=fixture(1),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-retired-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt=false,invoked=0;
+  const f=fixture(1),dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt=false,invoked=0;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{invoked++;const dto=await f.inspect(body);if(corrupt)dto.diagnostics={changeFeed:{status:'not-configured',health:null}};return dto;}})}]);
    const client=transport.client(endpoint,service),old=JSON.parse(JSON.stringify(service));delete old.operations.inspectEvaluator.request.properties.diagnostics;delete old.operations.inspectEvaluator.response.properties.diagnostics;
@@ -98,7 +102,7 @@ describe('bounded evaluator inspection v3',function(){
   const f=fixture(10000,undefined,undefined,options=>inspection({...options,runtime:{...options.runtime,pendingWitness:selected=>selected.map(tenant=>({tenant,memory:{...memory}}))},witness:async selected=>{reads++;return selected.map(tenant=>({tenant,durable:tenant===f.ids[1]?null:JSON.parse(JSON.stringify(durable))}));}}));
   const ordinary=await f.inspect({tenants:[f.ids[0]]});assert.equal(reads,0,'ORDINARY_INSPECTION_READS_NO_WITNESS');assert(!Object.hasOwn(ordinary,'diagnostics'));
   for(const tenants of [undefined,[],[f.ids[0],f.ids[0]],f.ids.slice(0,129)])await assert.rejects(f.inspect({tenants,diagnostics:'pending-witness-v1'}),/selector refused/);
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-pending-witness-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
+  const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{const dto=await f.inspect(body);if(corrupt)corrupt(dto);return dto;}})}]);
    const client=transport.client(endpoint,service),body={tenants:[f.ids[0],f.ids[1]],diagnostics:'pending-witness-v1'};
@@ -114,7 +118,7 @@ describe('bounded evaluator inspection v3',function(){
   const f=fixture(10000,undefined,selected=>{reads++;return selected.map(observation);});
   const ordinary=await f.inspect({tenants:[f.ids[0]]});assert.equal(reads,0);assert(!Object.hasOwn(ordinary,'diagnostics'));
   for(const tenants of [undefined,[],[f.ids[0],f.ids[0]],f.ids.slice(0,129)])await assert.rejects(f.inspect({tenants,diagnostics:'clinical-result-v1'}),/selector refused/);
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-clinical-inspection-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
+  const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener,corrupt;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(ctx,body)=>{const dto=await f.inspect(body);if(corrupt)corrupt(dto);return dto;}})}]);
    const client=transport.client(endpoint,service),body={tenants:[f.ids[9999]],diagnostics:'clinical-result-v1'};
@@ -148,7 +152,7 @@ describe('bounded evaluator inspection v3',function(){
   }
  });
  it('carries selected v3 bodies over the actual private UDS client and refuses the prior module version',async function(){
-  const due={dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},f=fixture(10000,due),dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-inspection-'));let listener;
+  const due={dueAt:Date.now()+60000,dueReason:'slow:alarm-message'},f=fixture(10000,due),dir=createSocketDirectory();let listener;
   const endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let corrupt=false,jobCorruption=false;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:async(context,body)=>{const dto=await f.inspect(body);if(corrupt&&dto.tenants.length)dto.tenants[0].dueReason=corrupt;if(jobCorruption&&dto.tenants.length)dto.tenants[0].jobs.running=0;return dto;}})}]);
@@ -174,7 +178,7 @@ describe('bounded evaluator inspection v3',function(){
   const result=()=>({checkpoint:1,signature:{stamp:1,deleted:0},emitted:[],requested:[],properties:{},due:{dueAt:due,reason:'synthetic-future',slow:[]}});
   const runtime=await runtimeFactory({tenants:[A],operationWindow:f.window,jobContext:context,readCurrent:async()=>({tenant:A,identity:'a'.repeat(64)}),create:async()=>({evaluate:async()=>{calls++;return result();},evaluateTime:async()=>{calls++;return result();},close(){}}),recoveryIntervalMs:10000,timeIntervalMs:10000,schedule:()=>({}),cancel(){},setTimer:()=>{timers++;return {};},clearTimer(){}});
   const inspect=inspection({tenants:new Map([[A,true]]),runtime,gate:{inspect:async()=>({configured:{mode:'standalone',ordinal:0,rule:null,leaseMs:null,configuredTenants:1},observed:null,gate:{eligible:true,reason:null,members:null,reads:0,refusals:0,changes:0,checkedAgeMs:null,heartbeats:null},owner:()=>null,admits:()=>true})}});
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'evaluator-due-native-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener;
+  const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1024*1024,timeoutMs:1000};let listener;
   try{
    listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:(ctx,body)=>inspect(body)})}]);const client=transport.client(endpoint,service);
    const before={calls,timers,sql:f.log.length,pending:f.pending.size,health:runtime.health([A]).tenants[0].cycles};
@@ -193,7 +197,7 @@ describe('static evaluator private ownership inspection',function(){
   const gate=require('../lib/pgstream/static-gate').create({shape:{count:2,ordinal:1},tenants:[B],available:()=>available});
   const row={tenant:B,jobs:{running:false,booting:false,acquire:false,time:false,parentAcquire:false,parentTime:false},dueAt:null,dueReason:null,ready:true,code:null,cycles:1,outputRevision:1,inputCheckpoint:1,evaluatedAgeMs:1,alert:null,progress:{generation:1,completedAcquisitions:1,completedTimeCycles:0,lastCompletedAgeMs:1,failedCompletions:0}};
   const inspect=inspection({tenants,gate,runtime:{health(selected){assert.deepEqual(selected,[B]);return{runtimeId:A,tenants:[row]};}},registry:{stats(){throw Error('STATIC_REGISTRY_STATS');}},startup:{health(){throw Error('STATIC_STARTUP_STATS');}}});
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'static-evaluator-inspect-')),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
+  const dir=createSocketDirectory(),endpoint={socketPath:path.join(dir,'inspect.sock'),maxBytes:1048576,timeoutMs:1000};let listener;
   try{listener=await transport.compose(endpoint,[{service,create:()=>({inspectEvaluator:(ctx,body)=>inspect(body)})}]);const client=transport.client(endpoint,service);
    for(let n=0;n<5;n++){const dto=await client.inspectEvaluator({tenants:[B]});assert.deepEqual(dto.configured,{mode:'static',count:2,ordinal:1,rule:slice.RULE,leaseMs:null,configuredTenants:1});assert.equal(dto.observed,null,'CONFIGURED_K_IS_NOT_A_LIVE_PEER_CENSUS');assert.equal(dto.gate.members,2);assert.equal(dto.gate.eligible,true);assert.equal(dto.gate.reads,0);assert.equal(dto.gate.heartbeats,null);assert.equal(dto.tenants[0].assignedOrdinal,1,'STATIC_INSPECTION_MUST_USE_CONFIGURED_K');assert.equal(dto.tenants[0].admitted,true);}
    assert.equal(scans,0);assert.equal(gate.admits(A),false,'WRONG_STATIC_OWNER_REFUSES');available=false;const lost=await client.inspectEvaluator({tenants:[B]});assert.equal(lost.gate.eligible,false);assert.equal(lost.tenants[0].admitted,false);assert.equal(lost.gate.reason,'EVALUATOR_OWNER_UNAVAILABLE');available=true;gate.close();assert.equal(gate.admits(B),false);assert.equal((await gate.inspect()).gate.reason,'EVALUATOR_STATIC_GATE_CLOSED');
