@@ -81,10 +81,13 @@ async function fixture (kind = 'legacy-subject', mutate) {
     async close () { await authority.close(); await connection.end(); } };
 }
 function oneTransaction (f) {
-  assert.equal(f.calls.filter(x => x.text === 'BEGIN').length, 1, 'AUTHORITY_AND_ENTRY_ONE_TRANSACTION');
+  assert.equal(f.calls.filter(x => REQUEST_BEGIN.has(x.text)).length, 1, 'AUTHORITY_AND_ENTRY_ONE_TRANSACTION');
   assert.equal(new Set(f.calls.map(x => x.pid)).size, 1, 'same physical backend');
   assert.equal(f.calls.filter(x => x.text === 'COMMIT').length, 1);
 }
+// A request's reads open a database-enforced read-only transaction; a write
+// boundary still opens with BEGIN. Either one is one transaction.
+const REQUEST_BEGIN = new Set(['BEGIN', 'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY']);
 describe('private joined entries authority coverage', function () {
   let previous;
   beforeEach(() => { previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
@@ -95,7 +98,7 @@ describe('private joined entries authority coverage', function () {
         const f = await fixture(kind), req = f.request(A, { method });
         try {
           f.action(async (client, text) => {
-            if (text === 'BEGIN') assert.deepEqual(f.events, ['credential-and-audits-finished']);
+            if (REQUEST_BEGIN.has(text)) assert.deepEqual(f.events, ['credential-and-audits-finished']);
             if (text === 'SELECT clinical_entries') assert(f.calls.some(x => x.text.includes('anonymous_roles')));
             if (text === 'COMMIT') { assert.equal(req.frame, undefined); assert.equal(authentication.get(req), undefined); }
           });
@@ -187,7 +190,7 @@ describe('private joined entries authority coverage', function () {
       const req = f.request(); assert(await f.access({ tenant: A, request: req, version: 1 }));
       assert.equal(req.frame, undefined); assert(!f.events.includes('load'));
       await scope.withTenant(A, () => f.connection.query('SELECT clinical_entries'));
-      assert.equal(f.calls.filter(x => x.text === 'BEGIN').length, 2);
+      assert.equal(f.calls.filter(x => REQUEST_BEGIN.has(x.text)).length, 2);
       assert.throws(() => oneTransaction(f), /AUTHORITY_AND_ENTRY_ONE_TRANSACTION/);
       console.log('JOINED_AUTHORITY_CONTROL old-root-transactions=2 expected=1 RED');
     } finally { await f.close(); }
