@@ -73,6 +73,34 @@ optInSuite(process.env.NS_SOCKET_ORDER_CAPABILITY_TEST === '1' && !!process.env.
     }
   });
 
+  it('retains treatment winners when a page splits a tie, including after an edit', async () => {
+    const o = options('treatments', true);
+    await run('up', o);
+    const table = o.namespace + '.treatments';
+    const treatments = require('../lib/server/tenant-app/treatments');
+    const v1 = treatments({ connection, table, catalogue: o.catalogue, source: 'v1/internal', naturalOrder: true }).storage;
+    const v3 = treatments({ connection, table, catalogue: o.catalogue }).storage;
+    const withTenant = require('./fixtures/tenant-insertion-grants').withTenant;
+    await withTenant(admin, A, async () => {
+      for (const id of ['z-first', 'a-second', 'm-third']) {
+        const doc = { _id: id, id: 'same-event', eventType: 'Note', created_at: '2026-11-06T00:00:00.000Z',
+          srvModified: 12345, notes: id };
+        await admin.query(`INSERT INTO ${table}(tenant_id,id_kind,doc) VALUES($1,'string',$2)`, [A, doc]);
+      }
+      await admin.query(`UPDATE ${table} SET doc = doc || '{"notes":"edited first"}'::jsonb WHERE "_id"='z-first'`);
+      // The cache loads oldest first and then stably presents newest first. A direct
+      // v1 list traverses created_at in the opposite direction. History pages advance
+      // by srvModified and must select the same records through a physical rewrite.
+      const listing = await reads.list(v1, {}, { sort: { created_at: -1 }, count: 2 });
+      const loading = await reads.list(v1, {}, { sort: { created_at: 1 }, count: 2 });
+      const history = await v3.findMany({ filter: [], sort: { srvModified: 1 }, skip: 0, limit: 2,
+        options: { normalize: false } });
+      assert.deepEqual(listing.map(row => row.notes), ['m-third', 'a-second']);
+      assert.deepEqual(loading.map(row => row.notes), ['edited first', 'a-second']);
+      assert.deepEqual(history.map(row => row.notes), ['edited first', 'a-second']);
+    });
+  });
+
   it('retains generated fresh insertion order through edits and keeps unselected bounded-read refusal', async () => {
     for (const logical of Object.keys(old)) {
       const o = options(logical, true); await run('up', o);

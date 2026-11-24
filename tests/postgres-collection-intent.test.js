@@ -27,6 +27,29 @@ describe('trusted PostgreSQL collection translation', function () {
     assert.equal(calls[0].values.at(-1), 10);
   });
 
+  it('breaks sorted treatment page ties on the selected catalogue ordinal', async function () {
+    const treatments = require('../lib/server/tenant-app/treatments');
+    const ordered = require('../lib/server/tenant-socket-order-port').catalogues.treatments;
+    const plain = require('../migrations/candidates/postgres-treatments-v1.json');
+    let statement;
+    const connection = {
+      async query (text) { statement = text; return { rows: [] }; },
+      async transaction (fn) { return fn(); }
+    };
+    for (const catalogue of [ordered, plain]) {
+      const v1 = treatments({ connection, catalogue, source: 'v1/internal', naturalOrder: catalogue === ordered }).storage;
+      for (const direction of [-1, 1]) {
+        await reads.list(v1, {}, { sort: { created_at: direction }, count: 10 });
+        if (catalogue === plain) assert.doesNotMatch(statement, /insertion_ordinal/);
+        else assert.match(statement, direction === -1 ? /, insertion_ordinal DESC LIMIT/ : /, insertion_ordinal ASC LIMIT/);
+      }
+      const v3 = treatments({ connection, catalogue }).storage;
+      await v3.findMany({ filter: [], sort: { srvModified: 1 }, skip: 0, limit: 10 });
+      if (catalogue === plain) assert.doesNotMatch(statement, /insertion_ordinal/);
+      else assert.match(statement, /, insertion_ordinal ASC LIMIT/);
+    }
+  });
+
   it('keeps unsorted bounded reads and unsupported driver semantics refused', async function () {
     const { port, calls } = fixture();
     await assert.rejects(reads.find(port.storage, reads.toFilter({}), { limit: 1 }), /without a sort/);
