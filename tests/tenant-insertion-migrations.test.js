@@ -32,7 +32,7 @@ const CANDIDATES = {
 // clinical-size projection and the identifier-array index are append-only
 // independent operations with their own catalogue controls.
 const INDEPENDENT = ['clinical-storage-size-v1', 'clinical-storage-size-removal-v1', 'identifier-array-index-v1'];
-const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!INDEPENDENT.includes(m.operation?.kind)&&!m.name.endsWith('_redundant_indexes'))});
+const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!INDEPENDENT.includes(m.operation?.kind)&&!m.name.endsWith('_redundant_indexes')&&m.name!=='0102_devicestatus_created_at_arrays')});
 // storage-machinery-removal: the 0101 redundant-index drops follow these controls.
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorCode = code => error => error.code === code;

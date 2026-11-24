@@ -662,6 +662,7 @@
         "tests/evaluator-consumer-load.integration.test.js",
         "tests/tenant-insertion-upgrade.integration.test.js",
         "tests/postgres-identifier-array-migration.integration.test.js",
+        "tests/postgres-latest-devicestatus.integration.test.js",
         "tests/tenant-live-add.integration.test.js",
         "tests/registry-human-session.integration.test.js",
         "tests/api-fixed-roster-serving.integration.test.js",

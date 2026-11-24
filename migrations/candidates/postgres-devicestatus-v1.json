@@ -66,6 +66,13 @@
         "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" DROP COLUMN storage_bytes"
       ],
       "checksum": "439d282c3a7c2ac9accb0697905f8e289365cd2b7ec3c294be929a6ebdd8d7ac"
+    },
+    {
+      "name": "0102_devicestatus_created_at_arrays",
+      "up": [
+        "CREATE INDEX devicestatus_tenant_created_at_array ON devicestatus (tenant_id, created_at) WHERE jsonb_typeof(doc -> 'created_at') = 'array'"
+      ],
+      "checksum": "8ca9a2d66b2480f3924a722f96d89c5dc085869d57c763c0e510c053f36cbf81"
     }
   ]
 }
