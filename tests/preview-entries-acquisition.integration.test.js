@@ -170,6 +170,11 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       inspect(plan);
       const examined = visits.reduce((sum, n) => sum + n, 0);
       assert(visits.length && examined <= 4, 'count=1 seeks bounded candidates on 1,500 ordinary rows: ' + examined);
+      seen.length = 0;
+      await http('get', '/api/v1/entries.json?find[device]=missing')
+        .set('If-Modified-Since', new Date(at).toUTCString()).expect(304)
+        .expect('Last-Modified', response.headers['last-modified']);
+      assert.deepEqual(seen.map(r => r.rows), [read.rows], 'conditional filtered GET only acquires the header candidate');
       console.log('REST_FOLLOWER_ACTUAL_EXPLAIN ' + JSON.stringify({retained: 1500, materialized: read.rows, examined, plan}));
     } finally {
       connection.query = clocked.query = query;
@@ -217,6 +222,17 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         }
         await compare(version, 'sgv.json?count=1', {method: 'head'});
         await compare(version, 'sgv.json?count=1', {since: new Date(at + 1000).toUTCString(), status: 304});
+      }
+    });
+    await withRows([
+      ['string', row('zero', at - 1000, {sgv: 0})],
+      ['string', row('header', at - 2000)]
+    ], async () => {
+      const modified = new Date(at - 2000).toUTCString();
+      for (const target of [oldApp, app]) {
+        await request(target).get('/api/v1/entries.json?find[device]=missing&token=synthetic-a')
+          .set('Host', 'a.example.test').set('If-Modified-Since', new Date(at).toUTCString())
+          .expect(304).expect('Last-Modified', modified);
       }
     });
     for (const [name, value] of [['mills', at], ['sysTime', new Date(at).toISOString()], ['created_at', new Date(at).toISOString()]]) {
