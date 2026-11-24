@@ -131,7 +131,7 @@ describe('realtime handshake refusal observations with native polling clients', 
     };
     try {
       rt = await require('../lib/server/realtime/runtime')({ tenants: [A], readiness: 'serve', durableOutput: true,
-        detect: detector, watchedTenants: () => [], readCurrent: async tenant => current(tenant), prepareTenant: startup.ensure,
+        detect: detector, isWatched: () => false, readCurrent: async tenant => current(tenant), prepareTenant: startup.ensure,
         create: () => ({ acquire: async () => { acquired++; return { tenant: A, identity: 'synthetic-current', checkpoint: 1, rows: [], frame: { sgvs: [], lastUpdated: 1 } }; } }),
         fanout: async operation => protocol.fanout(operation), concurrency: 2 });
       protocol = protocolFactory.create({ admission, readCurrent: async tenant => current(tenant),

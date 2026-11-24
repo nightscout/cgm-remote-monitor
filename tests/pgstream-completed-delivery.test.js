@@ -9,7 +9,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 describe('completed-output delivery reuse', function () {
   it('coalesces unchanged output events and performs no watched-roster discovery',async function(){
     let stamp=1,reads=0,timers=0;
-    const service=await runtime({tenants:[A,B],readCurrent:async tenant=>({tenant,identity:tenant}),watchedTenants:()=>[A],
+    const service=await runtime({tenants:[A,B],readCurrent:async tenant=>({tenant,identity:tenant}),isWatched:tenant=>tenant===A,
       detect:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp:tenant===A?stamp:1}])),
       create:current=>({acquire:async()=>{reads++;return {tenant:current.tenant,checkpoint:current.tenant===A?stamp:1,frame:{},rows:[]};}}),fanout:async()=>{},schedule:()=>{timers++;return 1;},cancel(){}});
     try{const baseline=reads;service.wake(A);await service.tick();assert.equal(reads,baseline);await service.fresh(A);assert.equal(reads,baseline+1);
@@ -19,7 +19,7 @@ describe('completed-output delivery reuse', function () {
   it('durable receipts remove steady discovery and keep failed tenant delivery independent', async function () {
     let stamp=1,detects=0,reads=0,fail=false;
     const service=await runtime({tenants:[A,B],retryMs:1000,
-      watchedTenants:()=>[A],readCurrent:async tenant=>({tenant,identity:tenant}),
+      isWatched:tenant=>tenant===A,readCurrent:async tenant=>({tenant,identity:tenant}),
       detect:async tenants=>{detects++;return new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp}]));},
       create:current=>({acquire:async()=>{if(fail&&current.tenant===A)throw Error('TENANT_A_OUTPUT_FAILURE');reads++;return {tenant:current.tenant,checkpoint:stamp,frame:{},rows:[]};}}),
       fanout:async()=>{},schedule:()=>1,cancel(){}});
@@ -46,7 +46,7 @@ describe('completed-output delivery reuse', function () {
   it('queues only an unwatched tenant requested after operational epoch change before any peer exists', async function () {
     let worker={available:true,generation:1},reads=new Map([[A,0],[B,0]]);
     const service=await runtime({tenants:[A,B],retryMs:1000,workerState:()=>worker,
-      watchedTenants:()=>[],readCurrent:async tenant=>({tenant,identity:tenant}),
+      isWatched:()=>false,readCurrent:async tenant=>({tenant,identity:tenant}),
       detect:async tenants=>new Map(tenants.map(tenant=>[tenant,{identity:tenant,stamp:1}])),
       create:current=>({acquire:async()=>{reads.set(current.tenant,reads.get(current.tenant)+1);return {tenant:current.tenant,checkpoint:1,frame:{},rows:[]};}}),
       fanout:async()=>{},schedule:()=>1,cancel(){}});

@@ -113,7 +113,7 @@ describe('actual static realtime boot observations', function () {
         '../internal-api/clients': {socketAuthority: () => ({})},
         '../realtime/api-client': {create: () => ({})},
         './tenant-startup': {notReadyRetry: () => ({}), create: () => ({warm: noop, close: noop, isReady: tenant => tenant === A})},
-        '../realtime/protocol': {create: () => ({close () {}, stats: () => ({}), fanout () {}, watchedTenants: () => [], watchedCount: () => 0})},
+        '../realtime/protocol': {create: () => ({close () {}, stats: () => ({}), fanout () {}, watched: () => false, watchedCount: () => 0})},
         './registry-tenant-set': {openDemand: async () => ({tenants: new Map(), resolver:{resolve: noop}, onRemove () {}, isActive: () => false, close: noop, stats: () => ({})})},
         '../../tenant-registry/resolver': {createRegistryResolver: () => ({start: noop, resolve: noop, close () {}})},
         '../../tenant-registry/postgres': {create: () => ({})},

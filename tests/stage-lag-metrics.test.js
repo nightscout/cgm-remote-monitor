@@ -223,7 +223,7 @@ describe('stage lag and backlog metrics (M1, M2) and the completion delay contro
       api: { executeSocketMutation: async () => ({}), authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) },
       authorizationRecheckMs: 60000, retry: { minMs: 5, maxMs: 40 } });
     runtime = await runtimeFactory({ tenants: [A], readCurrent, retryMs: 60000, concurrency: 2, schedule: () => 1, cancel () {},
-      watchedTenants: () => watched ? [A] : [],
+      isWatched: tenant => watched && tenant === A,
       detect: async list => new Map(list.map(t => [t, { stamp: String(writes), identity: 'same' }])),
       create: () => ({ async acquire () {
         if (acquireMs) { backlog = runtime.pendingSummary(); await sleep(acquireMs); }
