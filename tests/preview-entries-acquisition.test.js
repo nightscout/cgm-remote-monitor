@@ -186,6 +186,15 @@ describe('ordinary entries acquire only the state their shipping handler consume
       }
     });
   });
+  it('keeps the untyped filtered entries header without building an unused response cache', async function () {
+    const f = await fixture(undefined, true);
+    const modified = new Date(f.instant).toUTCString();
+    const response = await request(f.app).get('/api/v1/entries?find[device]=synthetic')
+      .set('If-Modified-Since', modified).expect(304);
+    assert.equal(response.headers['last-modified'], modified);
+    assert.equal(reads(f.sql).length, 1, 'conditional response stops before the filtered list');
+    assert.deepEqual(f.completed[0].cache.entries, []);
+  });
   it('keeps mutable frame/cache state private while reusing routes across concurrent tenant requests', async function () {
     await quiet(async () => {
       const f = await fixture(undefined, true);
