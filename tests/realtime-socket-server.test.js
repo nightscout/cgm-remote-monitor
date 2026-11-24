@@ -96,7 +96,7 @@ describe('realtime handshake refusal observations with native polling clients', 
       config: { completedOutput: { namespace: 'synthetic_completed', consumer: 'evaluator-test' } },
       connection: { async readOnly () {
         if (blocked) { const hold = blocked; blocked = null; await hold; }
-        return { rows: [{ tenant: A, revision: '1', work_enabled: true, work_observed: ['1'], work_completed: [pending ? '0' : '1'] }] };
+        return { rows: [{ tenant: A, revision: pending ? '0' : '1', work_enabled: true }] };
       } },
       trusted: { scan: async () => new Map([[A, { activity: { state: 'active' } }]]) },
       readAll: async () => new Map([[A, current(A)]]), owner: () => {}, onIneligible: () => {}

@@ -101,19 +101,17 @@ describe('addressed realtime output demand',function(){
    Object.assign(f.states.get(behind), { observed: ['9007199254740993'], completed: ['9007199254740992'] });
    f.states.get(disabled).enabled = false;
    const seen = await f.detector(tenants, { interested: [first, disabled, ready, behind] });
-   assert.equal(f.counts.identities, 1);
+   assert.equal(f.counts.identities, 2, 'settings are read for the two completed interested tenants');
    assert.equal(f.counts.scanned, tenants.length);
    assert.equal(f.counts.revisions, tenants.length);
    assert.deepEqual(f.invalidated, [disabled]);
    assert.deepEqual(seen.get(ready), { identity: ready, stamp: '1' });
    assert.deepEqual(seen.get(first), { pending: true });
-   assert.deepEqual(seen.get(behind), { pending: true, stamp: '1' });
+   assert.deepEqual(seen.get(behind), { identity: behind, stamp: '1' }, 'a completed revision is publishable while later input is pending');
    assert.deepEqual(seen.get(deferred), { deferred: true });
    assert.deepEqual(seen.get(disabled), { identity: null, stamp: null });
-   await f.detector([first, behind]);
-   assert.equal(f.counts.identities, 1, 'all-pending batch requires no settings');
-   Object.assign(f.states.get(behind), { completed: ['9007199254740993'], identity: 'new-settings' });
-   assert.deepEqual((await f.detector([behind])).get(behind), { identity: 'new-settings', stamp: '1' });
+   await f.detector([first]);
+   assert.equal(f.counts.identities, 2, 'a tenant with no completed output requires no settings');
    assert.equal(f.counts.identities, 2);
  });
  it('propagates checkpoint and completed settings failures while pending readers need no settings', async function () {
@@ -256,48 +254,6 @@ describe('durable output retry ownership and upstream pending',()=>{
    assert.equal(service.health().upstreamPending,1);assert.equal(service.health().failed,0);assert.equal(acquired,0);assert.equal(timers.length,0,'NO_DUPLICATE_PENDING_RETRY');
    pending=false;const next=await service.check([tenant]);assert.equal(next.get(tenant),true);assert.equal(acquired,1);assert.equal(service.warm(tenant),true);assert.equal(timers.length,0);
   }finally{await service.close();}
- });
- it('retains a watched output revision across an overlapping input until the quiet completion can publish it', async () => {
-   const tenant = id(1), f = fixture([tenant]), state = f.states.get(tenant);
-   const timers = [], sent = [];
-   let watched = true, disconnectDuringCheck = false;
-   const service = await runtime({
-     tenants: [tenant], durableOutput: true, readiness: 'serve', isWatched: () => watched,
-     detect: async (tenants, options) => {
-       const seen = await f.detector(tenants, options);
-       if (disconnectDuringCheck) watched = false;
-       return seen;
-     },
-     readCurrent: async () => ({tenant, identity: state.identity}),
-     create: () => ({acquire: async () => ({tenant, checkpoint: state.revision, frame: {}})}),
-     fanout: async ({next}) => sent.push(next.checkpoint),
-     schedule: fn => { timers.push(fn); return 1; }, cancel () {}
-   });
-   const check = async () => (await service.check([tenant])).get(tenant);
-   try {
-     assert.equal(await check(), true);
-     assert.deepEqual(sent, [1]);
-     Object.assign(state, {observed: ['3'], completed: ['2']});
-     assert.equal(await check(), true, 'the pending input owes no new publication yet');
-     state.revision = 2;
-     assert.equal(await check(), false, 'the receipt must retain the unpublished output');
-     assert.deepEqual(sent, [1]);
-     assert.equal(service.pendingSummary().pending, 1);
-     assert.equal(timers.length, 0, 'only the receipt schedules a retry');
-     state.completed = ['3'];
-     assert.equal(await check(), true, 'a quiet completion can publish the same revision');
-     assert.deepEqual(sent, [1, 2]);
-     assert.equal(service.pendingSummary().pending, 0);
-     state.revision = 3;
-     state.observed = ['4'];
-     assert.equal(await check(), false);
-     disconnectDuringCheck = true;
-     assert.equal(await check(), true, 'receipt completion observes the disconnect during detection');
-     assert.equal(service.pendingSummary().pending, 1, 'the tick used its starting audience');
-     assert.equal(await check(), true, 'the next tick begins without a viewer');
-     assert.deepEqual(sent, [1, 2]);
-     assert.equal(service.pendingSummary().pending, 0);
-   } finally { await service.close(); }
  });
  it('keeps actual failed delivery owed to durable retry without a second runtime retry timer',async()=>{
   const tenant=id(1),timers=[];let refuse=true,deliveries=0;
