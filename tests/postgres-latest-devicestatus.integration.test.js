@@ -93,7 +93,14 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
     await insert(B, { _id: 'foreign-array', created_at: [dated(-10000)] });
     assert.deepEqual(await list(A), [visible]);
     assert.equal(seen.length, 1);
-    assert.match(seen[0].text, /LIMIT 2/);
+    assert.match(seen[0].text, /WITH bad AS MATERIALIZED/);
+    const largest = { count: Number.MAX_SAFE_INTEGER };
+    const expected = await list(A, largest, generic);
+    assert.deepEqual(await list(A, largest), expected);
+    assert.match(seen[0].text, /WITH bad AS MATERIALIZED/);
+    assert.equal(seen[0].values.at(-1), largest.count);
+    assert.deepEqual(await list(A, { count: 0 }), []);
+    assert.equal(seen.length, 0);
     assert.deepEqual(await list(EMPTY), []);
     await assert.rejects(list(B), /sort over an array/);
   });
@@ -117,11 +124,11 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
     assert.equal(transactions, 1);
     assert.equal(seen.length, 2);
     assert.match(seen[1].text, /bool_or\(/);
-    for (const opts of [{ count: 2 }, { sort: { created_at: 1 } }, { find: { isValid: 'true' } }]) {
+    for (const opts of [{ count: undefined }, { sort: { created_at: 1 } }, { find: { isValid: 'true' } }]) {
       const original = await list(A, structuredClone(opts), generic);
       assert.deepEqual(await list(A, opts), original);
       assert.equal(seen.length, 1);
-      assert.match(seen[0].text, /bool_or\(/);
+      assert.doesNotMatch(seen[0].text, /WITH bad AS MATERIALIZED/);
     }
   });
 
@@ -133,23 +140,62 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
         FROM generate_series(1, 576) AS n`, [tenant]));
     }
     await admin.query('ANALYZE ' + table);
-    const expected = await list(A, {}, generic);
-    const original = seen[0];
-    assert.deepEqual(await list(A), expected);
     const explain = statement => scope.withTenant(A, () => reader.readOnlyTransaction(async () => {
       const { rows } = await reader.query('EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ' + statement.text, statement.values);
       return rows[0]['QUERY PLAN'][0];
     }));
     function walk (node) { return [node, ...(node.Plans || []).flatMap(walk)]; }
-    const old = await explain(original);
-    const indexed = await explain(seen[0]);
-    assert(walk(old.Plan).some(n => n['Node Type'] === 'WindowAgg' && n['Actual Rows'] >= 576));
-    assert(walk(indexed.Plan).some(n => n['Index Name'] === 'devicestatus_tenant_created_at_array'));
-    const scans = walk(indexed.Plan).filter(n => n['Relation Name'] === 'devicestatus');
-    assert(scans.length >= 2);
-    for (const node of scans) {
-      assert(node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) <= 2, JSON.stringify(node));
+    for (const count of [1, 100]) {
+      const expected = await list(A, { count }, generic);
+      const original = seen[0];
+      assert.equal(expected.length, count);
+      assert.deepEqual(await list(A, { count }), expected);
+      assert.equal(seen.length, 1);
+      const old = await explain(original);
+      const indexed = await explain(seen[0]);
+      assert(walk(old.Plan).some(n => n['Node Type'] === 'WindowAgg' && n['Actual Rows'] >= 576));
+      assert(walk(indexed.Plan).some(n => n['Index Name'] === 'devicestatus_tenant_created_at_array'));
+      const scans = walk(indexed.Plan).filter(n => n['Relation Name'] === 'devicestatus');
+      assert(scans.length >= 2);
+      for (const node of scans) {
+        assert(node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) <= count + 1, JSON.stringify(node));
+      }
     }
+    const options = { count: 100 };
+    const boundary = (await list(A, options, generic))[99];
+    await insert(A, { _id: 'tie-at-100', created_at: boundary.created_at });
+    const tied = await list(A, options, generic);
+    assert.deepEqual(await list(A, options), tied);
+    assert.equal(transactions, 1);
+    assert.equal(seen.length, 2);
+    assert.match(seen[1].text, /bool_or\(/);
+    await insert(A, { _id: 'off-page-array', created_at: [dated(-86400000)] });
+    await assert.rejects(list(A, options), /sort over an array/);
+
+    const historical = Array.from({ length: 120 }, (_, i) => ({ _id: 'historical-' + i,
+      created_at: new Date(Date.UTC(2020, 0, 1, 0, i)).toISOString() }));
+    await insert(A, ...historical);
+    await admin.query('ANALYZE ' + table);
+    const lo = historical[10].created_at, hi = historical[90].created_at;
+    // Use the actual wrapper. Upper-only and reversed operator order keep their v1 edge semantics.
+    for (const [range, matches] of [[{ $lte: hi, $gt: lo }, historical.slice(11, 91)],
+      [{ $gte: lo, $lt: hi }, historical.slice(10, 90)], [{ $lt: lo }, historical.slice(0, 10)]]) {
+      const query = { count: 100, find: { created_at: range } };
+      const oracle = await list(A, structuredClone(query), generic);
+      assert.deepEqual(oracle, matches.reverse());
+      assert.deepEqual(await list(A, query), oracle);
+      assert.equal(seen.length, 1);
+      assert.match(seen[0].text, /WITH bad AS MATERIALIZED/);
+      if (range.$gt) {
+        const plan = walk((await explain(seen[0])).Plan);
+        assert(plan.some(node => node['Index Name']?.includes('tenant_created') &&
+          node['Index Cond']?.includes(lo) && node['Index Cond']?.includes(hi)));
+      }
+    }
+    await insert(A, { _id: 'straddles-range', created_at: [historical[0].created_at, historical[119].created_at] });
+    const narrow = { count: 100, find: { created_at: { $gt: lo, $lt: hi } } };
+    await assert.rejects(list(A, structuredClone(narrow), generic), /sort over an array/);
+    await assert.rejects(list(A, narrow), /sort over an array/);
   });
 
   it('checks arrays whose stored time key is NULL on a scalar-only predecessor schema', async function () {

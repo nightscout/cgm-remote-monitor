@@ -176,6 +176,54 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
       });
     }
 
+    it('keeps numeric v1 date-page filters, tie membership and exceptional stored dates', async function () {
+      const tenant = '55555555-5555-4555-8555-555555555555';
+      const table = labs.entries.qualified, statements = [];
+      const connection = { ...store, query (sql, values) { statements.push(sql); return store.query(sql, values); } };
+      const indexed = entriesRead({ connection, table, latestTimeDomain: 'entries' });
+      const generic = entriesRead({ connection, table });
+      const { fromMongo } = require('../lib/storage/filter');
+      const filter = fromMongo({ date: { $gt: 100, $lte: 200 }, type: 'sgv', isValid: { $ne: false } });
+      const options = { sort: { date: -1 }, limit: 2, options: { normalize: false } };
+      async function list (reader, ast = filter) {
+        statements.length = 0;
+        return scope.withTenant(tenant, () => reader.findFiltered(ast, options));
+      }
+      const insert = docs => grants.withTenant(admin, tenant, () => admin.query(`INSERT INTO ${table}(tenant_id,id_kind,doc)
+        SELECT $1, 'string', doc FROM unnest($2::jsonb[]) AS t(doc)`, [tenant, docs.map(doc => JSON.stringify(doc))]));
+      await insert([{ _id: 'first', date: 200, type: ['sgv'] }, { _id: 'next', date: 150, type: 'sgv' },
+        { _id: 'lower', date: 100, type: 'sgv' }, { _id: 'wrong-type', date: [90, 300], type: 'mbg' },
+        { _id: 'invisible', date: [90, 300], type: 'sgv', isValid: [false] }]);
+      const expected = await list(generic);
+      assert.deepEqual(expected.map(d => d._id), ['first', 'next']);
+      assert.deepEqual(await list(indexed), expected);
+      assert.equal(statements.length, 1);
+      assert.match(statements[0], /WITH bad AS MATERIALIZED/);
+      await insert([{ _id: 'nonmatching-new', date: 199, type: 'mbg' },
+        { _id: 'removed-new', date: 198, type: 'sgv', isValid: false },
+        { _id: 'nonmatching-middle', date: 197, type: 'cal' }]);
+      assert.deepEqual(await list(indexed), expected, 'refill after newer nonmatching candidates');
+      assert.equal(statements.length, 1);
+      const optionalDate = fromMongo({ $or: [{ date: { $gt: 100 } }, { _id: 'lower' }] });
+      await assert.rejects(list(indexed, optionalDate), /sort over an array/);
+      assert.doesNotMatch(statements[0], /WITH bad AS MATERIALIZED/);
+
+      await insert([{ _id: 'tie', date: 150, type: 'sgv' }]);
+      const tied = await list(generic);
+      assert.deepEqual(await list(indexed), tied);
+      assert.equal(statements.length, 2);
+      await insert([{ _id: 'fraction', date: 199.75, type: 'sgv' }]);
+      const fractional = await list(generic);
+      assert.deepEqual(fractional.map(d => d._id), ['first', 'fraction']);
+      assert.deepEqual(await list(indexed), fractional);
+      assert.equal(statements.length, 2);
+      const strict = fromMongo({ date: { $gt: 199, $lt: 200 }, type: 'sgv', isValid: { $ne: false } });
+      assert.deepEqual((await list(indexed, strict)).map(d => d._id), ['fraction']);
+      await insert([{ _id: 'array', date: [90, 300], type: 'sgv' }]);
+      await assert.rejects(list(indexed), /sort over an array/);
+      assert.equal(statements.length, 2);
+    });
+
     describe('private follower entries pages', function () {
       const tenant = '33333333-3333-4333-8333-333333333333';
       const foreign = '44444444-4444-4444-8444-444444444444';
@@ -229,10 +277,14 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         for (const n of nodes.filter(n => n['Relation Name'] === 'entries')) {
           assert(n['Actual Rows'] + (n['Rows Removed by Filter'] || 0) <= 2, JSON.stringify(n));
         }
-        assert.deepEqual(await page({ count: 10 }), docs.slice(0, 10).reverse());
+        for (const count of [10, 11, 100, Number.MAX_SAFE_INTEGER]) {
+          assert.deepEqual(await page({ count }), docs.slice(0, count).reverse());
+        }
         seen = null;
-        assert.equal(await page({ count: 11 }), null);
-        assert.equal(seen, null, 'out-of-range counts must bypass the probe');
+        for (const count of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+          assert.equal(await page({ count }), null);
+        }
+        assert.equal(seen, null, 'invalid counts must bypass the probe');
       });
 
       it('recognizes canonical UTC through leap day, midnight and nonzero milliseconds', async function () {
@@ -345,6 +397,18 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
           assert.ok(read <= 20, `${label}: READS_TENANT_HISTORY ${node['Node Type']} read ${read} rows`);
         }
       }
+
+      it('keeps a large v1 date page with an exact identifier on the selective lookup', async function () {
+        const statements = await sent(async c => {
+          const reader = entriesRead({ connection: { ...store, ...c }, table: labs.entries.qualified, latestTimeDomain: 'entries' });
+          const docs = await reader.findFiltered(and(cmp('gte', 'date', T0), cmp('eq', 'identifier', 'entries-id-7'),
+            cmp('ne', 'isValid', false)), { sort: { date: -1 }, limit: 2000, options: { normalize: false } });
+          assert.deepEqual(docs.map(d => d._id), ['entries-h7']);
+        });
+        assert.equal(statements.length, 1);
+        bounded('selective date-page lookup', await scans('entries', statements[0]));
+        assert.doesNotMatch(statements[0].text, /raw_page/, 'exact identifier should lead without a speculative date page');
+      });
 
       const cases = [
         ['entries v1 sysTime + type target (locked update)', 'entries', (lab, c) => entriesWrite({ connection: c, table: lab.qualified })

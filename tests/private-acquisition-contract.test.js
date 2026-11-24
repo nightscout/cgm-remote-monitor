@@ -86,6 +86,38 @@ describe('private acquisition caller contracts', function () {
     assert.deepEqual(lab.ctx.ddata.sgvs, []);
   });
 
+  it('keeps a base entries page separate from its SGV header and restores the whole window for an ambiguous header', async function () {
+    const lab = fixture();
+    const port = lab.ports.entries;
+    const header = lab.row(100);
+    const zero = { ...lab.row(0), date: lab.now - 2000 };
+    const cal = { _id: 'cal', type: 'cal', date: lab.now - 1000 };
+    const service = createSnapshot({ tenant: TENANT, env: lab.env, ports: lab.ports, language: lab.language });
+    let candidate, fullReads = 0;
+    port.readFollowerEntries = async () => candidate;
+    port.store.list = (query, done) => { fullReads++; done(null, [header, zero, cal]); };
+    const check = async (type, count, docs, expectedHeader, full) => {
+      const before = fullReads;
+      const frame = await service.loadRaw('entries', { at: lab.now, follower: { type, count, includeHeader: true } });
+      assert.deepEqual(frame.cache.entries.map(row => row._id), docs.map(row => row._id));
+      assert.deepEqual(frame.ddata.sgvs, expectedHeader ? [{ mills: expectedHeader.date, mgdl: expectedHeader.sgv }] : []);
+      assert.equal(fullReads - before, full ? 1 : 0);
+    };
+    candidate = { docs: [cal], header };
+    await check('cal', 1, [cal], header, false);
+    candidate = { docs: [cal], header: null };
+    await check(null, 1, [cal], null, false);
+    candidate = { docs: [cal], header: zero };
+    await check(null, 1, [cal, zero, header], header, true);
+    await check('cal', 2, [cal, zero, header], header, true);
+    candidate = { docs: [header, zero, cal], header: zero };
+    await check(null, 3, [cal, zero, header], header, false);
+    candidate = { docs: [zero], header: zero };
+    await check('sgv', 2, [zero], null, false);
+    candidate = null;
+    await check(null, 2, [cal, zero, header], header, true);
+  });
+
   it('recuts at normalized retention edges in both clock directions and isolates plugin mutations', async function () {
     const lab = fixture();
     const { TWO_DAYS } = require('../lib/constants');

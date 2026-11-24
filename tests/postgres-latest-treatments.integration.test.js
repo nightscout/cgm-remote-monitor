@@ -95,7 +95,7 @@ for (const variant of ['plain', 'ordered']) {
       assert.deepEqual(await list(A), inside);
       assert.equal(seen.length, ordered ? 1 : 2);
       if (ordered) assert.equal(inside[0]._id, 'inside-page');
-      for (const opts of [{ count: 3 }, { sort: { created_at: 1 } }, { find: { eventType: 'Note' } }]) {
+      for (const opts of [{ count: undefined }, { sort: { created_at: 1 } }, { find: { eventType: 'Note' } }]) {
         const original = await list(A, structuredClone(opts), generic);
         assert.deepEqual(await list(A, opts), original);
         assert.doesNotMatch(seen[0].text, /WITH bad AS MATERIALIZED/);
@@ -110,28 +110,64 @@ for (const variant of ['plain', 'ordered']) {
       assert.equal((await list(A, { find: { created_at: { $gte: dated(11 * 1440) } } }))[0]._id, 'old');
     });
 
-    it('uses the exception and time indexes for the ten-row page under RLS', async function () {
+    it('uses the exception and time indexes for bounded pages under RLS', async function () {
       const docs = Array.from({ length: 575 }, (_, i) => ({ _id: 'recent-' + i, created_at: dated(i * 5) }));
       for (const tenant of [A, B]) await insert(tenant, docs);
       await admin.query('ANALYZE ' + table);
-      const expected = await list(A, {}, generic);
-      const original = seen[0];
-      assert.deepEqual(await list(A), expected);
-      assert.equal(seen.length, 1);
       async function explain ({ text, values }) {
         const { rows } = await scope.withTenant(A, () => reader.readOnlyTransaction(() =>
           reader.query('EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ' + text, values)));
         function walk (node) { return [node, ...(node.Plans || []).flatMap(walk)]; }
         return walk(rows[0]['QUERY PLAN'][0].Plan);
       }
-      const baseline = await explain(original);
-      assert(baseline.some(node => node['Node Type'] === 'WindowAgg' && node['Actual Rows'] >= docs.length));
-      const plan = await explain(seen[0]);
-      assert(plan.some(node => node['Index Name'] === 'treatments_tenant_created_at_array'));
-      assert(plan.some(node => node['Index Name'] === 'treatments_tenant_created_at'));
-      // Incremental sort may read one extra group of equal timestamps ahead.
-      const scans = plan.filter(node => node['Relation Name'] === 'treatments');
-      for (const node of scans) assert(node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) < 50, JSON.stringify(node));
+      for (const count of [10, 100]) {
+        const expected = await list(A, { count }, generic);
+        const original = seen[0];
+        assert.equal(expected.length, count);
+        assert.deepEqual(await list(A, { count }), expected);
+        assert.equal(seen.length, 1);
+        const baseline = await explain(original);
+        assert(baseline.some(node => node['Node Type'] === 'WindowAgg' && node['Actual Rows'] >= docs.length));
+        const plan = await explain(seen[0]);
+        assert(plan.some(node => node['Index Name'] === 'treatments_tenant_created_at_array'));
+        assert(plan.some(node => node['Index Name'] === 'treatments_tenant_created_at'));
+        // PostgreSQL incremental sort may read ahead one group of ordinal ties.
+        const scans = plan.filter(node => node['Relation Name'] === 'treatments');
+        for (const node of scans) assert(node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) <= count + 32, JSON.stringify(node));
+      }
+      const options = { count: 100 };
+      await insert(A, [{ _id: 'tie-at-100', created_at: docs[99].created_at }]);
+      const tied = await list(A, options, generic);
+      assert.deepEqual(await list(A, options), tied);
+      assert.equal(seen.length, ordered ? 1 : 2);
+      if (ordered) assert.equal(tied[99]._id, 'tie-at-100');
+      await insert(A, [{ _id: 'off-page-array', created_at: [dated(24 * 60)] }]);
+      await assert.rejects(list(A, options), /sort over an array/);
+
+      const historical = Array.from({ length: 120 }, (_, i) => ({ _id: 'historical-' + i,
+        created_at: new Date(Date.UTC(2020, 0, 1, 0, i)).toISOString() }));
+      await insert(A, historical);
+      await admin.query('ANALYZE ' + table);
+      const lo = historical[10].created_at, hi = historical[90].created_at;
+      // Use the actual wrapper. Upper-only and reversed operator order keep their v1 edge semantics.
+      for (const [range, matches] of [[{ $lte: hi, $gt: lo }, historical.slice(11, 91)],
+        [{ $gte: lo, $lt: hi }, historical.slice(10, 90)], [{ $lt: lo }, historical.slice(0, 10)]]) {
+        const query = { count: 100, find: { created_at: range } };
+        const oracle = await list(A, structuredClone(query), generic);
+        assert.deepEqual(oracle, matches.reverse());
+        assert.deepEqual(await list(A, query), oracle);
+        assert.equal(seen.length, 1);
+        assert.match(seen[0].text, /WITH bad AS MATERIALIZED/);
+        if (range.$gt) {
+          const plan = await explain(seen[0]);
+          assert(plan.some(node => node['Index Name']?.includes('tenant_created') &&
+            node['Index Cond']?.includes(lo) && node['Index Cond']?.includes(hi)));
+        }
+      }
+      await insert(A, [{ _id: 'straddles-range', created_at: [historical[0].created_at, historical[119].created_at] }]);
+      const narrow = { count: 100, find: { created_at: { $gt: lo, $lt: hi } } };
+      await assert.rejects(list(A, structuredClone(narrow), generic), /sort over an array/);
+      await assert.rejects(list(A, narrow), /sort over an array/);
     });
 
     it('checks matching legacy array timestamps with a NULL generated key', async function () {
