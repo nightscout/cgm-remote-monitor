@@ -48,6 +48,7 @@ their contract digests are keyed by them.
 | `NS_VCPOOL_ALLOW_HOSTS` | vcpool | none (required) | comma list of source host names |
 | `NS_VCPOOL_ALLOW_INSECURE_HTTP` | vcpool | `false` | admit `http://` sources |
 | `NS_METRICS` | api, evaluator, realtime, tenant-admin, vcpool | `false` | `true` serves Prometheus metrics at `GET /metrics` on the private listener ([below](#metrics)) |
+| `PREDICTIONS_MAX_SIZE` | api | `288` | the single-site setting with the single-site rules (`lib/server/env.js`): the cap on each OpenAPS prediction curve (`predBGs` IOB, COB, UAM, ZT) an API v1 devicestatus stores; `0` stores curves uncapped; unset or invalid is `288`. One value for every tenant, never a tenant setting. API v3 and socket writes are uncapped, as on a single site |
 
 Settings that existed before and keep their meaning and defaults: listeners
 (`<ROLE>_HOSTNAME`, `<ROLE>_PORT`, `NS_SERVE_INTERNAL_*`, `NS_<ROLE>_INTERNAL_*`,

@@ -1,6 +1,6 @@
 'use strict';
 
-// covers: lib/server/tenant-app/environment.js, lib/server/devicestatus.js
+// covers: lib/server/tenant-app/environment.js, lib/server/devicestatus.js, lib/server/env.js
 
 // PREDICTIONS_MAX_SIZE parity. A single site caps each OpenAPS prediction
 // curve (openaps.suggested/enacted.predBGs IOB, COB, UAM, ZT) at
@@ -8,7 +8,9 @@
 // default 288; lib/server/devicestatus.js truncatePredictions). A tenant's
 // API v1 write runs the same module with the tenant environment
 // (lib/server/tenant-app/environment.js), so that environment must carry the
-// same cap, or the tenant stores every curve uncapped. Other curves (aCOB,
+// same cap, read from the deployment's PREDICTIONS_MAX_SIZE with the same
+// rules, one value for every tenant; otherwise the tenant stores every curve
+// uncapped. Other curves (aCOB,
 // Loop's predicted.values) and the API v3 and socket writes are uncapped in
 // both modes.
 const assert = require('node:assert/strict');
@@ -65,21 +67,43 @@ const CAPPED = cap => ({
   'loop.predicted.values': LONG
 });
 
+// PREDICTIONS_MAX_SIZE as an operator sets it, and what a single site makes of
+// it (lib/server/env.js): unset or invalid 288, a whole number >= 0 that value,
+// 0 no cap. Names and values are trimmed as single-site settings are.
+const SETTINGS = [
+  ['unset', undefined, 288], ['48', '48', 48], ['0 (no cap)', '0', LONG], ['24 with spaces', ' 24 ', 24],
+  ['invalid (not a number)', 'abc', 288], ['invalid (negative)', '-1', 288], ['empty', '', 288]
+];
+
 describe('PREDICTIONS_MAX_SIZE: a tenant caps OpenAPS prediction curves as a single site does', function () {
   let saved;
-  before(function () { saved = process.env.PREDICTIONS_MAX_SIZE; delete process.env.PREDICTIONS_MAX_SIZE; });
-  after(function () { if (saved !== undefined) process.env.PREDICTIONS_MAX_SIZE = saved; });
+  const set = value => { if (value === undefined) delete process.env.PREDICTIONS_MAX_SIZE; else process.env.PREDICTIONS_MAX_SIZE = value; };
+  before(function () { saved = process.env.PREDICTIONS_MAX_SIZE; });
+  after(function () { set(saved); });
 
-  it('the tenant environment carries the single-site default cap', function () {
-    const single = require('../lib/server/env')();
-    assert.equal(single.predictionsMaxSize, 288, 'single-site default (lib/server/env.js)');
-    assert.equal(environment({}).predictionsMaxSize, single.predictionsMaxSize);
-  });
+  for (const [name, value, stored] of SETTINGS) {
+    describe('PREDICTIONS_MAX_SIZE ' + name, function () {
+      before(function () { set(value); });
 
-  it('a tenant API v1 status stores the same curve lengths as a single site', async function () {
-    const single = await writeV1(require('../lib/server/env')());
-    assert.deepEqual(single, CAPPED(288));
-    assert.deepEqual(await writeV1(environment({})), single);
+      it('the tenant environment carries the single-site value', function () {
+        const single = require('../lib/server/env')().predictionsMaxSize;
+        assert.equal(single, stored === LONG ? 0 : stored, 'single-site value (lib/server/env.js)');
+        assert.equal(environment({}).predictionsMaxSize, single);
+      });
+
+      it('a tenant API v1 status stores the same curve lengths as a single site', async function () {
+        const single = await writeV1(require('../lib/server/env')());
+        assert.deepEqual(single, CAPPED(stored));
+        assert.deepEqual(await writeV1(environment({})), single);
+      });
+    });
+  }
+
+  it('one deployment-wide value: every tenant environment carries it, whatever the tenant settings', function () {
+    set('48');
+    for (const input of [{}, { settings: { units: 'mmol' } }, { settings: { predictionsMaxSize: 7 }, extendedSettings: { devicestatus: { advanced: false } } }]) {
+      assert.equal(environment(input).predictionsMaxSize, 48);
+    }
   });
 
   it('control: the module stores every curve uncapped without the cap', async function () {
