@@ -68,6 +68,7 @@ inventory before starting a resource.
 
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
+| `tests/postgres-latest-devicestatus.integration.test.js` | | PostgreSQL | | Checks the v1 latest device-status result under tenant isolation, including ties, unsupported timestamps and an indexed read of ordinary history. |
 | `tests/native-operation-control-readiness.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | source-selected native control reads, exact consumer-port operational re-admission, refreshed grants and held-backend controls |
 | `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded typed bootstrap receipts preserve completed/output/due/pending state |
 | `tests/pgstream-checkpoint.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | observed/completed/output/due atomicity, owner loss, retained-overdue cold serve boot without another clinical write |
