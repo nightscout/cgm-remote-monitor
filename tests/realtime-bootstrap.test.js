@@ -167,7 +167,9 @@ describe('parent-owned realtime bootstrap source contract',function(){
     assert.throws(()=>plan.resetPlan(layout,catalogues,missingKeys),/RESET_FK_CLOSURE/,'the old pre-signer inventory must refuse before SQL');
     const missingCounter=plan.resetTables();missingCounter.entries=missingCounter.entries.filter(name=>name!=='tenant_insertion_ordinal');
     assert.throws(()=>plan.resetPlan(layout,catalogues,missingCounter),/RESET_TABLE_COVERAGE/);
-    const alteredOperation=structuredClone(catalogues), operation=alteredOperation.entries.migrations.at(-2);
+    const alteredOperation = structuredClone(catalogues);
+    const operation = alteredOperation.entries.migrations.find(row => row.name === '0100_entries_storage_bytes_removed');
+    assert.equal(operation?.operation?.kind, 'clinical-storage-size-removal-v1');
     operation.up[1]='SET LOCAL row_security = on';operation.checksum=require('../lib/migrations/catalogue').checksum(operation.up);
     assert.throws(()=>plan.resetPlan(layout,alteredOperation),error=>error.code==='MIG_OPERATION_SQL','rehashed unknown typed SQL never becomes reset inventory');
     const changed=structuredClone(catalogues);changed.authorization.migrations[0].up.push('CREATE TABLE unknown_new_table (tenant_id uuid)');
