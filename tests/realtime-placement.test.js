@@ -106,9 +106,9 @@ describe('actual static realtime boot observations', function () {
       const overrides = {
         './role-readiness': require('./fixtures/role-readiness')(), './evaluator-readiness': noop,
         '../../storage/postgres-connection': async () => ({end: noop}),
-        '../../realtime-ownership/owner': {acquire: async ({shape}) => {
+        '../../realtime-ownership/owner': {hold: ({shape}) => {
           assert.equal(shape.count, 2); assert.equal(shape.ordinal, 0);
-          return {available: true, check: noop, close: noop};
+          return {available: true, start: noop, close: noop};
         }},
         '../internal-api/clients': {socketAuthority: () => ({})},
         '../realtime/api-client': {create: () => ({})},
