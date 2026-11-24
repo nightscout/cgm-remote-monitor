@@ -225,7 +225,7 @@ describe('checked-out PostgreSQL client failure propagation', function () {
     try {
       for (let i = 0; i < 2; i++) await f.store.readOnlySnapshot(TENANT, async ({ query }) => { calls.push('value'); await query('SELECT selected'); });
       assert.deepEqual(calls, ['acquire', 'admit', 'value', 'release', 'acquire', 'admit', 'value', 'release']);
-      assert.equal(f.calls.filter(call => call.text.includes('FROM pg_stat_activity WHERE') && !call.text.includes('FROM pg_roles')).length, 2, 'backend is freshly observed on each strict checkout');
+      assert.equal(f.calls.filter(call => call.text.endsWith('FROM pg_catalog.pg_stat_get_activity(pg_catalog.pg_backend_pid())')).length, 2, 'each strict checkout freshly observes its own backend');
       failUnlock = true;
       await assert.rejects(f.store.readOnlySnapshot(TENANT, () => { throw primary; }), error => error.code === 'POSTGRES_CLEANUP_UNCONFIRMED' && error.cause === primary && error.cleanupError === unlock);
       assert.equal(f.clients[0]._ending, true);

@@ -35,7 +35,7 @@ const SCREEN = /pg_roles|has_schema_privilege|to_regclass|relrowsecurity|ORDER B
 // The shared pool still observes its initial role/backend/datastore identity.
 // P6 removes the full settings screen; P9 owns shared connection observations.
 const BACKEND_IDENTITY = 'SELECT rolsuper, rolbypassrls,pg_backend_pid() AS pid,current_user AS role,' +
-  '(SELECT extract(epoch from backend_start)::text FROM pg_stat_activity WHERE pid=pg_backend_pid()) AS birth,' +
+  '(SELECT extract(epoch from backend_start)::text FROM pg_catalog.pg_stat_get_activity(pg_catalog.pg_backend_pid())) AS birth,' +
   'current_database() AS database,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS database_oid,' +
   'inet_server_addr()::text AS server_address,inet_server_port() AS server_port,extract(epoch from pg_postmaster_start_time())::text AS postmaster_birth FROM pg_roles WHERE rolname = current_user';
 const settingsScreens = texts => texts.filter(text => SCREEN.test(text) && text !== BACKEND_IDENTITY);
