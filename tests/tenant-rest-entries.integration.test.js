@@ -87,6 +87,25 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
       }
     });
 
+    it('applies the entries count and date defaults independently on both storage backends', async function () {
+      const earlier = BASE - 6 * 86400000;
+      const readings = (start, n) => Array.from({ length: n }, (_, i) => {
+        const date = start - i * 60000;
+        const iso = new Date(date).toISOString();
+        return record({ _id: String(date), date, sysTime: iso, dateString: iso });
+      });
+      const recent = readings(BASE, 15), history = readings(earlier, 102);
+      await lab.seed([...recent, ...history]);
+      const window = 'find[date][$gte]=' + history.at(-1).date + '&find[date][$lte]=' + earlier;
+      for (const [query, rows] of [
+        ['', recent.slice(0, 10)], ['count=100', recent],
+        [window, history.slice(0, 10)], [window + '&count=100', history.slice(0, 100)]
+      ]) {
+        const reply = await same('get', '/api/v1/entries/sgv' + (query ? '?' + query : ''));
+        assert.deepEqual(reply.body.map(row => row.date), rows.map(row => row.date));
+      }
+    });
+
     it('serves v1 and inherited v2 default/current/model/id/missing and exact query/count semantics', async function () {
       for (const version of [1, 2]) {
         for (const path of ['/entries', '/entries/current', '/entries/sgv', '/entries/' + ID,

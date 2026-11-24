@@ -136,7 +136,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         console.log('REST_NATIVE_REMOVED '+JSON.stringify({id:containerId,pinnedImage,containerAbsent:true,volumesAbsent:true,volumeCount:volumes.length}));
       } } finally { scope.setTenancyMode(previous); } } } }
   });
-  it('bounds physical candidate work for an ordinary count=1 follower with deep retained history', async () => {
+  it('bounds ordinary typed follower reads by the requested page size on deep retained history', async () => {
     const withTenant = require('./fixtures/tenant-insertion-grants').withTenant;
     await withTenant(admin, A, () => admin.query(`INSERT INTO ${entryTable} (tenant_id,id_kind,doc)
       SELECT $1, 'string', jsonb_build_object('_id','follower-' || i, 'date',millis, 'sysTime',iso, 'dateString',iso,
@@ -151,14 +151,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       if (readsEntries(text)) seen.push({text, params: params || input.values, rows: result.rows.length});
       return result;
     };
-    try {
-      await admin.query('ANALYZE ' + entryTable);
-      const response = await http('get', '/api/v1/entries/sgv.json?count=1').expect(200);
-      assert.deepEqual(response.body.map(row => row._id), ['follower-1']);
-      assert.equal(response.headers['last-modified'], new Date(at - 300000).toUTCString());
-      assert.equal(seen.length, 1, 'ordinary typed GET acquires its entries in one statement');
-      const [read] = seen;
-      assert(read.rows > 0 && read.rows <= 2, 'count=1 materialized ' + read.rows + ' rows; expected at most the candidate and its boundary tie');
+    async function explainEntries(read) {
       const result = await scope.withTenant(A, () => query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' + read.text, read.params));
       const plan = result.rows[0]['QUERY PLAN'][0].Plan;
       const visits = [];
@@ -168,14 +161,63 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         (node.Plans || []).forEach(inspect);
       }
       inspect(plan);
-      const examined = visits.reduce((sum, n) => sum + n, 0);
-      assert(visits.length && examined <= 4, 'count=1 seeks bounded candidates on 1,500 ordinary rows: ' + examined);
+      assert(visits.length, 'actual plan exercised the entries table');
+      return {plan, examined: visits.reduce((sum, n) => sum + n, 0)};
+    }
+    try {
+      await admin.query('ANALYZE ' + entryTable);
+      const modified = new Date(at - 300000).toUTCString();
+      for (const count of [1, 100, 11]) {
+        seen.length = 0;
+        const response = await http('get', '/api/v1/entries/sgv.json?count=' + count).expect(200);
+        assert.deepEqual(response.body.map(row => row._id), Array.from({length: count}, (_, i) => 'follower-' + (i + 1)));
+        assert.equal(response.headers['last-modified'], modified);
+        assert.equal(seen.length, 1, 'ordinary typed GET acquires its entries in one statement');
+        const [read] = seen;
+        assert.equal(read.rows, count + 1, 'candidates materialized for count=' + count);
+        const {examined, plan} = await explainEntries(read);
+        assert(examined <= count + 3, 'count=' + count + ' examined ' + examined);
+        console.log('REST_FOLLOWER_ACTUAL_EXPLAIN ' + JSON.stringify({count, retained: 1500, materialized: read.rows, examined, plan}));
+      }
+      for (const filter of ['', '&find[type]=sgv', '&find[type][$eq]=sgv']) {
+        seen.length = 0;
+        const path = '/api/v1/entries?count=100' + filter;
+        const response = await http('get', path).expect(200);
+        assert.deepEqual(response.body.map(row => row._id), Array.from({length: 100}, (_, i) => 'follower-' + (i + 1)));
+        assert.equal(response.headers['last-modified'], modified);
+        assert.deepEqual(seen.map(read => read.rows), [102], 'one body page, tie lookahead and independent SGV ' + path);
+        const [read] = seen;
+        const {examined, plan} = await explainEntries(read);
+        assert(examined >= 102 && examined <= 104, path + ' examined ' + examined);
+        console.log('REST_UNTYPED_FOLLOWER_EXPLAIN ' + JSON.stringify({path, examined, materialized: read.rows, plan}));
+      }
+
       seen.length = 0;
       await http('get', '/api/v1/entries.json?find[device]=missing')
         .set('If-Modified-Since', new Date(at).toUTCString()).expect(304)
-        .expect('Last-Modified', response.headers['last-modified']);
-      assert.deepEqual(seen.map(r => r.rows), [read.rows], 'conditional filtered GET only acquires the header candidate');
-      console.log('REST_FOLLOWER_ACTUAL_EXPLAIN ' + JSON.stringify({retained: 1500, materialized: read.rows, examined, plan}));
+        .expect('Last-Modified', modified);
+      assert.deepEqual(seen.map(r => r.rows), [2], 'conditional filtered GET only acquires the header candidate');
+
+      // This dated query starts beyond the private 48-hour window and goes directly to storage.
+      seen.length = 0;
+      const from = at - 1400 * 300000, to = at - 900 * 300000;
+      const history = await http('get', '/api/v1/entries/sgv?find[date][$gte]=' + from + '&find[date][$lte]=' + to + '&count=100').expect(200);
+      assert.deepEqual(history.body.map(row => row._id), Array.from({length: 100}, (_, i) => 'follower-' + (900 + i)));
+      assert.equal(seen.length, 1, 'the supplied range goes straight to storage');
+      const historicPlan = await explainEntries(seen[0]);
+      console.log('REST_DATED_ENTRIES_EXPLAIN ' + JSON.stringify({count: 100, materialized: seen[0].rows, ...historicPlan}));
+      assert(historicPlan.examined <= 103, 'indexed historical page examined ' + historicPlan.examined);
+
+      await withTenant(admin, A, () => admin.query(`INSERT INTO ${entryTable} (tenant_id,id_kind,doc)
+        SELECT tenant_id,id_kind,doc || '{"_id":"follower-tied"}'::jsonb FROM ${entryTable}
+        WHERE tenant_id=$1 AND _id='follower-100'`, [A]));
+      const url = '/api/v1/entries/sgv.json?count=100';
+      const expected = await request(oldApp).get(url + '&token=synthetic-a').set('Host', 'a.example.test').expect(200);
+      seen.length = 0;
+      const tied = await http('get', url).expect(200);
+      assert.equal(tied.text, expected.text, 'page membership and order at a tied boundary');
+      assert.equal(tied.headers['last-modified'], expected.headers['last-modified']);
+      assert(seen.some(r => r.rows > 101), 'boundary tie uses the original cache ordering');
     } finally {
       connection.query = clocked.query = query;
       await admin.query(`DELETE FROM ${entryTable} WHERE tenant_id=$1 AND doc->>'device'='follower-deep'`, [A]);
@@ -197,7 +239,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       }
     }
     async function compare(version, suffix, {method = 'get', since, status = 200} = {}) {
-      const path = '/api/v' + version + '/entries/' + suffix;
+      const path = '/api/v' + version + '/entries' + suffix;
       const call = target => {
         const test = request(target)[method](path + '&token=synthetic-a').set('Host', 'a.example.test').set('Accept', 'application/json');
         return since ? test.set('If-Modified-Since', since) : test;
@@ -208,6 +250,36 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       return actual;
     }
     await withRows([
+      ['string', row('header-sgv', at - 5000)],
+      ['string', row('base-cal', at - 2000, {type: 'cal', sgv: undefined, slope: 1})],
+      ['string', row('base-mbg', at - 1000, {type: 'mbg', sgv: undefined, mbg: 0})],
+      ['string', row('base-other', at, {type: 'other', sgv: undefined})],
+      ['string', row('base-old', at - 3 * day, {type: 'mbg', sgv: undefined, mbg: 102})]
+    ], async () => {
+      for (const version of [1, 2]) {
+        for (const [filter, id] of [['', 'base-other'], ['&find[type]=mbg', 'base-mbg'], ['&find[type][$eq]=cal', 'base-cal']]) {
+          const suffix = 'count=1' + filter;
+          assert.deepEqual((await compare(version, '.json?' + suffix)).body.map(entry => entry._id), [id]);
+          const conditional = await compare(version, '.json?' + suffix, {since: new Date(at - 3000).toUTCString(), status: 304});
+          assert.equal(conditional.headers['last-modified'], new Date(at - 5000).toUTCString());
+          await compare(version, '.json?' + suffix, {method: 'head'});
+        }
+        assert.deepEqual((await compare(version, '.json?count=2&find[type]=mbg')).body.map(entry => entry._id), ['base-mbg', 'base-old']);
+      }
+    });
+    await withRows([['string', row('base-zero', at - 1000, {sgv: 0})], ['string', row('base-header', at - 5000)],
+      ['string', row('base-cal', at, {type: 'cal', sgv: undefined})]], async () => {
+      for (const filter of ['', '&find[type][$eq]=cal', '&find[type]=sgv']) {
+        const response = await compare(1, '.json?count=1' + filter, {since: new Date(at - 3000).toUTCString(), status: 304});
+        assert.equal(response.headers['last-modified'], new Date(at - 5000).toUTCString());
+      }
+      await compare(1, '.json?count=3', {since: new Date(at - 3000).toUTCString(), status: 304});
+    });
+    await withRows([['string', row('base-sparse', at, {type: 'other', sgv: 0})],
+      ['string', row('base-tie', at)], ['string', row('base-older', at - 5000)]], async () => {
+      for (const filter of ['', '&find[type]=sgv', '&find[type][$eq]=sgv']) await compare(2, '.json?count=1' + filter);
+    });
+    await withRows([
       ['string', row('present-zero', at - 1000, {type: 'other', sgv: 0})],
       ['string', row('older', at - 2000)],
       ['string', row('deleted', at, {isValid: false})],
@@ -217,11 +289,11 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     ], async () => {
       for (const version of [1, 2]) {
         for (const [model, key] of [['sgv', 'present-zero'], ['mbg', 'mbg'], ['cal', 'cal']]) {
-          const response = await compare(version, model + '.json?count=1');
+          const response = await compare(version, '/' + model + '.json?count=1');
           assert.deepEqual(response.body.map(doc => doc._id), [key]);
         }
-        await compare(version, 'sgv.json?count=1', {method: 'head'});
-        await compare(version, 'sgv.json?count=1', {since: new Date(at + 1000).toUTCString(), status: 304});
+        await compare(version, '/sgv.json?count=1', {method: 'head'});
+        await compare(version, '/sgv.json?count=1', {since: new Date(at + 1000).toUTCString(), status: 304});
       }
     });
     await withRows([
@@ -237,19 +309,19 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     });
     for (const [name, value] of [['mills', at], ['sysTime', new Date(at).toISOString()], ['created_at', new Date(at).toISOString()]]) {
       await withRows([['string', row('recent-date', at - 1000)], ['string', row('effective', at - 10000, {[name]: value})]], async () => {
-        const response = await compare(1, 'sgv.json?count=1');
+        const response = await compare(1, '/sgv.json?count=1');
         assert.deepEqual(response.body.map(doc => doc._id), ['effective'], name + ' sets cache order');
       });
     }
     const alias = '1234567890abcdef12345678';
     await withRows([['string', row(alias, at, {sgv: 101})], ['objectid', row(alias, at, {sgv: 102})]], async () => {
-      await compare(1, 'sgv.json?count=1');
-      const response = await compare(2, 'sgv.json?count=2');
+      await compare(1, '/sgv.json?count=1');
+      const response = await compare(2, '/sgv.json?count=2');
       assert.deepEqual(response.body.map(doc => doc.sgv).sort(), [101, 102]);
     });
     for (const [days, expected] of [[3, ['sparse']], [5, []], [-1, ['sparse']]]) {
       await withRows([['string', row('sparse', at - days * day)]], async () => {
-        const response = await compare(1, 'sgv.json?count=1');
+        const response = await compare(1, '/sgv.json?count=1');
         assert.deepEqual(response.body.map(doc => doc._id), expected);
       });
     }
@@ -346,7 +418,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     const fromMongo = require('../lib/storage/filter').fromMongo;
     const filter = fromMongo({ device: 'explain-fixture' });
     await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO ${ns}_entries.entries (tenant_id,id_kind,doc)
-      SELECT $1, 'string', jsonb_build_object('_id','plan-' || i, 'date',$2::bigint-i*300000::bigint,'sgv',100,'type','sgv','device','explain-fixture')
+      SELECT $1, 'string', jsonb_build_object('_id','plan-' || i, 'date',$2::bigint-GREATEST(i,2)*300000::bigint,'sgv',100,'type','sgv','device','explain-fixture')
       FROM generate_series(1,1500) i`, [A, at]));
     await admin.query(`ANALYZE ${ns}_entries.entries`);
     let captured;
@@ -356,6 +428,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     try {
       const full = await scope.withTenant(A, () => read.findFiltered(filter, { sort: { date: 1 } }));
       assert.equal(full.length, 1500);
+      // Two newest rows share a timestamp, so this route exercises the full cache fallback.
       await http('get', '/api/v1/entries/sgv?count=50').expect(200);
       const actual = captured;
       assert(actual.sql.startsWith('SELECT id_kind, doc,'), 'plan uses actual HTTP cache acquisition SQL');
@@ -410,7 +483,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         const response = await http('get', '/api/v' + version + '/entries').expect(503);
         assert.deepEqual(response.body, { error: 'TENANT_SNAPSHOT_UNAVAILABLE' });
         const authorization = queries.findIndex(sql => sql.includes('s.subject_id, s.display_name'));
-        const clinical = queries.findIndex(sql => sql.startsWith('SELECT id_kind, doc'));
+        const clinical = queries.findIndex(readsEntries);
         assert(authorization >= 0 && clinical > authorization, 'CURRENT_AUTHORITY_PRECEDES_FAILED_CLINICAL_READ');
       }
     } finally { await admin.query(`GRANT SELECT ON ${ns}_entries.entries TO ${role}`); }
