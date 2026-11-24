@@ -25,7 +25,8 @@ function checkpointInputs ({ namespaces, tenants, realtime, evaluator, realtimeR
     let columns = ['checkpoint', 'projection', 'contract_digest'];
     if (record.candidatePath) {
       selection[kind] = record.candidatePath;
-      const typedColumns = index ? require('../../lib/pgstream/work-state').COLUMNS : require('../../lib/pgstream/realtime-receipt').COLUMNS;
+      // Realtime's checkpoint row carries no typed columns: level delivery keeps no receipt.
+      const typedColumns = index ? require('../../lib/pgstream/work-state').COLUMNS : [];
       columns = [...columns, ...typedColumns];
       rows[kind + '.tenant_consumer_checkpoint'] = rows[kind + '.tenant_consumer_checkpoint'].map(row => ({ ...row, ...(index ? {
         work_version: 2, work_observed: ['9007199254740993', null, '9223372036854775807', null, null, null],
@@ -36,7 +37,7 @@ function checkpointInputs ({ namespaces, tenants, realtime, evaluator, realtimeR
         delivery_revision: '9007199254740993', delivery_ack_revision: '9007199254740992',
         output_identity: 'c'.repeat(64), output_digest: 'd'.repeat(64), output_revision: '1', output_restore_generation: '9223372036854775807',
         projection: [{ kind: 'evaluator-work-v2', output: { tenant: row.tenant_id, frame: { values: [false, 0, null, '9007199254740993'] }, rows: [] } }]
-      } : { output_target: '9007199254740994', output_received: '9007199254740993', output_completed: '9007199254740992', output_owner: tenants[0], output_retry_at: null, output_delivery_version: 1 }) }));
+      } : {}) }));
     }
     grants.push({ role: roles[index], kind, table: 'schema_migrations', privileges: ['SELECT'] },
       { role: roles[index], kind, table: 'tenant_consumer_checkpoint', privileges: ['SELECT'],

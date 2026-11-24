@@ -5,7 +5,6 @@ const { Client } = require('pg');
 const { optInSuite } = require('./support/opt-in');
 const { run } = require('../lib/migrations/postgres');
 const readiness = require('../lib/server/serve/evaluator-readiness');
-const columns = require('../lib/pgstream/realtime-receipt').COLUMNS;
 optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI, 'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('completed-output realtime native readiness scope', function () {
   this.timeout(30000);
   const prefix = 'rt_scope_' + crypto.randomBytes(6).toString('hex');
@@ -24,7 +23,6 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);createdRole = true;
     for (const namespace of [...Object.values(namespaces), source, clinical]) await admin.query('GRANT USAGE ON SCHEMA "' + namespace + '" TO "' + role + '"');
     await admin.query(`GRANT SELECT ON ${table},"${namespaces.checkpoint}".schema_migrations,"${namespaces.clock}".tenant_write_clock,"${namespaces.clock}".schema_migrations,"${source}".tenant_consumer_checkpoint TO "${role}"`);
-    await admin.query(`GRANT UPDATE (${columns.map(column => '"' + column + '"').join(',')}) ON ${table} TO "${role}"`);
     const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);uri.username = role;uri.password = password;
     reader = new Client({ connectionString: uri.toString(), connectionTimeoutMillis: 5000 });await reader.connect();
   });
@@ -32,14 +30,10 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     await reader?.end();
     if (admin) { try { if (connected) { for (const namespace of [...Object.values(namespaces), source, clinical]) await admin.query('DROP SCHEMA IF EXISTS "' + namespace + '" CASCADE');if (createdRole) { await admin.query('DROP OWNED BY "' + role + '"');await admin.query('DROP ROLE "' + role + '"'); } } } finally { await admin.end(); } }
   });
-  it('passes with no clinical access or legacy checkpoint UPDATE and refuses a revoked delivery column', async function () {
+  it('passes as a reader: no clinical access and no UPDATE on its checkpoint table', async function () {
     await readiness.screen(reader, config);
     await assert.rejects(reader.query('SELECT * FROM "' + clinical + '".entries'), error => error.code === '42501');
     await assert.rejects(reader.query('UPDATE ' + table + ' SET projection=NULL'), error => error.code === '42501');
-    await admin.query(`REVOKE UPDATE(output_received) ON ${table} FROM "${role}"`);
-    try { await assert.rejects(readiness.screen(reader, config), /unsafe evaluator table privileges/); }
-    finally { await admin.query(`GRANT UPDATE(output_received) ON ${table} TO "${role}"`); }
-    await readiness.screen(reader, config);
   });
   it('rejects added clinical SELECT and obsolete checkpoint UPDATE, then passes restored grants', async function () {
     await readiness.screen(reader, config);
@@ -48,7 +42,7 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
     finally { await admin.query(`REVOKE SELECT ON "${clinical}".entries FROM "${role}"`); }
     await readiness.screen(reader, config);
     await admin.query(`GRANT UPDATE(checkpoint,projection,contract_digest) ON ${table} TO "${role}"`);
-    try { await assert.rejects(readiness.screen(reader, config), /unsafe evaluator table privileges/); }
+    try { await assert.rejects(readiness.screen(reader, config), /unsafe evaluator scope/); }
     finally { await admin.query(`REVOKE UPDATE(checkpoint,projection,contract_digest) ON ${table} FROM "${role}"`); }
     await readiness.screen(reader, config);
   });

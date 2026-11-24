@@ -4,11 +4,11 @@ const canonical = require('../lib/server/ordinary-deployment-grants');
 const fixture = require('./fixtures/realtime-preview/bootstrap-grants');
 const layoutFixture = require('./fixtures/multitenant-registry-layout');
 const readiness = require('../lib/server/serve/evaluator-readiness');
-const receipt = require('../lib/pgstream/realtime-receipt').COLUMNS;
 const layout = () => require('./fixtures/realtime-preview/bootstrap-plan').layout('0123456789abcdef');
 // SQL-map projection only; PostgreSQL execution and RLS remain native checks.
 function projected(sql, l) {
-  const columns = new Set(receipt), table = '"' + l.namespaces.rt_checkpoint + '"."tenant_consumer_checkpoint"', who = '"' + l.roles.realtime + '"';
+  // Realtime is a reader: its maintained init grants it no UPDATE on its checkpoint table.
+  const columns = new Set(), table = '"' + l.namespaces.rt_checkpoint + '"."tenant_consumer_checkpoint"', who = '"' + l.roles.realtime + '"';
   for (const statement of sql) {
     if (!statement.includes(table) || !statement.endsWith(who)) continue;
     const updates = /UPDATE\(([^)]+)\)/.exec(statement);
@@ -20,7 +20,7 @@ function projected(sql, l) {
     if (statement.includes('FROM pg_roles WHERE rolname=current_user')) return {rows:[{rolsuper:false}]};
     if (statement.includes('WITH identities')) return {rows:[{creates:false,unrelated:false}]};
     const own = values[0] === l.namespaces.rt_checkpoint + '.tenant_consumer_checkpoint';
-    return {rows:[{secured:true,reads:true,forbidden:false,updates:own,bookkeeping:own && receipt.every(column=>columns.has(column)),extra:own && [...columns].some(column=>!receipt.includes(column))}]};
+    return {rows:[{secured:true,reads:true,forbidden:false,updates:own && columns.size>0,bookkeeping:own,extra:own && columns.size>0}]};
   }};
 }
 function config(l) { return {namespaces:{clock:l.namespaces.clock,checkpoint:l.namespaces.rt_checkpoint},completedOutput:{namespace:l.namespaces.eval_checkpoint}}; }
@@ -55,15 +55,15 @@ describe('ordinary deployment shared grant composition (source protocol)', funct
     assert(sql.includes('tenant_registry_tenants(uuid, integer) TO "'+l.roles.evaluator+'"'));
     assert.throws(()=>canonical.registryGrants({...l,roles:{api:'invalid-role'}}),/explicit roles/);
   });
-  it('repeated base retirement preserves exact receipt rights supplied by maintained init', async function () {
+  it('repeated base retirement leaves realtime without any update right', async function () {
     const l=layout(), sql=fixture.grants(l);
     assert(!canonical.realtimeGrants(l).some(value=>value.startsWith('GRANT ')&&value.includes('UPDATE')));
     await readiness.screen(projected(sql,l),config(l));
     await readiness.screen(projected([...sql,...sql],l),config(l));
   });
-  it('actual readiness refuses old cursor and unknown extra rights; restored map passes', async function () {
+  it('actual readiness refuses the old cursor, the retired receipt and unknown extra rights; restored map passes', async function () {
     const l=layout(), sql=fixture.grants(l), table='"'+l.namespaces.rt_checkpoint+'"."tenant_consumer_checkpoint"', role='"'+l.roles.realtime+'"';
-    for(const extra of ['checkpoint,projection,contract_digest','unknown_future_column']){
+    for(const extra of ['checkpoint,projection,contract_digest',require('../lib/pgstream/realtime-receipt-removal-sql').COLUMNS.join(','),'unknown_future_column']){
       await assert.rejects(readiness.screen(projected([...sql,'GRANT UPDATE('+extra+') ON '+table+' TO '+role],l),config(l)),/unsafe evaluator table privileges/);
       await readiness.screen(projected(sql,l),config(l));
     }

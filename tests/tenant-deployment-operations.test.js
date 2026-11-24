@@ -339,12 +339,12 @@ describe('deployment catalogue admission and tenant fixture controls', function 
         assert.equal(rows[0].work_observed[0], '9007199254740993');assert.equal(rows[0].work_observed[1], null);
         assert.equal(rows[0].output_restore_generation, '9223372036854775807');assert.deepEqual(rows[0].projection[0].output.frame.values, [false, 0, null, '9007199254740993']);
         assert.throws(() => require('../lib/pgstream/checkpoint').create({typed:false}), /EVALUATOR_CHECKPOINT_TYPED_REQUIRED/, 'retired reader is refused before it can consume a restored projection');
-      } else assert.equal(rows[0].output_received, '9007199254740993');
+      } else assert.equal('output_received' in rows[0], false, 'realtime rows carry no receipt');
     }
     const selected = admission.catalogues.filter(entry => entry.kind.includes('checkpoint'));
     const work = selected.map(entry => ({ kind: entry.kind, table: 'tenant_consumer_checkpoint', columns: Object.keys(checkpoints.rows[entry.kind + '.tenant_consumer_checkpoint'][0]).map(name => ({ name, identity: false })) }));
     const compiled = await require('../tools/lab/tenant-whole-c/fixture-acl').prepareAcl({ query: async () => { throw Error('no identity sequence permitted'); } }, common.plan(selected), work, checkpoints.acl);
-    assert(compiled.statements.some(sql => sql.includes('"output_received"')));assert(compiled.statements.some(sql => sql.includes('"work_observed"')));
+    assert(!compiled.statements.some(sql => sql.includes('"output_received"')), 'realtime holds no receipt column right');assert(compiled.statements.some(sql => sql.includes('"work_observed"')));
     assert(!compiled.statements.some(sql => /GRANT (?:ALL|UPDATE) ON/.test(sql)));
     const mutated = structuredClone(checkpoints.acl);mutated.grants.find(grant => grant.kind === 'checkpoint' && grant.columnPrivileges).columnPrivileges.UPDATE.push('work_observed');
     await assert.rejects(require('../tools/lab/tenant-whole-c/fixture-acl').prepareAcl({}, common.plan(selected), work, mutated), { code: 'RESTORE_ACL_COLUMN_INVALID' });
