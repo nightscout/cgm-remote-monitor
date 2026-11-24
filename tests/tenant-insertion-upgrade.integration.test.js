@@ -29,6 +29,51 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     if (admin) await admin.end();
     if (errors.length) throw new globalThis.AggregateError(errors, 'Owned upgrade cleanup refused');
   });
+  it('removes only the numeric entries indexes on populated upgrade and fresh installation', async () => {
+    const catalogue = catalogues.entries;
+    const previous = catalogue.migrations.findIndex(m => m.name === '0101_entries_redundant_indexes');
+    assert.ok(previous >= 0);
+    const old = {...catalogue, migrations: catalogue.migrations.slice(0, previous + 1)};
+    const dropped = ['entries_tenant_mbg', 'entries_tenant_sgv'];
+    const upgraded = prefix + '_numeric_upgrade', fresh = prefix + '_numeric_fresh';
+    const options = namespace => ({direct: true, connectionString: uri, namespace, catalogue});
+    const indexes = async namespace => (await admin.query(
+      "SELECT indexname FROM pg_indexes WHERE schemaname=$1 AND tablename='entries' ORDER BY indexname",
+      [namespace])).rows.map(row => row.indexname);
+    const table = q(upgraded) + '.entries';
+    const values = async () => (await admin.query(
+      'SELECT tenant_id, id_kind, doc, sgv, mbg, insertion_ordinal FROM ' + table + ' ORDER BY tenant_id')).rows;
+
+    for (const ns of [upgraded, fresh]) {
+      await admin.query('CREATE SCHEMA ' + q(ns));
+      schemas.push(ns);
+    }
+    await run('up', {...options(upgraded), catalogue: old});
+    const before = await indexes(upgraded);
+    for (const name of dropped) assert.ok(before.includes(name), name);
+    await admin.query('BEGIN');
+    try {
+      for (const [tenant, doc] of [[A, {_id:'shared', type:'sgv', sgv:110}], [B, {_id:'shared', type:'mbg', mbg:120}]]) {
+        await admin.query("SELECT set_config('app.current_tenant_id',$1,true)", [tenant]);
+        await admin.query('INSERT INTO ' + table + ' (tenant_id,id_kind,doc) VALUES ($1,$2,$3)', [tenant,'string',doc]);
+      }
+      await admin.query('COMMIT');
+    } catch (error) {
+      await admin.query('ROLLBACK');
+      throw error;
+    }
+    const populated = await values();
+    await run('up', options(upgraded));
+    await run('up', options(fresh));
+    const expected = before.filter(name => !dropped.includes(name));
+    for (const ns of [upgraded, fresh]) {
+      assert.deepEqual(await indexes(ns), expected);
+      assert.equal((await run('check', options(ns))).current, true);
+      assert.deepEqual((await run('up', options(ns))).done, []);
+    }
+    assert.deepEqual(await values(), populated);
+  });
+
   for (const domain of ['treatments','devicestatus','profile']) for (const populated of [false,true]) {
     it('upgrades standard size-projected '+domain+' only when the ordering source is empty ('+populated+')',async()=>{
       const namespace=prefix+'_standard_'+domain+'_'+(populated?'full':'empty');schemas.push(namespace);
@@ -57,12 +102,12 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     // that historical boundary or grant the old source a tenant-local trigger.
     const conversion=catalogue.migrations.findIndex(m=>m.operation?.kind==='tenant-insertion-v1');
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
-    assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
+    assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation || m.name),[
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
       {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
-      // 0101_<domain>_redundant_indexes, an ordinary migration where one exists.
-      ...(['entries','treatments','devicestatus'].includes(domain)?[undefined]:[]),
-      ...(domain==='devicestatus'?[undefined]:[])
+      ...(['entries','treatments','devicestatus'].includes(domain)?['0101_'+domain+'_redundant_indexes']:[]),
+      ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays']:[]),
+      ...(domain==='entries'?['0102_entries_numeric_indexes_removed']:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:

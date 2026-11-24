@@ -125,6 +125,14 @@
         "DROP INDEX entries_tenant_date"
       ],
       "checksum": "8056082fbd56466078caceeacedd320ede295a86f3f3de174c35aee3e5145f3f"
+    },
+    {
+      "name": "0102_entries_numeric_indexes_removed",
+      "up": [
+        "DROP INDEX entries_tenant_sgv",
+        "DROP INDEX entries_tenant_mbg"
+      ],
+      "checksum": "9a420573dc5b34dadc1ed98e831ef136f26e04e674a0a95e356c270dd177a9fb"
     }
   ]
 }
