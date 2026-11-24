@@ -76,6 +76,8 @@ const INVENTORY = [
     note: 'native typed observed/completed/due/output state and independent output handoff with current source authority' },
   { file: 'tests/postgres-indexed-lookup.test.js', flags: {}, shared: ['postgres', 'mongo'], own: [], gate: PENDING,
     note: 'upload target, _id and identifier lookups (v3 read/create/update/delete, v1 identifier uploads) read an index range, not the tenant history; answers equal to MongoDB for every bounded field' },
+  { file: 'tests/postgres-latest-treatments.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'v1 ten-treatment page under RLS, both catalogue tie orders, off-page array refusal and indexed time reads' },
   { file: 'tests/postgres-latest-devicestatus.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'v1 latest status under RLS, whole-page array refusal, tie membership and index-bounded history reads' },
   { file: 'tests/postgres-identifier-array-migration.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

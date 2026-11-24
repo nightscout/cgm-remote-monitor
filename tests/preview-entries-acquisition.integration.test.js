@@ -32,6 +32,8 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
   let owned = false, containerId, pinnedImage, admin, connection, clocked, authority, app, oldApp, previous, closed = false;
   let suspended = false, checks = 0, queries = [], witnessing = false, witnesses = [];
   const at = Date.now() - 1000;
+  const entryTable = ns + '_entries.entries';
+  const readsEntries = sql => /^(SELECT|WITH)\s/i.test(sql) && sql.replace(/"/g, '').includes(entryTable);
   const unavailable = async () => { throw new Error('owner service outside fixture'); };
   const http = (method, path, tenant = A, token = tenant === A ? 'synthetic-a' : 'synthetic-b') =>
     request(app)[method](path + (path.includes('?') ? '&' : '?') + 'token=' + token)
@@ -80,12 +82,12 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       const input = args[0], text = typeof input === 'string' ? input : input.text;
       queries.push(text);
       const phase = text.includes('s.subject_id, s.display_name') ? 'authority'
-        : text.startsWith('SELECT id_kind, doc') ? 'entries' : null;
+        : readsEntries(text) ? 'entries' : null;
       if (witnessing && phase) {
         // Native-only diagnostic fields identify the actual two SELECTs. The
         // production adapters ignore these extra columns; no extra TX/query.
-        const tagged = text.replace(/SELECT /, "SELECT pg_backend_pid() AS witness_pid,txid_current()::text AS witness_txid,");
-        args[0] = typeof input === 'string' ? tagged : { ...input, text: tagged };
+        const tagged = 'SELECT witnessed.*, pg_backend_pid() AS witness_pid, txid_current()::text AS witness_txid FROM (' + text + ') witnessed';
+        args[0] = typeof input === 'string' ? tagged : { ...input, name: undefined, text: tagged };
       }
       const result = await query(...args);
       if (witnessing && phase) witnesses.push({ phase, pid: result.rows[0]?.witness_pid, txid: result.rows[0]?.witness_txid });
@@ -134,6 +136,125 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
         console.log('REST_NATIVE_REMOVED '+JSON.stringify({id:containerId,pinnedImage,containerAbsent:true,volumesAbsent:true,volumeCount:volumes.length}));
       } } finally { scope.setTenancyMode(previous); } } } }
   });
+  it('bounds physical candidate work for an ordinary count=1 follower with deep retained history', async () => {
+    const withTenant = require('./fixtures/tenant-insertion-grants').withTenant;
+    await withTenant(admin, A, () => admin.query(`INSERT INTO ${entryTable} (tenant_id,id_kind,doc)
+      SELECT $1, 'string', jsonb_build_object('_id','follower-' || i, 'date',millis, 'sysTime',iso, 'dateString',iso,
+        'type','sgv','sgv',110,'device','follower-deep') FROM generate_series(1,1500) i
+      CROSS JOIN LATERAL (SELECT $2::bigint-i*300000::bigint AS millis) stamp
+      CROSS JOIN LATERAL (SELECT to_char(to_timestamp(millis/1000.0) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS iso) stamp_text`, [A, at]));
+    const query = connection.query;
+    const seen = [];
+    connection.query = clocked.query = async (input, params) => {
+      const result = await query(input, params);
+      const text = typeof input === 'string' ? input : input.text;
+      if (readsEntries(text)) seen.push({text, params: params || input.values, rows: result.rows.length});
+      return result;
+    };
+    try {
+      await admin.query('ANALYZE ' + entryTable);
+      const response = await http('get', '/api/v1/entries/sgv.json?count=1').expect(200);
+      assert.deepEqual(response.body.map(row => row._id), ['follower-1']);
+      assert.equal(response.headers['last-modified'], new Date(at - 300000).toUTCString());
+      assert.equal(seen.length, 1, 'ordinary typed GET acquires its entries in one statement');
+      const [read] = seen;
+      assert(read.rows > 0 && read.rows <= 2, 'count=1 materialized ' + read.rows + ' rows; expected at most the candidate and its boundary tie');
+      const result = await scope.withTenant(A, () => query('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' + read.text, read.params));
+      const plan = result.rows[0]['QUERY PLAN'][0].Plan;
+      const visits = [];
+      function inspect(node) {
+        if (node['Relation Name'] === 'entries') visits.push(node['Actual Loops'] *
+          (node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) + (node['Rows Removed by Index Recheck'] || 0)));
+        (node.Plans || []).forEach(inspect);
+      }
+      inspect(plan);
+      const examined = visits.reduce((sum, n) => sum + n, 0);
+      assert(visits.length && examined <= 4, 'count=1 seeks bounded candidates on 1,500 ordinary rows: ' + examined);
+      seen.length = 0;
+      await http('get', '/api/v1/entries.json?find[device]=missing')
+        .set('If-Modified-Since', new Date(at).toUTCString()).expect(304)
+        .expect('Last-Modified', response.headers['last-modified']);
+      assert.deepEqual(seen.map(r => r.rows), [read.rows], 'conditional filtered GET only acquires the header candidate');
+      console.log('REST_FOLLOWER_ACTUAL_EXPLAIN ' + JSON.stringify({retained: 1500, materialized: read.rows, examined, plan}));
+    } finally {
+      connection.query = clocked.query = query;
+      await admin.query(`DELETE FROM ${entryTable} WHERE tenant_id=$1 AND doc->>'device'='follower-deep'`, [A]);
+    }
+  });
+
+  it('keeps typed follower representations, cache ordering and sparse storage fallback across v1 and v2', async () => {
+    const withTenant = require('./fixtures/tenant-insertion-grants').withTenant;
+    const day = 86400000;
+    const row = (id, date, fields) => ({_id: id, type: 'sgv', sgv: 111, date, device: 'follower-parity', ...fields});
+    async function withRows(docs, check) {
+      try {
+        await withTenant(admin, A, async () => {
+          for (const [kind, doc] of docs) await admin.query(`INSERT INTO ${entryTable} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`, [A, kind, doc]);
+        });
+        await check();
+      } finally {
+        await admin.query(`DELETE FROM ${entryTable} WHERE tenant_id=$1 AND doc->>'device'='follower-parity'`, [A]);
+      }
+    }
+    async function compare(version, suffix, {method = 'get', since, status = 200} = {}) {
+      const path = '/api/v' + version + '/entries/' + suffix;
+      const call = target => {
+        const test = request(target)[method](path + '&token=synthetic-a').set('Host', 'a.example.test').set('Accept', 'application/json');
+        return since ? test.set('If-Modified-Since', since) : test;
+      };
+      const expected = await call(oldApp).expect(status), actual = await call(app).expect(status);
+      assert.equal(actual.text, expected.text, 'representation ' + path);
+      for (const h of ['last-modified', 'content-type', 'etag']) assert.equal(actual.headers[h], expected.headers[h], h + ' ' + path);
+      return actual;
+    }
+    await withRows([
+      ['string', row('present-zero', at - 1000, {type: 'other', sgv: 0})],
+      ['string', row('older', at - 2000)],
+      ['string', row('deleted', at, {isValid: false})],
+      ['string', row('future', at + day)],
+      ['string', row('mbg', at - 3000, {type: 'mbg', sgv: undefined, mbg: 115})],
+      ['string', row('cal', at - 4000, {type: 'cal', sgv: undefined, slope: 2})]
+    ], async () => {
+      for (const version of [1, 2]) {
+        for (const [model, key] of [['sgv', 'present-zero'], ['mbg', 'mbg'], ['cal', 'cal']]) {
+          const response = await compare(version, model + '.json?count=1');
+          assert.deepEqual(response.body.map(doc => doc._id), [key]);
+        }
+        await compare(version, 'sgv.json?count=1', {method: 'head'});
+        await compare(version, 'sgv.json?count=1', {since: new Date(at + 1000).toUTCString(), status: 304});
+      }
+    });
+    await withRows([
+      ['string', row('zero', at - 1000, {sgv: 0})],
+      ['string', row('header', at - 2000)]
+    ], async () => {
+      const modified = new Date(at - 2000).toUTCString();
+      for (const target of [oldApp, app]) {
+        await request(target).get('/api/v1/entries.json?find[device]=missing&token=synthetic-a')
+          .set('Host', 'a.example.test').set('If-Modified-Since', new Date(at).toUTCString())
+          .expect(304).expect('Last-Modified', modified);
+      }
+    });
+    for (const [name, value] of [['mills', at], ['sysTime', new Date(at).toISOString()], ['created_at', new Date(at).toISOString()]]) {
+      await withRows([['string', row('recent-date', at - 1000)], ['string', row('effective', at - 10000, {[name]: value})]], async () => {
+        const response = await compare(1, 'sgv.json?count=1');
+        assert.deepEqual(response.body.map(doc => doc._id), ['effective'], name + ' sets cache order');
+      });
+    }
+    const alias = '1234567890abcdef12345678';
+    await withRows([['string', row(alias, at, {sgv: 101})], ['objectid', row(alias, at, {sgv: 102})]], async () => {
+      await compare(1, 'sgv.json?count=1');
+      const response = await compare(2, 'sgv.json?count=2');
+      assert.deepEqual(response.body.map(doc => doc.sgv).sort(), [101, 102]);
+    });
+    for (const [days, expected] of [[3, ['sparse']], [5, []], [-1, ['sparse']]]) {
+      await withRows([['string', row('sparse', at - days * day)]], async () => {
+        const response = await compare(1, 'sgv.json?count=1');
+        assert.deepEqual(response.body.map(doc => doc._id), expected);
+      });
+    }
+  });
+
   it('persists each tenant through actual POST then reads matching content with no unrelated SQL', async () => {
     for (const [tenant, sgv] of [[A, 123], [B, 234]]) {
       queries = [];
@@ -235,7 +356,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
     try {
       const full = await scope.withTenant(A, () => read.findFiltered(filter, { sort: { date: 1 } }));
       assert.equal(full.length, 1500);
-      await http('get', '/api/v1/entries/sgv?count=1').expect(200);
+      await http('get', '/api/v1/entries/sgv?count=50').expect(200);
       const actual = captured;
       assert(actual.sql.startsWith('SELECT id_kind, doc,'), 'plan uses actual HTTP cache acquisition SQL');
       assert(!actual.sql.includes('OVER ()'), 'full read has row-local refusal guard');
@@ -253,7 +374,7 @@ optInSuite(process.env.NS_REST_ACQUISITION_NATIVE === '1', 'NS_REST_ACQUISITION_
       const newRows = await scope.withTenant(A, () => query(actual.sql, actual.params));
       assert.deepEqual(newRows.rows, oldRows.rows);
       const indexes = (await admin.query('SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=$1 AND tablename=$2', [ns + '_entries', 'entries'])).rows;
-      console.log('REST_ENTRY_ACTUAL_EXPLAIN ' + JSON.stringify({ source: 'HTTP /api/v1/entries/sgv?count=1', sql: actual.sql, params: actual.params, indexes, oldPlan, newPlan }));
+      console.log('REST_ENTRY_ACTUAL_EXPLAIN ' + JSON.stringify({ source: 'HTTP /api/v1/entries/sgv?count=50', sql: actual.sql, params: actual.params, indexes, oldPlan, newPlan }));
       for (const bad of [[2000], { value: 2000 }]) {
         await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(`INSERT INTO ${ns}_entries.entries (tenant_id,id_kind,doc) VALUES ($1,'string',$2)`,
           [A, { _id: 'plan-bad', date: bad, sgv: 100, device: 'explain-fixture' }]));

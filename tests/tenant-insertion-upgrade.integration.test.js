@@ -29,7 +29,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     if (admin) await admin.end();
     if (errors.length) throw new globalThis.AggregateError(errors, 'Owned upgrade cleanup refused');
   });
-  it('removes only the numeric entries indexes on populated upgrade and fresh installation', async () => {
+  it('installs the same reviewed entries indexes on populated upgrade and fresh installation', async () => {
     const catalogue = catalogues.entries;
     const previous = catalogue.migrations.findIndex(m => m.name === '0101_entries_redundant_indexes');
     assert.ok(previous >= 0);
@@ -65,7 +65,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     const populated = await values();
     await run('up', options(upgraded));
     await run('up', options(fresh));
-    const expected = before.filter(name => !dropped.includes(name));
+    const expected = [...before.filter(name => !dropped.includes(name)), 'entries_tenant_follower_exception'].sort();
     for (const ns of [upgraded, fresh]) {
       assert.deepEqual(await indexes(ns), expected);
       assert.equal((await run('check', options(ns))).current, true);
@@ -107,7 +107,8 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
       {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
       ...(['entries','treatments','devicestatus'].includes(domain)?['0101_'+domain+'_redundant_indexes']:[]),
       ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays']:[]),
-      ...(domain==='entries'?['0102_entries_numeric_indexes_removed']:[])
+      ...(domain==='treatments'?['0102_treatments_created_at_arrays']:[]),
+      ...(domain==='entries'?['0102_entries_numeric_indexes_removed','0103_entries_follower_exceptions']:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:

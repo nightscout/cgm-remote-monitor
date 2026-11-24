@@ -122,6 +122,13 @@
         "DROP INDEX treatments_tenant_insertion"
       ],
       "checksum": "bb64f860ef1a462728ddfaf56bdca041896528d12a24d39d8ca935e347e5b6b3"
+    },
+    {
+      "name": "0102_treatments_created_at_arrays",
+      "up": [
+        "CREATE INDEX treatments_tenant_created_at_array ON treatments (tenant_id, created_at) WHERE jsonb_typeof(doc -> 'created_at') = 'array'"
+      ],
+      "checksum": "f2bb67118aeaa7151a4d00aed2ec39c3d45fa827ef72e010a625364e356b85cd"
     }
   ]
 }
