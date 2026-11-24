@@ -69,6 +69,7 @@ inventory before starting a resource.
 | Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
 |---|---|---|---|---|
 | `tests/postgres-latest-treatments.integration.test.js` | | PostgreSQL | | Checks the ten-treatment page in both catalogues, including ties, tenant isolation, unsupported timestamps and indexed time reads. |
+| `tests/migrations-concurrent-index.integration.test.js` | | PostgreSQL | | Checks that a migration holding one index builds it concurrently on a populated table: a writer inserts during the build, an invalid leftover is replaced, the ledger row follows the valid index, and the build has its own time bound. |
 | `tests/postgres-latest-devicestatus.integration.test.js` | | PostgreSQL | | Checks the v1 latest device-status result under tenant isolation, including ties, unsupported timestamps and an indexed read of ordinary history. |
 | `tests/native-operation-control-readiness.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | source-selected native control reads, exact consumer-port operational re-admission, refreshed grants and held-backend controls |
 | `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded typed bootstrap receipts preserve completed/output/due/pending state |
