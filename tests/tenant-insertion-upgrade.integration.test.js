@@ -57,13 +57,13 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     // that historical boundary or grant the old source a tenant-local trigger.
     const conversion=catalogue.migrations.findIndex(m=>m.operation?.kind==='tenant-insertion-v1');
     assert(conversion>0,'PRECONVERSION_SOURCE_REQUIRED');
-    assert.deepEqual(catalogue.migrations.slice(conversion).map(m=>m.operation),[
+    const tail = catalogue.migrations.slice(conversion);
+    const operations = [
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
-      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
-      // 0101_<domain>_redundant_indexes, an ordinary migration where one exists.
-      ...(['entries','treatments','devicestatus'].includes(domain)?[undefined]:[]),
-      ...(['treatments','devicestatus'].includes(domain)?[undefined]:[])
-    ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
+      {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain}
+    ];
+    assert.deepEqual(tail.slice(0, operations.length).map(m => m.operation), operations, 'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
+    assert(tail.slice(operations.length).every(m => m.operation === undefined), 'remaining migrations are ordinary SQL');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
       ['0001_'+domain,'0002_'+domain+(domain==='entries'?'_insertion_order':'_socket_order')]);

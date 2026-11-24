@@ -125,6 +125,13 @@
         "DROP INDEX entries_tenant_date"
       ],
       "checksum": "8056082fbd56466078caceeacedd320ede295a86f3f3de174c35aee3e5145f3f"
+    },
+    {
+      "name": "0103_entries_follower_exceptions",
+      "up": [
+        "CREATE INDEX entries_tenant_follower_exception ON entries (tenant_id, date) WHERE (CASE\n  WHEN jsonb_typeof(doc -> 'date') = 'array' THEN true\n  WHEN jsonb_typeof(doc -> 'date') IS DISTINCT FROM 'number' THEN false\n  WHEN date IS NULL OR (doc ->> 'date')::numeric <> date OR date NOT BETWEEN 0 AND 4102444799999 THEN true\n  WHEN (doc ? 'sgv' AND type IS DISTINCT FROM 'sgv') OR (doc ? 'mbg' AND type IS DISTINCT FROM 'mbg') THEN true\n  WHEN doc ? 'mills' THEN doc -> 'mills' IS DISTINCT FROM doc -> 'date'\n  WHEN NOT (doc ? 'created_at' OR doc ? 'sysTime') THEN false\n  ELSE (CASE WHEN doc ? 'created_at' THEN doc ->> 'created_at' ELSE doc ->> 'sysTime' END)\n       COLLATE \"C\" IS DISTINCT FROM ((jsonb_path_query_first(\n  ('\"' || (2440588 + date / 86400000)::text || ' ' || (date / 1000 % 86400)::text || '\"')::jsonb,\n  '$.datetime(\"J SSSSS\")') #>> '{}') || '.' || lpad((date % 1000)::text, 3, '0') || 'Z') COLLATE \"C\"\nEND)"
+      ],
+      "checksum": "40846ea0139f1251a46d67e0697c555ae04a3005397a2d9e31eeac896a1f239b"
     }
   ]
 }

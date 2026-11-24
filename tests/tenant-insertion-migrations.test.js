@@ -28,12 +28,13 @@ const CANDIDATES = {
 // Spike S1b (maintainer 2026-11-20: no production multitenant database; migrations
 // may change in place): entries, treatments and devicestatus 0001 now store the
 // window time columns, so their prefix hashes were recomputed.
-// These immutable prefix controls address insertion conversion/binding. The later
-// clinical-size projection and the identifier-array index are append-only
-// independent operations with their own catalogue controls.
-const INDEPENDENT = ['clinical-storage-size-v1', 'clinical-storage-size-removal-v1', 'identifier-array-index-v1'];
-const candidate = domain => ({...CANDIDATES[domain],migrations:CANDIDATES[domain].migrations.filter(m=>!INDEPENDENT.includes(m.operation?.kind)&&!m.name.endsWith('_redundant_indexes')&&!['0102_devicestatus_created_at_arrays','0102_treatments_created_at_arrays'].includes(m.name))});
-// storage-machinery-removal: the 0101 redundant-index drops follow these controls.
+// Test the historical catalogue through the binding correction. Later
+// migrations still run in the populated upgrade against the complete catalogue.
+function candidate (domain) {
+  const catalogue = CANDIDATES[domain];
+  const [prefixLength] = PREFIX[domain];
+  return { ...catalogue, migrations: catalogue.migrations.slice(0, prefixLength + 2) };
+}
 const clone = value => JSON.parse(JSON.stringify(value));
 const errorCode = code => error => error.code === code;
 

@@ -176,6 +176,111 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
       });
     }
 
+    describe('private follower entries pages', function () {
+      const tenant = '33333333-3333-4333-8333-333333333333';
+      const foreign = '44444444-4444-4444-8444-444444444444';
+      // Nominal looping-history-v2 tenant zero's first synthetic SGV.
+      const nominal = { type: 'sgv', device: 's4_history_fixture_looping_2d_v2', direction: 'Flat',
+        sgv: 108, date: 1795374300000, dateString: '2026-11-22T19:05:00.000Z', delta: 0, noise: 1,
+        filtered: 108176, unfiltered: 107776, rssi: 100, utcOffset: 0 };
+      const end = nominal.date;
+      const request = { type: 'sgv', count: 1, from: end - 172800000, to: end };
+      const scopeRead = fn => scope.withTenant(tenant, fn);
+      let storage, seen;
+      async function seed (docs, target = tenant) {
+        const rows = docs.map(encodeDocument);
+        return grants.withTenant(admin, target, () => admin.query(`INSERT INTO ${labs.entries.qualified} (tenant_id,id_kind,doc)
+          SELECT $1, k, d FROM unnest($2::text[], $3::jsonb[]) AS pair(k,d)`,
+        [target, rows.map(r => r.id_kind), rows.map(r => JSON.stringify(r.doc))]));
+      }
+      const page = (changes = {}) => scopeRead(() => storage.readFollowerEntries({ ...request, ...changes }));
+      before(function () {
+        const entries = require('../lib/server/tenant-app/entries');
+        const connection = { ...store, query (text, values) { seen = { text, values }; return store.query(text, values); } };
+        storage = entries({ source: 'v1/internal', connection, table: labs.entries.qualified }).storage;
+        assert.equal(typeof storage.readFollowerEntries, 'function');
+        assert.equal(entries({ source: 'v3', connection, table: labs.entries.qualified }).storage.readFollowerEntries, undefined);
+      });
+      beforeEach(async function () {
+        await admin.query('DELETE FROM ' + labs.entries.qualified + ' WHERE tenant_id = ANY($1::uuid[])', [[tenant, foreign]]);
+        seen = null;
+      });
+
+      it('uses the sparse exception index and a surviving ordered time index for nominal aligned times under RLS', async function () {
+        const deployed = require('../migrations/candidates/postgres-entries-v1.json').migrations.find(m => m.name === '0103_entries_follower_exceptions');
+        const { INDEX_NAME, EXCEPTION } = require('../lib/storage/postgres-follower-entries');
+        assert.deepEqual(deployed.up, [`CREATE INDEX ${INDEX_NAME} ON entries (tenant_id, date) WHERE (${EXCEPTION})`]);
+        const docs = Array.from({ length: 576 }, (_, n) => {
+          const date = end - n * 300000, iso = new Date(date).toISOString();
+          return { ...nominal, _id: 'history-' + n, date, dateString: iso, sysTime: iso,
+            ...(n % 3 === 1 ? { created_at: iso } : n % 3 === 2 ? { mills: date } : {}) };
+        });
+        await seed(docs);
+        await seed([{ _id: 'other-tenant', type: 'sgv', sgv: 99, date: [end] }], foreign);
+        await admin.query('ANALYZE ' + labs.entries.qualified);
+        assert.deepEqual(await page(), [docs[0]]);
+        const { text, values } = seen;
+        const { rows } = await scopeRead(() => store.readOnlyTransaction(() => store.query(
+          'EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ' + text, values)));
+        function walk (p) { return [p, ...(p.Plans || []).flatMap(walk)]; }
+        const nodes = walk(rows[0]['QUERY PLAN'][0].Plan);
+        assert(nodes.some(n => n['Index Name'] === INDEX_NAME));
+        assert(nodes.some(n => ['entries_tenant_type_date_datestring', 'entries_tenant_date_identifier_created_at'].includes(n['Index Name'])));
+        for (const n of nodes.filter(n => n['Relation Name'] === 'entries')) {
+          assert(n['Actual Rows'] + (n['Rows Removed by Filter'] || 0) <= 2, JSON.stringify(n));
+        }
+        assert.deepEqual(await page({ count: 10 }), docs.slice(0, 10).reverse());
+        seen = null;
+        assert.equal(await page({ count: 11 }), null);
+        assert.equal(seen, null, 'out-of-range counts must bypass the probe');
+      });
+
+      it('recognizes canonical UTC through leap day, midnight and nonzero milliseconds', async function () {
+        const dates = [1, Date.parse('2024-02-29T00:00:00.010Z'), Date.parse('2026-11-22T23:59:59.100Z')];
+        for (const date of dates) {
+          const doc = { _id: 'date-' + date, type: 'sgv', sgv: 100, date, created_at: new Date(date).toISOString() };
+          await seed([doc]);
+          assert.deepEqual(await page({ from: date, to: date }), [doc]);
+        }
+      });
+
+      it('returns sparse MBG/cal and both identity kinds in storage order, respecting visibility', async function () {
+        const hex = '65a1b2c3d4e5f60718293a4b';
+        const old = { _id: new ObjectId(hex), type: 'mbg', mbg: null, date: end - 5 };
+        const current = { _id: hex, type: 'mbg', mbg: 0, date: end };
+        const cal = { _id: 'cal', type: 'cal', date: end };
+        await seed([old, current, cal,
+          { _id: 'deleted', type: 'mbg', mbg: 1, date: end, isValid: [false] },
+          { _id: 'deleted-array', type: 'other', date: [end], isValid: false }]);
+        assert.deepEqual(await page({ type: 'mbg', count: 2 }), [old, current]);
+        assert.deepEqual(await page({ type: 'cal' }), [cal]);
+        assert.deepEqual(await page(), []);
+        await seed([{ _id: 'absent', type: 'mbg', date: end - 1 }]);
+        assert.equal(await page({ type: 'mbg', count: 2 }), null);
+      });
+
+      it('defers time/membership exceptions, cross-type array ranges and boundary ties to full acquisition', async function () {
+        const normal = { _id: 'ordinary', type: 'sgv', sgv: 100, date: end };
+        await seed([normal]);
+        const cases = [
+          { type: 'other', date: [end + 10, request.from - 10] },
+          { type: 'sgv', date: end - 2, sgv: 100, created_at: new Date(end + 10).toISOString() },
+          { type: 'sgv', date: end - 2, sgv: 100, sysTime: 'invalid' },
+          { type: 'sgv', date: end - 2, sgv: 100, mills: end + 3 },
+          { type: 'sgv', date: end - 0.5, sgv: 100 },
+          { type: 'mbg', date: end - 3, sgv: 100 },
+          { type: 'sgv', date: end, sgv: 101 }
+        ];
+        for (const doc of cases) {
+          await seed([{ ...doc, _id: 'exception' }]);
+          assert.equal(await page(), null, JSON.stringify(doc));
+          await admin.query('DELETE FROM ' + labs.entries.qualified + ' WHERE tenant_id=$1 AND "_id"=$2', [tenant, 'exception']);
+        }
+        await seed([{ _id: 'too-old', type: 'other', date: [request.from - 100] }]);
+        assert.deepEqual(await page(), [normal]);
+      });
+    });
+
     describe('upload target lookups read an index range, not the tenant history', function () {
       const STEP = 300000;
       const T0 = Date.UTC(2026, 0, 1);
