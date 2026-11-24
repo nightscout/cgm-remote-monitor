@@ -271,7 +271,7 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
       connection:{readOnly:async text=>{assert.match(text,/output_revision::text AS revision,work_enabled/);return {rows:[A,B].map(tenant=>({tenant,revision:String(writes.get(tenant)+1),work_enabled:policy.eligible('read',rows.get(tenant).state)}))};}},
       trusted:{scan:async tenants=>new Map(tenants.map(tenant=>[tenant,{activity:rows.get(tenant)}]))},
       readAll:async tenants=>new Map(tenants.map(tenant=>[tenant,{tenant,identity:'same',env}])),owner:()=>{},onIneligible:tenant=>protocol.invalidateTenant(tenant,'completed-control')});
-    runtime = await require('../lib/server/realtime/runtime')({ tenants:[A,B],readCurrent,detect:detector,watchedTenants:protocol.watchedTenants,
+    runtime = await require('../lib/server/realtime/runtime')({ tenants:[A,B],readCurrent,detect:detector,isWatched:protocol.watched,
       create: selected => ({ acquire: async () => ({ tenant: selected.tenant, checkpoint: writes.get(selected.tenant), rows: [],
         frame: { delta: false, lastUpdated: 1000, sgvs: Array.from({ length: writes.get(selected.tenant) }, (_, i) => ({ mgdl: 100 + i, mills: 1000 + i })) } }) }),
       fanout:protocol.fanout,schedule:()=>{throw Error('WARM_TENANTS_MUST_NOT_SCHEDULE_DISCOVERY');},cancel:()=>{} });
@@ -285,11 +285,13 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
       try {
         const a = await f.socket('a.test'), b = await f.socket('b.test');
         assert.notEqual(a.disconnected, true);
+        assert.deepEqual(f.protocol.watchedTenants(), [A, B]);
         f.rows.set(A, row(paused, suspended, 2));
         // Publish on change: B gets a write, so its view changes and it receives a frame.
         const before = b.sent.length; f.writes.set(B, 1);
         await f.runtime.check([A,B]); // Addressed durable control receipt and completed B revision.
         assert.equal(a.disconnected, true, 'ACTIVITY_SOCKET_DISCONNECTED');
+        assert.deepEqual(f.protocol.watchedTenants(), [B]);
         assert.notEqual(b.disconnected, true); assert.ok(b.sent.length > before, 'B still receives updates');
         assert.equal(f.runtime.last(A), null);
         const late = await f.socket('a.test');

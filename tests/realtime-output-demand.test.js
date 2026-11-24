@@ -70,8 +70,8 @@ describe('addressed realtime output demand',function(){
    }finally{scope.setTenancyMode(previous);}
  });
  for(const size of [8,64,256])for(const viewers of [0,1,4])it('reads identities only for '+viewers+' watched tenants of '+size+' addressed tenants',async()=>{
-   const ids=Array.from({length:size},(_,i)=>id(i+1)),f=fixture(ids),watched=ids.slice(0,viewers);
-   const service=await runtime({tenants:ids,watchedTenants:()=>watched,detect:f.detector,
+   const ids=Array.from({length:size},(_,i)=>id(i+1)),f=fixture(ids),watched=new Set(ids.slice(0,viewers));
+   const service=await runtime({tenants:ids,isWatched:tenant=>watched.has(tenant),detect:f.detector,
      readCurrent:async tenant=>({tenant,identity:f.states.get(tenant).identity}),
      create:current=>({acquire:async()=>{f.counts.acquired++;return {tenant:current.tenant,checkpoint:f.states.get(current.tenant).revision,rows:[],frame:{}};}}),
      fanout:async()=>{},schedule:()=>1,cancel(){}});
@@ -98,14 +98,14 @@ describe('addressed realtime output demand',function(){
    const seen=await f.detector(ids);assert.equal(f.counts.identities,1);assert.equal(seen.get(ids[1]).identity,ids[1]);
  });
  for(const indexed of [true,false])it('fresh viewer demand reads the current config after an unwatched settings change (indexed='+indexed+')',async()=>{
-   const tenant=id(1),f=fixture([tenant]);let watched=[],identity=tenant;
-   const service=await runtime({tenants:[tenant],watchedTenants:()=>watched,detect:f.detector,
+   const tenant=id(1),f=fixture([tenant]);let watched=false,identity=tenant;
+   const service=await runtime({tenants:[tenant],isWatched:()=>watched,detect:f.detector,
      readCurrent:async()=>({tenant,identity}),create:current=>({acquire:async()=>({tenant,checkpoint:f.states.get(tenant).revision,frame:{title:current.identity},rows:[]})}),
      fanout:async()=>{},schedule:()=>1,cancel(){}});
    try{
      identity='new-settings';Object.assign(f.states.get(tenant),{identity,revision:2});
      await service.check([tenant]);assert.equal(f.counts.identities,0);assert.equal(service.last(tenant).frame.title,tenant);
-     watched=indexed?[tenant]:[];const demand=service.fresh(tenant);demand.catch(()=>{});await service.tick();
+     watched=indexed;const demand=service.fresh(tenant);demand.catch(()=>{});await service.tick();
      assert.equal(f.counts.identities,1,'EXPLICIT_FRESH_DEMAND_REQUIRES_IDENTITY');const fresh=await demand;assert.equal(fresh.frame.title,identity);
    }finally{await service.close();}
  });
@@ -142,16 +142,16 @@ describe('addressed realtime output demand',function(){
    } finally { resume(); await old?.catch(() => {}); await service.close(); }
  });
  it('retains viewer demand arriving while an unwatched control read is held',async()=>{
-   const tenant=id(1),f=fixture([tenant]);let watched=[],entered,release,hold=true;
+   const tenant=id(1),f=fixture([tenant]);let watched=false,entered,release,hold=true;
    const blocked=new Promise(resolve=>{entered=resolve;});
    const detect=async(tenants,options)=>{if(hold){hold=false;entered();await new Promise(resolve=>{release=resolve;});}return f.detector(tenants,options);};
-   const service=await runtime({tenants:[tenant],watchedTenants:()=>watched,detect,
+   const service=await runtime({tenants:[tenant],isWatched:()=>watched,detect,
      readCurrent:async()=>({tenant,identity:f.states.get(tenant).identity}),
      create:()=>({acquire:async()=>({tenant,checkpoint:f.states.get(tenant).revision,frame:{},rows:[]})}),
      fanout:async()=>{},schedule:()=>1,cancel(){}});
    try{
      f.states.get(tenant).revision=2;const check=service.check([tenant]);await blocked;
-     watched=[tenant];const fresh=service.fresh(tenant);release();await check;
+     watched=true;const fresh=service.fresh(tenant);release();await check;
      assert.equal((await fresh).checkpoint,2,'ARRIVING_VIEWER_MUST_GET_NEW_GENERATION');
      assert.equal(f.counts.identities,1,'DEFERRED_BATCH_MUST_NOT_CONSUME_NEW_VIEWER_DEMAND');
    }finally{await service.close();}
@@ -159,7 +159,7 @@ describe('addressed realtime output demand',function(){
  it('keeps known cold retries eligible for identity reads with no viewers',async()=>{
    const tenant=id(1),f=fixture([tenant]);let at=0,fail=true,attempts=0;
    const service=await runtime({tenants:[tenant],readiness:'serve',now:()=>at,failureRetryMs:100,
-     watchedTenants:()=>[],detect:f.detector,readCurrent:async()=>({tenant,identity:tenant}),
+     isWatched:()=>false,detect:f.detector,readCurrent:async()=>({tenant,identity:tenant}),
      create:()=>({acquire:async()=>{attempts++;if(fail)throw Error('OUTPUT_UNAVAILABLE');return {tenant,checkpoint:1,frame:{},rows:[]};}}),
      fanout:async()=>{},schedule:()=>1,cancel(){}});
    try{
@@ -170,7 +170,7 @@ describe('addressed realtime output demand',function(){
  it('refuses a config generation changed while fresh output acquisition is held',async()=>{
    const tenant=id(1),f=fixture([tenant]);let identity=tenant,hold=false,entered,release,sends=0;
    const blocked=new Promise(resolve=>{entered=resolve;});
-   const service=await runtime({tenants:[tenant],watchedTenants:()=>[],detect:f.detector,
+   const service=await runtime({tenants:[tenant],isWatched:()=>false,detect:f.detector,
      readCurrent:async()=>({tenant,identity}),create:()=>({acquire:async()=>{if(hold){entered();await new Promise(resolve=>{release=resolve;});}return {tenant,checkpoint:1,frame:{},rows:[]};}}),
      fanout:async()=>{sends++;},schedule:()=>1,cancel(){}});
    try{
@@ -180,7 +180,7 @@ describe('addressed realtime output demand',function(){
  });
  it('recovers pending output without a hint after consumer startup',async()=>{
    const tenant=id(1),f=fixture([tenant]);
-   const service=await runtime({tenants:[tenant],watchedTenants:()=>[tenant],detect:f.detector,
+   const service=await runtime({tenants:[tenant],isWatched:()=>true,detect:f.detector,
      readCurrent:async()=>({tenant,identity:tenant}),create:()=>({acquire:async()=>({tenant,checkpoint:f.states.get(tenant).revision,frame:{},rows:[]})}),
      fanout:async()=>{},schedule:()=>1,cancel(){}});
    const timers=[];let rows=[{tenant,received:'2'}],completed=0;
@@ -204,7 +204,7 @@ describe('addressed realtime output demand',function(){
 describe('durable output retry ownership and upstream pending',()=>{
  it('keeps upstream pending distinct from failed delivery and wakes only on completed output or demand',async()=>{
   const tenant=id(1),timers=[];let pending=true,acquired=0;
-  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',watchedTenants:()=>[tenant],
+  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',isWatched:()=>true,
    detect:async()=>new Map([[tenant,pending?{pending:true}:{identity:'current',stamp:'1'}]]),readCurrent:async()=>({tenant,identity:'current'}),
    create:()=>({acquire:async()=>{acquired++;return {tenant,checkpoint:1,frame:{},rows:[]};}}),fanout:async()=>{},schedule:fn=>{timers.push(fn);return 1;},cancel(){}});
   try{
@@ -216,10 +216,15 @@ describe('durable output retry ownership and upstream pending',()=>{
  it('retains a watched output revision across an overlapping input until the quiet completion can publish it', async () => {
    const tenant = id(1), f = fixture([tenant]), state = f.states.get(tenant);
    const timers = [], sent = [];
-   let watched = [tenant];
+   let watched = true, disconnectDuringCheck = false;
    const service = await runtime({
-     tenants: [tenant], durableOutput: true, readiness: 'serve', watchedTenants: () => watched,
-     detect: f.detector, readCurrent: async () => ({tenant, identity: state.identity}),
+     tenants: [tenant], durableOutput: true, readiness: 'serve', isWatched: () => watched,
+     detect: async (tenants, options) => {
+       const seen = await f.detector(tenants, options);
+       if (disconnectDuringCheck) watched = false;
+       return seen;
+     },
+     readCurrent: async () => ({tenant, identity: state.identity}),
      create: () => ({acquire: async () => ({tenant, checkpoint: state.revision, frame: {}})}),
      fanout: async ({next}) => sent.push(next.checkpoint),
      schedule: fn => { timers.push(fn); return 1; }, cancel () {}
@@ -242,15 +247,17 @@ describe('durable output retry ownership and upstream pending',()=>{
      state.revision = 3;
      state.observed = ['4'];
      assert.equal(await check(), false);
-     watched = [];
-     assert.equal(await check(), true, 'the last viewer disconnected during the retry');
+     disconnectDuringCheck = true;
+     assert.equal(await check(), true, 'receipt completion observes the disconnect during detection');
+     assert.equal(service.pendingSummary().pending, 1, 'the tick used its starting audience');
+     assert.equal(await check(), true, 'the next tick begins without a viewer');
      assert.deepEqual(sent, [1, 2]);
      assert.equal(service.pendingSummary().pending, 0);
    } finally { await service.close(); }
  });
  it('keeps actual failed delivery owed to durable retry without a second runtime retry timer',async()=>{
   const tenant=id(1),timers=[];let refuse=true,deliveries=0;
-  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',watchedTenants:()=>[tenant],
+  const service=await runtime({tenants:[tenant],durableOutput:true,readiness:'serve',isWatched:()=>true,
    detect:async()=>new Map([[tenant,{identity:'current',stamp:'1'}]]),readCurrent:async()=>({tenant,identity:'current'}),create:()=>({acquire:async()=>({tenant,checkpoint:1,frame:{},rows:[]})}),
    fanout:async()=>{deliveries++;if(refuse)throw Error('SYNTHETIC_DELIVERY_FAILURE');},schedule:fn=>{timers.push(fn);return 1;},cancel(){}});
   try{
