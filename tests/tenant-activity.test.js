@@ -254,13 +254,13 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
     leave (name) { this.rooms.delete(name); }
     disconnect () { this.disconnected = true; super.emit('disconnect'); }
   }
-  async function realtime () {
+  async function realtime (readActivity = (rows, tenant) => rows.get(tenant)) {
     const rows = new Map([[A, row()], [B, row()]]), writes = new Map([[A, 0], [B, 0]]);
     const env = require('../lib/server/tenant-app/environment')({ settings: { enable: ['bgnow'] } });
     const hosts = { 'a.test': A, 'b.test': B };
     let protocol, runtime;
     const readCurrent = require('../lib/tenant-activity/serving').gateReadCurrent({
-      check: eligibility.create({ read: async tenant => rows.get(tenant) }).check,
+      check: eligibility.create({ read: async tenant => readActivity(rows, tenant) }).check,
       readCurrent: async tenant => ({ tenant, identity: 'same', env }), invalidate: tenant => protocol.invalidateTenant(tenant) });
     const api = { executeSocketMutation: async () => ({ replyArgs: [{ result: 'success' }] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }) };
@@ -279,6 +279,33 @@ describe('realtime sockets under pause and suspend (actual protocol and runtime,
       async socket (host) { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, '/'); await socket.receive('authorize', { secret: 'synthetic' }); return socket; },
       async close () { protocol.close(); await runtime.close(); } };
   }
+  it('holds a viewer through an unreadable activity check and disconnects on confirmed absence', async function () {
+    let unavailable = false;
+    const f = await realtime((rows, tenant) => {
+      if (unavailable) throw new Error('synthetic activity read unavailable');
+      return rows.get(tenant);
+    });
+    try {
+      const socket = await f.socket('a.test');
+      const frames = () => socket.sent.filter(message => message.event === 'dataUpdate').length;
+      const before = frames();
+      assert(before > 0);
+      unavailable = true;
+      await f.protocol.recheckTenant(A);
+      assert.notEqual(socket.disconnected, true, 'an unanswered activity read keeps the transport');
+      const previous = f.runtime.last(A);
+      await assert.rejects(f.protocol.fanout({ tenant: A, previous, next: previous }), { code: 'ACTIVITY_UNAVAILABLE' });
+      assert.equal(frames(), before);
+      unavailable = false;
+      await f.protocol.recheckTenant(A);
+      f.writes.set(A, 1);
+      await f.runtime.check([A]);
+      assert(frames() > before, 'the same viewer receives later data after a fresh recheck');
+      f.rows.delete(A);
+      await f.protocol.recheckTenant(A);
+      assert.equal(socket.disconnected, true, 'a successful read with no activity row withdraws the viewer');
+    } finally { await f.close(); }
+  });
   for (const [label, paused, suspended] of [['paused', true, false], ['suspended', false, true]]) {
     it('disconnects A sockets and refuses new ones while ' + label + '; B keeps its socket and updates', async function () {
       const f = await realtime();

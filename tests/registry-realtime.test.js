@@ -17,28 +17,28 @@ const request = host => ({ rawHeaders: ['Host', host], socket: {} });
 // A registry resolver double: hosts map to tenants; the registry decides activity.
 const resolverOf = hosts => ({ resolve: async req => { const host = req.rawHeaders[1]; if (!hosts.has(host)) throw Object.assign(new Error('TENANT_HOST_UNKNOWN'), { code: 'TENANT_HOST_UNKNOWN' }); return hosts.get(host); } });
 
+function readerRuntime (mutate = value => value, failLookup = false) {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const filename = require.resolve('../lib/server/serve/preview-realtime');
+  const original = require('node:module').createRequire(filename), output = { exports: {} };
+  const counts = { opened: 0, registryClosed: 0, displayClosed: 0, reads: 0 };
+  const registrySet = { tenants: new Map([[A, { tenant: A }]]), isActive: tenant => tenant === A,
+    lookup: async tenant => registrySet.tenants.get(tenant), onRemove () {}, close: async () => { counts.registryClosed++; } };
+  const dependencies = {
+    './registry-tenant-set': { openDemand: async () => { counts.opened++; if(failLookup) throw new Error('synthetic lookup refusal'); return registrySet; } },
+    './evaluator-config': { registryEntry: tenant => ({ tenant }), applySettings: (base, settings) => ({ ...base, settings }) },
+    '../realtime/registry-admission': { create: () => ({}) }
+  };
+  vm.runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
+    id => Object.hasOwn(dependencies, id) ? dependencies[id] : original(id), output, output.exports);
+  const display = { read: async () => ({ version: ++counts.reads }), close: async () => { counts.displayClosed++; } };
+  return { counts, display, registrySet, open: provider => output.exports.registryMode({ registry: {}, maxTenants: 10 }, provider) };
+}
+
 describe('registry mode: realtime, socket forwarding and removal', function () {
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
-
-  function readerRuntime (mutate = value => value, failLookup = false) {
-    const fs = require('node:fs'), vm = require('node:vm');
-    const filename = require.resolve('../lib/server/serve/preview-realtime');
-    const original = require('node:module').createRequire(filename), output = { exports: {} };
-    const counts = { opened: 0, registryClosed: 0, displayClosed: 0, reads: 0 };
-    const registrySet = { tenants: new Map([[A, { tenant: A }]]), isActive: tenant => tenant === A,
-      lookup: async tenant => registrySet.tenants.get(tenant), onRemove () {}, close: async () => { counts.registryClosed++; } };
-    const dependencies = {
-      './registry-tenant-set': { openDemand: async () => { counts.opened++; if(failLookup) throw new Error('synthetic lookup refusal'); return registrySet; } },
-      './evaluator-config': { registryEntry: tenant => ({ tenant }), applySettings: (base, settings) => ({ ...base, settings }) },
-      '../realtime/registry-admission': { create: () => ({}) }
-    };
-    vm.runInThisContext('(function(require,module,exports){' + mutate(fs.readFileSync(filename, 'utf8')) + '\n})', { filename })(
-      id => Object.hasOwn(dependencies, id) ? dependencies[id] : original(id), output, output.exports);
-    const display = { read: async () => ({ version: ++counts.reads }), close: async () => { counts.displayClosed++; } };
-    return { counts, display, registrySet, open: provider => output.exports.registryMode({ registry: {}, maxTenants: 10 }, provider) };
-  }
 
   async function refusedReader (provider, mutate) {
     const fixture = readerRuntime(mutate);
@@ -75,8 +75,8 @@ describe('registry mode: realtime, socket forwarding and removal', function () {
     assert.deepEqual(failed.counts, { opened: 1, registryClosed: 0, displayClosed: 1, reads: 0 });
   });
 
-  it('refuses a cached presentation when an in-flight settings read crosses membership invalidation or re-admission', async function () {
-    for (const change of ['stale', 'replacement']) {
+  for (const change of ['stale', 'withdrawn', 'replacement']) {
+    it('classifies ' + change + ' registry admission after the realtime settings read', async function () {
       const { registrySet, open } = readerRuntime();
       const settings = { version: 1 }, waiting = Promise.withResolvers(), resume = Promise.withResolvers();
       let paused = false;
@@ -85,18 +85,26 @@ describe('registry mode: realtime, socket forwarding and removal', function () {
         return settings;
       }, close: async () => {} });
       try {
-        assert.deepEqual(await runtime.config.readCurrent(A), { tenant: A, settings });
+        const current = await runtime.config.readCurrent(A);
+        assert.deepEqual(current, { tenant: A, settings });
         paused = true;
         const pending = runtime.config.readCurrent(A);
         await waiting.promise;
-        if (change === 'stale') registrySet.isActive = () => false;
-        else registrySet.tenants.set(A, { tenant: A, generation: 2 });
+        registrySet.isActive = () => false;
+        if (change === 'withdrawn') registrySet.tenants.delete(A);
+        if (change === 'replacement') registrySet.tenants.set(A, { tenant: A, generation: 2 });
         resume.resolve();
-        assert.equal(await pending, null);
-        if (change === 'replacement') assert.equal((await runtime.config.readCurrent(A)).generation, 2);
+        if (change === 'stale') {
+          await assert.rejects(pending, { code: 'TENANT_REGISTRY_ADMISSION_STALE' });
+        } else assert.equal(await pending, null);
+        registrySet.isActive = tenant => registrySet.tenants.has(tenant);
+        const renewed = await runtime.config.readCurrent(A);
+        if (change === 'stale') assert.equal(renewed, current);
+        if (change === 'withdrawn') assert.equal(renewed, null);
+        if (change === 'replacement') assert.deepEqual(renewed, { tenant: A, generation: 2, settings });
       } finally { resume.resolve(); await runtime.close(); }
-    }
-  });
+    });
+  }
 
   it('RR_CONFIG: realtime takes `registry` in place of `tenants` and the admission file, and refuses both together', function () {
     const { parse } = require('../lib/server/realtime/config');
@@ -221,7 +229,7 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
     leave () {}
     disconnect () { this.connected = false; super.emit('disconnect'); }
   }
-  async function fixture () {
+  async function fixture (readCurrent = async () => ({ identity: 'same', env })) {
     let clock = 0;
     const ctl = { lookupError: null, activeError: null, removed: false, denied: false, mutations: 0, frame: frame(1) };
     const resolver = resolverFactory.createRegistryResolver({
@@ -238,7 +246,7 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
     const api = { authorizeSocket: async () => ctl.denied ? { denied: true } : ({ permissions: { read: true, write: true, write_treatment: true, ack: true }, collections: ['entries'] }),
       executeSocketMutation: async () => { ctl.mutations++; return { replyArgs: [] }; } };
     const runtime = { warm: () => true, fresh: async () => ctl.frame, last: () => ctl.frame };
-    const protocol = protocolFactory.create({ admission, api, readCurrent: async () => ({ identity: 'same', env }), runtime: () => runtime,
+    const protocol = protocolFactory.create({ admission, api, readCurrent, runtime: () => runtime,
       domains: ['entries'], retry: { minMs: 1, maxMs: 2 }, authorizationRecheckMs: 600000 });
     const socket = new Socket();
     await protocol.prepare(socket); protocol.bind(socket, '/');
@@ -249,6 +257,34 @@ describe('RR_REGISTRY_RETRY: connected socket admission uncertainty', function (
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
+  it('holds a primed socket across a stale post-settings read and releases its missed frame after recheck', async function () {
+    const { registrySet, open } = readerRuntime();
+    registrySet.tenants.set(A, { tenant: A, identity: 'same', env });
+    const settings = { version: 1 };
+    let invalidate = false;
+    const registry = await open({ read: async () => {
+      if (invalidate) registrySet.isActive = () => false;
+      return settings;
+    }, close: async () => {} });
+    let f;
+    try {
+      f = await fixture(registry.config.readCurrent);
+      const prior = f.ctl.frame, before = f.socket.sent.length;
+      invalidate = true;
+      await f.protocol.recheckTenant(A);
+      assert.equal(f.socket.connected, true);
+      assert.equal(f.protocol.stats().recheckFailures, 1);
+      invalidate = false;
+      registrySet.isActive = tenant => registrySet.tenants.has(tenant);
+      f.ctl.frame = frame(2);
+      await f.protocol.fanout({ tenant: A, previous: prior, next: f.ctl.frame });
+      assert.equal(f.socket.sent.length, before, 'fresh lookup alone must not release held data');
+      await f.protocol.recheckTenant(A);
+      const delivered = () => f.socket.sent.some(row => row.event === 'dataUpdate' && row.value.sgvs?.[0]?.mills === 2);
+      for (let i = 0; i < 100 && !delivered(); i++) await new Promise(resolve => setImmediate(resolve));
+      assert.ok(delivered(), 'fresh reauthorization resumes the same primed socket');
+    } finally { f?.close(); await registry.close(); }
+  });
   for (const source of ['lookupError', 'activeError']) {
     it('keeps a primed socket, withholds changed frames, and resumes after ' + source, async function () {
       const f = await fixture();
