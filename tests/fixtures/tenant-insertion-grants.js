@@ -22,9 +22,14 @@ function statements ({ namespace, domain, role, catalogue, mode = 'serving' }) {
     JSON.stringify(catalogue?.migrations || []).includes('CREATE FUNCTION ' + name + '('));
   const base = ['GRANT SELECT,INSERT,UPDATE,DELETE ON ' + table + ' TO ' + who,
     ...(windowFunction ? ['GRANT EXECUTE ON FUNCTION ' + quote(namespace) + '.' + windowFunction + '(jsonb) TO ' + who] : [])];
+  const timeKeys = catalogue?.migrations.some(m => m.name === '0104_' + domain + '_clinical_time');
+  if (timeKeys) {
+    base.push('GRANT EXECUTE ON FUNCTION ' + quote(namespace) + '.clinical_instant_ms(jsonb) TO ' + who);
+  }
   if (ordered) {
     const built = proposal.build({ namespace, domain });
     return [...base, ...(mode === 'restore' ? built.restoreGrants(role) : built.servingGrants(role)),
+      ...(timeKeys && mode === 'restore' ? ['GRANT INSERT(received_ms) ON ' + table + ' TO ' + who] : []),
       ...(mode === 'restore' ? ['GRANT DELETE ON ' + quote(namespace) + '.tenant_insertion_ordinal TO ' + who] : [])];
   }
   return [...base, 'GRANT USAGE ON ALL SEQUENCES IN SCHEMA ' + quote(namespace) + ' TO ' + who];

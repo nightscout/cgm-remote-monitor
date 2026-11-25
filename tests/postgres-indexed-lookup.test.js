@@ -176,6 +176,59 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
       });
     }
 
+    it('preserves explicit spellings, numeric and exceptional event keys through writes under the serving role', async function () {
+      const tenant = '33333333-3333-4333-8333-333333333333';
+      const iso = '2024-02-29T17:00:00.120Z', offset = '2024-02-29T09:00:00.12-08:00';
+      const event = Date.parse(iso), receipt = event + 7200000, modified = receipt + 1;
+      const ddl = require('node:fs').readFileSync(require.resolve('../lib/storage/clinical-instant.sql'), 'utf8').trim();
+      await store.withTenant(tenant, async () => {
+        for (const domain of ['entries', 'treatments']) {
+          const { namespace, qualified } = labs[domain];
+          const candidate = require('../migrations/candidates/postgres-' + domain + '-v1.json');
+          assert.equal(candidate.migrations.at(-1).up[0], ddl);
+          const cases = [[0, 0], [-1, -1], [8640000000000000, 8640000000000000], [8640000000000001, null],
+            [0.1, null], [iso, event], [offset, event], ['1970-01-01T23:59:00+23:59', 0],
+            ['2023-02-29T00:00:00Z', null], ['2024-02-29T24:00:00Z', null], ['2024-02-29T17:00:00', null],
+            ['12345', null], ['2024-02-29T17:00:00.0001Z', null], [[], null], [{}, null], [null, null]];
+          for (const zone of ['America/Los_Angeles', 'Asia/Kathmandu']) {
+            await store.query("SELECT set_config('TimeZone',$1,true)", [zone]);
+            const { rows } = await store.query('SELECT ' + namespace +
+              '.clinical_instant_ms(value)::text AS ms FROM jsonb_array_elements($1) WITH ORDINALITY ORDER BY ordinality',
+            [JSON.stringify(cases.map(([input]) => input))]);
+            assert.deepEqual(rows.map(row => row.ms === null ? null : Number(row.ms)), cases.map(([, ms]) => ms));
+          }
+          const field = domain === 'entries' ? 'dateString' : 'created_at';
+          const reader = entriesRead({ connection: store, table: qualified });
+          const docs = [iso, offset, [offset], null, undefined, '2023-02-29T00:00:00Z'].map((value, i) => ({
+            _id: 'key-' + i, ...(value === undefined ? {} : { [field]: value }),
+            ...(domain === 'entries' && i < 2 ? { date: event } : {}), srvCreated: receipt, srvModified: modified
+          }));
+          const receipts = [];
+          for (const doc of docs) {
+            const { rows: [inserted] } = await store.query('INSERT INTO ' + qualified +
+              "(tenant_id,id_kind,doc) VALUES ($1,'string',$2) RETURNING received_ms, " +
+              'floor(extract(epoch FROM statement_timestamp()) * 1000)::bigint AS statement_ms', [tenant, doc]);
+            assert.equal(inserted.received_ms, inserted.statement_ms);
+            receipts.push(inserted.received_ms);
+          }
+          const list = (op, value) => reader.findFiltered(cmp(op, field, value), raw);
+          assert.deepEqual(await list('eq', offset), [docs[1], docs[2]]);
+          assert.deepEqual(await list('eq', iso), [docs[0]]);
+          assert.deepEqual(await list('in', [iso, docs[5][field]]), [docs[0], docs[5]]);
+          assert.deepEqual(await list('lt', iso), [docs[1], docs[2], docs[5]]);
+          const readKeys = async () => (await store.query('SELECT event_ms, doc FROM ' + qualified + ' ORDER BY "_id"')).rows;
+          assert.deepEqual((await readKeys()).map(r => r.event_ms), [String(event), String(event), null, null, null, null]);
+          const corrected = { ...docs[0], [field]: [offset], srvModified: modified + 1 };
+          delete corrected.date;
+          await store.query('UPDATE ' + qualified + ' SET doc=$1 WHERE "_id"=$2', [corrected, corrected._id]);
+          assert.deepEqual((await readKeys())[0], { event_ms: null, doc: corrected });
+          const { rows: [updated] } = await store.query('SELECT received_ms FROM ' + qualified + ' WHERE "_id"=$1', [corrected._id]);
+          assert.equal(updated.received_ms, receipts[0]);
+          assert.deepEqual(await list('eq', offset), [corrected, docs[1], docs[2]]);
+        }
+      });
+    });
+
     it('keeps numeric v1 date-page filters, tie membership and exceptional stored dates', async function () {
       const tenant = '55555555-5555-4555-8555-555555555555';
       const table = labs.entries.qualified, statements = [];
@@ -273,7 +326,7 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         function walk (p) { return [p, ...(p.Plans || []).flatMap(walk)]; }
         const nodes = walk(rows[0]['QUERY PLAN'][0].Plan);
         assert(nodes.some(n => n['Index Name'] === INDEX_NAME));
-        assert(nodes.some(n => ['entries_tenant_type_date_datestring', 'entries_tenant_date_identifier_created_at'].includes(n['Index Name'])));
+        assert(nodes.some(n => ['entries_tenant_type_date', 'entries_tenant_date_identifier_created_at'].includes(n['Index Name'])));
         for (const n of nodes.filter(n => n['Relation Name'] === 'entries')) {
           assert(n['Actual Rows'] + (n['Rows Removed by Filter'] || 0) <= 2, JSON.stringify(n));
         }

@@ -64,8 +64,9 @@ describe('trusted PostgreSQL collection translation', function () {
     const catalogues = { treatments: require('../migrations/candidates/postgres-treatments-v1.json'),
       devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json') };
     for (const logical of ['treatments', 'devicestatus']) {
-      const latest = [catalogues[logical].migrations.at(-1)];
-      assert.equal(latest[0].name, '0102_' + logical + '_created_at_arrays');
+      const latest = catalogues[logical].migrations.filter(m => m.name >= '0102_');
+      assert.deepEqual(latest.map(m => m.name), ['0102_' + logical + '_created_at_arrays',
+        ...(logical === 'treatments' ? ['0104_treatments_clinical_time'] : [])]);
       const tails = catalogues[logical].migrations.filter(m => m.name === '0098_'+logical+'_identifier_arrays' || m.name === '0099_'+logical+'_storage_bytes' || m.name === '0100_'+logical+'_storage_bytes_removed');
       assert.deepEqual(tails.map(m=>m.operation),[{kind:'identifier-array-index-v1',domain:logical},{kind:'clinical-storage-size-v1',domain:logical},{kind:'clinical-storage-size-removal-v1',domain:logical}]);
       const old = { migrations: catalogues[logical].migrations.filter(m => !tails.includes(m) && !latest.includes(m)) };
@@ -174,8 +175,8 @@ describe('trusted PostgreSQL collection translation', function () {
       await srvDates.findForReplace(reads.documents(port.storage), items.slice(0, 32));
       assert.equal(calls.length, 1);
       const sql = calls[0].sql;
-      // One created_at range and one eventType bound for the whole $or, not one per branch.
-      assert.equal(sql.match(/"created_at" COLLATE "C" >=/g).length, 1, 'one created_at bound');
+      // One event-time lookup and one eventType bound for the whole $or, not one per branch.
+      assert.equal((sql.match(/event_ms = ANY/g) || []).length, 1, 'one created_at bound');
       assert.equal(sql.match(/"eventType" = /g).length, 1, 'one eventType bound');
       assert.match(sql, /"eventType" = ANY\(/);
       // Array-element equality by containment: no correlated subquery to plan per leaf.

@@ -62,6 +62,24 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
       }
     });
 
+    it('preserves stored UTC and offset spellings and independent server stamps in v1 and v3 reads', async function () {
+      const utc = '2024-02-29T17:00:00.000Z', offset = '2024-02-29T09:00:00.000-08:00';
+      const date = Date.parse(utc), receipt = date + 7200000;
+      const docs = [offset, utc].map((dateString, i) => record({ _id: 'time-' + i, identifier: 'time-' + i,
+        date, dateString, sysTime: utc, srvCreated: receipt, srvModified: receipt + i }));
+      await lab.seed(docs);
+      const v1 = await same('get', '/api/v1/entries.json?find[dateString]=' + encodeURIComponent(offset));
+      assert.deepEqual(v1.body.map(d => d.dateString), [offset]);
+      const path = '/entries/history/' + (receipt - 1);
+      const expected = await lab.reference('get', path).expect(200);
+      const actual = await lab.http('get', path).expect(200);
+      assert.deepEqual(actual.body, expected.body);
+      assert.deepEqual(actual.body.result.map(d => [d.dateString, d.date, d.srvCreated, d.srvModified]),
+        docs.map(d => [d.dateString, date, receipt, d.srvModified]));
+      assert.equal(actual.headers.etag, expected.headers.etag);
+      assert.equal(actual.headers['last-modified'], expected.headers['last-modified']);
+    });
+
     it('calibrates the real default date window with independently stored recent and stale rows', async function () {
       const stale = record({ _id: '000000000000000000000102', date: BASE - 5 * 86400000,
         dateString: new Date(BASE - 5 * 86400000).toISOString(),

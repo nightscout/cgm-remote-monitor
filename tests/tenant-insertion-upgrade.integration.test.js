@@ -34,7 +34,8 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     const previous = catalogue.migrations.findIndex(m => m.name === '0101_entries_redundant_indexes');
     assert.ok(previous >= 0);
     const old = {...catalogue, migrations: catalogue.migrations.slice(0, previous + 1)};
-    const dropped = ['entries_tenant_mbg', 'entries_tenant_sgv'];
+    const dropped = ['entries_tenant_mbg', 'entries_tenant_sgv', 'entries_tenant_datestring',
+      'entries_tenant_systime', 'entries_tenant_type_date_datestring'];
     const upgraded = prefix + '_numeric_upgrade', fresh = prefix + '_numeric_fresh';
     const options = namespace => ({direct: true, connectionString: uri, namespace, catalogue});
     const indexes = async namespace => (await admin.query(
@@ -65,7 +66,9 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     const populated = await values();
     await run('up', options(upgraded));
     await run('up', options(fresh));
-    const expected = [...before.filter(name => !dropped.includes(name)), 'entries_tenant_follower_exception'].sort();
+    assert.deepEqual((await admin.query('SELECT received_ms FROM ' + table)).rows, [{ received_ms: null }, { received_ms: null }]);
+    const expected = [...before.filter(name => !dropped.includes(name)), 'entries_tenant_follower_exception',
+      'entries_tenant_type_date', 'entries_tenant_event_ms', 'entries_tenant_systime_sparse', 'entries_tenant_datestring_sparse'].sort();
     for (const ns of [upgraded, fresh]) {
       assert.deepEqual(await indexes(ns), expected);
       assert.equal((await run('check', options(ns))).current, true);
@@ -108,7 +111,8 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
       ...(['entries','treatments','devicestatus'].includes(domain)?['0101_'+domain+'_redundant_indexes']:[]),
       ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays']:[]),
       ...(domain==='treatments'?['0102_treatments_created_at_arrays']:[]),
-      ...(domain==='entries'?['0102_entries_numeric_indexes_removed','0103_entries_follower_exceptions']:[])
+      ...(domain==='entries'?['0102_entries_numeric_indexes_removed','0103_entries_follower_exceptions']:[]),
+      ...(['entries','treatments'].includes(domain)?['0104_'+domain+'_clinical_time']:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:
