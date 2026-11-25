@@ -208,58 +208,6 @@ describe('trusted evaluator dirty checkpoints', function () {
     assert.equal(service.last(A)?.eligible, true, 'TRUSTED_RECOVERY_REACQUIRES_BEFORE_ELIGIBILITY');
     await service.close(); await f.reader.close();
   });
-  it('fences realtime frames and propagates detector failures for feed retry', async function () {
-    let available = true, generation = 0, fail = false, fanouts = 0;
-    const held = deferred(), started = deferred(); let block = false;
-    const service = await require('../lib/server/realtime/runtime')({ tenants: [A], eventDriven: true,
-      workerState: () => ({ available, generation }), readCurrent: async tenant => ({ tenant, identity: 'same' }),
-      create: () => ({ acquire: async () => { if (block) { started.resolve(); await held.promise; } return { tenant: A, checkpoint: 1, frame: {} }; } }),
-      fanout: async () => { fanouts++; }, detect: async () => { if (fail) throw new Error('metadata unavailable'); return new Map([[A, { stamp: '1', identity: 'same' }]]); },
-      recoveryIntervalMs: 1000, schedule: () => 1, cancel () {} });
-    block = true; const pending = service.refresh(A); pending.catch(() => {}); await started.promise;
-    available = false; generation++; assert.equal(service.last(A), null); assert.equal(service.warm(A), false);
-    available = true; held.resolve(); await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/);
-    assert.equal(fanouts, 1, 'TRUSTED_REALTIME_LATE_FRAME_NOT_PUBLISHED');
-    fail = true; await assert.rejects(service.check([A]), /metadata unavailable/, 'TRUSTED_REALTIME_DETECT_FAILURE_PROPAGATES');
-    await service.close();
-  });
-  it('reacquires previously warm quiet realtime cells once after metadata recovery', async function () {
-    let available = true, generation = 0, fail = false, acquisitions = 0;
-    const service = await require('../lib/server/realtime/runtime')({ tenants: [A], eventDriven: true,
-      workerState: () => ({ available, generation }), readCurrent: async tenant => ({ tenant, identity: 'same' }),
-      create: () => ({ acquire: async () => { acquisitions++; return { tenant: A, checkpoint: 1, frame: {} }; } }),
-      fanout: async () => {}, detect: async () => { if (fail) throw new Error('metadata unavailable'); return new Map([[A, { stamp: '1', identity: 'same' }]]); },
-      recoveryIntervalMs: 1000, schedule: () => 1, cancel () {} });
-    fail = true; available = false; generation++;
-    await assert.rejects(service.check([A]), /metadata unavailable/);
-    fail = false; available = true; await service.check([A]);
-    assert.equal(acquisitions, 2, 'TRUSTED_RT_RECOVERY_REACQUIRES');
-    assert.equal(service.warm(A), true); assert.ok(service.last(A));
-    await service.check([A]); assert.equal(acquisitions, 2, 'TRUSTED_RT_QUIET_AFTER_RECOVERY');
-    await service.close();
-  });
-  it('checks the captured runtime epoch after protocol fanout awaits and before socket emission', async function () {
-    let available = true, generation = 0, stamp = 0, block = false, service;
-    const started = deferred(), held = deferred(), events = [];
-    const socket = { id: 'synthetic', request: { headers: { host: 'one.example.test' }, socket: {} }, rooms: new Set(['synthetic']), handlers: {},
-      on (name, fn) { this.handlers[name] = fn; }, emit (name) { events.push(name); }, join (room) { this.rooms.add(room); }, leave (room) { this.rooms.delete(room); }, disconnect () {} };
-    const current = { identity: 'same' };
-    const protocol = require('../lib/server/realtime/protocol').create({ admission: { resolve: async () => A },
-      api: { authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }), executeSocketMutation: async () => {} },
-      runtime: () => service, readCurrent: async () => { if (block) { started.resolve(); await held.promise; } return current; }, domains: ['entries'] });
-    try {
-      service = await require('../lib/server/realtime/runtime')({ tenants: [A], eventDriven: true, recoveryIntervalMs: 1000, workerState: () => ({ available, generation }),
-        readCurrent: async () => current, create: () => ({ acquire: async () => ({ tenant: A, checkpoint: stamp, rows: stamp ? [{ domain: 'entries', document: { _id: 'synthetic', type: 'sgv', sgv: 123 } }] : [], frame: {} }) }),
-        fanout: protocol.fanout, schedule: () => 1, cancel () {} });
-      await protocol.prepare(socket); protocol.bind(socket, '/storage'); let reply;
-      await socket.handlers.subscribe({ accessToken: 'synthetic-token', collections: ['entries'] }, value => { reply = value; });
-      assert.equal(reply.success, true); stamp++; block = true;
-      const pending = service.refresh(A); pending.catch(() => {}); await started.promise;
-      available = false; generation++; available = true; held.resolve();
-      await assert.rejects(pending, /TRUSTED_WORKER_UNAVAILABLE/);
-      assert.equal(events.includes('create'), false, 'TRUSTED_PROTOCOL_NO_STALE_EMISSION');
-    } finally { protocol.close(); await service?.close(); }
-  });
 
 });
 

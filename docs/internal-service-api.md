@@ -104,9 +104,10 @@ sockets, private alarms and output hints route the canonical registry UUID throu
 the same [slice function](../lib/pool-membership/slice.js). Alarm delivery version 4
 carries `{count, ordinal}` without changing the durable request, attempt, origin
 generation or transport-acceptance boundary. A missing peer retains durable alarm
-retry. Output hints attempt every addressed group; the unchanged 30-second durable
-reconciliation recovers a lost hint. Realtime inspection version 5 reports cached
-static ownership and the separate process incarnation.
+retry. Output hints attempt every addressed group; realtime's level pass over its
+watched tenants covers a lost hint. Realtime inspection version 6 reports cached
+static ownership, the separate process incarnation, read progress by stage and each
+addressed tenant's last stage.
 
 Evaluator inspection version 3 reports static configuration as
 `{mode:'static',count,ordinal,rule,leaseMs:null,configuredTenants}`. Its `gate.members`

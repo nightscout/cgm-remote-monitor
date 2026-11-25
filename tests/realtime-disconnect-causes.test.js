@@ -42,7 +42,9 @@ function lab ({ deadlineMs = 600000, factory = protocolFactory } = {}) {
       return { permissions: { read, write: false, write_treatment: false, ack: read }, collections: read ? ['entries'] : [] };
     } };
   const protocol = factory.create({ operationWindow, admission: { resolve: async req => req.headers.host === 'b.test' ? B : A }, api, readCurrent: async () => ({ identity: 'same', env }),
-    runtime: () => runtime, domains: ['entries'], retry: { minMs: 5, maxMs: 20 }, unauthorizedDeadlineMs: deadlineMs });
+    runtime: () => runtime, domains: ['entries'], retry: { minMs: 5, maxMs: 20 }, unauthorizedDeadlineMs: deadlineMs,
+    // ctl.elapse moves the protocol's clock past the authorization validity bound (45 s at the default recheck).
+    now: () => Date.now() + (ctl.elapsed || 0) });
   return { ctl, protocol,
     async socket (namespace, { prepare = true, bind = namespace, host = 'a.test' } = {}) {
       const s = new Socket(); s.request.headers.host = host; s.request.rawHeaders = ['Host', host]; if (prepare) await protocol.prepare(s); protocol.bind(s, bind); return s;
@@ -69,12 +71,12 @@ const SCENARIOS = {
   [CAUSES.RETRO_WINDOW]: async f => { const s = await f.primed(); f.ctl.window = 'invalidate'; await s.receive('loadRetro', {}, () => {}); return s; },
   [CAUSES.RETRO_REFUSED]: async f => { const s = await f.primed(); f.ctl.window = 'reject'; await s.receive('loadRetro', {}, () => {}); return s; },
   [CAUSES.WRITE_WINDOW]: async f => { const s = await f.primed(); f.ctl.window = 'invalidate'; await s.receive('dbAdd', { collection: 'treatments', data: {} }, () => {}); return s; },
-  [CAUSES.FANOUT]: async f => { const s = await f.primed(); s.emitThrows = true; await f.protocol.fanout({ tenant: A, previous: f.ctl.frame, next: frameOf(2) }); return s; },
   [CAUSES.ALARM_READ_LOST]: async f => { const s = await f.primed('/alarm'); f.ctl.api = 'noread'; await f.protocol.alarm({ tenant: A, notification: { level: 1 } }); return s; },
   [CAUSES.ALARM_REFUSED]: async f => { const s = await f.primed('/alarm'); f.ctl.api = 'denied'; await f.protocol.alarm({ tenant: A, notification: { level: 1 } }); return s; },
-  // Spike S2: a socket held (authority uncertain) cannot be sent a live
-  // /storage hint; it is disconnected so the client re-syncs over REST.
-  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');f.ctl.api='unavailable';await f.protocol.recheckTenant(A);f.ctl.api='read';await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'create',colName:'entries',doc:{identifier:'synthetic'}}]});return s; },
+  // Spike S2: a socket whose authorization could not be renewed within the
+  // validity bound cannot be sent a live /storage hint; its transport is
+  // closed so the client re-syncs over REST.
+  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');f.ctl.api='unavailable';await f.protocol.recheckTenant(A);f.ctl.elapsed=46000;f.ctl.api='read';await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'create',colName:'entries',doc:{identifier:'synthetic'}}]});return s; },
   [CAUSES.TENANT_INVALIDATED]: async f => { const s = await f.primed(); f.protocol.invalidateTenant(A, 'role'); return s; },
   [CAUSES.UNAUTHORIZED_DEADLINE]: async f => f.socket('/storage') // never subscribes; deadline below
 };
@@ -224,8 +226,8 @@ describe('realtime tenant roster (actual protocol with state-visit instrument)',
       const [main, storage, alarm] = sockets['a.test'], others = sockets['b.test'];
       const before = others.map(s => s.sent.length);
       for (const [expectedVisits, action] of [
-        [6, () => f.protocol.fanout({ tenant: A, previous: f.ctl.frame, next: frameOf(2) })],
-        [3, () => f.protocol.recheckTenant(A)],
+        [6, () => { const previous = f.ctl.frame; f.ctl.frame = frameOf(2); return f.protocol.fanout({ tenant: A, previous, next: f.ctl.frame }); }],
+        [6, () => f.protocol.recheckTenant(A)],
         [3, () => f.protocol.alarm({ tenant: A, notification: { level: 2 } })]
       ]) {
         instrument.visits.length = 0;
@@ -239,7 +241,7 @@ describe('realtime tenant roster (actual protocol with state-visit instrument)',
       assert(storage.rooms.has(protocolFactory.room(A, '/storage', 'entries')));
       assert(alarm.sent.some(r => r.event === 'urgent_alarm'));
       assert.deepEqual(others.map(s => s.sent.length), before);
-      f.ctl.api = 'unavailable'; await f.protocol.recheckTenant(A);
+      f.ctl.api = 'unavailable'; await f.protocol.recheckTenant(A); f.ctl.elapsed = 46000;
       const held = main.sent.length;
       f.ctl.frame = frameOf(3);
       await f.protocol.fanout({ tenant: A, previous: frameOf(2), next: f.ctl.frame });

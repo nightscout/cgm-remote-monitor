@@ -23,23 +23,38 @@ admission files, raw clinical namespace lists, `changeFeed`, `socketOrderDomains
 sets `maxSockets` receives `REALTIME_CONFIG_MAX_SOCKETS_REMOVED`; deployment edge
 policies own connection flood limits.
 
-Provision the realtime typed checkpoint catalogue and consumer rows before boot.
-`pgstream/realtime-receipt.contractDigest(namespace, consumer)` supplies the
-immutable provisioning tag. The runtime's mutable delivery authority is the
-versioned receipt, exact producer revision and current worker owner. Its role
-reads the evaluator's completed source and selected control/presentation metadata,
-and updates only its five typed receipt columns. Readiness checks forced row
-security, installed catalogues and the selected grants.
+Provision the realtime checkpoint catalogue and consumer rows before boot.
+`pgstream/realtime-output.contractDigest(namespace, consumer)` supplies the
+immutable provisioning tag. Realtime is a reader (decision D23): its role reads
+the evaluator's completed source and selected control/presentation metadata and
+holds no UPDATE right on any table. Readiness checks forced row security,
+installed catalogues and that the role can write nothing.
 
-A producer commits durable output/control work before attempting its independent
-realtime handoff. Realtime commits an idempotent receipt before answering the
-private handoff. Its bounded drain checks addressed tenants, invalidates ineligible
-sockets, acquires changed completed revisions and acknowledges successful work.
-Failed tenants retain durable retries; other tenants continue. Startup and worker
-recovery claim pending receipts. The earliest actual retry owns the next timer.
-Warm tenants have no discovery timer or periodic roster scan. Known cold tenants
-have bounded preparation/retry work. Registry membership and fixed worker health
-checks retain their own responsibilities.
+Delivery is level-triggered (`runtime.js`). Per tenant the process holds one
+cell: the frame it last read, the settings identity it was read under and the
+one read in flight. A watched tenant whose durable `output_revision` is above
+its cell's is read again. Two triggers reach that one check: the evaluator's
+disposable wake hint, and a level pass every 5 s over the watched tenants (one
+batched control read and one batched checkpoint read). A tenant nobody watches
+is never read. A read is single-flight with a deadline, at most two at a time;
+no step waits on a tenant, so a slow tenant delays only itself. An error
+withholds the frame and a later pass converges to the latest revision; only a
+completed read that refuses the tenant drops its frame and its sockets.
+
+Per socket the protocol (`protocol.js`) holds its rights, when they were last
+confirmed and the frame it was last sent. A socket is sent its tenant's frame
+whenever it is behind it, may read, and its authorization was confirmed within
+the validity bound (1.5 recheck intervals) and is not past the credential's
+expiry. One fixed-rate sweep renews authorizations. A handshake reads nothing
+about the tenant's output and is accepted for a tenant without a frame. One
+configuration read, one admission per Host and one api call per credential
+serve a prime batch, a recheck or a fanout.
+
+The slice's owner session is held on a dedicated connection and checked by a
+liveness statement on it. A check that times out is uncertainty. On loss of
+the session delivery is withheld, transports close, and the lock is taken
+again with backoff; the role ends only for a differing layout or when the
+slice cannot be held again within two minutes.
 
 Each addressed output/control check reads current joined metadata and committed
 configuration. Delivery reads the compact typed envelope and, when needed, the
@@ -69,20 +84,14 @@ best-effort `storage-events` hint (`storage-hint.js`). A lost hint is not
 retried; a client re-syncs over REST as after any socket drop. Restore,
 ownership and current-worker fences apply before publication as for frames.
 
-Realtime is the sole owner of completed-output delivery progress. The evaluator
-commits `delivery_revision` with its output and then sends only a disposable,
+The evaluator commits its output revision and then sends only a disposable,
 coalesced wake naming up to 64 tenants (`completed-output` contract v3); it
-writes no delivery ACK and keeps no delivery retry. The configured database
-trigger copies the revision to each subscribed consumer's `output_target` in
-that same transaction. A new subscription starts at the producer's current
-revision. Realtime reads its own receipt in one read-only statement per page,
-delivers through the addressed check, and records completion, or one retry due
-time, for the whole page in one UPDATE under owner and monotone-revision fences.
-Wakes coalesce for `flushMs`. A bounded paged reconciliation runs at startup and
-every 30 s. Its index contains a tenant key for each receipt whose target
-exceeds its completion. One consumer can settle its receipt while another still
-owes the same revision. The DBA installs the binding and backfills existing
-receipts under the same locks before serving. Alarm handoff preserves the
+writes no delivery ACK and keeps no delivery retry. Realtime records nothing
+about delivery in the database: migration `0004_realtime_receipt_removed`
+removes the earlier receipt columns, owed index and obligation triggers. Wakes
+coalesce for `flushMs`; a lost wake is covered by the level pass. The private
+inspection (version 6) reports how many tenants entered and are in each read
+stage (fetch, prepare, send) and each tenant's last stage. Alarm handoff preserves the
 durable notification and attempt; acceptance means server handoff, not device
 delivery. Uncertain replies can repeat. The existing main/alarm acknowledgment
 routes and current rights still apply.

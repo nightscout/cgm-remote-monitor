@@ -56,10 +56,10 @@ describe('live registry admission and dynamic worker rosters',function(){
     const evaluator=await evalFactory({tenants:[],dynamic:true,maxTenants:2,externalRecovery:true,recoveryIntervalMs:100,timeIntervalMs:100,
       schedule:()=>null,cancel:()=>{},setTimer:()=>null,clearTimer:()=>{},readCurrent:current,
       create:async ctx=>({evaluate:async()=>{evaluated.push(ctx.tenant);return {checkpoint:1,signature:{stamp:1,deleted:0}};},evaluateTime:async()=>({checkpoint:1}),close:()=>{}})});
-    const realtime=await rtFactory({tenants:[],dynamic:true,maxTenants:2,eventDriven:true,recoveryIntervalMs:100,schedule:()=>null,cancel:()=>{},readCurrent:current,
+    const realtime=await rtFactory({maxTenants:2,readCurrent:current,
       create:ctx=>({acquire:async()=>({checkpoint:1,frame:{tenant:ctx.tenant}})}),fanout:async row=>frames.push(row.tenant)});
-    try{tenants.set(A,true);evaluator.addTenant(A);realtime.addTenant(A);await evaluator.acquire(A);await realtime.check([A]);assert.deepEqual(evaluated,[A]);assert.deepEqual(frames,[A]);
-      await evaluator.removeTenant(A);await realtime.removeTenant(A);assert.equal(evaluator.last(A),null);assert.equal(realtime.last(A),null);assert.equal(evaluator.health().tenants.length,0);assert.equal(realtime.health().configured,0);}
+    try{tenants.set(A,true);evaluator.addTenant(A);realtime.addTenant(A);await evaluator.acquire(A);await realtime.refresh(A);assert.deepEqual(evaluated,[A]);assert.deepEqual(frames,[A]);
+      await evaluator.removeTenant(A);await realtime.removeTenant(A);assert.equal(evaluator.last(A),null);assert.equal(realtime.last(A),null);assert.equal(evaluator.health().tenants.length,0);assert.equal(realtime.probe().configured,0);}
     finally{await evaluator.close();await realtime.close();}
     await assert.rejects(evalFactory({tenants:[],readCurrent:current,create:async()=>{},recoveryIntervalMs:1,timeIntervalMs:1}),/Explicit/);
   });

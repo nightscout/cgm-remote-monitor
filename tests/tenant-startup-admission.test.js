@@ -101,27 +101,21 @@ describe('independent tenant startup admission (source protocol)', function () {
     } finally { await g.window.close(); }
     await assert.rejects(startup.attempt(undefined,A,async()=>{throw new Error('strict single tenant');}),/strict single tenant/);
   });
-  it('boots actual realtime with suspended A, keeps B progress and retries A on activation; all paused retains control liveness', async function () {
+  it('starts actual realtime with suspended A, keeps B progress and reads A on activation; all paused stays live', async function () {
     for (const allPaused of [false,true]) {
       const options={phases:{[A]:'suspended',...(allPaused?{[B]:'suspended'}:{})}}, f=fixture(options), calls=[];
       let rt;
       try {
         rt=await realtime({tenants:[A,B],operationWindow:f.window,readCurrent:async tenant=>{calls.push(tenant);return {tenant,identity:'current'};},
-          create:current=>({acquire:async()=>({tenant:current.tenant,checkpoint:1})}),fanout:async()=>{},recoveryIntervalMs:100,schedule:()=>1,cancel:()=>{}});
+          create:current=>({acquire:async()=>({tenant:current.tenant,checkpoint:1})}),fanout:async()=>{}});
         assert.equal(calls.includes(A),false,'REALTIME_SUSPENDED_A_NO_CONFIG_OR_DATA');
-        assert.equal(rt.health().live,true); assert.equal(rt.health().ready,false);
-        assert.equal(rt.health().tenants.find(row=>row.tenant===B).ready,!allPaused);
+        assert.equal(rt.probe().live,true); assert.equal(rt.warm(A),false);
+        assert.equal(rt.warm(B),!allPaused);
         assert.equal(rt.last(A),null); assert.equal(await f.window.run(B,()=>rt.last(B)).catch(()=>null)!==null,!allPaused);
         options.phases[A]='active'; await rt.refresh(A);
         assert.equal(await f.window.run(A,()=>rt.last(A).checkpoint),1);
       } finally { if(rt)await rt.close(); await f.window.close(); }
     }
-  });
-  it('preserves actual realtime startup hard failure for ordinary acquisition errors with and without a window', async function () {
-    const f=fixture(); try {
-      for(const operationWindow of [undefined,f.window]) await assert.rejects(realtime({tenants:[A],operationWindow,
-        readCurrent:async()=>{throw new Error('broken shared dependency');},create:()=>{},fanout:async()=>{},recoveryIntervalMs:100,schedule:()=>1,cancel:()=>{}}),/broken shared dependency/);
-    } finally { await f.window.close(); }
   });
   it('actual API boot exposes inline preparation to HTTP and private sockets without warming the roster (NS_TENANT_READINESS=all)', async function () {
     const previous=process.env.NS_TENANT_READINESS;process.env.NS_TENANT_READINESS='all';

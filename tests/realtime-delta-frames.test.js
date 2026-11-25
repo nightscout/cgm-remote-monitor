@@ -96,14 +96,14 @@ describe('realtime delta frames (decision no-realtime-fast-path)', function () {
     assert.deepEqual(shown(browser(socket.frames())), shown(browser([p3.frame])));
   });
 
-  it('RT_DELTA_FULL: out-of-order, settings identity change, a removed reading and a new socket get full frames', async function () {
+  it('RT_DELTA_FULL: a settings identity change, a removed reading and a new socket get full frames; an older revision is never sent', async function () {
     const f = await fixture(p2);
     const socket = await f.socket();
     await f.protocol.fanout({ tenant: A, previous: p2, next: p1 });
-    assert.equal(socket.frames()[1].delta, false, 'RT_DELTA_OUT_OF_ORDER');
+    assert.equal(socket.frames().length, 1, 'RT_DELTA_NEVER_BACKWARDS a socket that holds a later revision is not sent an older one');
     const removed = publication(4, { sgvs: [sgv(1)], treatments: p1.frame.treatments });
-    await f.protocol.fanout({ tenant: A, previous: p1, next: removed });
-    assert.equal(socket.frames()[2].delta, false, 'RT_DELTA_REMOVED_READING calcDelta cannot remove an entry');
+    await f.protocol.fanout({ tenant: A, previous: p2, next: removed });
+    assert.equal(socket.frames()[1].delta, false, 'RT_DELTA_REMOVED_READING calcDelta cannot remove an entry');
     const other = publication(5, { sgvs: [sgv(1), sgv(2), sgv(5)], treatments: p1.frame.treatments }, 'other');
     await assert.rejects(f.protocol.fanout({ tenant: A, previous: removed, next: other }), /REALTIME_CYCLE_CHANGED/);
     assert.equal(protocolFactory.deltaFrame(removed, other), null, 'RT_DELTA_IDENTITY');

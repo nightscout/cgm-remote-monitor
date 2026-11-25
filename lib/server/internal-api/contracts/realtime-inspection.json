@@ -1,6 +1,6 @@
 {
   "id": "realtime-inspection",
-  "version": 5,
+  "version": 6,
   "operations": {
     "inspectRealtime": {
       "path": "/realtime/inspect",
@@ -130,60 +130,85 @@
                   }
                 ]
               },
-              "delivery": {
+              "progress": {
                 "anyOf": [
                   {
                     "type": "object",
                     "properties": {
-                      "received": {
+                      "entered": {
+                        "type": "object",
+                        "properties": {
+                          "fetch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "prepare": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "send": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "fetch",
+                          "prepare",
+                          "send"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "inflight": {
+                        "type": "object",
+                        "properties": {
+                          "fetch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "prepare": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "send": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "fetch",
+                          "prepare",
+                          "send"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "deadlines": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
-                      "completed": {
+                      "skippedPasses": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
-                      "retries": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "workQueries": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "reconciliationPages": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "metadataUpdates": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "metadataRows": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "maxMetadataBatch": {
+                      "queued": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       }
                     },
                     "required": [
-                      "received",
-                      "completed",
-                      "retries",
-                      "workQueries",
-                      "metadataUpdates",
-                      "metadataRows",
-                      "maxMetadataBatch"
+                      "entered",
+                      "inflight",
+                      "deadlines",
+                      "skippedPasses",
+                      "queued"
                     ],
                     "additionalProperties": false
                   },
@@ -323,6 +348,17 @@
                 },
                 "ready": {
                   "type": "boolean"
+                },
+                "stage": {
+                  "enum": [
+                    null,
+                    "fetch",
+                    "prepare",
+                    "send"
+                  ]
+                },
+                "stageActive": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -458,60 +494,85 @@
                   }
                 ]
               },
-              "delivery": {
+              "progress": {
                 "anyOf": [
                   {
                     "type": "object",
                     "properties": {
-                      "received": {
+                      "entered": {
+                        "type": "object",
+                        "properties": {
+                          "fetch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "prepare": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "send": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "fetch",
+                          "prepare",
+                          "send"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "inflight": {
+                        "type": "object",
+                        "properties": {
+                          "fetch": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "prepare": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "send": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "fetch",
+                          "prepare",
+                          "send"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "deadlines": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
-                      "completed": {
+                      "skippedPasses": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       },
-                      "retries": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "workQueries": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "reconciliationPages": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "metadataUpdates": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "metadataRows": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 9007199254740991
-                      },
-                      "maxMetadataBatch": {
+                      "queued": {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
                       }
                     },
                     "required": [
-                      "received",
-                      "completed",
-                      "retries",
-                      "workQueries",
-                      "metadataUpdates",
-                      "metadataRows",
-                      "maxMetadataBatch"
+                      "entered",
+                      "inflight",
+                      "deadlines",
+                      "skippedPasses",
+                      "queued"
                     ],
                     "additionalProperties": false
                   },

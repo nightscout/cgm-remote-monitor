@@ -28,11 +28,12 @@ function windowFor (generations) {
     currentGeneration (tenant) { const s = store.getStore(); if (!s || s.tenant !== tenant) throw new Error('LIFECYCLE_WINDOW_REQUIRED'); return String(s.generation); } };
 }
 function realtime ({ module = factory, operationWindow } = {}) {
-  let held = false;
-  const protocol = module.create({ operationWindow, admission: { resolve: async req => req.headers.host === 'b.test' ? B : A },
+  let held = false, elapsed = 0;
+  const protocol = module.create({ operationWindow, now: () => Date.now() + elapsed, admission: { resolve: async req => req.headers.host === 'b.test' ? B : A },
     api: { authorizeSocket: async () => { if (held) throw new Error('temporarily unavailable'); return { permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['food', 'entries'] }; }, executeSocketMutation: async () => {} },
     readCurrent: async () => ({ identity: 'same' }), runtime: () => ({}), domains: ['food', 'entries'], retry: { minMs: 5, maxMs: 20 } });
-  return { protocol, set held (v) { held = v; },
+  // lapse: move the protocol's clock past the authorization validity bound (45 s at the default recheck).
+  return { protocol, set held (v) { held = v; }, lapse () { elapsed = 46000; },
     async socket (host = 'a.test', collections) { const socket = new Socket(host); await protocol.prepare(socket); protocol.bind(socket, '/storage'); let answer; await socket.receive('subscribe', collections ? { collections } : {}, v => { answer = v; }); assert.equal(answer.success, true); return socket; } };
 }
 const hint = (tenant, generation, events) => ({ kind: hints.KIND, tenant, generation, events });
@@ -107,10 +108,10 @@ describe('spike S2: /storage from the api post-commit hint (realtime side)', fun
     await assert.rejects(staleCheck(broken)(), /STALE_GENERATION_HINT_MUST_NOT_BE_DELIVERED/);
     await staleCheck(factory)();
   });
-  it('a socket held while its authority is uncertain is disconnected (re-sync over REST), not silently skipped', async function () {
+  it('a socket whose authorization could not be renewed within the validity bound is disconnected (re-sync over REST), not silently skipped', async function () {
     const w = windowFor(new Map([[A, 1]])), r = realtime({ operationWindow: w });
     try {
-      const a = await r.socket(); r.held = true; await r.protocol.recheckTenant(A);
+      const a = await r.socket(); r.held = true; await r.protocol.recheckTenant(A); r.lapse();
       await r.protocol.storageHint(hint(A, '1', [{ event: 'create', colName: 'food', doc: { identifier: 'missed' } }]));
       assert(a.disconnected, 'HELD_SOCKET_MUST_DISCONNECT');
       assert.equal(r.protocol.stats?.().disconnects?.REALTIME_STORAGE_CONTINUITY_LOST ?? 1, 1);

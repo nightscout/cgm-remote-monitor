@@ -52,267 +52,56 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGR
 // Physical delivery-progress SQL and COMMIT visibility. Realtime reads the
 // evaluator's committed delivery_revision and owns completion and retry;
 // lifecycle fencing uses the recording protocol fixture.
-optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('realtime-owned delivery progress SQL on actual PostgreSQL',function(){
+optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('realtime receipt removal on actual PostgreSQL (decision D23)',function(){
  this.timeout(30000);
  const suffix=crypto.randomBytes(6).toString('hex'),namespace='typed_rt_'+suffix,source='typed_ev_'+suffix;
- const tenant='11111111-1111-4111-8111-111111111111',worker='22222222-2222-4222-8222-222222222222',nextWorker='33333333-3333-4333-8333-333333333333';
- const secondConsumer='realtime-secondary';
- const table='"'+namespace+'".tenant_consumer_checkpoint',obligations='"'+source+'".tenant_consumer_checkpoint',consumer='realtime-native',evaluatorConsumer='evaluator-native';
- let admin,observer,nativePool,metadataRole,connected=false,observerConnected=false,protocol,create,at=100,failCommit=false,rollbackCommit=false,commitGate=null,commitEntered=null,store;
- const statements=[];
- const metadataPool={connect:async()=>{const client=await nativePool.connect();return {release:error=>client.release(error),query:async(text,values)=>{statements.push(typeof text==='string'?text:text.text);if(text==='COMMIT'){if(commitEntered)commitEntered();if(commitGate)await commitGate;if(failCommit)throw new Error('SYNTHETIC_RECEIPT_COMMIT_FAILURE');if(rollbackCommit)return client.query('ROLLBACK');}return client.query(text,values);}};}};
- const portWith=helper=>({query:(...args)=>admin.query(...args),readOnly:(text,values)=>{statements.push(text);return nativePool.query(text,values);},updateRealtimeReceipts:options=>helper.update({pool:metadataPool,observeBackend:async client=>{const role=(await client.query('SELECT r.rolsuper,r.rolbypassrls FROM pg_roles r WHERE r.rolname=current_user')).rows[0];assert.equal(role.rolsuper,false);assert.equal(role.rolbypassrls,false);},...options})});
- const port=portWith(require('../lib/pgstream/realtime-receipt-sql'));
- const config={namespaces:{checkpoint:namespace},consumer,maxTenants:64,completedOutput:{namespace:source,consumer:evaluatorConsumer}};
- const make=(owner,connection=port)=>create({config,connection,worker:owner,now:()=>at});
- const row=async(id=tenant)=>((await observer.query(`SELECT output_received::text AS received,output_completed::text AS completed,output_retry_at::text AS retry,output_owner::text AS owner FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[id,consumer])).rows[0]);
- const commit=(revision,id=tenant)=>admin.query(`UPDATE ${obligations} SET delivery_revision=$3 WHERE tenant_id=$1 AND consumer=$2`,[id,evaluatorConsumer+'-completed',revision]);
- const provision=async id=>{
-  await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,$2,$3,0)`,[id,consumer,'a'.repeat(64)]);
-  await admin.query(`INSERT INTO ${obligations} (tenant_id,consumer,contract_digest,checkpoint,work_version,work_observed,work_completed,work_observed_at) VALUES ($1,$2,$3,0,2,$4::bigint[],$4::bigint[],$4::bigint[])`,[id,evaluatorConsumer+'-completed','b'.repeat(64),[null,null,null,null,null,null]]);
- };
- const ok=(rows,value=true)=>new Map(rows.map(value_=>[value_.tenant,value]));
- before(async()=>{
-  admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;
-  observer=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await observer.connect();observerConnected=true;
-  const realtimeCatalogue=require('../migrations/candidates/postgres-realtime-output-v2.json');
-  const migrate=catalogue=>run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace,catalogue});
-  await migrate({...realtimeCatalogue,migrations:realtimeCatalogue.migrations.slice(0,2)});
-  await run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:source,catalogue:candidate});
-  // Existing installations may have lost the wake before upgrading the receipt catalogue.
-  await provision(tenant);await commit('7');
-  const upgrade=await migrate(realtimeCatalogue);assert.deepEqual(upgrade.done,['0003_realtime_output_obligation']);
-  await require('../lib/pgstream/realtime-obligation').install(admin,{source,target:namespace,producer:evaluatorConsumer,consumers:[consumer,secondConsumer]});
-  metadataRole=namespace+'_metadata';const password=crypto.randomBytes(24).toString('hex');
-  await admin.query(`CREATE ROLE "${metadataRole}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
-  await admin.query(`GRANT USAGE ON SCHEMA "${namespace}" TO "${metadataRole}"`);
-  await admin.query(`GRANT SELECT,UPDATE(output_received,output_completed,output_owner,output_retry_at,output_delivery_version) ON ${table} TO "${metadataRole}"`);
-  await admin.query(`CREATE POLICY receipt_metadata_select ON ${table} FOR SELECT TO "${metadataRole}" USING (consumer IN ('realtime-native','realtime-secondary'))`);
-  await admin.query(`CREATE POLICY receipt_metadata_update ON ${table} FOR UPDATE TO "${metadataRole}" USING (consumer IN ('realtime-native','realtime-secondary')) WITH CHECK (consumer IN ('realtime-native','realtime-secondary'))`);
-  // The deployed realtime reader of the evaluator checkpoint (deploy pgstream.js): SELECT, completed consumer only.
-  await admin.query(`GRANT USAGE ON SCHEMA "${source}" TO "${metadataRole}"`);
-  await admin.query(`GRANT SELECT ON ${obligations} TO "${metadataRole}"`);
-  await admin.query(`CREATE POLICY realtime_output_select ON ${obligations} FOR SELECT TO "${metadataRole}" USING (consumer='${evaluatorConsumer}-completed')`);
-
-  const roleUri=new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);roleUri.username=metadataRole;roleUri.password=password;nativePool=new Pool({connectionString:roleUri.toString(),max:2});
-  create=require('../lib/pgstream/realtime-receipt').create;
-  protocol=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true});await protocol.window.ready();store=make(worker);await store.verify();
-  assert.deepEqual(await store.work([tenant]),[{tenant,received:'7'}],'cutover backfills the outstanding first delivery');
+ const table='"'+namespace+'".tenant_consumer_checkpoint',obligations='"'+source+'".tenant_consumer_checkpoint';
+ const current=require('../migrations/candidates/postgres-realtime-output-v2.json'),removal=require('../lib/pgstream/realtime-receipt-removal-sql');
+ // The catalogue as a populated deployment holds it: everything before the removal.
+ const prior={...current,migrations:current.migrations.filter(migration=>migration.name!==removal.NAME)};
+ const migrate=(target,selected)=>run('up',{direct:true,connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,namespace:target,catalogue:selected});
+ let admin,connected=false;
+ before(async()=>{admin=new Client({connectionString:process.env.NS_TEST_POSTGRES_ADMIN_URI,connectionTimeoutMillis:5000});await admin.connect();connected=true;});
+ after(async()=>{if(admin){try{if(connected)for(const name of [namespace,source,namespace+'_new'])await admin.query('DROP SCHEMA IF EXISTS "'+name+'" CASCADE');}finally{await admin.end();}}});
+ const shape=async()=>({file:(await admin.query("SELECT pg_relation_filenode($1::regclass) AS file",[table])).rows[0].file,
+  triggers:(await admin.query('SELECT count(*)::int AS n FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE NOT t.tgisinternal AND n.nspname=ANY($1)',[[namespace,source]])).rows[0].n,
+  functions:(await admin.query('SELECT count(*)::int AS n FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1',[namespace])).rows[0].n,
+  columns:(await admin.query('SELECT attname FROM pg_attribute WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum',[table])).rows.map(row=>row.attname),
+  indexes:(await admin.query("SELECT indexname FROM pg_indexes WHERE schemaname=$1 AND tablename='tenant_consumer_checkpoint' ORDER BY 1",[namespace])).rows.map(row=>row.indexname)});
+ it('removes the obligation triggers, function, owed index and receipt columns from a populated table without rewriting it',async()=>{
+  assert.equal(current.migrations.at(-1).name,removal.NAME);assert.equal(prior.migrations.length,3);
+  await migrate(namespace,prior);await migrate(source,candidate);
+  // The deployment's DBA step installed the obligation under a name derived from its namespaces.
+  const name='rt_obligation_'+crypto.randomBytes(16).toString('hex'),fn='"'+namespace+'".'+name;
+  await admin.query('CREATE FUNCTION '+fn+'() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_RELID=\''+obligations+'\'::regclass THEN UPDATE '+table+' SET output_target=NEW.delivery_revision WHERE tenant_id=NEW.tenant_id; RETURN NULL; END IF; RETURN NEW; END $$');
+  await admin.query('CREATE TRIGGER rt_subscription_native BEFORE INSERT ON '+table+' FOR EACH ROW EXECUTE FUNCTION '+fn+'()');
+  await admin.query('CREATE TRIGGER '+name+' AFTER UPDATE OF delivery_revision ON '+obligations+' FOR EACH ROW EXECUTE FUNCTION '+fn+'()');
+  await admin.query('CREATE TRIGGER '+name+'_lifetime AFTER INSERT OR DELETE ON '+obligations+' FOR EACH ROW EXECUTE FUNCTION '+fn+'()');
+  const digest='a'.repeat(64);
+  await admin.query('INSERT INTO '+table+"(tenant_id,consumer,contract_digest,checkpoint) SELECT gen_random_uuid(),'realtime-native',$1,0 FROM generate_series(1,500)",[digest]);
+  await admin.query('INSERT INTO '+obligations+"(tenant_id,consumer,contract_digest,checkpoint,work_version,work_observed,work_completed,work_observed_at) SELECT tenant_id,'evaluator-native-completed',$1,0,2,'{0,0,0,0,0,0}','{0,0,0,0,0,0}','{0,0,0,0,0,0}' FROM "+table,[digest]);
+  await admin.query('UPDATE '+obligations+' SET delivery_revision=2');
+  assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+table+' WHERE output_pending_tenant IS NOT NULL')).rows[0].n,500,'the installed obligation marks receipts before the migration');
+  const populated=await shape();
+  assert.equal(populated.triggers,3);assert.deepEqual(populated.indexes,['pgstream_realtime_owed','tenant_consumer_checkpoint_pkey']);
+  assert.deepEqual((await migrate(namespace,current)).done,[removal.NAME]);
+  const after=await shape();
+  assert.equal(after.file,populated.file,'NO_REWRITE the table keeps its file');
+  assert.equal(after.triggers,0,'the triggers on both checkpoint tables are gone');assert.equal(after.functions,0);
+  assert.deepEqual(after.columns,['tenant_id','consumer','contract_digest','checkpoint','projection']);
+  assert.deepEqual(after.indexes,['tenant_consumer_checkpoint_pkey']);
+  assert.equal((await admin.query('SELECT count(*)::int AS n FROM '+table)).rows[0].n,500);
+  // The evaluator keeps writing, and the ledger replays unchanged.
+  await admin.query('UPDATE '+obligations+' SET delivery_revision=delivery_revision+1,output_revision=output_revision+1');
+  assert.deepEqual((await migrate(namespace,current)).done,[]);
  });
- beforeEach(async()=>{at=100;failCommit=false;rollbackCommit=false;commitGate=null;commitEntered=null;await admin.query(`DELETE FROM ${table}`);await admin.query(`DELETE FROM ${obligations}`);await provision(tenant);});
- after(async()=>{await protocol?.window.close();await nativePool?.end();if(observerConnected)await observer.end();if(admin){try{if(connected){await admin.query('DROP SCHEMA IF EXISTS "'+namespace+'" CASCADE');await admin.query('DROP SCHEMA IF EXISTS "'+source+'" CASCADE');if(metadataRole){await admin.query('DROP OWNED BY "'+metadataRole+'"');await admin.query('DROP ROLE "'+metadataRole+'"');}}}finally{await admin.end();}}});
- it('recovers a first lost wake and only adopts a due row when the replacement still holds its slice',async()=>{
-  await commit('1');
-  const previousRetryPredicate = await nativePool.query(`SELECT tenant_id FROM ${table} WHERE consumer=$1 AND output_received>output_completed`,[consumer]);
-  assert.equal(previousRetryPredicate.rowCount,0,'unattempted delivery is absent from the realtime retry index');
-  assert.deepEqual(await store.pending(),[tenant]);
-  const work=await store.work([tenant]);await store.finish(work,ok(work),1100);
-  assert.deepEqual(await store.pending(),[]);
-  await commit('2');
-  const lost=create({config,connection:port,worker:nextWorker,confirmOwner:async()=>{throw Error('SYNTHETIC_OWNER_LOST');},now:()=>at});
-  await assert.rejects(lost.pending(),/SYNTHETIC_OWNER_LOST/);
-  assert.equal((await row()).owner,worker);
-  const replacement=make(nextWorker);
-  assert.deepEqual(await replacement.pending(),[tenant]);
-  assert.deepEqual(await store.work([tenant]),[]);
-  const owed=await replacement.work([tenant]);await replacement.finish(owed,ok(owed),1100);
-  assert.deepEqual(await replacement.pending(),[]);
- });
- it('recovers each subscribed consumer independently after a lost first wake and rolls publication back with the producer',async()=>{
-  const second=create({config:{...config,consumer:secondConsumer},connection:port,worker:nextWorker,now:()=>at});
-  await admin.query('BEGIN');
-  try{
-   await commit('1');
-   assert.deepEqual(await store.pending(),[], 'uncommitted producer revision is invisible');
-  }finally{await admin.query('ROLLBACK');}
-  assert.deepEqual(await store.pending(),[], 'rolled back producer revision leaves no debt');
-  await commit('1');
-  const first=await store.work([tenant]);await store.finish(first,ok(first));
-  // A subscription added after the producer settled still gets its first wake-free delivery.
-  await admin.query(`INSERT INTO ${table}(tenant_id,consumer,contract_digest,checkpoint) VALUES($1,$2,$3,0)`,[tenant,secondConsumer,'c'.repeat(64)]);
-  assert.deepEqual(await second.pending(),[tenant]);
-  assert.deepEqual(await store.pending(),[]);
-  const name=require('../lib/pgstream/realtime-obligation').binding(source,namespace,evaluatorConsumer,consumer).name;
-  await admin.query(`ALTER TABLE ${obligations} DISABLE TRIGGER ${name}`);
-  try{
-   await assert.rejects(store.verify(),/REALTIME_RECEIPT_OBLIGATION_REQUIRED/);
-   await commit('2');
-   await assert.rejects(async()=>assert.deepEqual(await store.pending(),[tenant],'LOST_WAKE_STRANDED'),/LOST_WAKE_STRANDED/);
-   assert.deepEqual(await second.work([tenant]),[{tenant,received:'1'}], 'disabled producer binding strands both subscribed consumers');
-   console.log('REALTIME_LOST_WAKE_ABLATION_RED LOST_WAKE_STRANDED');
-  }finally{await admin.query(`ALTER TABLE ${obligations} ENABLE TRIGGER ${name}`);}
-  await store.verify();await commit('3');
-  for(const target of [store,second])assert.deepEqual(await target.pending(),[tenant]);
-  const latest=await second.work([tenant]);await second.finish(latest,ok(latest));
-  assert.deepEqual(await second.pending(),[]);assert.deepEqual(await store.pending(),[tenant]);
-  const due=await store.work([tenant]);await store.finish(due,ok(due));assert.deepEqual(await store.pending(),[]);
- });
- it('executes no receipt UPDATE for unchanged or unowed work and rolls back the producer if a required receipt update fails',async()=>{
-  const absent='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-  await provision(absent);await admin.query(`DELETE FROM ${table} WHERE tenant_id=$1`,[absent]);
-  await commit('1');const first=await store.work([tenant]);await store.finish(first,ok(first));
-  await admin.query(`CREATE FUNCTION "${namespace}".reject_receipt_statement() RETURNS trigger LANGUAGE plpgsql
-    AS $$ BEGIN RAISE EXCEPTION 'UNEXPECTED_RECEIPT_DML'; END $$`);
-  // A statement trigger fires even for UPDATEs that return zero rows.
-  await admin.query(`CREATE TRIGGER reject_receipt_statement AFTER UPDATE ON ${table}
-    FOR EACH STATEMENT EXECUTE FUNCTION "${namespace}".reject_receipt_statement()`);
-  try{
-   await commit('1');await commit('2',absent);
-   await assert.rejects(commit('2'),/UNEXPECTED_RECEIPT_DML/);
-   const stored=await observer.query(`SELECT delivery_revision FROM ${obligations} WHERE tenant_id=$1`,[tenant]);
-   assert.equal(stored.rows[0].delivery_revision,'1');
-   assert.deepEqual(await store.pending(),[]);
-  }finally{
-   await admin.query(`DROP TRIGGER reject_receipt_statement ON ${table}`);
-   await admin.query(`DROP FUNCTION "${namespace}".reject_receipt_statement()`);
-  }
-  await commit('2');assert.deepEqual(await store.pending(),[tenant]);
- });
- it('refuses to finish a page whose pending receipt was deleted',async()=>{
-  await commit('9');
-  const old=await store.work([tenant]);
-  await admin.query(`DELETE FROM ${obligations} WHERE tenant_id=$1`,[tenant]);
-  assert.deepEqual(await store.pending(),[]);
-  await assert.rejects(store.finish(old,ok(old)),/REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED/);
- });
- it('serializes a producer commit behind a finishing page and leaves the newer revision due',async()=>{
-  await commit('1');
-  const work=await store.work([tenant]);
-  let release,entered;
-  commitGate=new Promise(resolve=>{release=resolve;});
-  const waiting=new Promise(resolve=>{entered=resolve;});commitEntered=entered;
-  const finish=store.finish(work,ok(work));await waiting;
-  const publish=commit('2');
-  try{
-   let blocked=false;
-   for(let attempt=0;attempt<100&&!blocked;attempt++){
-    blocked=(await observer.query('SELECT cardinality(pg_blocking_pids($1))>0 AS waiting',[admin.processID])).rows[0].waiting;
-    if(!blocked)await new Promise(resolve=>setTimeout(resolve,10));
-   }
-   assert(blocked,'producer holds its transaction until the receipt update can commit');
-   assert.deepEqual(await store.work([tenant]),work);
-  }finally{release();commitEntered=null;commitGate=null;await Promise.all([finish,publish]);}
-  assert.equal((await row()).completed,'1');
-  assert.deepEqual(await store.pending(),[tenant]);
-  assert.deepEqual(await store.work([tenant]),[{tenant,received:'2'}]);
- });
- it('bounds keyset pages to actual owed tenants in the configured static slice',async()=>{
-  const count=3,ordinal=1,ids=Array.from({length:320},(_,i)=>'44444444-4444-4444-8444-'+String(i+1).padStart(12,'0'));
-  await admin.query(`INSERT INTO ${table}(tenant_id,consumer,contract_digest,checkpoint) SELECT t,$2,$3,0 FROM unnest($1::uuid[]) t`,[ids,consumer,'a'.repeat(64)]);
-  await admin.query(`INSERT INTO ${obligations}(tenant_id,consumer,contract_digest,checkpoint,work_version,work_observed,work_completed,work_observed_at,delivery_revision)
-    SELECT t,$2,$3,0,2,$4::bigint[],$4::bigint[],$4::bigint[],1 FROM unnest($1::uuid[]) t`,[ids,evaluatorConsumer+'-completed','b'.repeat(64),Array(6).fill(null)]);
-  const slice=require('../lib/pool-membership/slice'), owned=ids.filter(id=>slice.bucket(id,count)===ordinal);
-  const selected=create({config:{...config,ownership:{count,ordinal}},connection:port,worker,now:()=>at});
-  const first=await selected.pending(),second=await selected.pending(first.at(-1));
-  assert.equal(first.length,64);assert.deepEqual(first.concat(second),owned);
-  const busy=await selected.work(first);await selected.finish(busy,ok(busy,false),at+1000);
-  assert.deepEqual(await selected.pending(),second,'backoff on a full page cannot hide its neighbours');
- });
- it('selects only owed revisions in one read and records nothing until physical COMMIT',async()=>{
-  assert.deepEqual(await store.work([tenant]),[],'NO_COMMITTED_REVISION_NO_WORK');
-  await commit('1');statements.length=0;const rows=await store.work([tenant]);assert.deepEqual(rows,[{tenant,received:'1'}]);
-  assert.equal(statements.length,1,'ONE_READ_STATEMENT');
-  let release,entered;commitGate=new Promise(resolve=>{release=resolve;});const waiting=new Promise(resolve=>{entered=resolve;});commitEntered=entered;
-  let done=false;const finishing=store.finish(rows,ok(rows),1100).then(()=>{done=true;});
-  try{await waiting;assert.equal((await row()).completed,'0');assert.equal(done,false);}
-  finally{commitEntered=null;commitGate=null;release();await finishing;}
-  assert.deepEqual(await row(),{received:'1',completed:'1',retry:null,owner:worker});assert.deepEqual(await store.work([tenant]),[]);
-  await commit('2');const next=await store.work([tenant]);
-  failCommit=true;await assert.rejects(store.finish(next,ok(next),1100),/SYNTHETIC_RECEIPT_COMMIT_FAILURE/);failCommit=false;assert.equal((await row()).completed,'1');
-  rollbackCommit=true;await assert.rejects(store.finish(next,ok(next),1100),/REALTIME_RECEIPT_COMMIT/);rollbackCommit=false;assert.equal((await row()).completed,'1');
-  await store.finish(next,ok(next),1100);assert.equal((await row()).completed,'2');
- });
- it('(b) a failed attempt keeps completion, sets one durable due time, and a newer revision is due at once',async()=>{
-  await commit('1');const rows=await store.work([tenant]);await store.finish(rows,ok(rows,false),1100);
-  assert.deepEqual(await row(),{received:'1',completed:'0',retry:'1100',owner:worker},'FAILED_ATTEMPT_MUST_NOT_COMPLETE');
-  assert.deepEqual(await store.work([tenant]),[],'NOT_DUE_BEFORE_RETRY_TIME');at=1100;assert.deepEqual(await store.work([tenant]),[{tenant,received:'1'}],'DUE_AT_RETRY_TIME');
-  at=100;await commit('2');assert.deepEqual(await store.work([tenant]),[{tenant,received:'2'}],'NEWER_REVISION_BYPASSES_BACKOFF');
-  const next=await store.work([tenant]);await store.finish(next,ok(next),1200);assert.deepEqual(await row(),{received:'2',completed:'2',retry:null,owner:worker});
- });
- it('(c) never moves completion backwards; a revision committed during delivery remains pending',async()=>{
-  async function criterion(connection){
-   await admin.query(`DELETE FROM ${table}`);await admin.query(`DELETE FROM ${obligations}`);await provision(tenant);
-   const selected=make(worker,connection);
-   await commit('1');const rows=await selected.work([tenant]);
-   await commit('2');// the evaluator commits a newer revision while the page is delivered
-   await selected.finish(rows,ok(rows),1100);assert.equal((await row()).completed,'1','DELIVERED_PAGE_RECORDS_ITS_OWN_REVISION');
-   assert.deepEqual(await selected.work([tenant]),[{tenant,received:'2'}],'NEWER_REVISION_REMAINS_PENDING');
-   const next=await selected.work([tenant]);await selected.finish(next,ok(next),1100);assert.equal((await row()).completed,'2');
-   await selected.finish(rows,ok(rows),1100);assert.deepEqual(await row(),{received:'2',completed:'2',retry:null,owner:worker},'STALE_SUCCESS_MUST_NOT_REGRESS');
-   await selected.finish(rows,ok(rows,false),1100);assert.deepEqual(await row(),{received:'2',completed:'2',retry:null,owner:worker},'STALE_FAILURE_MUST_NOT_REOPEN');
-  }
-  const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/pgstream/realtime-receipt-sql'),text=fs.readFileSync(file,'utf8'),needle='output_completed=CASE WHEN w.ok THEN GREATEST(c.output_completed,w.revision::bigint) ELSE';
-  assert.equal(text.split(needle).length,2,'MONOTONE_NEEDLE');const broken={exports:{}};
-  vm.runInThisContext('(function(require,module,exports){'+text.replace(needle,'output_completed=CASE WHEN w.ok THEN w.revision::bigint ELSE').replace("'realtime-receipt-v3:'","'realtime-receipt-regress:'")+'\n})',{filename:file})(require,broken,broken.exports);
-  await assert.rejects(criterion(portWith(broken.exports)),error=>{console.log('REALTIME_MONOTONE_ABLATION_RED '+error.message.split('\n')[0]);return /STALE_SUCCESS_MUST_NOT_REGRESS/.test(error.message);});
-  await criterion(port);
-  for(const value of ['0','01','9223372036854775808'])await assert.rejects(store.finish([{tenant,received:value}],ok([{tenant}]),1100),/Exact positive delivery revision/);
- });
- it('(d) a non-owner realtime cannot select or complete another owner\'s tenant; a claim transfers it',async()=>{
-  async function criterion(connection){
-   await admin.query(`DELETE FROM ${table}`);await admin.query(`DELETE FROM ${obligations}`);await provision(tenant);
-   await commit('1');const rows=await store.work([tenant]);await store.finish(rows,ok(rows),1100);await commit('2');
-   const other=make(nextWorker,connection);
-   assert.deepEqual(await other.work([tenant]),[],'NON_OWNER_MUST_NOT_SELECT');
-   await other.finish([{tenant,received:'2'}],ok([{tenant}]),1100).catch(()=>{});
-   assert.deepEqual(await row(),{received:'1',completed:'1',retry:null,owner:worker},'NON_OWNER_MUST_NOT_COMPLETE');
-   await other.pending();assert.equal((await row()).owner,nextWorker);
-   await assert.rejects(store.finish([{tenant,received:'2'}],ok([{tenant}]),1100),/REALTIME_RECEIPT_NOT_PROVISIONED_OR_REPLACED/);
-   const owned=await other.work([tenant]);await other.finish(owned,ok(owned),1100);assert.deepEqual(await row(),{received:'2',completed:'2',retry:null,owner:nextWorker});
-  }
-  const fs=require('node:fs'),vm=require('node:vm'),file=require.resolve('../lib/pgstream/realtime-receipt-sql'),text=fs.readFileSync(file,'utf8'),needle=' AND (c.output_owner IS NULL OR c.output_owner=$2::uuid)\n';
-  assert.equal(text.split(needle).length,2,'OWNER_FENCE_NEEDLE');const broken={exports:{}};
-  vm.runInThisContext('(function(require,module,exports){'+text.replace(needle,'\n').replace("'realtime-receipt-v3:'","'realtime-receipt-ablated:'")+'\n})',{filename:file})(require,broken,broken.exports);
-  await assert.rejects(criterion(portWith(broken.exports)),error=>{console.log('REALTIME_OWNER_FENCE_ABLATION_RED '+error.message.split('\n')[0]);return /NON_OWNER_MUST_NOT_COMPLETE/.test(error.message);});
-  await criterion(port);
- });
- it('claims owned rows for a replacement worker and makes a known retry due at once',async()=>{
-  await commit('9007199254740993');const rows=await store.work([tenant]);await store.finish(rows,ok(rows,false),1100);
-  const replacement=make(nextWorker);await replacement.pending();
-  assert.deepEqual(await row(),{received:'9007199254740993',completed:'0',retry:null,owner:nextWorker});
-  assert.deepEqual(await replacement.work([tenant]),[{tenant,received:'9007199254740993'}]);
-  const tuple=async()=>(await observer.query(`SELECT ctid::text AS tuple FROM ${table} WHERE tenant_id=$1 AND consumer=$2`,[tenant,consumer])).rows[0].tuple;
-  const before=await tuple();await replacement.pending();assert.equal(await tuple(),before,'REPEATED_CLAIM_MUST_NOT_REWRITE');
- });
- it('progresses suspended control through metadata SQL while serving admission is closed',async()=>{
-  const suspended=require('./fixtures/operation-window-runtime-protocol')({trustedWorker:true,phases:{[tenant]:'suspended'}});await suspended.window.ready();
-  const paused=make(worker);
-  try{
-   await assert.rejects(suspended.window.run(tenant,()=>{}),/LIFECYCLE_WINDOW_SUSPENDED/,'control proves serving admission is closed');
-   await commit('1');assert.deepEqual(await paused.pending(),[tenant]);const rows=await paused.work([tenant]);await paused.finish(rows,ok(rows),1100);assert.equal((await row()).completed,'1');
-  }finally{await suspended.window.close();}
- });
- it('executes one read and one set-oriented metadata UPDATE for a realized multi-tenant page',async()=>{
-  const ids=Array.from({length:16},(_,i)=>'44444444-4444-4444-8444-'+String(i+1).padStart(12,'0'));
-  for(const id of ids){await provision(id);await commit('9007199254740993',id);}
-  statements.length=0;
-  const rows=await store.work(ids);await store.finish(rows,new Map(rows.map((value,i)=>[value.tenant,i%2===0])),1100);
-  assert.equal(rows.length,16);assert.equal(statements.filter(sql=>/^\s*SELECT\b/i.test(sql)&&sql.includes('tenant_consumer_checkpoint')).length,1,'one physical read must select the page');
-  assert.equal(statements.filter(sql=>/\bUPDATE\b/i.test(sql)).length,1,'one physical metadata statement must realize the page');
-  const after=await Promise.all(ids.map(id=>row(id)));assert.deepEqual(after.map(value=>value.completed),ids.map((_,i)=>i%2===0?'9007199254740993':'0'));
-  console.log('REALTIME_NATIVE_METADATA_BATCH '+JSON.stringify({selected:ids.length,returned:rows.length,readStatements:1,updateStatements:1}));
- });
- it('keeps fixed metadata grants and UPDATE policy narrow, with a removed-policy red control',async()=>{
-  await admin.query(`CREATE TABLE "${namespace}".clinical (tenant_id uuid,value jsonb)`);
-  try{await assert.rejects(nativePool.query(`SELECT * FROM "${namespace}".clinical`),error=>error.code==='42501');}
-  finally{await admin.query(`DROP TABLE "${namespace}".clinical`);}
-  await admin.query(`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,'other-consumer',$2,0)`,[tenant,'b'.repeat(64)]);
-  assert.equal((await nativePool.query(`SELECT * FROM ${table} WHERE consumer='other-consumer'`)).rowCount,0);
-  assert.equal((await nativePool.query(`UPDATE ${table} SET output_retry_at=1 WHERE consumer='other-consumer'`)).rowCount,0);
-  await admin.query(`INSERT INTO ${obligations} (tenant_id,consumer,contract_digest,checkpoint) VALUES ($1,'evaluator-native',$2,0)`,[tenant,'c'.repeat(64)]);
-  assert.equal((await nativePool.query(`SELECT * FROM ${obligations} WHERE consumer='evaluator-native'`)).rowCount,0,'ONLY_COMPLETED_OUTPUT_ROWS_VISIBLE');
-  for(const sql of [`UPDATE ${table} SET tenant_id='55555555-5555-4555-8555-555555555555'`,`INSERT INTO ${table} (tenant_id,consumer,contract_digest,checkpoint) VALUES ('55555555-5555-4555-8555-555555555555','realtime-native','${'a'.repeat(64)}',0)`,`DELETE FROM ${table}`,
-   `UPDATE ${table} SET output_target=9`,
-   `UPDATE ${obligations} SET delivery_ack_revision=1`,`UPDATE ${obligations} SET delivery_revision=9`])await assert.rejects(nativePool.query(sql),error=>error.code==='42501');
-  await commit('1');const rows=await store.work([tenant]);
-  await admin.query(`DROP POLICY receipt_metadata_update ON ${table}`);
-  try{await assert.rejects(store.finish(rows,ok(rows),1100),/REALTIME_RECEIPT/);assert.equal((await row()).completed,'0');}
-  finally{await admin.query(`CREATE POLICY receipt_metadata_update ON ${table} FOR UPDATE TO "${metadataRole}" USING (consumer IN ('realtime-native','realtime-secondary')) WITH CHECK (consumer IN ('realtime-native','realtime-secondary'))`);}
-  await store.finish(rows,ok(rows),1100);assert.equal((await row()).completed,'1');
+ it('applies to a database that never held an obligation, and refuses changed removal SQL',async()=>{
+  assert.equal((await migrate(namespace+'_new',current)).done.length,4);
+  const broken=structuredClone(current);broken.migrations.at(-1).up[3]+=', DROP COLUMN projection';broken.migrations.at(-1).checksum=catalogue.checksum(broken.migrations.at(-1).up);
+  assert.throws(()=>catalogue.validateCatalogue(broken),{code:'MIG_OPERATION_SQL'});
+  assert.throws(()=>removal.build({namespace:'public'}),/REALTIME_RECEIPT_REMOVAL_BINDING/);
  });
 });
-// Actual lower-port snapshots; this checks concurrent bytes/revisions, while
-// serving assignment and lifecycle exclusion keep their separate native gates.
 optInSuite(process.env.NS_PGSTREAM_ROLE_TEST==='1'&&!!process.env.NS_TEST_POSTGRES_ADMIN_URI,'NS_PGSTREAM_ROLE_TEST=1 with disposable NS_TEST_POSTGRES_ADMIN_URI')('typed delivery snapshot on actual PostgreSQL',function(){
  this.timeout(30000);
  const lab=require('./fixtures/tenant-projection-evaluator')();

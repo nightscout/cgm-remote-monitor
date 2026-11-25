@@ -8,7 +8,6 @@ const { run } = require('../lib/migrations/postgres');
 const readiness = require('../lib/server/serve/evaluator-readiness');
 const lifecycleCheck = require('../lib/server/serve/lifecycle-catalogue-check');
 const native = require('../lib/tenant-lifecycle/native-selection');
-const columns = require('../lib/pgstream/realtime-receipt').COLUMNS;
 const quote = name => '"' + name + '"';
 
 optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_POSTGRES_ADMIN_URI,
@@ -67,7 +66,6 @@ optInSuite(process.env.NS_PGSTREAM_ROLE_TEST === '1' && !!process.env.NS_TEST_PO
       for (const sql of native.servingGrants({namespace: ns.control, role: name})) await admin.query(sql);
     }
     await admin.query('GRANT SELECT ON ' + [table('clock', 'schema_migrations'), table('clock', 'tenant_write_clock'), table('rt', 'schema_migrations'), table('rt', 'tenant_consumer_checkpoint'), table('source', 'tenant_consumer_checkpoint')].join(',') + ' TO ' + quote(role));
-    await admin.query('GRANT UPDATE(' + columns.map(quote).join(',') + ') ON ' + table('rt', 'tenant_consumer_checkpoint') + ' TO ' + quote(role));
     for (const [kind, catalogue] of [['outbox', require('../lib/tenant-notifications/postgres-candidate.json')], ['alarm', require('../migrations/candidates/postgres-alarm-suppression-v1.json')]]) {
       const name = consumerRoles[kind], namespace = consumerNamespaces[kind], password = crypto.randomBytes(24).toString('hex');
       await own(namespace, catalogue);

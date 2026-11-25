@@ -1,7 +1,8 @@
 'use strict';
 
-// Decision readiness-serve-then-warm for realtime: the actual runtime and
-// protocol with synthetic sockets, a synthetic projection and api double.
+// Realtime serves at once and reads a tenant's output when it is watched: the
+// actual level runtime and protocol with synthetic sockets, a synthetic
+// projection and api double. No tenant is read at start.
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const scope = require('../lib/storage/tenant-scope');
@@ -39,8 +40,8 @@ class Socket extends EventEmitter {
   frames () { return this.sent.filter(row => row.event === 'dataUpdate'); }
 }
 async function until (predicate, timeoutMs) { const t0 = Date.now(); while (!predicate()) { if (Date.now() - t0 > timeoutMs) return false; await sleep(5); } return true; }
-async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), failureRetryMs = 60000, acquireMs = 0, operationWindow }) {
-  const attempts = new Map(), load = { inFlight: 0, max: 0 };
+async function lab ({ tenants, broken = new Set(), gate = new Map(), levelMs = 20, acquireMs = 0, operationWindow }) {
+  const attempts = new Map(), load = { inFlight: 0, max: 0 }, known = new Set(tenants);
   const readCurrent = async tenant => ({ tenant, identity: 'same', env });
   const admission = { resolve: async req => req.headers.host.split('.')[0] };
   let runtime;
@@ -48,8 +49,9 @@ async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), 
     retry: { minMs: 5, maxMs: 40 },
     api: { executeSocketMutation: async () => ({ replyArgs: [] }),
       authorizeSocket: async () => ({ permissions: { read: true, write: false, write_treatment: false, ack: false }, collections: ['entries'] }) } });
-  runtime = await runtimeFactory({ operationWindow, tenants, readCurrent, retryMs: 20, concurrency: 2, readiness, failureRetryMs,
-    detect: async list => new Map(list.map(t => [t, { stamp: '1', identity: 'same' }])),
+  runtime = await runtimeFactory({ operationWindow, readCurrent, concurrency: 2, levelMs, flushMs: 5,
+    watched: () => protocol.watchedTenants(), isWatched: tenant => protocol.watched(tenant), lagging: () => protocol.lagging(),
+    readRevisions: async list => new Map(list.map(t => [t, { eligible: known.has(t), revision: '1' }])),
     create: selected => ({ async acquire () {
       attempts.set(selected.tenant, (attempts.get(selected.tenant) || 0) + 1);
       if (broken.has(selected.tenant)) throw new Error('REPLAY_NOT_PROVISIONED');
@@ -57,34 +59,37 @@ async function lab ({ tenants, readiness, broken = new Set(), gate = new Map(), 
       load.inFlight++; load.max = Math.max(load.max, load.inFlight);
       try { if (acquireMs) await sleep(acquireMs); } finally { load.inFlight--; }
       return { tenant: selected.tenant, checkpoint: 1, rows: [], frame: { delta: false, lastUpdated: 1, sgvs: [{ mgdl: 100, mills: 1 }] } };
-    } }), fanout: protocol.fanout, onReady: tenant => protocol.tenantReady(tenant) });
-  return { runtime, protocol, attempts, load,
+    } }), fanout: protocol.fanout });
+  return { runtime, protocol, attempts, load, broken,
     async socket (tenant) { const s = new Socket(tenant + '.test'); await protocol.prepare(s); protocol.bind(s, '/'); s.receive('authorize', { secret: 'synthetic' }); return s; },
     async close () { protocol.close(); await runtime.close(); } };
 }
-describe('realtime readiness: serve, then warm', function () {
+describe('realtime readiness: serve at once, read when watched', function () {
   this.timeout(20000);
   let mode;
   beforeEach(() => { mode = scope.getTenancyMode(); scope.setTenancyMode('multi'); });
   afterEach(() => scope.setTenancyMode(mode));
-  it('RD_ONE_BROKEN: one broken tenant among 100 does not stop the boot; the other 99 serve; it is retried only after the retry interval', async function () {
+  it('RD_ONE_BROKEN: one broken tenant among 100 does not hold the others; it is read again each level pass and its socket stays connected', async function () {
     const tenants = Array.from({ length: 100 }, (_, i) => id(i)), bad = tenants[37];
-    const f = await lab({ tenants, readiness: 'serve', broken: new Set([bad]) });
+    const f = await lab({ tenants, broken: new Set([bad]), levelMs: 100 });
     try {
-      assert.ok(await until(() => f.runtime.health().healthy === 99, 10000), 'RD_ONE_BROKEN 99 tenants warm: ' + f.runtime.health().healthy);
-      const health = f.runtime.health();
-      assert.equal(health.ready, true); assert.equal(health.failed, 1);
-      const sockets = await Promise.all([f.socket(tenants[0]), f.socket(tenants[99])]);
-      assert.ok(await until(() => sockets.every(s => s.frames().length === 1), 2000), 'other tenants\' sockets get data');
-      await sleep(300);
-      assert.equal(f.attempts.get(bad), 1, 'the broken tenant is not retried before failureRetryMs');
+      assert.equal(f.attempts.size, 0, 'no tenant is read before it is watched');
+      const stuck = await f.socket(bad), sockets = await Promise.all(tenants.filter(t => t !== bad).map(t => f.socket(t)));
+      assert.ok(await until(() => sockets.every(s => s.frames().length === 1), 5000), 'RD_ONE_BROKEN the other 99 tenants\' sockets get data');
+      await sleep(350);
+      assert.equal(stuck.frames().length, 0); assert.notEqual(stuck.disconnected, true, 'an output that cannot be read withholds the frame and keeps the socket');
+      const tries = f.attempts.get(bad);
+      assert.ok(tries >= 2 && tries <= 8, 'the broken tenant is read again at the level interval, not faster: ' + tries);
+      assert.ok(tenants.every(t => t === bad || f.attempts.get(t) === 1), 'a current tenant is not read again');
+      f.broken.clear();
+      assert.ok(await until(() => stuck.frames().length === 1, 2000), 'RD_ONE_BROKEN_CONVERGES the tenant is sent its frame once its output can be read');
     } finally { await f.close(); }
   });
   it('RD_COLD_SOCKET: a socket for a cold tenant stays connected and gets data once the tenant is warm', async function () {
     const tenants = [id(1), id(2)];
     // The cold tenant's refresh refuses (as a warming tenant does) until it is warm.
     const cold = { warm: false }, release = () => { cold.warm = true; };
-    const f = await lab({ tenants, readiness: 'serve', gate: new Map([[tenants[0], cold]]), failureRetryMs: 50 });
+    const f = await lab({ tenants, gate: new Map([[tenants[0], cold]]), levelMs: 50 });
     try {
       const socket = await f.socket(tenants[0]);
       await sleep(200);
@@ -95,27 +100,16 @@ describe('realtime readiness: serve, then warm', function () {
       assert.notEqual(socket.disconnected, true);
     } finally { await f.close(); }
   });
-  it('RD_RESTART_BOUNDED: 200 sockets reconnecting to 100 cold tenants all prime, and warming stays at the runtime bound', async function () {
+  it('RD_RESTART_BOUNDED: 200 sockets reconnecting to 100 cold tenants all get data, with output reads at the runtime bound and one per tenant', async function () {
     const tenants = Array.from({ length: 100 }, (_, i) => id(i));
-    // The runtime reports a warm tenant from inside its own operation; the
-    // released sockets must not inherit that operation's (finished) scope.
-    const f = await lab({ tenants, readiness: 'serve', acquireMs: 15, operationWindow: scopedWindow() });
+    const f = await lab({ tenants, acquireMs: 15, operationWindow: scopedWindow() });
     try {
       const sockets = [];
       for (const tenant of tenants) for (let k = 0; k < 2; k++) sockets.push(await f.socket(tenant));
       assert.ok(await until(() => sockets.every(s => s.frames().length >= 1), 15000), 'RD_RESTART_ALL_PRIMED ' + sockets.filter(s => s.frames().length).length + '/200');
       assert.equal(sockets.filter(s => s.disconnected).length, 0);
       assert.ok(f.load.max <= 2, 'RD_RESTART_BOUND concurrent warms ' + f.load.max + ' (runtime concurrency 2)');
-      assert.ok(f.protocol.stats().parked >= 1, 'sockets for cold tenants waited for the runtime warm');
+      assert.ok(tenants.every(t => f.attempts.get(t) === 1), 'RD_RESTART_ONE_READ one output read per tenant, not per socket');
     } finally { await f.close(); }
-  });
-  it('RD_FLAG_ALL: NS_TENANT_READINESS=all restores all-tenants readiness: a broken tenant refuses the boot; healthy ones are ready before start returns', async function () {
-    const tenants = Array.from({ length: 10 }, (_, i) => id(i));
-    await assert.rejects(lab({ tenants, readiness: 'all', broken: new Set([tenants[3]]) }), /REPLAY_NOT_PROVISIONED/);
-    const f = await lab({ tenants, readiness: 'all' });
-    try { assert.equal(f.runtime.health().ready, true); assert.equal(f.runtime.health().healthy, 10); }
-    finally { await f.close(); }
-    assert.equal(require('../lib/server/serve/pool-config').tenantReadiness({ NS_TENANT_READINESS: 'all' }), 'all');
-    assert.equal(require('../lib/server/serve/pool-config').tenantReadiness({}), 'serve');
   });
 });

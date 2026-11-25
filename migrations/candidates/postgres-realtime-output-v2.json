@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "selected realtime completed-output delivery; typed generations and worker ownership; clinical projection unchanged",
+  "status": "selected realtime checkpoint; level-triggered delivery keeps no receipt (0004 removes it); clinical projection unchanged",
   "migrations": [
     {
       "name": "0001_consumer_checkpoint_projection",
@@ -35,6 +35,20 @@
         "DROP INDEX pgstream_realtime_pending"
       ],
       "checksum": "1fd98d666023b426e9942b51fc8ec0f8a257d49297947288de8ba748c08d475b"
+    },
+    {
+      "name": "0004_realtime_receipt_removed",
+      "operation": {
+        "kind": "realtime-receipt-removal-v1",
+        "domain": "realtime"
+      },
+      "up": [
+        "SET LOCAL lock_timeout = '5s'",
+        "DO $receipt$ DECLARE obligation record; BEGIN FOR obligation IN SELECT format('%I.%I()', n.nspname, p.proname) AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'nightscout_migration_namespace' AND p.proname ~ '^rt_obligation_[0-9a-f]{32}$' AND p.prorettype = 'trigger'::regtype LOOP EXECUTE 'DROP FUNCTION ' || obligation.signature || ' CASCADE'; END LOOP; END $receipt$",
+        "ALTER TABLE \"nightscout_migration_namespace\".tenant_consumer_checkpoint DROP COLUMN output_pending_tenant",
+        "ALTER TABLE \"nightscout_migration_namespace\".tenant_consumer_checkpoint DROP COLUMN output_target, DROP COLUMN output_received, DROP COLUMN output_completed, DROP COLUMN output_owner, DROP COLUMN output_retry_at, DROP COLUMN output_delivery_version"
+      ],
+      "checksum": "a2857650970e1cd5aa22274eb8ba9b8bc1648a7ed899397282ae3dbcd7ebbd72"
     }
   ]
 }
