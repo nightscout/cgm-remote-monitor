@@ -77,6 +77,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_READINESS_TEST === '1' && !!process.e
           for (const statement of mode === 'restore' ? built.restoreGrants(role) : built.servingGrants(role)) await admin.query(statement);
           if (mode === 'restore') await admin.query('GRANT DELETE ON ' + q(namespace) + '.tenant_insertion_ordinal TO ' + q(role));
         }
+        if (domain === 'devicestatus') for (const sql of require('../lib/storage/devicestatus-sealing').grants({namespace,role,mode})) await admin.query(sql);
       }
       selected[domain] = { namespace, ...Object.fromEntries(['serving', 'reader', 'restore'].map(mode => [mode, selected[mode].client])) };
       await admin.query('BEGIN');

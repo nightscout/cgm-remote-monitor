@@ -238,6 +238,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           await client.query('CREATE SCHEMA ' + q(entry.namespace));
           await require('../../lib/migrations/postgres').run('up', { direct: true, connectionString: adminURI, namespace: entry.namespace, catalogue: entry.catalogue });
           for (const row of (await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1', [entry.namespace])).rows) await client.query('ALTER TABLE ' + q(entry.namespace) + '.' + q(row.tablename) + ' OWNER TO ' + q(owner));
+          if (require('../../lib/storage/devicestatus-sealing').selected(entry.catalogue)) await client.query('ALTER VIEW '+q(entry.namespace)+'.devicestatus OWNER TO '+q(owner));
           for (const row of (await client.query('SELECT p.oid::regprocedure::text AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1', [entry.namespace])).rows) await client.query('ALTER FUNCTION ' + row.signature + ' OWNER TO ' + q(owner));
           await client.query('ALTER SCHEMA ' + q(entry.namespace) + ' OWNER TO ' + q(owner));
         }
