@@ -68,7 +68,8 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
     await run('up', options(fresh));
     assert.deepEqual((await admin.query('SELECT received_ms FROM ' + table)).rows, [{ received_ms: null }, { received_ms: null }]);
     const expected = [...before.filter(name => !dropped.includes(name)), 'entries_tenant_follower_exception',
-      'entries_tenant_type_date', 'entries_tenant_event_ms', 'entries_tenant_systime_sparse', 'entries_tenant_datestring_sparse'].sort();
+      'entries_tenant_type_date', 'entries_tenant_event_ms', 'entries_tenant_systime_sparse', 'entries_tenant_datestring_sparse',
+      'entries_tenant_history_page'].sort();
     for (const ns of [upgraded, fresh]) {
       assert.deepEqual(await indexes(ns), expected);
       assert.equal((await run('check', options(ns))).current, true);

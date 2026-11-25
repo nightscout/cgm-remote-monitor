@@ -185,7 +185,9 @@ optInSuite(pgURI && mongoURI, 'NS_TEST_POSTGRES_ADMIN_URI and CUSTOMCONNSTR_mong
         for (const domain of ['entries', 'treatments']) {
           const { namespace, qualified } = labs[domain];
           const candidate = require('../migrations/candidates/postgres-' + domain + '-v1.json');
-          assert.equal(candidate.migrations.at(-1).up[0], ddl);
+          const timeMigration = candidate.migrations.find(m => m.name === '0104_' + domain + '_clinical_time');
+          assert.ok(timeMigration, 'missing clinical time migration for ' + domain);
+          assert.equal(timeMigration.up[0], ddl);
           const cases = [[0, 0], [-1, -1], [8640000000000000, 8640000000000000], [8640000000000001, null],
             [0.1, null], [iso, event], [offset, event], ['1970-01-01T23:59:00+23:59', 0],
             ['2023-02-29T00:00:00Z', null], ['2024-02-29T24:00:00Z', null], ['2024-02-29T17:00:00', null],
