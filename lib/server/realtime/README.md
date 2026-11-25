@@ -45,10 +45,13 @@ Per socket the protocol (`protocol.js`) holds its rights, when they were last
 confirmed and the frame it was last sent. A socket is sent its tenant's frame
 whenever it is behind it, may read, and its authorization was confirmed within
 the validity bound (1.5 recheck intervals) and is not past the credential's
-expiry. One fixed-rate sweep renews authorizations. A handshake reads nothing
+expiry. An inconclusive recheck immediately withholds frames on that socket
+until a fresh check succeeds. A completed refusal disconnects it. One fixed-rate
+sweep renews authorizations. A handshake reads nothing
 about the tenant's output and is accepted for a tenant without a frame. One
-configuration read, one admission per Host and one api call per credential
-serve a prime batch, a recheck or a fanout.
+configuration read serves a fanout. A prime or recheck batch shares a
+configuration read and an api call per distinct credential, namespace and Host.
+Each socket's admission uses its own request and peer.
 
 The slice's owner session is held on a dedicated connection and checked by a
 liveness statement on it. A check that times out is uncertainty. On loss of

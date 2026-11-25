@@ -54,17 +54,17 @@ function observe (promise) {
   result.promise = Promise.resolve(promise).then(() => { result.settled++; }, error => { result.rejected++; result.error = error; });
   return result;
 }
-function fixture ({ authorize } = {}) {
+function fixture ({ authorize, admit = async () => A } = {}) {
   const clock = new Clock(), requests = [], releases = [];
   const frame = { identity: 'current', frame: { lastUpdated: 0, sgvs: [] }, rows: [] };
-  const control = { readNextGate: null };
+  const control = { readNextGate: null, frame };
   const rights = read => ({ permissions: { read, write: false, write_treatment: false, ack: false }, collections: ['entries', 'treatments'] });
-  const runtime = { wake () {}, last: () => frame };
+  const runtime = { wake () {}, last: () => control.frame };
   // A request stays pending only while its authority is unanswered: in
   // flight, or not available and being retried.
   const unavailable = () => { throw Object.assign(new Error('synthetic authority unavailable'), { code: 'REALTIME_API_UNAVAILABLE' }); };
   const protocol = protocolFactory.create({
-    admission: { resolve: async () => A },
+    admission: { resolve: admit },
     api: { authorizeSocket: async request => { requests.push(request); return authorize ? authorize(request, rights) : rights(true); }, executeSocketMutation: async () => ({}) },
     readCurrent: async () => {
       const gate = control.readNextGate; control.readNextGate = null;
@@ -190,6 +190,46 @@ describe('realtime logical request lifetime', function () {
       } finally { await f.close(); }
     });
   }
+
+  it('renews each socket against its own admission request within a tenant batch', async function () {
+    let uncertain;
+    const f = fixture({ admit: async request => {
+      if (request === uncertain) throw new Error('synthetic admission unavailable');
+      return A;
+    } });
+    try {
+      const first = await f.socket(), second = await f.socket();
+      uncertain = second.request; await f.protocol.recheckTenant(A);
+      f.control.frame = { identity: 'current', checkpoint: '2', frame: { sgvs: [{ mills: 2, mgdl: 122 }] } };
+      await f.protocol.fanout({ tenant: A });
+      assert.equal(f.frames(first).length, 2);
+      assert.equal(f.frames(second).length, 1);
+      uncertain = null; await f.protocol.recheckTenant(A);
+      assert.equal(f.frames(first).length, 2);
+      assert.equal(f.frames(second).length, 2);
+    } finally { await f.close(); }
+  });
+
+  it('withholds a changed frame across an inconclusive recheck and a late older answer', async function () {
+    let answer;
+    const f = fixture({ authorize: (_request, rights) => answer ? answer() : rights(true) });
+    try {
+      const socket = await f.socket(), old = f.hold();
+      assert.equal(f.frames(socket).length, 1);
+      answer = () => old.promise;
+      const earlier = f.protocol.recheckTenant(A); await flush();
+      answer = f.unavailable; await f.protocol.recheckTenant(A);
+      f.control.frame = { identity: 'current', checkpoint: '2', frame: { sgvs: [{ mills: 2, mgdl: 122 }] } };
+      await f.protocol.fanout({ tenant: A });
+      assert.equal(f.frames(socket).length, 1, 'the first failed recheck withholds immediately');
+      old.resolve(f.rights(true)); await earlier;
+      await f.protocol.fanout({ tenant: A });
+      assert.equal(f.frames(socket).length, 1, 'an authorization started before the failure cannot release the frame');
+      answer = null; await f.protocol.recheckTenant(A); await f.protocol.fanout({ tenant: A });
+      assert.equal(socket.connected, true);
+      assert.deepEqual(f.frames(socket).map(row => row.value.sgvs), [[], f.control.frame.frame.sgvs]);
+    } finally { await f.close(); }
+  });
 
   it('a send held on its configuration read does not repeat the frame a newer permission recheck already sent', async function () {
     let phase = 0, holdNext = false, gate, f;

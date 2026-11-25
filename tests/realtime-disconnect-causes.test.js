@@ -43,8 +43,7 @@ function lab ({ deadlineMs = 600000, factory = protocolFactory } = {}) {
     } };
   const protocol = factory.create({ operationWindow, admission: { resolve: async req => req.headers.host === 'b.test' ? B : A }, api, readCurrent: async () => ({ identity: 'same', env }),
     runtime: () => runtime, domains: ['entries'], retry: { minMs: 5, maxMs: 20 }, unauthorizedDeadlineMs: deadlineMs,
-    // ctl.elapse moves the protocol's clock past the authorization validity bound (45 s at the default recheck).
-    now: () => Date.now() + (ctl.elapsed || 0) });
+  });
   return { ctl, protocol,
     async socket (namespace, { prepare = true, bind = namespace, host = 'a.test' } = {}) {
       const s = new Socket(); s.request.headers.host = host; s.request.rawHeaders = ['Host', host]; if (prepare) await protocol.prepare(s); protocol.bind(s, bind); return s;
@@ -76,7 +75,7 @@ const SCENARIOS = {
   // Spike S2: a socket whose authorization could not be renewed within the
   // validity bound cannot be sent a live /storage hint; its transport is
   // closed so the client re-syncs over REST.
-  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');f.ctl.api='unavailable';await f.protocol.recheckTenant(A);f.ctl.elapsed=46000;f.ctl.api='read';await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'create',colName:'entries',doc:{identifier:'synthetic'}}]});return s; },
+  [CAUSES.STORAGE_CONTINUITY]: async f => { const s=await f.primed('/storage');f.ctl.api='unavailable';await f.protocol.recheckTenant(A);f.ctl.api='read';await f.protocol.storageHint({kind:'storage-events-hint-v1',tenant:A,generation:null,events:[{event:'create',colName:'entries',doc:{identifier:'synthetic'}}]});return s; },
   [CAUSES.TENANT_INVALIDATED]: async f => { const s = await f.primed(); f.protocol.invalidateTenant(A, 'role'); return s; },
   [CAUSES.UNAUTHORIZED_DEADLINE]: async f => f.socket('/storage') // never subscribes; deadline below
 };
@@ -241,7 +240,7 @@ describe('realtime tenant roster (actual protocol with state-visit instrument)',
       assert(storage.rooms.has(protocolFactory.room(A, '/storage', 'entries')));
       assert(alarm.sent.some(r => r.event === 'urgent_alarm'));
       assert.deepEqual(others.map(s => s.sent.length), before);
-      f.ctl.api = 'unavailable'; await f.protocol.recheckTenant(A); f.ctl.elapsed = 46000;
+      f.ctl.api = 'unavailable'; await f.protocol.recheckTenant(A);
       const held = main.sent.length;
       f.ctl.frame = frameOf(3);
       await f.protocol.fanout({ tenant: A, previous: frameOf(2), next: f.ctl.frame });
