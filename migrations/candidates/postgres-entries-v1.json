@@ -158,6 +158,20 @@
         "ALTER TABLE entries ALTER COLUMN received_ms SET DEFAULT floor(extract(epoch FROM statement_timestamp()) * 1000)::bigint"
       ],
       "checksum": "7bae4040737cdb8ec12671619dbdfc3d23f526159de75be1ccfeadabcb6ed8f7"
+    },
+    {
+      "name": "0105_entries_history_ms",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN history_ms bigint GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'srvModified') = 'number' THEN clinical_instant_ms(doc->'srvModified') END) STORED"
+      ],
+      "checksum": "617dc88776ceedde4fb3426649377a982470e5c54f539fed17bc8f908e7b281d"
+    },
+    {
+      "name": "0106_entries_history_page",
+      "up": [
+        "CREATE INDEX entries_tenant_history_page ON entries (tenant_id, history_ms) WHERE jsonb_typeof(doc->'srvModified') IN ('number', 'array')"
+      ],
+      "checksum": "bff9943c2f704198db42879f5a416d344c24bf795e1d9aa5bbfb9f19081716bb"
     }
   ]
 }

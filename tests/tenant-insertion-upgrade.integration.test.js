@@ -112,7 +112,8 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
       ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays',{kind:'devicestatus-sealed-days-v1',domain}]:[]),
       ...(domain==='treatments'?['0102_treatments_created_at_arrays']:[]),
       ...(domain==='entries'?['0102_entries_numeric_indexes_removed','0103_entries_follower_exceptions']:[]),
-      ...(['entries','treatments'].includes(domain)?['0104_'+domain+'_clinical_time']:[])
+      ...(['entries','treatments'].includes(domain)?['0104_'+domain+'_clinical_time']:[]),
+      ...(domain==='entries'?['0105_entries_history_ms','0106_entries_history_page']:[])
     ],'EXACT_REVIEWED_CONVERSION_AND_SHARED_TAILS');
     const old = {...catalogue,migrations:catalogue.migrations.slice(0,conversion)};
     assert.deepEqual(old.migrations.map(m=>m.name),domain==='food'?['0001_food']:

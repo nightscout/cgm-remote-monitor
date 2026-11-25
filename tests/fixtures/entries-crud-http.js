@@ -23,6 +23,7 @@ const entriesOptions = require('../../lib/server/tenant-app/entries');
 const writeClock = require('./native-write-clock');
 const purifier = require('../../lib/server/purifier');
 const localCredentials = require('./local-data-credentials');
+const entriesCatalogue = require('../../migrations/candidates/postgres-entries-v1.json');
 const apiDefaults = require('../../lib/api3/const.json');
 
 const A = '11111111-1111-4111-8111-111111111111';
@@ -62,14 +63,14 @@ module.exports = function crudHTTP ({ legacy = false, pool = {}, tenants: tenant
     admin = lab.admin = new Client({ connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });
     await admin.connect();
     for (const [namespace, catalogue] of [
-      [name, require('../../migrations/candidates/postgres-entries-v1.json')],
+      [name, entriesCatalogue],
       [auth, require('../../lib/tenant-authorization/postgres-candidate.json')]
     ]) await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI, namespace, catalogue });
     const password = crypto.randomBytes(24).toString('hex');
     await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     await admin.query(`GRANT USAGE ON SCHEMA "${name}", "${auth}" TO "${role}"`);
     await require('./tenant-insertion-grants').grant(admin, { namespace: name, domain: 'entries', role,
-      catalogue: require('../../migrations/candidates/postgres-entries-v1.json') });
+      catalogue: entriesCatalogue });
     await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
     await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
       namespace: name + '_clock', role, tenants: TENANTS });
@@ -111,7 +112,7 @@ module.exports = function crudHTTP ({ legacy = false, pool = {}, tenants: tenant
           ctx: { bus, purifier: purifier({}, {}) }, env, app, colName: 'entries', storageColName: 'entries',
           fallbackGetDate: doc => new Date(doc.srvModified), fallbackDateField: 'date',
           dedupFallbackFields: ['date', 'type'],
-          ...entriesOptions({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: lab.table, env, bus })
+          ...entriesOptions({ connection: writeClock.clocked(worker.connection, name + '_clock'), table: lab.table, catalogue: entriesCatalogue, env, bus })
         });
         col.mapRoutes();
         worker.collections.set(tenant, col);
