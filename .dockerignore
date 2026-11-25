@@ -26,7 +26,6 @@ Makefile
 Vagrantfile
 helm/
 .vscode/
-.browserslistrc
 .editorconfig
 .gitattributes
 README.md
@@ -44,11 +43,16 @@ Makefile
 Vagrantfile
 helm/
 .vscode/
-.browserslistrc
 .editorconfig
 .gitattributes
 README.md
 CONTRIBUTING.md
 COPYRIGHT
 LICENSE
+
+# Private generated multitenant state is never a Docker build input, including
+# classic builders which do not read Dockerfile-specific ignore files.
+deploy/multitenant/.state
+deploy/multitenant/.state/**
+deploy/multitenant/.env
 *.md

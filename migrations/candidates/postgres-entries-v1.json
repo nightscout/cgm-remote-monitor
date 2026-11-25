@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "status": "review candidate; apply only with the explicit operator migration runner",
+  "sourceFixture": "tests/fixtures/postgres/entries-identity-kinds.sql",
+  "evidence": [
+    "lib/server/entries.js: indexedFields",
+    "lib/api3/storage/mongoCollection/index.js: indexedFields",
+    "lib/api3/generic/history/operation.js: srvModified filter and sort",
+    "lib/api3/storage/mongoCollection/utils.js: isValid visibility behavior",
+    "lib/storage/identifier-index.js: partial unique identifier contract"
+  ],
+  "migrations": [
+    {
+      "name": "0001_entries",
+      "up": [
+        "CREATE FUNCTION window_time_ms(v jsonb) RETURNS bigint LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SET search_path = pg_catalog AS $window_time$ SELECT max(CASE WHEN n >= 9223372036854775807 THEN 9223372036854775807 WHEN n < -9223372036854775808 THEN '-9223372036854775808'::bigint ELSE floor(n)::bigint END) FROM (SELECT (e #>> '{}')::numeric AS n FROM jsonb_array_elements(CASE jsonb_typeof(v) WHEN 'array' THEN v ELSE jsonb_build_array(v) END) AS e WHERE jsonb_typeof(e) = 'number') AS numbers $window_time$",
+        "REVOKE ALL ON FUNCTION window_time_ms(jsonb) FROM PUBLIC",
+        "CREATE TABLE entries (\n  tenant_id uuid NOT NULL,\n  doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'),\n  id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')),\n  \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{_id}') = 'string' THEN (doc #>> '{_id}') END) STORED,\n  \"date\" bigint GENERATED ALWAYS AS (CASE jsonb_typeof(doc #> '{date}') WHEN 'number' THEN CASE WHEN (doc #>> '{date}')::numeric >= 9223372036854775807 THEN 9223372036854775807 WHEN (doc #>> '{date}')::numeric < -9223372036854775808 THEN '-9223372036854775808'::bigint ELSE floor((doc #>> '{date}')::numeric)::bigint END WHEN 'array' THEN window_time_ms(doc #> '{date}') END) STORED,\n  \"type\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{type}') = 'string' THEN (doc #>> '{type}') END) STORED,\n  \"sgv\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sgv}') = 'number' THEN (doc #>> '{sgv}')::numeric END) STORED,\n  \"mbg\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{mbg}') = 'number' THEN (doc #>> '{mbg}')::numeric END) STORED,\n  \"sysTime\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{sysTime}') = 'string' THEN (doc #>> '{sysTime}') END) STORED,\n  \"dateString\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{dateString}') = 'string' THEN (doc #>> '{dateString}') END) STORED,\n  \"identifier\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{identifier}') = 'string' THEN (doc #>> '{identifier}') END) STORED,\n  \"created_at\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{created_at}') = 'string' THEN (doc #>> '{created_at}') END) STORED,\n  \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{srvModified}') = 'number' THEN (doc #>> '{srvModified}')::numeric END) STORED,\n  \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc #> '{isValid}') = 'boolean' THEN (doc #>> '{isValid}')::boolean END) STORED,\n  CHECK (\"_id\" <> ''),\n  CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'),\n  PRIMARY KEY (tenant_id, id_kind, \"_id\")\n)",
+        "CREATE INDEX entries_tenant_date ON entries (tenant_id, \"date\" ASC)",
+        "CREATE INDEX entries_tenant_type ON entries (tenant_id, \"type\" ASC)",
+        "CREATE INDEX entries_tenant_sgv ON entries (tenant_id, \"sgv\" ASC)",
+        "CREATE INDEX entries_tenant_mbg ON entries (tenant_id, \"mbg\" ASC)",
+        "CREATE INDEX entries_tenant_systime ON entries (tenant_id, \"sysTime\" ASC)",
+        "CREATE INDEX entries_tenant_datestring ON entries (tenant_id, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_identifier ON entries (tenant_id, \"identifier\" ASC)",
+        "CREATE INDEX entries_tenant_srvmodified ON entries (tenant_id, \"srvModified\" ASC)",
+        "CREATE INDEX entries_tenant_isvalid ON entries (tenant_id, \"isValid\" ASC)",
+        "CREATE INDEX entries_tenant_type_date_datestring ON entries (tenant_id, \"type\" ASC, \"date\" DESC, \"dateString\" ASC)",
+        "CREATE INDEX entries_tenant_date_identifier_created_at ON entries (tenant_id, \"date\" DESC, \"identifier\" DESC, \"created_at\" DESC)",
+        "CREATE UNIQUE INDEX identifier_unique ON entries (tenant_id, \"identifier\") WHERE \"identifier\" IS NOT NULL AND \"identifier\" <> ''",
+        "ALTER TABLE entries ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE entries FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY entries_tenant_isolation ON entries USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "d95ba41bd9139515a8b5f1b6fbaab843b9af748a56a86dd5a16023d77c7a0f83"
+    },
+    {
+      "name": "0002_entries_insertion_order",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY"
+      ],
+      "checksum": "edda7b234df342d121cda2e655b2a6fdae1c59a0c92a0bdf604007204c278cce"
+    },
+    {
+      "name": "0003_entries_tenant_local_insertion",
+      "operation": {
+        "kind": "tenant-insertion-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"entries\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "DO $tenant_insertion_upgrade$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_class t JOIN pg_attribute a ON a.attrelid=t.oid\n      WHERE t.oid='\"nightscout_migration_namespace\".\"entries\"'::regclass AND a.attname='insertion_ordinal'\n        AND a.attidentity='a' AND a.atttypid='pg_catalog.int8'::regtype\n        AND t.relkind='r' AND NOT t.relispartition AND t.relrowsecurity AND t.relforcerowsecurity)\n     OR EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid='\"nightscout_migration_namespace\".\"entries\"'::regclass OR inhparent='\"nightscout_migration_namespace\".\"entries\"'::regclass) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_UNSUPPORTED';\n  END IF;\n  IF EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE insertion_ordinal IS NULL OR insertion_ordinal<=0)\n     OR EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" GROUP BY tenant_id,insertion_ordinal HAVING count(*)>1) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_INVALID';\n  END IF;\nEND\n$tenant_insertion_upgrade$",
+        "CREATE TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id uuid PRIMARY KEY, last_ordinal bigint NOT NULL CHECK (last_ordinal>=0))",
+        "INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id,last_ordinal) SELECT tenant_id,max(insertion_ordinal) FROM \"nightscout_migration_namespace\".\"entries\" GROUP BY tenant_id",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_insertion_isolation ON \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" USING (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ALTER COLUMN insertion_ordinal DROP IDENTITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ADD CONSTRAINT tenant_insertion_positive CHECK (insertion_ordinal>0)",
+        "CREATE UNIQUE INDEX \"entries_tenant_ordinal_unique\" ON \"nightscout_migration_namespace\".\"entries\" (tenant_id,insertion_ordinal)",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() FROM PUBLIC",
+        "CREATE TRIGGER tenant_insertion_allocate BEFORE INSERT OR UPDATE ON \"nightscout_migration_namespace\".\"entries\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "1f988dea72ecf223961e66ea14be8932318fab6a467a6976d001c0af2c8f742b"
+    },
+    {
+      "name": "0004_entries_binding_sqlstate",
+      "operation": {
+        "kind": "tenant-insertion-binding-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "CREATE OR REPLACE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED' USING ERRCODE='42501';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"entries\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$"
+      ],
+      "checksum": "24f606cac2b67bd93b6c0bb1275f770d71394039232e590fa5a0169dfdf7d82e"
+    },
+    {
+      "name": "0098_entries_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "entries"
+      },
+      "up": ["CREATE INDEX \"entries_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"entries\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "ff0f3ec9b0426dd3e5502eacd725255ae88c457354220f08457784fa518b6dbf"
+    },
+    {
+      "name": "0099_entries_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"entries\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "DO $clinical_size_backfill$\nDECLARE original_binding text := current_setting('app.current_tenant_id',true); selected_tenant uuid;\nBEGIN\n  FOR selected_tenant IN SELECT DISTINCT tenant_id FROM \"nightscout_migration_namespace\".\"entries\" LOOP\n    PERFORM set_config('app.current_tenant_id',selected_tenant::text,true);\n    UPDATE \"nightscout_migration_namespace\".\"entries\" SET storage_bytes=pg_column_size(doc) WHERE tenant_id=selected_tenant;\n  END LOOP;\n  PERFORM set_config('app.current_tenant_id',COALESCE(original_binding,''),true);\nEND\n$clinical_size_backfill$",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"entries\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"entries\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"entries\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "1fc26cb2f8ef3240737a4b571226549d80bf52bf4b3f2a11540ea5624ed97c06"
+    },
+    {
+      "name": "0100_entries_storage_bytes_removed",
+      "operation": {
+        "kind": "clinical-storage-size-removal-v1",
+        "domain": "entries"
+      },
+      "up": [
+        "DROP TRIGGER clinical_storage_size ON \"nightscout_migration_namespace\".\"entries\"",
+        "DROP FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"entries\" DROP COLUMN storage_bytes"
+      ],
+      "checksum": "a3625da5a25111555524f7ce6ada021477af88448441b2ab95b613455145db4f"
+    },
+    {
+      "name": "0101_entries_redundant_indexes",
+      "up": [
+        "DROP INDEX entries_tenant_date"
+      ],
+      "checksum": "8056082fbd56466078caceeacedd320ede295a86f3f3de174c35aee3e5145f3f"
+    },
+    {
+      "name": "0102_entries_numeric_indexes_removed",
+      "up": [
+        "DROP INDEX entries_tenant_sgv",
+        "DROP INDEX entries_tenant_mbg"
+      ],
+      "checksum": "9a420573dc5b34dadc1ed98e831ef136f26e04e674a0a95e356c270dd177a9fb"
+    },
+    {
+      "name": "0103_entries_follower_exceptions",
+      "up": [
+        "CREATE INDEX entries_tenant_follower_exception ON entries (tenant_id, date) WHERE (CASE\n  WHEN jsonb_typeof(doc -> 'date') = 'array' THEN true\n  WHEN jsonb_typeof(doc -> 'date') IS DISTINCT FROM 'number' THEN false\n  WHEN date IS NULL OR (doc ->> 'date')::numeric <> date OR date NOT BETWEEN 0 AND 4102444799999 THEN true\n  WHEN (doc ? 'sgv' AND type IS DISTINCT FROM 'sgv') OR (doc ? 'mbg' AND type IS DISTINCT FROM 'mbg') THEN true\n  WHEN doc ? 'mills' THEN doc -> 'mills' IS DISTINCT FROM doc -> 'date'\n  WHEN NOT (doc ? 'created_at' OR doc ? 'sysTime') THEN false\n  ELSE (CASE WHEN doc ? 'created_at' THEN doc ->> 'created_at' ELSE doc ->> 'sysTime' END)\n       COLLATE \"C\" IS DISTINCT FROM ((jsonb_path_query_first(\n  ('\"' || (2440588 + date / 86400000)::text || ' ' || (date / 1000 % 86400)::text || '\"')::jsonb,\n  '$.datetime(\"J SSSSS\")') #>> '{}') || '.' || lpad((date % 1000)::text, 3, '0') || 'Z') COLLATE \"C\"\nEND)"
+      ],
+      "checksum": "40846ea0139f1251a46d67e0697c555ae04a3005397a2d9e31eeac896a1f239b"
+    },
+    {
+      "name": "0104_entries_clinical_time",
+      "up": [
+        "CREATE FUNCTION clinical_instant_ms(v jsonb) RETURNS bigint\nLANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE SET search_path = pg_catalog AS $instant$\nDECLARE\n  n numeric;\n  s text;\n  parts text[];\n  epoch_days integer;\n  offset_minutes integer := 0;\nBEGIN\n  IF jsonb_typeof(v) = 'number' THEN\n    n := (v #>> '{}')::numeric;\n    IF n = trunc(n) AND abs(n) <= 8640000000000000 THEN RETURN n::bigint; END IF;\n    RETURN NULL;\n  END IF;\n  IF jsonb_typeof(v) <> 'string' THEN RETURN NULL; END IF;\n  s := v #>> '{}';\n  IF length(s) NOT BETWEEN 20 AND 29 THEN RETURN NULL; END IF;\n  parts := regexp_match(s COLLATE \"C\",\n    '^([0-9]{4})-([0-9]{2})-([0-9]{2})T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:[.]([0-9]{1,3}))?(?:Z|([+-])([01][0-9]|2[0-3]):([0-5][0-9]))$');\n  IF parts IS NULL OR parts[1] = '0000' THEN RETURN NULL; END IF;\n  BEGIN\n    epoch_days := make_date(parts[1]::int, parts[2]::int, parts[3]::int) - DATE '1970-01-01';\n  EXCEPTION WHEN datetime_field_overflow THEN RETURN NULL;\n  END;\n  IF parts[8] IS NOT NULL THEN\n    offset_minutes := (parts[9]::int * 60 + parts[10]::int)\n      * CASE parts[8] WHEN '-' THEN -1 ELSE 1 END;\n  END IF;\n  RETURN epoch_days::bigint * 86400000\n    + (parts[4]::int * 60 + parts[5]::int - offset_minutes) * 60000\n    + parts[6]::int * 1000 + rpad(coalesce(parts[7], ''), 3, '0')::int;\nEND\n$instant$",
+        "REVOKE ALL ON FUNCTION clinical_instant_ms(jsonb) FROM PUBLIC",
+        "ALTER TABLE entries ADD COLUMN event_ms bigint GENERATED ALWAYS AS (COALESCE(clinical_instant_ms(doc->'date'), clinical_instant_ms(doc->'dateString'), clinical_instant_ms(doc->'sysTime'))) STORED",
+        "CREATE INDEX entries_tenant_event_ms ON entries (tenant_id, event_ms) WHERE event_ms IS NOT NULL",
+        "ALTER TABLE entries DROP COLUMN \"dateString\", DROP COLUMN \"sysTime\"",
+        "ALTER TABLE entries ADD COLUMN \"dateString\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'dateString')='string' THEN CASE WHEN jsonb_typeof(doc->'date')='number' AND clinical_instant_ms(doc->'dateString')=clinical_instant_ms(doc->'date') THEN NULL ELSE doc->>'dateString' END END) STORED",
+        "CREATE INDEX entries_tenant_datestring_sparse ON entries (tenant_id, COALESCE(\"dateString\", '')) WHERE \"dateString\" IS NOT NULL OR jsonb_typeof(doc->'dateString')='array'",
+        "ALTER TABLE entries ADD COLUMN \"sysTime\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'sysTime')='string' THEN CASE WHEN jsonb_typeof(doc->'date')='number' AND clinical_instant_ms(doc->'sysTime')=clinical_instant_ms(doc->'date') THEN NULL ELSE doc->>'sysTime' END END) STORED",
+        "CREATE INDEX entries_tenant_systime_sparse ON entries (tenant_id, COALESCE(\"sysTime\", '')) WHERE \"sysTime\" IS NOT NULL OR jsonb_typeof(doc->'sysTime')='array'",
+        "CREATE INDEX entries_tenant_type_date ON entries (tenant_id, type, date DESC)",
+        "ALTER TABLE entries ADD COLUMN received_ms bigint",
+        "ALTER TABLE entries ALTER COLUMN received_ms SET DEFAULT floor(extract(epoch FROM statement_timestamp()) * 1000)::bigint"
+      ],
+      "checksum": "7bae4040737cdb8ec12671619dbdfc3d23f526159de75be1ccfeadabcb6ed8f7"
+    },
+    {
+      "name": "0105_entries_history_ms",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN history_ms bigint GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'srvModified') = 'number' THEN clinical_instant_ms(doc->'srvModified') END) STORED"
+      ],
+      "checksum": "617dc88776ceedde4fb3426649377a982470e5c54f539fed17bc8f908e7b281d"
+    },
+    {
+      "name": "0106_entries_history_page",
+      "up": [
+        "CREATE INDEX entries_tenant_history_page ON entries (tenant_id, history_ms) WHERE jsonb_typeof(doc->'srvModified') IN ('number', 'array')"
+      ],
+      "checksum": "bff9943c2f704198db42879f5a416d344c24bf795e1d9aa5bbfb9f19081716bb"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_operator_policy",
+      "checksum": "c556544646b76fa84836087169334653867c778283d6249b290b82aa20427971",
+      "up": [
+        "CREATE TABLE tenant_operator_policy (tenant_id uuid PRIMARY KEY, generation integer NOT NULL CHECK (generation > 0), policy jsonb NOT NULL CHECK (jsonb_typeof(policy) = 'object' AND octet_length(policy::text) <= 131072), principal text NOT NULL CHECK (principal ~ '^[a-zA-Z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[a-zA-Z0-9_-]{1,128}$'), event_time bigint NOT NULL CHECK (event_time >= 0))",
+        "ALTER TABLE tenant_operator_policy ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_operator_policy FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_operator_policy_tenant ON tenant_operator_policy USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_operator_policy FROM PUBLIC"
+      ]
+    }
+  ]
+}

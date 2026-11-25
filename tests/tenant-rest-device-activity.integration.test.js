@@ -1,0 +1,831 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const { EventEmitter, once } = require('node:events');
+const { Client } = require('pg');
+const { MongoClient, ObjectId } = require('mongodb');
+const express = require('express');
+const request = require('supertest');
+const { run } = require('../lib/migrations/postgres');
+const connect = require('../lib/storage/postgres-connection');
+const scope = require('../lib/storage/tenant-scope');
+const { encodeDocument } = require('../lib/storage/postgres-identity');
+const createAuthority = require('../lib/tenant-authorization/postgres');
+const createDataAccess = require('../lib/server/tenant-app/data-access');
+const { createTenantApp } = require('../lib/server/tenant-app');
+const createResolver = require('../lib/tenant-resolution');
+const legacyAuthorization = require('../lib/server/tenant-app/legacy-authorization');
+const Collection = require('../lib/api3/generic/collection');
+const configureApi3 = require('../lib/api3');
+const purifier = require('../lib/server/purifier');
+const { optInSuite } = require('./support/opt-in');
+const writeClock = require('./fixtures/native-write-clock');
+const { DATA_CONNECTION } = require('../lib/server/serve/preview-api');
+const domains = ['devicestatus', 'activity'];
+const factories = {
+  devicestatus: require('../lib/server/tenant-app/devicestatus'),
+  activity: require('../lib/server/tenant-app/activity')
+};
+const constructors = {
+  devicestatus: require('../lib/server/devicestatus'),
+  activity: require('../lib/server/activity')
+};
+const sealed = process.env.NS_DEVICESTATUS_SEAL_TEST === '1';
+const catalogues = {
+  devicestatus: sealed ? require('../migrations/candidates/postgres-devicestatus-socket-order-v1.json') : require('../migrations/candidates/postgres-devicestatus-v1.json'),
+  activity: require('../migrations/candidates/postgres-activity-v1.json')
+};
+const A = '11111111-1111-4111-8111-111111111111';
+const B = '22222222-2222-4222-8222-222222222222';
+const SUBJECT = '000000000000000000000001';
+const ID = '65a1b2c3d4e5f60718293a4b';
+const time = require('./fixtures/legacy-rest-time').capture();
+const BASE = time.base;
+const CREATED = new Date(BASE).toISOString();
+const GRANTS = domains.flatMap(domain => ['read', 'create', 'update', 'delete'].map(action => `api:${domain}:${action}`));
+const EVENTS = ['storage-intent-committed', 'storage-socket-create', 'storage-socket-update',
+  'storage-socket-delete', 'data-update', 'data-received'];
+const hash = value => crypto.createHash('sha1').update(value).digest('hex');
+const random = () => crypto.randomBytes(16).toString('hex');
+const json = value => JSON.parse(JSON.stringify(value));
+function comparable (value) {
+  if (Array.isArray(value)) return value.map(comparable);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !['srvCreated', 'srvModified', 'lastModified'].includes(key))
+    .map(([key, child]) => [key, comparable(child)]));
+}
+
+optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
+  !!process.env.NS_TEST_POSTGRES_ADMIN_URI && !!process.env.CUSTOMCONNSTR_mongo,
+'NS_REST_DEVICE_ACTIVITY_TEST=1 with disposable PostgreSQL/MongoDB')(
+  'tenant device/activity actual shipping HTTP differential', function () {
+    this.timeout(60000);
+    const name = 'device_' + random();
+    const auth = name + '_auth';
+    const secretNamespace = name + '_secrets';
+    const role = name + '_app';
+    const schemas = Object.fromEntries(domains.map(domain => [domain, name + '_' + domain]));
+    const tables = Object.fromEntries(domains.map(domain => [domain, schemas[domain] + '.' + domain]));
+    const roots = [random(), random()];
+    const credentials = roots.map(root => 'synthetic-' + hash(hash(root) + SUBJECT).slice(0, 16));
+    const local = require('./fixtures/local-data-credentials').memory();
+    const contexts = new Map();
+    const mongoEvents = [], pgEvents = [];
+    let admin, mongo, connection, authority, server, oracle, mode, appURI, secrets;
+    let mongoContext, mongoCollections;
+
+    function bus (events, tenant) {
+      const value = new EventEmitter();
+      for (const event of EVENTS) value.on(event, body => events.push({ tenant, event, body }));
+      return value;
+    }
+
+    function legacy (ctx, env) {
+      if (!env.enclave) {
+        env.enclave = require('../lib/server/enclave')();
+        env.enclave.setApiKey(random());
+      }
+      env.settings.enable = ['api', 'careportal'];
+      ctx.wares = require('../lib/middleware')(env);
+      return require('../lib/api')(env, ctx, { domains });
+    }
+
+    function context (events, tenant) {
+      return {
+        bus: bus(events, tenant), purifier: purifier({}, {}), ddata: require('../lib/data/ddata')(),
+        cache: { devicestatus: [] },
+        authorization: legacyAuthorization()
+      };
+    }
+
+    async function start ({ max = 1, pool = {} } = {}) {
+      connection = await connect({ connectionString: appURI, max, ...pool });
+      authority = await createAuthority({ connectionString: appURI, namespace: auth });
+      const data = express.Router();
+      const legacyRouter = express.Router();
+      data.use((req, res, next) => scope.withTenant(req.tenantContext.tenant, next));
+      const access = createDataAccess({ secrets, authority, collections: ['devicestatus'], legacyCollections: domains,
+        verifierContext: async tenant => ({ tenant, principal: 'verifier', consumer: 'api' }) });
+      for (const tenant of [A, B]) {
+        const ctx = context(pgEvents, tenant);
+        contexts.set(tenant, ctx);
+        const env = { settings: { deNormalizeDates: false }, predictionsMaxSize: 2 };
+        ctx.deviceEnv = env;
+        const ports = new Map();
+        for (const logical of domains) {
+          ports.set(logical, factories[logical]({ connection: writeClock.clocked(connection, name + '_clock'), table: tables[logical], catalogue: catalogues[logical], env, bus: ctx.bus, source: 'v1/internal' }));
+        }
+        ctx.storagePorts = { resolve: ({ logical, source }) => source === 'v1/internal' ? ports.get(logical) : undefined };
+        for (const domain of domains) ctx[domain] = constructors[domain](env, ctx);
+        const legacyApp = legacy(ctx, env);
+        legacyRouter.use((req, res, next) => scope.requireTenant('domain HTTP fixture') === tenant
+          ? legacyApp(req, res, next) : next());
+        const v3 = express();
+        require('../lib/middleware/configure-request')(v3);
+        v3.use(require('../lib/api3/shared/renderer').extension2accept);
+        v3.setENVTruthy = () => undefined;
+        const defaults = require('../lib/api3/const.json');
+        for (const key of ['API3_SECURITY_ENABLE', 'API3_DEDUP_FALLBACK_ENABLED', 'API3_CREATED_AT_FALLBACK_ENABLED', 'API3_MAX_LIMIT']) {
+          v3.set(key, defaults[key]);
+        }
+        const options = factories.devicestatus({ connection: writeClock.clocked(connection, name + '_clock'), table: tables.devicestatus, catalogue: catalogues.devicestatus, env, bus: ctx.bus });
+        const col = new Collection({ ctx, env, app: v3, colName: 'devicestatus',
+          fallbackGetDate: doc => new Date(doc.created_at), fallbackDateField: 'created_at',
+          dedupFallbackFields: ['created_at', 'device'], ...options });
+        col.mapRoutes();
+        ctx.deviceCol = col;
+        data.use((req, res, next) => req.tenantContext.tenant === tenant ? v3(req, res, next) : next());
+      }
+      const unused = async () => { throw new Error('Owner capability outside domain fixture'); };
+      const app = createTenantApp({
+        resolver: createResolver({ aliases: [
+          { host: 'one.example.test', tenant: A }, { host: 'two.example.test', tenant: B }
+        ] }),
+        dataAccess: access, dataRouter: data, legacyRouter,
+        verifyCredential: unused, authorizeRequest: unused,
+        tenantSettings: { read: unused, replace: unused, rollback: unused },
+        subjectPolicy: { read: unused, replace: unused }
+      });
+      server = app.listen(0, '127.0.0.1');
+      await once(server, 'listening');
+      assert.equal(server.address().address, '127.0.0.1');
+    }
+
+    async function stop () {
+      if (server) { await new Promise(resolve => server.close(resolve)); server = undefined; }
+      if (authority) { await authority.close(); authority = undefined; }
+      if (connection) { await connection.end(); connection = undefined; }
+    }
+
+    function http (method, path, { tenant = A, credential = credentials[0] } = {}) {
+      let call = request(server)[method](path).set('Host', tenant === A ? 'one.example.test' : 'two.example.test')
+        .set('Accept', 'application/json').timeout({ response: 5000, deadline: 15000 });
+      if (credential !== null) call = call.set('api-secret', credential);
+      return call;
+    }
+    function reference (method, path) {
+      const call = request(oracle)[method](path).set('Accept', 'application/json');
+      return path.startsWith('/api/v3/')
+        ? call.set('Authorization', 'Bearer ' + mongoContext.deviceEnv.enclave.signJWT({ accessToken: credentials[0] }))
+        : call.set('api-secret', credentials[0]);
+    }
+    async function rows (domain, tenant = A) {
+      return (await admin.query(`SELECT doc FROM "${schemas[domain]}".${domain}
+        WHERE tenant_id=$1 ORDER BY "_id", id_kind`, [tenant])).rows.map(row => row.doc);
+    }
+    async function grants (permissions) {
+      await admin.query(`UPDATE "${auth}".tenant_authorization_roles SET permissions=$1 WHERE tenant_id=$2`, [permissions, A]);
+      if (mongo) await mongo.db().collection(name + '_oracle_roles').updateOne({ name: 'writer' }, { $set: { permissions } });
+    }
+    async function seed (domain, docs) {
+      await admin.query(`DELETE FROM "${schemas[domain]}".${domain}`);
+      await mongoCollections[domain].deleteMany({});
+      for (const tenant of [A, B]) for (const doc of docs) {
+        const row = encodeDocument({ ...doc, ...(tenant === B ? { tenantMarker: 'two' } : {}) });
+        const insert = () => admin.query(`INSERT INTO "${schemas[domain]}".${domain} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
+          [tenant, row.id_kind, row.doc]);
+        if (sealed && domain === 'devicestatus') await require('./fixtures/tenant-insertion-grants').withTenant(admin, tenant, insert);
+        else await insert();
+      }
+      if (docs.length) await mongoCollections[domain].insertMany(docs.map(doc => ({ ...doc })));
+    }
+    async function same (method, path, body, status = 200, headers = {}) {
+      let expected = reference(method, path).set(headers), actual = http(method, path).set(headers);
+      if (body !== undefined) { expected = expected.send(json(body)); actual = actual.send(json(body)); }
+      const mongoReply = await expected.expect(status);
+      const pgReply = await actual;
+      assert.equal(pgReply.status, status, JSON.stringify(pgReply.body));
+      assert.deepEqual(comparable(pgReply.body), comparable(mongoReply.body));
+      for (const header of ['location', 'content-type', 'deprecation', 'warning', 'allow']) {
+        assert.equal(pgReply.headers[header], mongoReply.headers[header], header);
+      }
+      if (['post', 'put', 'patch', 'delete'].includes(method) && status < 400) {
+        const domain = path.includes('/devicestatus') ? 'devicestatus' : 'activity';
+        const expectedRows = await mongoCollections[domain].find({}).sort({ _id: 1 }).toArray();
+        assert.deepEqual(comparable(await rows(domain)), comparable(json(expectedRows)));
+      }
+      return pgReply;
+    }
+
+    before(async function () {
+      mode = scope.getTenancyMode();
+      scope.setTenancyMode('multi');
+      admin = new Client({ connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });
+      await admin.connect();
+      for (const domain of domains) {
+        await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+          namespace: schemas[domain], catalogue: catalogues[domain] });
+      }
+      await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: auth, catalogue: require('../lib/tenant-authorization/postgres-candidate.json') });
+      await run('up', { direct: true, connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: secretNamespace, catalogue: require('../lib/secrets/postgres-candidate.json') });
+      const password = random();
+      await admin.query(`CREATE ROLE "${role}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
+      for (const domain of domains) {
+        await admin.query(`GRANT USAGE ON SCHEMA "${schemas[domain]}" TO "${role}"`);
+        await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${schemas[domain]}".${domain} TO "${role}"`);
+        // A windowed created_at column calls it; migration 0001 revokes it from PUBLIC.
+        if (domain === 'devicestatus') {
+          if (sealed) await require('./fixtures/tenant-insertion-grants').grant(admin, {
+            namespace: schemas.devicestatus, domain, role, catalogue: catalogues.devicestatus
+          });
+          await admin.query(`GRANT EXECUTE ON FUNCTION "${schemas[domain]}".window_time_text(jsonb) TO "${role}"`);
+        }
+      }
+      await admin.query(`GRANT USAGE ON SCHEMA "${auth}" TO "${role}"`);
+      await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
+      await admin.query(`GRANT USAGE ON SCHEMA "${secretNamespace}" TO "${role}"`);
+      await admin.query(`GRANT SELECT, INSERT ON "${secretNamespace}".secret_records TO "${role}"`);
+      await admin.query(`GRANT INSERT ON "${secretNamespace}".secret_audit TO "${role}"`);
+      const uri = new URL(process.env.NS_TEST_POSTGRES_ADMIN_URI);
+      uri.username = role; uri.password = password; appURI = uri.toString();
+      await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
+        namespace: name + '_clock', role, tenants: [A, B] });
+      for (const tenant of [A, B]) {
+        await admin.query(`INSERT INTO "${auth}".tenant_authorization_config VALUES ($1, ARRAY['denied'])`, [tenant]);
+        await admin.query(`INSERT INTO "${auth}".tenant_authorization_subjects
+          (tenant_id,subject_id,display_name) VALUES ($1,$2,'Current Exact Name')`, [tenant, SUBJECT]);
+        await admin.query(`INSERT INTO "${auth}".tenant_authorization_roles VALUES ($1,'writer',$2)`, [tenant, GRANTS]);
+        await admin.query(`INSERT INTO "${auth}".tenant_authorization_subject_roles VALUES ($1,$2,'writer')`, [tenant, SUBJECT]);
+      }
+      // The api's DATA verifier: one-way verifiers prepared from each root
+      // (decision deployment-signing-secret); no Vault on DATA.
+      for (const [i, tenant] of [A, B].entries()) local.set(tenant, { root: roots[i], subjects: [{ subjectId: SUBJECT, tokenPrefix: 'synthetic' }] });
+      secrets = local.verifier;
+      mongo = new MongoClient(process.env.CUSTOMCONNSTR_mongo);
+      await mongo.connect();
+      mongoCollections = Object.fromEntries(domains.map(domain => [domain, mongo.db().collection(name + '_' + domain)]));
+      const indexes = await require('../lib/storage/identifier-index').ensure(
+        domains.map(domain => ({ name: domain, collection: mongoCollections[domain] })), 'require');
+      assert.equal(indexes.ready, true);
+      const env = { settings: { deNormalizeDates: false, authDefaultRoles: 'denied', authFailDelay: 0 }, predictionsMaxSize: 2,
+        authentication_collections_prefix: name + '_oracle_', enclave: require('../lib/server/enclave')() };
+      env.enclave.setApiKey(roots[0]);
+      env.enclave.setJWTKey(random());
+      for (const domain of domains) env[domain + '_collection'] = name + '_' + domain;
+      mongoContext = context(mongoEvents, A);
+      mongoContext.deviceEnv = env;
+      mongoContext.store = { db: mongo.db(), collection: n => mongo.db().collection(n), ensureIndexes () {} };
+      mongoContext.language = { translate: value => value };
+      mongoContext.moment = require('moment');
+      mongoContext.settings = env.settings;
+      await mongo.db().collection(name + '_oracle_roles').insertOne({ name: 'writer', permissions: GRANTS });
+      await mongo.db().collection(name + '_oracle_subjects').insertOne({
+        _id: new ObjectId(SUBJECT), name: 'Current Exact Name', roles: ['writer']
+      });
+      mongoContext.authorization = require('../lib/authorization')(env, mongoContext);
+      for (const domain of domains) mongoContext[domain] = constructors[domain](env, mongoContext);
+      oracle = express();
+      oracle.use((req, res, next) => writeClock.referenceClock(A, () => scope.withTenant(A, () => {
+        mongoContext.authorization.storage.reload(error => {
+          if (error) return next(error);
+          next();
+        });
+      })));
+      const mongoLegacy = legacy(mongoContext, env);
+      oracle.use('/api/v1', mongoLegacy);
+      oracle.use('/api/v2', require('../lib/api2')(env, mongoContext, mongoLegacy, { compatibilityOnly: true }));
+      oracle.use('/api/v3', configureApi3({ ...env,
+        api3: { API3_SECURITY_ENABLE: true, API3_DEDUP_FALLBACK_ENABLED: true } }, mongoContext));
+      await start();
+      await http('get', '/api/v3/devicestatus/not-present').expect(404);
+    });
+
+    beforeEach(async function () {
+      for (const domain of domains) await seed(domain, []);
+      await grants(GRANTS);
+      await admin.query(`UPDATE "${auth}".tenant_authorization_subjects SET display_name='Current Exact Name'`);
+      await mongo.db().collection(name + '_oracle_subjects').updateOne({ _id: new ObjectId(SUBJECT) },
+        { $set: { name: 'Current Exact Name' } });
+      for (const ctx of contexts.values()) {
+        ctx.cache.devicestatus = [];
+        ctx.deviceEnv.settings.deNormalizeDates = false;
+      }
+      mongoContext.cache.devicestatus = [];
+      mongoContext.deviceEnv.settings.deNormalizeDates = false;
+      mongoEvents.length = 0; pgEvents.length = 0;
+    });
+
+    after(async function () {
+      try {
+        await stop();
+        if (mongo) {
+          for (const collection of Object.values(mongoCollections || {})) await collection.drop();
+          for (const kind of ['roles', 'subjects']) await mongo.db().collection(name + '_oracle_' + kind).drop();
+          await mongo.close();
+        }
+        if (admin) {
+          for (const namespace of [...Object.values(schemas), auth, secretNamespace, name + '_clock']) await admin.query(`DROP SCHEMA IF EXISTS "${namespace}" CASCADE`);
+          await admin.query(`DROP ROLE IF EXISTS "${role}"`);
+          await admin.end();
+        }
+      } finally {
+        if (mode !== undefined) scope.setTenancyMode(mode);
+      }
+    });
+
+    it('preserves legacy device normalization, predictions, extensions, numeric filtering, order and v2 inheritance', async function () {
+      for (const version of [1, 2]) {
+        await seed('devicestatus', []);
+        await same('post', `/api/v${version}/devicestatus`, [
+          { _id: ID, identifier: 'device-retry', created_at: time.day() + 'T02:00:00+02:00', device: '12345',
+            date: BASE, sgv: 123, extension: { future: [null, true] },
+            openaps: { suggested: { predBGs: { IOB: [1, 2, 3], FUTURE: [4, 5, 6] } } } },
+          { _id: '75a1b2c3d4e5f60718293a4b', created_at: time.day(1) + 'T00:00:00Z', device: 'newer', date: BASE + 1, sgv: 150 }
+        ]);
+        const stored = await rows('devicestatus');
+        assert.equal(stored.length, 2);
+        assert.equal(stored[0].created_at, time.day() + 'T00:00:00.000Z');
+        assert.equal(stored[0].utcOffset, 120);
+        assert.deepEqual(stored[0].openaps.suggested.predBGs, { IOB: [1, 2], FUTURE: [4, 5, 6] });
+        assert.deepEqual(stored[0].extension, { future: [null, true] });
+        for (const suffix of ['', '.json', '?count=0', '?count=1', '?count=1?deprecated',
+          '?count=0&find[created_at][$gte]=' + time.day(-1) + '&find[created_at][$lte]=' + time.day(2), '?count=100&find[sgv][$gte]=130',
+          '?find[device]=12345', '?find[date][$gte]=' + BASE]) {
+          await same('get', `/api/v${version}/devicestatus${suffix}`);
+        }
+        await same('delete', `/api/v${version}/devicestatus/${ID}`);
+        assert.equal((await rows('devicestatus')).length, 1);
+        await same('post', `/api/v${version}/devicestatus?results=items`, [
+          { _id: 'invalid', device: 'refused' },
+          { _id: '85a1b2c3d4e5f60718293a4b', created_at: CREATED, device: 'accepted' }
+        ]);
+        await same('post', `/api/v${version}/devicestatus`, ['invalid'], 400);
+        for (const method of ['put', 'patch']) {
+          await reference(method, `/api/v${version}/devicestatus/${ID}`).send({}).expect(404);
+          await http(method, `/api/v${version}/devicestatus/${ID}`).send({}).expect(405);
+        }
+      }
+    });
+
+    it('uses tenant-local actual runtime cache ordering and date denormalization without sharing arrays', async function () {
+      const docs = [
+        { _id: new ObjectId(ID), created_at: time.day() + 'T00:00:00.000Z', utcOffset: 120, device: 'earlier' },
+        { _id: new ObjectId('75a1b2c3d4e5f60718293a4b'), created_at: CREATED, utcOffset: 0, device: 'later' }
+      ];
+      for (const ctx of [contexts.get(A), mongoContext]) ctx.cache.devicestatus = ctx.ddata.processRawDataForRuntime(docs);
+      const foreign = contexts.get(B).ddata.processRawDataForRuntime([{ ...docs[0], device: 'foreign' }]);
+      contexts.get(B).cache.devicestatus = foreign;
+      const reply = await same('get', '/api/v1/devicestatus?count=1');
+      assert.equal(reply.body[0].device, 'later');
+      for (const ctx of [contexts.get(A), mongoContext]) ctx.deviceEnv.settings.deNormalizeDates = true;
+      const denormalized = await same('get', '/api/v2/devicestatus?count=2');
+      assert.equal(denormalized.body[1].created_at, time.day() + 'T02:00:00.000+02:00');
+      assert.equal(denormalized.body[1].utcOffset, undefined);
+      assert.equal((await http('get', '/api/v2/devicestatus?count=1', { tenant: B, credential: credentials[1] }).expect(200)).body[0].device, 'foreign');
+      assert.equal(foreign.length, 1);
+    });
+
+    it('retains distinct default counts, bounded-window compatibility, literal filters, HEAD and OPTIONS', async function () {
+      const docs = Array.from({ length: 12 }, (_, i) => ({
+        _id: new ObjectId((BigInt('0x' + ID) + BigInt(i)).toString(16)),
+        created_at: new Date(BASE + i * 3600000).toISOString(), date: BASE + i, device: 'rig-' + i
+      }));
+      for (const domain of domains) {
+        await seed(domain, docs);
+        for (const version of [1, 2]) {
+          const path = `/api/v${version}/${domain}`;
+          assert.equal((await same('get', path)).body.length, domain === 'devicestatus' ? 10 : 12);
+          await same('get', path + '?count=0');
+          assert.equal((await same('get', path + '?count=3')).body.length, 3);
+          const all = await same('get', path +
+            '?count=0&find[created_at][$gte]=' + time.day(-1) + '&find[created_at][$lte]=' + time.day(2));
+          assert.equal(all.body.length, 12);
+          assert.equal((await same('get', path + '?find[device][$regex]=%5Erig-&count=3')).body.length, 3);
+          await same('head', path);
+          await same('options', path);
+        }
+      }
+    });
+
+    it('uses shipping creation-time defaults and invalid-date handling rather than imposing entries normalization', async function () {
+      for (const domain of domains) for (const version of [1, 2]) for (const invalid of [false, true]) {
+        await seed(domain, []);
+        const doc = { _id: ID, device: 'rig', extension: { future: true } };
+        if (invalid) doc.created_at = 'synthetic-invalid-date';
+        const before = Date.now();
+        const expected = await reference('post', `/api/v${version}/${domain}`).send(doc).expect(200);
+        const actual = await http('post', `/api/v${version}/${domain}`).send(doc).expect(200);
+        const expectedDoc = expected.body[0], actualDoc = actual.body[0];
+        if (domain === 'activity' && invalid) {
+          assert.equal(actualDoc.created_at, doc.created_at);
+          assert.equal(expectedDoc.created_at, doc.created_at);
+        } else {
+          for (const result of [actualDoc, expectedDoc]) {
+            assert.ok(Date.parse(result.created_at) >= before && Date.parse(result.created_at) <= Date.now());
+          }
+        }
+        assert.deepEqual(comparable({ ...actualDoc, created_at: undefined }),
+          comparable({ ...expectedDoc, created_at: undefined }));
+        const stored = (await rows(domain))[0];
+        assert.equal(stored.created_at, actualDoc.created_at);
+        assert.deepEqual(stored.extension, { future: true });
+      }
+    });
+
+    it('preserves activity CRUD, source-specific dates, Last-Modified, numeric coercion and item batch outcomes', async function () {
+      for (const version of [1, 2]) {
+        await seed('activity', []);
+        await same('post', `/api/v${version}/activity`, { _id: ID, identifier: 'activity-retry',
+          created_at: CREATED, date: BASE, sgv: 123, steps: 10, future: { retained: [null, 1] } });
+        assert.equal((await rows('activity'))[0].srvModified, undefined);
+        await same('get', `/api/v${version}/activity?find[date][$gte]=${BASE}&find[sgv][$gte]=120`);
+        const conditional = await same('get', `/api/v${version}/activity`, undefined, 200);
+        assert.equal(conditional.headers['last-modified'], new Date(CREATED).toUTCString());
+        await same('get', `/api/v${version}/activity`, undefined, 304, { 'If-Modified-Since': new Date(BASE + 1000).toUTCString() });
+        await same('put', `/api/v${version}/activity`, { _id: ID, created_at: CREATED, steps: 30, future: ['replaced'] });
+        const stored = (await rows('activity'))[0];
+        assert.equal(stored.steps, 30);
+        assert.equal(stored.srvCreated, undefined);
+        assert.deepEqual(stored.future, ['replaced']);
+        await same('post', `/api/v${version}/activity?results=items`, [
+          { _id: 'invalid', steps: 1 }, { _id: '85a1b2c3d4e5f60718293a4b', created_at: CREATED, steps: 20 }
+        ]);
+        await same('delete', `/api/v${version}/activity/${ID}`);
+        assert.equal((await rows('activity')).length, 1);
+      }
+      await reference('get', '/api/v3/activity').expect(404);
+      await http('get', '/api/v3/activity').expect(405);
+    });
+
+    it('resends by device identifier and API3 fallback use shipping replacement rather than inferred merge rules', async function () {
+      const original = { _id: new ObjectId(ID), identifier: 'device-retry', device: 'rig', created_at: CREATED,
+        date: BASE, utcOffset: 0, srvCreated: BASE, srvModified: BASE, extension: { retained: 1, removed: 2 } };
+      await seed('devicestatus', [original]);
+      await same('post', '/api/v1/devicestatus', { identifier: 'device-retry', device: 'rig',
+        created_at: CREATED, extension: { removed: null, added: 3 } });
+      let stored = (await rows('devicestatus'))[0];
+      assert.deepEqual(stored.extension, { removed: null, added: 3 });
+      const retry = { identifier: 'device-retry', device: 'rig', date: BASE, app: 'synthetic',
+        extension: { another: true } };
+      // Supply both offsets explicitly so the API3 retry is independent of the test host's zone.
+      await same('post', '/api/v3/devicestatus', { ...retry, utcOffset: 120 }, 400);
+      assert.deepEqual((await rows('devicestatus'))[0], stored);
+      await same('post', '/api/v3/devicestatus', { ...retry, utcOffset: 0 });
+      assert.equal((await rows('devicestatus')).length, 1);
+      await seed('devicestatus', [{ _id: new ObjectId(ID), device: 'rig', created_at: CREATED, date: BASE }]);
+      await same('post', '/api/v3/devicestatus', { device: 'rig', created_at: CREATED, app: 'synthetic', utcOffset: 0 }, 400);
+      assert.equal((await rows('devicestatus'))[0].identifier, undefined);
+      await seed('devicestatus', [{ _id: new ObjectId(ID), device: 'rig', created_at: CREATED, date: BASE, utcOffset: 0 }]);
+      await same('post', '/api/v3/devicestatus', { device: 'rig', created_at: CREATED, app: 'synthetic', utcOffset: 0 });
+      stored = (await rows('devicestatus'))[0];
+      assert.equal((await rows('devicestatus')).length, 1);
+      assert.equal(stored._id, ID);
+    });
+
+    it('matches typed identity twins and permanently removes both forms through the legacy paths', async function () {
+      for (const domain of domains) {
+        await seed(domain, [{ _id: new ObjectId(ID), created_at: CREATED, steps: 10, device: 'object-id' },
+          { _id: ID, created_at: time.day(1) + 'T00:00:00.000Z', steps: 20, device: 'string-id' }]);
+        const reply = await same('get', `/api/v1/${domain}?find[_id]=${ID}&count=100`);
+        assert.equal(reply.body.length, 2);
+        const foreign = await rows(domain, B);
+        await same('delete', `/api/v2/${domain}/${ID}`);
+        assert.deepEqual(await rows(domain), []);
+        assert.deepEqual(await rows(domain, B), foreign);
+      }
+    });
+
+    it('preserves device resend collision outcomes under concurrent uploads and tenant-prefixed uniqueness', async function () {
+      await stop(); await start({ max: 2 });
+      try {
+        for (const version of [1, 3]) {
+          const path = `/api/v${version}/devicestatus`;
+          const body = version === 1 ? { identifier: 'concurrent-device', created_at: CREATED, device: 'rig' }
+            : { identifier: 'concurrent-device', date: BASE, utcOffset: 0, app: 'synthetic', device: 'rig' };
+          const expected = await Promise.all([0, 1].map(() => reference('post', path).send(body)));
+          assert.ok(expected.every(reply => [200, 201].includes(reply.status)));
+          const expectedRows = await mongoCollections.devicestatus.find({}).toArray();
+          assert.equal(expectedRows.length, 1);
+          for (const tenant of [A, B]) {
+            const replies = await Promise.all([0, 1].map(() => http('post', path,
+              { tenant, credential: credentials[tenant === A ? 0 : 1] }).send(body)));
+            assert.deepEqual(replies.map(reply => reply.status).sort(), expected.map(reply => reply.status).sort());
+            const stored = await rows('devicestatus', tenant);
+            assert.equal(stored.length, 1);
+            assert.deepEqual(comparable({ ...stored[0], _id: undefined }),
+              comparable({ ...json(expectedRows[0]), _id: undefined }));
+          }
+          await seed('devicestatus', []);
+        }
+      } finally { await stop(); await start(); }
+    });
+
+    if (sealed) it('reads a sealed day through v1, v3 identity, search and history, then corrects and deletes it', async function () {
+      const day = '2020-01-02', at = Date.parse(day + 'T00:00:00Z');
+      const docs = Array.from({ length: 12 }, (_, i) => ({
+        _id: new ObjectId((i+1).toString(16).padStart(24,'0')), identifier: 'sealed-' + i,
+        created_at: new Date(at + i*3600000).toISOString(), date: at + i*3600000,
+        device: 'synthetic', srvCreated: at + 86400000 + i, srvModified: at + 86400000 + i,
+        arbitrary: { nullable: null, series: [i, false, 'synthetic'] }
+      }));
+      await seed('devicestatus', docs);
+      const routes = ['/api/v1/devicestatus.json?count=20&find[created_at][$gte]=' + docs[0].created_at,
+        '/api/v3/devicestatus/sealed-5', '/api/v3/devicestatus?device$eq=synthetic&sort=created_at',
+        '/api/v3/devicestatus/history/' + at];
+      const before = [];
+      for (const url of routes) before.push((await same('get', url)).body);
+      const seal = () => require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () =>
+        admin.query('SELECT "'+schemas.devicestatus+'".devicestatus_seal_day() AS n').then(r=>r.rows[0].n));
+      assert.equal(await seal(),docs.length);
+      for (const [i,url] of routes.entries()) assert.deepEqual((await same('get',url)).body,before[i]);
+      assert.equal(before[0].length,docs.length);
+      assert.equal(before[3].result.length,docs.length);
+      await same('patch','/api/v3/devicestatus/sealed-5',{ arbitrary:{corrected:true} });
+      assert.equal(await seal(),1);
+      await same('delete','/api/v3/devicestatus/sealed-5');
+      await same('get','/api/v3/devicestatus/sealed-5',undefined,410);
+      await same('get','/api/v3/devicestatus/history/'+(at+86400000+11));
+      await same('delete','/api/v3/devicestatus/sealed-5?permanent=true');
+    });
+
+    it('API3 device addressed writes, search, tombstone history and permanent delete retain their own responses', async function () {
+      await seed('devicestatus', [{ _id: new ObjectId(ID), identifier: 'device-record', device: 'rig',
+        created_at: CREATED, date: BASE, utcOffset: 0, app: 'synthetic', srvCreated: BASE, srvModified: BASE }]);
+      await same('get', '/api/v3/devicestatus/device-record');
+      await same('get', '/api/v3/devicestatus?device$eq=rig&sort$desc=created_at&fields=identifier,device,created_at');
+      await same('put', '/api/v3/devicestatus/device-record', { device: 'rig', date: BASE,
+        utcOffset: 0, app: 'synthetic', future: { replaced: true } });
+      await same('patch', '/api/v3/devicestatus/device-record', { future: { nested: [null, false] } });
+      assert.deepEqual((await rows('devicestatus'))[0].future, { replaced: true, nested: [null, false] });
+      await same('delete', '/api/v3/devicestatus/device-record');
+      assert.equal((await rows('devicestatus'))[0].isValid, false);
+      await same('get', '/api/v3/devicestatus/device-record', undefined, 410);
+      const history = await same('get', '/api/v3/devicestatus/history/' + BASE);
+      assert.equal(history.body.result.length, 1);
+      await same('delete', '/api/v3/devicestatus/device-record?permanent=true');
+      assert.deepEqual(await rows('devicestatus'), []);
+      await same('get', '/api/v3/devicestatus/history/' + BASE);
+    });
+
+    it('accepts negative zero like single tenant: v1 device batch, v3 device and v1 activity answer and read back alike; nonfinite stays refused', async function () {
+      const send = (call, text) => call.set('Content-Type', 'application/json').send(text);
+      const zero = value => { assert.equal(value, 0); assert.equal(Object.is(value, -0), false); };
+      // A literal -0 is valid JSON; a JS object cannot carry it over supertest's serializer.
+      const batch = '[{"_id":"' + ID + '","created_at":"' + CREATED + '","device":"rig","openaps":{"iob":{"iob":-0,"basaliob":-0.0}},'
+        + '"a":[-0],"pump":{"reservoir":-0}},{"_id":"75a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","device":"rig2","uploader":{"battery":-0}}]';
+      const expectedBatch = await send(reference('post', '/api/v1/devicestatus'), batch).expect(200);
+      const batchReply = await send(http('post', '/api/v1/devicestatus'), batch);
+      assert.equal(batchReply.status, 200, JSON.stringify(batchReply.body));
+      assert.deepEqual(comparable(batchReply.body), comparable(expectedBatch.body));
+      const expectedRead = await reference('get', '/api/v1/devicestatus?count=10').expect(200);
+      const read = await http('get', '/api/v1/devicestatus?count=10').expect(200);
+      assert.deepEqual(comparable(read.body), comparable(expectedRead.body));
+      const first = read.body.find(doc => doc._id === ID);
+      zero(first.openaps.iob.iob); zero(first.openaps.iob.basaliob); zero(first.a[0]); zero(first.pump.reservoir);
+      assert.equal((await rows('devicestatus')).length, 2);
+      zero((await rows('devicestatus')).find(doc => doc._id === ID).openaps.iob.iob);
+      // API v3
+      const v3 = '{"identifier":"nz-v3","created_at":"' + CREATED + '","device":"rig","app":"synthetic","openaps":{"iob":{"iob":-0}}}';
+      const v3Expected = await send(reference('post', '/api/v3/devicestatus'), v3);
+      const v3Actual = await send(http('post', '/api/v3/devicestatus'), v3);
+      assert.equal(v3Actual.status, v3Expected.status, JSON.stringify(v3Actual.body));
+      assert.ok(v3Actual.status < 300, JSON.stringify(v3Actual.body));
+      const v3Read = await http('get', '/api/v3/devicestatus/nz-v3').expect(200);
+      zero(v3Read.body.result.openaps.iob.iob);
+      // another domain: v1 activity
+      const act = '{"_id":"85a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","steps":-0,"nested":[{"x":-0}]}';
+      await send(reference('post', '/api/v1/activity'), act).expect(200);
+      const actReply = await send(http('post', '/api/v1/activity'), act);
+      assert.equal(actReply.status, 200, JSON.stringify(actReply.body));
+      const actRead = await http('get', '/api/v1/activity').expect(200);
+      assert.deepEqual(comparable(actRead.body), comparable((await reference('get', '/api/v1/activity').expect(200)).body));
+      zero(actRead.body[0].steps);
+      // control: a document that cannot be represented is still refused, including beside a -0
+      const bad = '[{"_id":"95a1b2c3d4e5f60718293a4b","created_at":"' + CREATED + '","device":"rig","iob":-0,"extension":"a\\u0000b"}]';
+      await send(http('post', '/api/v1/devicestatus'), bad).expect(400);
+      assert.equal((await rows('devicestatus')).some(doc => doc._id === '95a1b2c3d4e5f60718293a4b'), false);
+    });
+
+    it('maps only submitted nonrepresentability and recognized storage outages, retaining internal failures as 500', async function () {
+      for (const version of [1, 2]) for (const domain of domains) {
+        const doc = { _id: ID, created_at: CREATED, device: 'rig', extension: 'synthetic\u0000extension' };
+        await reference('post', `/api/v${version}/${domain}`).send(doc).expect(200);
+        await http('post', `/api/v${version}/${domain}`).send(doc).expect(400);
+        assert.deepEqual(await rows(domain), []);
+      }
+      assert.deepEqual(pgEvents, []);
+      const original = connection.query;
+      try {
+        for (const [failure, status] of [
+          [Object.assign(new Error('synthetic outage'), { code: 'ECONNRESET' }), 503],
+          [Object.assign(new TypeError('synthetic internal unsupported value'), { unsupported: true }), 500]
+        ]) {
+          connection.query = async () => { throw failure; };
+          for (const version of [1, 2]) for (const domain of domains) {
+            await http('get', `/api/v${version}/${domain}`).expect(status);
+            await http('post', `/api/v${version}/${domain}`)
+              .send({ _id: ID, created_at: CREATED, device: 'rig' }).expect(status);
+            await http('delete', `/api/v${version}/${domain}/${ID}`).expect(status);
+            if (domain === 'activity') await http('put', `/api/v${version}/activity`)
+              .send({ _id: ID, created_at: CREATED, steps: 1 }).expect(status);
+          }
+          await http('get', '/api/v3/devicestatus').expect(status);
+          await http('post', '/api/v3/devicestatus')
+            .send({ created_at: CREATED, device: 'rig', app: 'synthetic' }).expect(status);
+          await http('get', '/api/v3/devicestatus?device$eq=rig').expect(status);
+          await http('get', '/api/v3/devicestatus/history/' + BASE).expect(status);
+          for (const method of ['put', 'patch', 'delete']) {
+            const call = http(method, '/api/v3/devicestatus/device-record');
+            if (method !== 'delete') call.send({ created_at: CREATED, device: 'rig', app: 'synthetic' });
+            await call.expect(status);
+          }
+        }
+      } finally { connection.query = original; }
+      for (const domain of domains) assert.deepEqual(await rows(domain), []);
+      assert.deepEqual(pgEvents, []);
+    });
+
+    it('answers a PostgreSQL refusal that committed nothing with its code and Retry-After, as API v1 entries does', async function () {
+      const original = connection.query;
+      try {
+        for (const code of ['STORAGE_TIMEOUT', 'STORAGE_BUSY']) {
+          const refusal = Object.assign(new Error('synthetic refusal'), { code, retryAfter: 1 });
+          connection.query = async () => { throw refusal; };
+          const calls = [];
+          for (const version of [1, 2]) for (const domain of domains) {
+            calls.push(http('get', `/api/v${version}/${domain}`),
+              http('post', `/api/v${version}/${domain}`).send({ _id: ID, created_at: CREATED, device: 'rig' }));
+          }
+          calls.push(http('post', '/api/v3/devicestatus').send({ created_at: CREATED, device: 'rig', app: 'synthetic' }));
+          for (const call of calls) {
+            const reply = await call;
+            assert.equal(reply.status, 503, code + ' ' + reply.req.method + ' ' + reply.req.path + ' ' + reply.text);
+            assert.deepEqual(reply.body, { error: code }, reply.req.method + ' ' + reply.req.path);
+            assert.equal(reply.headers['retry-after'], '1', reply.req.method + ' ' + reply.req.path);
+          }
+        }
+      } finally { connection.query = original; }
+      for (const domain of domains) assert.deepEqual(await rows(domain), []);
+    });
+
+    it('refuses a devicestatus upload whose statement misses the api deadline with 503 STORAGE_TIMEOUT and writes nothing', async function () {
+      await stop(); await start({ pool: { ...DATA_CONNECTION } });
+      const holder = new Client({ connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI });
+      await holder.connect();
+      const doc = { created_at: CREATED, device: 'rig', app: 'synthetic' };
+      try {
+        // A competing transaction holds the tenant's write clock row past the
+        // 1 s query deadline (and a queued ROLLBACK's own deadline).
+        await holder.query('BEGIN');
+        await holder.query(`SELECT 1 FROM "${name}_clock".tenant_write_clock WHERE tenant_id = $1 FOR UPDATE`, [A]);
+        for (const [path, body] of [['/api/v1/devicestatus', doc], ['/api/v3/devicestatus', { ...doc, identifier: 'deadline-v3' }]]) {
+          const started = Date.now();
+          const reply = await http('post', path).send(body);
+          assert.equal(reply.status, 503, path + ' ' + reply.text);
+          assert.deepEqual(reply.body, { error: 'STORAGE_TIMEOUT' }, path);
+          assert.equal(reply.headers['retry-after'], '1', path);
+          assert(Date.now() - started < 2000, path + ' answered at the first deadline');
+        }
+        await new Promise(resolve => setTimeout(resolve, 2500));
+      } finally {
+        await holder.query('COMMIT');
+        await holder.end();
+      }
+      assert.deepEqual(await rows('devicestatus'), [], 'NOTHING_COMMITTED');
+      await http('post', '/api/v1/devicestatus').send(doc).expect(200);
+      assert.equal((await rows('devicestatus')).length, 1, 'POOL_USABLE_AFTER_EVICTION');
+      await stop(); await start();
+    });
+
+    it('answers the default v1 devicestatus read at a 90-day tenant well inside the api deadline', async function () {
+      this.timeout(120000);
+      // 90 days of 5-minute Loop-shaped statuses (25,920, synthetic) for tenant A.
+      const STEP = 300000, n = 90 * 288;
+      const docs = Array.from({ length: n }, (_, i) => {
+        const at = new Date(BASE - (n - 1 - i) * STEP).toISOString();
+        return encodeDocument({ _id: ObjectId.createFromTime(Math.floor(Date.parse(at) / 1000)), created_at: at, device: 'loop://synthetic', utcOffset: 0,
+          loop: { name: 'Loop', version: '3.4', timestamp: at, iob: { iob: 1.2, timestamp: at }, cob: { cob: 10, timestamp: at },
+            predicted: { startDate: at, values: Array.from({ length: 73 }, (_, k) => 100 + (i * 7 + k * k) % 97) },
+            enacted: { rate: 0.5, duration: 30, received: true, timestamp: at },
+            automaticDoseRecommendation: { timestamp: at, bolusVolume: 0.05, tempBasalAdjustment: { rate: 0.5, duration: 30 } } },
+          pump: { clock: at, reservoir: 100, pumpID: 'synthetic', suspended: false, bolusing: false, manufacturer: 'synthetic', model: 'synthetic' },
+          uploader: { battery: 80, name: 'synthetic', timestamp: at }, override: { active: false, timestamp: at } });
+      });
+      for (let i = 0; i < n; i += 2000) {
+        const part = docs.slice(i, i + 2000);
+        await require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () => admin.query(
+          `INSERT INTO "${schemas.devicestatus}".devicestatus (tenant_id, id_kind, doc)
+           SELECT $1, kind, doc FROM unnest($2::text[], $3::jsonb[]) AS row(kind, doc)`,
+          [A, part.map(row => row.id_kind), part.map(row => JSON.stringify(row.doc))]));
+      }
+      await admin.query(`VACUUM ANALYZE "${schemas.devicestatus}".devicestatus`);
+      // The api's connection options with a tenth of its 1 s query deadline.
+      // Unbounded, the read detoasts every row the tenant holds: about 290 ms
+      // on an idle workstation (measured, PostgreSQL 16.15), 503 here. Bounded
+      // by created_at it reads the default four-day window: about 16 ms.
+      await stop(); await start({ pool: { ...DATA_CONNECTION, query_timeout: 100 } });
+      try {
+        await http('get', '/api/v1/devicestatus.json?count=1');
+        for (const path of ['/api/v1/devicestatus.json?count=1', '/api/v1/devicestatus.json', '/api/v2/devicestatus.json?count=10']) {
+          const reply = await http('get', path);
+          assert.equal(reply.status, 200, 'READS_TENANT_HISTORY ' + path + ' ' + reply.text.slice(0, 80));
+          assert.equal(reply.body[0].created_at, new Date(BASE).toISOString(), path);
+          assert.equal(reply.body.length, path.includes('count=1') && !path.includes('count=10') ? 1 : 10, path);
+        }
+      } finally { await stop(); await start(); }
+    });
+
+    it('rolls legacy writes back before emitting events for either domain and isolates successful tenant events', async function () {
+      for (const domain of domains) await seed(domain, [{ _id: new ObjectId(ID), created_at: CREATED,
+        device: 'rig', identifier: domain + '-record' }]);
+      const before = Object.fromEntries(await Promise.all(domains.map(async domain => [domain, await rows(domain)])));
+      const foreign = Object.fromEntries(await Promise.all(domains.map(async domain => [domain, await rows(domain, B)])));
+      const original = connection.transaction;
+      connection.transaction = fn => original(async () => { await fn(); throw new Error('synthetic legacy rollback'); });
+      try {
+        for (const version of [1, 2]) for (const domain of domains) {
+          await http('post', `/api/v${version}/${domain}`).send({
+            _id: ID, identifier: domain + '-record', created_at: CREATED, extension: 'must-rollback'
+          }).expect(500);
+          await http('delete', `/api/v${version}/${domain}/${ID}`).expect(500);
+          if (domain === 'activity') await http('put', `/api/v${version}/activity`)
+            .send({ _id: ID, created_at: CREATED, steps: 99 }).expect(500);
+          assert.deepEqual(await rows(domain), before[domain]);
+          assert.deepEqual(await rows(domain, B), foreign[domain]);
+        }
+      } finally { connection.transaction = original; }
+      assert.deepEqual(pgEvents, []);
+      for (const domain of domains) {
+        await http('delete', `/api/v2/${domain}/${ID}`).expect(200);
+        assert.deepEqual(await rows(domain), []);
+        assert.deepEqual(await rows(domain, B), foreign[domain]);
+      }
+      assert.ok(pgEvents.some(event => event.event === 'storage-intent-committed'));
+      assert.ok(pgEvents.every(event => event.tenant === A));
+    });
+
+    it('consults persisted current grants and exact current name, rejects foreign/invalid credentials and never writes anonymously', async function () {
+      await seed('devicestatus', [{ _id: new ObjectId(ID), identifier: 'device-record', created_at: CREATED,
+        date: BASE, app: 'synthetic', utcOffset: 0, device: 'rig' }]);
+      const foreign = await rows('devicestatus', B);
+      await http('patch', '/api/v3/devicestatus/device-record', { tenant: B }).send({ extension: true }).expect(401);
+      await http('post', '/api/v1/devicestatus', { credential: 'invalid' }).send({ device: 'rig' }).expect(401);
+      await http('post', '/api/v2/activity', { credential: null }).send({ steps: 1 }).expect(401);
+      await grants(['api:devicestatus:read']);
+      await http('patch', '/api/v3/devicestatus/device-record').send({ extension: true }).expect(403);
+      for (const version of [1, 2]) {
+        await http('post', `/api/v${version}/devicestatus`).send({ device: 'rig' }).expect(401);
+      }
+      await grants(GRANTS);
+      await admin.query(`UPDATE "${auth}".tenant_authorization_subjects SET display_name='Renamed Exact Name' WHERE tenant_id=$1`, [A]);
+      await http('patch', '/api/v3/devicestatus/device-record').send({ extension: true }).expect(200);
+      assert.equal((await rows('devicestatus'))[0].modifiedBy, 'Renamed Exact Name');
+      await admin.query(`UPDATE "${auth}".tenant_authorization_subjects SET display_name=NULL WHERE tenant_id=$1`, [A]);
+      await http('patch', '/api/v3/devicestatus/device-record').send({ extension: false }).expect(401);
+      for (const version of [1, 2]) for (const domain of domains) {
+        await http('post', `/api/v${version}/${domain}`).send({ device: 'rig' }).expect(401);
+      }
+      await http('patch', '/api/v3/devicestatus/device-record', { credential: hash(roots[0]) })
+        .send({ rootOnly: true }).expect(200);
+      assert.equal((await rows('devicestatus'))[0].rootOnly, true);
+      assert.deepEqual(await rows('devicestatus', B), foreign);
+      assert.ok(pgEvents.every(event => event.tenant === A));
+    });
+
+    it('keeps overlapping tenant IDs across pool/listener restart, enforces FORCE RLS and preserves rollback/event isolation', async function () {
+      await seed('devicestatus', [{ _id: new ObjectId(ID), identifier: 'device-record', created_at: CREATED,
+        date: BASE, app: 'synthetic', utcOffset: 0, device: 'rig' }]);
+      await seed('activity', [{ _id: new ObjectId(ID), created_at: CREATED, steps: 10 }]);
+      const before = await rows('devicestatus'), foreign = await rows('devicestatus', B);
+      const activityBefore = await rows('activity'), activityForeign = await rows('activity', B);
+      const unbound = new Client({ connectionString: appURI });
+      await unbound.connect();
+      try {
+        for (const domain of domains) {
+          const physical = sealed && domain === 'devicestatus' ? [tables[domain]+'_rows', schemas[domain]+'.devicestatus_day'] : [tables[domain]];
+          for (const name of physical) {
+            const state = await admin.query('SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid=$1::regclass', [name]);
+            assert.deepEqual(state.rows[0], {relrowsecurity:true, relforcerowsecurity:true});
+          }
+          assert.equal((await unbound.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 0);
+          await connection.withTenant(A, async () => {
+            assert.equal((await connection.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 1);
+          });
+          await assert.rejects(connection.withTenant(A, () =>
+            connection.query(`INSERT INTO "${schemas[domain]}".${domain} (tenant_id,id_kind,doc) VALUES ($1,'string',$2)`,
+              [B, { _id: 'forbidden-tenant-write', created_at: CREATED }])), { code: '42501' });
+        }
+      } finally { await unbound.end(); }
+      const original = connection.transaction;
+      connection.transaction = fn => original(async () => { await fn(); throw new Error('synthetic post-write rollback'); });
+      try { await http('patch', '/api/v3/devicestatus/device-record').send({ extension: 'must-rollback' }).expect(500); }
+      finally { connection.transaction = original; }
+      assert.deepEqual(await rows('devicestatus'), before);
+      assert.deepEqual(pgEvents, []);
+      await stop(); await start();
+      await http('get', '/api/v3/devicestatus/device-record').expect(200);
+      assert.equal((await http('get', '/api/v3/devicestatus/device-record',
+        { tenant: B, credential: credentials[1] }).expect(200)).body.result.tenantMarker, 'two');
+      assert.deepEqual(await rows('devicestatus', B), foreign);
+      const foreignActivity = await http('get', '/api/v2/activity',
+        { tenant: B, credential: credentials[1] }).expect(200);
+      assert.equal(foreignActivity.body.length, 1, 'foreign activity default count after restart');
+      assert.equal(foreignActivity.body[0].tenantMarker, 'two');
+      assert.deepEqual(await rows('activity'), activityBefore);
+      assert.deepEqual(await rows('activity', B), activityForeign);
+      for (const domain of domains) assert.throws(() => contexts.get(A)[domain](), /no driver accessor/);
+    });
+  });

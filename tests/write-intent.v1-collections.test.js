@@ -530,6 +530,17 @@ describe('write(intent): the entries rule table (slice 5)', function ( ) {
     return writeIntent.forCollection(storage, 'entries', 'v1/internal', { env });
   }
 
+  it('preserves a legacy client string identity with the tenant environment defaults', function () {
+    const environment = require('../lib/server/tenant-app/environment');
+    const env = environment({ settings: { uuidHandling: false } });
+    const doc = { type: 'sgv', sgv: 101, dateString: T3, _id: 'synthetic-client-identity' };
+    const planned = step(env, []).plan({ op: 'create', docs: [doc] });
+    assert.equal(doc.identifier, 'synthetic-client-identity');
+    assert.equal(Object.hasOwn(doc, '_id'), false);
+    assert.equal(planned.docs[0].identifier, 'synthetic-client-identity');
+    assert.deepEqual(env.settings.filteredSettings(env.settings).uuidHandling, undefined);
+  });
+
   it('creates by a merging bulk write and deletes by query', function ( ) {
     const rules = writeIntent.COLLECTION_RULES.entries['v1/internal'];
     // CHANGED EXPECTATION (ID-FIRST-MATCH slice 1): the create rule names its identifier-match

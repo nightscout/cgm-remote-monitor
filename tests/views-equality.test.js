@@ -40,12 +40,12 @@ describe('ST-VIEWS equality: resident ddata vs bounded queries', function () {
 
   before(function (done) {
     if (TAMPERED && !TAMPER[TAMPERED]) return done(new Error('VIEWS_TAMPER names no view: ' + TAMPERED));
-    // In the full suite an earlier file can leave API_SECRET unset, and the
-    // server then refuses to boot; the settings below are this file's own and
-    // are put back in after().
+    // This fixture owns its settings, including when an earlier file leaves a
+    // truthy but invalid short secret. Restore the exact incoming environment
+    // in after(), including when boot reports an error.
     self.savedEnv = Object.assign({}, process.env);
     Object.assign(process.env, {
-      API_SECRET: process.env.API_SECRET || 'this is my long pass phrase'
+      API_SECRET: 'Views-Fixture-Synthetic-Secret-2026!'
       , ENABLE: ALARM_PLUGINS.join(' ')
       , ALARM_TYPES: 'simple predict'
       , ALARM_HIGH: 'on', ALARM_URGENT_HIGH: 'on', ALARM_LOW: 'on', ALARM_URGENT_LOW: 'on'
@@ -73,10 +73,13 @@ describe('ST-VIEWS equality: resident ddata vs bounded queries', function () {
 
   after(function (done) {
     function restore () {
-      if (self.ctx && self.ctx.bus) self.ctx.bus.emit('teardown');
-      if (self.savedEnv) {
-        Object.keys(process.env).forEach(k => { if (!(k in self.savedEnv)) delete process.env[k]; });
-        Object.assign(process.env, self.savedEnv);
+      try {
+        if (self.ctx && self.ctx.bus) self.ctx.bus.emit('teardown');
+      } finally {
+        if (self.savedEnv) {
+          Object.keys(process.env).forEach(k => { if (!(k in self.savedEnv)) delete process.env[k]; });
+          Object.assign(process.env, self.savedEnv);
+        }
       }
       done();
     }

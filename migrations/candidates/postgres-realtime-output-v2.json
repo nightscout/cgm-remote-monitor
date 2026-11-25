@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "status": "selected realtime checkpoint; level-triggered delivery keeps no receipt (0004 removes it); clinical projection unchanged",
+  "migrations": [
+    {
+      "name": "0001_consumer_checkpoint_projection",
+      "up": [
+        "CREATE TABLE tenant_consumer_checkpoint (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), contract_digest text NOT NULL CHECK (contract_digest ~ '^[a-f0-9]{64}$'), checkpoint bigint NOT NULL CHECK (checkpoint >= 0 AND checkpoint < 8640000000000000), projection jsonb CHECK (projection IS NULL OR jsonb_typeof(projection) = 'array'), PRIMARY KEY (tenant_id, consumer))",
+        "ALTER TABLE tenant_consumer_checkpoint ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_consumer_checkpoint FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_consumer_checkpoint_isolation ON tenant_consumer_checkpoint USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_consumer_checkpoint FROM PUBLIC"
+      ],
+      "checksum": "daa0055e54ada5f0a7465d605c69c7bee0a4b0fdfb8e0eb3276ec8c7ee71748f"
+    },
+    {
+      "name": "0002_realtime_output_delivery",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_received bigint NOT NULL DEFAULT 0 CHECK (output_received >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_completed bigint NOT NULL DEFAULT 0 CHECK (output_completed >= 0 AND output_completed <= output_received)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_owner uuid",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_retry_at bigint CHECK (output_retry_at IS NULL OR output_retry_at >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_delivery_version smallint NOT NULL DEFAULT 0 CHECK (output_delivery_version IN (0,1))",
+        "ALTER TABLE tenant_consumer_checkpoint ADD CONSTRAINT realtime_output_owner_required CHECK (output_received = 0 OR (output_delivery_version = 1 AND output_owner IS NOT NULL))",
+        "CREATE INDEX pgstream_realtime_pending ON tenant_consumer_checkpoint (consumer, output_owner, output_retry_at, tenant_id) WHERE output_received > output_completed"
+      ],
+      "checksum": "41d1a91f67b6f5b037ef96d4eb8178a006cbec5fdddd7384f5c1e48cc7da0167"
+    },
+    {
+      "name": "0003_realtime_output_obligation",
+      "up": [
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_target bigint NOT NULL DEFAULT 0 CHECK (output_target >= 0)",
+        "ALTER TABLE tenant_consumer_checkpoint ADD COLUMN output_pending_tenant uuid GENERATED ALWAYS AS (CASE WHEN output_target > output_completed THEN tenant_id END) STORED",
+        "CREATE INDEX pgstream_realtime_owed ON tenant_consumer_checkpoint (consumer, output_pending_tenant) WHERE output_pending_tenant IS NOT NULL",
+        "DROP INDEX pgstream_realtime_pending"
+      ],
+      "checksum": "1fd98d666023b426e9942b51fc8ec0f8a257d49297947288de8ba748c08d475b"
+    },
+    {
+      "name": "0004_realtime_receipt_removed",
+      "operation": {
+        "kind": "realtime-receipt-removal-v1",
+        "domain": "realtime"
+      },
+      "up": [
+        "SET LOCAL lock_timeout = '5s'",
+        "DO $receipt$ DECLARE obligation record; BEGIN FOR obligation IN SELECT format('%I.%I()', n.nspname, p.proname) AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'nightscout_migration_namespace' AND p.proname ~ '^rt_obligation_[0-9a-f]{32}$' AND p.prorettype = 'trigger'::regtype LOOP EXECUTE 'DROP FUNCTION ' || obligation.signature || ' CASCADE'; END LOOP; END $receipt$",
+        "ALTER TABLE \"nightscout_migration_namespace\".tenant_consumer_checkpoint DROP COLUMN output_pending_tenant",
+        "ALTER TABLE \"nightscout_migration_namespace\".tenant_consumer_checkpoint DROP COLUMN output_target, DROP COLUMN output_received, DROP COLUMN output_completed, DROP COLUMN output_owner, DROP COLUMN output_retry_at, DROP COLUMN output_delivery_version"
+      ],
+      "checksum": "a2857650970e1cd5aa22274eb8ba9b8bc1648a7ed899397282ae3dbcd7ebbd72"
+    }
+  ]
+}

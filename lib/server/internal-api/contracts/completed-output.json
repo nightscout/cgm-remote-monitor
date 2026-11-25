@@ -1,0 +1,40 @@
+{
+  "id": "completed-output",
+  "version": 3,
+  "operations": {
+    "hintCompletedOutput": {
+      "path": "/completed-output/hint",
+      "request": {
+        "type": "object",
+        "properties": {
+          "tenants": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        },
+        "required": [
+          "tenants"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "const": true
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

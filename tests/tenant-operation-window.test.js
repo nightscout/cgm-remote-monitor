@@ -1,0 +1,305 @@
+'use strict';
+const assert = require('node:assert/strict');
+const { create } = require('../lib/tenant-lifecycle/generation-scope');
+const A = '11111111-1111-4111-8111-111111111111';
+const B = '22222222-2222-4222-8222-222222222222';
+
+const fixture = require('./fixtures/operation-window-runtime-protocol');
+
+describe('Tenant generation scope source protocol', function () {
+  it('binds an active generation before the callback without a durable process marker', async function () {
+    const f = fixture();
+    try {
+      await f.window.run(A, () => {
+        assert.equal(f.window.currentGeneration(A), '1');
+        assert.deepEqual(f.log.at(-1), ['release', false], 'scope releases its control client before the callback');
+        assert.equal(f.pending.size, 0);
+      });
+    } finally { await f.window.close(); }
+  });
+  for (const [label, options, code] of [
+    ['held exclusive lock', { held: false }, 'LIFECYCLE_WINDOW_SUSPENDED'],
+    ['suspended state', { phase: 'suspended' }, 'LIFECYCLE_WINDOW_SUSPENDED'],
+    ['changed lock binding', { key: '23' }, 'LIFECYCLE_WINDOW_BINDING_CHANGED']
+  ]) it('refuses ' + label + ' before registration or callback', async function () {
+    const f = fixture(options); let called = false;
+    await assert.rejects(f.window.run(A, () => { called = true; }), { code });
+    assert.equal(called, false); assert.equal(f.pending.size, 0);
+  });
+  it('admits a new body after a failed callback', async function () {
+    const f = fixture(); const original = new Error('synthetic body refusal');
+    await assert.rejects(f.window.run(A, () => { throw original; }), error => error === original);
+    assert.equal(f.pending.size, 0);
+    await f.window.run(A, () => {});
+    await f.window.close();
+    assert.equal(f.pending.size, 0);
+  });
+  it('reuses same-tenant outer lifetime and refuses cross-tenant nesting', async function () {
+    const f = fixture();
+    await f.window.run(A, async () => {
+      await f.window.run(A, async () => f.window.assertCurrent(A));
+      await assert.rejects(f.window.run(B, () => {}), { code: 'LIFECYCLE_WINDOW_SCOPE_INVALID' });
+    });
+    assert.equal(f.pending.size, 0);
+  });
+  it('refuses unknown tenants and closed windows before pool access', async function () {
+    const f = fixture();
+    await assert.rejects(f.window.run('33333333-3333-4333-8333-333333333333', () => {}), { code: 'LIFECYCLE_WINDOW_TENANT_UNKNOWN' });
+    await f.window.close();
+    await assert.rejects(f.window.run(A, () => {}), { code: 'LIFECYCLE_WINDOW_CLOSED' });
+    assert.deepEqual(f.log, []);
+  });
+  it('observes the tenant phase and replacement lock in one read-only statement before entering an application body', async function () {
+    const f = fixture();
+    await f.window.run(A, () => {
+      const [begin, admission, commit, release] = f.log.slice(-4);
+      assert.deepEqual(release, ['release', false]);
+      assert.equal(begin[0], 'BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');
+      assert.match(admission[0], /operation-window-current/);
+      assert.match(admission[0], /set_config\('app\.current_tenant_id'/);
+      assert.match(admission[0], /pg_try_advisory_xact_lock_shared/);
+      assert.deepEqual(admission[1], [A, '17']);
+      assert.equal(commit[0], 'COMMIT');
+    });
+    await f.window.close();
+  });
+});
+
+describe('Tenant-scoped HTTP, evaluator, realtime and notification consumers', function () {
+  const request = require('supertest');
+  function app (window, handler) {
+    const express = require('express');
+    const router = express.Router(); router.get('/entries', handler);
+    const unavailable = async () => { throw new Error('not selected'); };
+    return require('../lib/server/tenant-app').createTenantApp({
+      operationWindow: window, resolver: { resolve: () => A }, dataRouter: router,
+      dataAccess: async () => ({ tenant: A, principal: 'synthetic', consumer: 'synthetic' }),
+      verifyCredential: unavailable, authorizeRequest: unavailable,
+      tenantSettings: { read: unavailable, replace: unavailable, rollback: unavailable },
+      subjectPolicy: { read: unavailable, replace: unavailable }
+    });
+  }
+  it('covers actual tenant HTTP response finish and refuses suspension before the data handler', async function () {
+    const f = fixture(); let served = 0;
+    await request(app(f.window, (req, res) => {
+      f.window.assertCurrent(A); assert.equal(f.pending.size, 0);
+      served++; res.json({ synthetic: true });
+    })).get('/api/v3/entries').expect(200);
+    await f.window.close(); assert.equal(served, 1); assert.equal(f.pending.size, 0);
+    const suspended = fixture({ phase: 'suspended' });
+    await request(app(suspended.window, (req, res) => { served++; res.json({}); })).get('/api/v3/entries').expect(503);
+    assert.equal(served, 1); assert.equal(suspended.pending.size, 0);
+  });
+  it('covers actual evaluator cycles and excludes retained output outside an admitted lifetime', async function () {
+    const f = fixture(); let evaluations = 0;
+    const jobs = require('../lib/server/serve/evaluator-job-context').create('clinical');
+    const runtime = await require('../lib/server/serve/evaluator-runtime')({ tenants: [A],
+      operationWindow: f.window, jobContext: jobs, readCurrent: async tenant => ({ tenant, identity: '1'.repeat(64) }),
+      create: async () => ({ evaluate: async () => { f.window.assertCurrent(A); evaluations++; return { checkpoint: 0 }; },
+        evaluateTime: async () => ({ checkpoint: 0 }), close () {} }),
+      recoveryIntervalMs: 10, timeIntervalMs: 20, schedule: () => 1, cancel: () => {} });
+    try {
+      assert.equal(evaluations, 1); assert.equal(runtime.last(A), null);
+      await f.window.run(A, async () => assert.equal(runtime.last(A).eligible, true));
+    } finally { await runtime.close(); jobs.close(); await f.window.close(); }
+  });
+  it('covers realtime acquisition/fanout and recovers after a refused window', async function () {
+    const options = {}; const f = fixture(options); let delivered = 0;
+    const runtime = await require('../lib/server/realtime/runtime')({ tenants: [A], operationWindow: f.window,
+      readCurrent: async tenant => ({ tenant, identity: '1'.repeat(64) }),
+      create: () => ({ acquire: async () => ({ frame: {} }) }),
+      fanout: async () => { f.window.assertCurrent(A); delivered++; },
+      recoveryIntervalMs: 10, schedule: () => 1, cancel: () => {} });
+    try {
+      assert.equal(delivered, 1); assert.equal(runtime.last(A), null);
+      options.phase = 'suspended'; await assert.rejects(runtime.refresh(A), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      assert.equal(delivered, 1);
+      options.phase = 'active'; options.generation = '2'; await runtime.refresh(A); assert.equal(delivered, 2);
+    } finally { await runtime.close(); await f.window.close(); }
+  });
+  it('covers the actual notification producer/retry/adapter handoff and refuses suspended work', async function () {
+    const options = {}, f = fixture(options); let sends = 0;
+    const mode = require('../lib/storage/tenant-scope'); const prior = mode.getTenancyMode(); mode.setTenancyMode('multi');
+    let composed;
+    try {
+      composed = await require('./fixtures/evaluator-consumers-protocol')((request, callback) => {
+        f.window.assertCurrent(request.tenant); sends++; callback(null, { accepted: true, receipt: null, clearedRequestIds: [] });
+      }, { operationWindow: f.window });
+      await composed.start(); assert.equal(sends, 2);
+      options.phase = 'suspended'; await composed.consumers.retry(A); await composed.consumers.flush(A);
+      assert.equal(sends, 2); assert.equal(composed.consumers.health().tenants.find(row => row.tenant === A).state, 'refused');
+    } finally {
+      if (composed) await composed.close(); await f.window.close(); mode.setTenancyMode(prior);
+    }
+  });
+  it('invalidates A consumer intents and health without changing B or delivering retained A output', async function () {
+    const f=fixture(), scope=require('../lib/storage/tenant-scope'), prior=scope.getTenancyMode(); scope.setTenancyMode('multi');
+    let composed;
+    try {
+      composed=await require('./fixtures/evaluator-consumers-protocol')(undefined,{operationWindow:f.window});
+      await composed.start();
+      const b=composed.consumers.health().tenants.find(row => row.tenant===B), before=composed.effects.length;
+      await composed.consumers.invalidateTenant(A); await composed.runtime.invalidateTenant(A);
+      assert.equal(composed.consumers.health().tenants.find(row => row.tenant===A).state,'starting');
+      assert.deepEqual(composed.consumers.health().tenants.find(row => row.tenant===B),b);
+      await composed.consumers.wake(A); await composed.consumers.flush(A);
+      assert.equal(composed.effects.length,before);
+      assert.deepEqual(composed.consumers.health().tenants.find(row => row.tenant===B),b);
+    } finally { if (composed) await composed.close(); await f.window.close(); scope.setTenancyMode(prior); }
+  });
+  it('covers the actual socket forwarding acknowledgement and refuses without acknowledgement', async function () {
+    const options = {}; const f = fixture(options); let replies = 0;
+    const forward = require('../lib/server/tenant-socket-forwarding').createForwarder({
+      contextForSocket: async () => ({ tenant: A, credential: {} }),
+      withOperation: f.window.run,
+      transport: async () => { f.window.assertCurrent(A); return { replyArgs: ['synthetic'] }; }
+    });
+    const input = { namespace: '/', event: 'dbAdd', args: [], acknowledge: () => { f.window.assertCurrent(A); replies++; } };
+    assert.equal((await forward.forward(input)).delivered, true); assert.equal(replies, 1);
+    options.phase = 'suspended'; assert.equal((await forward.forward(input)).delivered, false); assert.equal(replies, 1);
+    await f.window.close();
+  });
+});
+
+describe('PostgreSQL pools enforce the selected tenant generation scope', function () {
+  function lowerModule (f, options = {}) {
+    const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+    const file = path.resolve(__dirname, '../lib/storage/postgres-connection.js');
+    const originalRequire = require('node:module').createRequire(file);
+    class Pool {
+      constructor (options) { assert.equal(Object.hasOwn(options, 'operationWindow'), false); assert.equal(Object.hasOwn(options, 'admitBackend'), false); }
+      on () {}
+      async query () { return { rows: [{ rolsuper: false, rolbypassrls: false }] }; }
+      async connect () { return f.client; }
+      async end () { if (options.endFailure) throw new Error('synthetic drain failure'); }
+    }
+    const output = { exports: {} };
+    const body = vm.runInNewContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', {}, { filename: file });
+    body(name => name === 'pg' ? { Pool } : originalRequire(name), output, output.exports);
+    return output.exports;
+  }
+  // Decision catalogue-verification-admin-owned: no per-backend catalogue screen.
+  it('refuses a per-backend admission callback before constructing a pool',async function () {
+    const f=fixture(),lower=lowerModule(f);await f.window.ready();const release=lower.installOperationWindow(f.window);
+    try {
+      await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test',admitBackend:async()=>{}}),/Per-backend admission was retired/);
+    } finally {release();await f.window.close();}
+  });
+  it('keeps lifecycle catalogue checks in admin pre-start verification and out of serving transactions', async function () {
+    const options = { trustedWorker: true };
+    const f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready(); const release = lower.installOperationWindow(f.window); let store;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      for (let i = 0; i < 3; i++) await scope.withTenant(A, () => store.query('SELECT trusted_body'));
+      assert.equal(f.log.filter(([sql]) => sql.includes('/* operation-window-role')).length, 0);
+      assert.equal(f.log.filter(([sql]) => sql === 'SELECT trusted_body').length, 3);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  for (const kind of ['role', 'tenant_lifecycle_restore_resume', 'tenant_lifecycle_operation_clearance']) {
+    it('pre-start verification refuses ' + kind + ' drift on control and serving identities, and accepts restoration', async function () {
+      let unsafe = false;
+      const f = fixture({ catalogueMutate(observed, rows) {
+        if (observed !== kind || !unsafe) return;
+        if (kind === 'role') rows[0].elevated = true; else rows[0].secured = false;
+      } });
+      const catalogue = require('../lib/server/serve/lifecycle-catalogue-check');
+      class Driver {
+        constructor () { this.processID = f.client.processID; }
+        async connect () {}
+        async end () {}
+        query (sql, values) { return f.client.query(sql, values); }
+      }
+      const selected = { namespace: 'synthetic_window', poolOptions: {} };
+      try {
+        const screen = await catalogue.inspect(selected, Driver);
+        unsafe = true;
+        const refusal = { code: 'LIFECYCLE_WINDOW_SCHEMA_UNSAFE' };
+        await assert.rejects(catalogue.inspect(selected, Driver), refusal);
+        await assert.rejects(screen.controlReads(f.client), refusal);
+        unsafe = false;
+        assert((await screen.controlReads(f.client)).includes('synthetic_window.tenant_lifecycle_windows'));
+      } finally { await f.window.close(); }
+    });
+  }
+  it('rejects a transaction-pooler identity instead of adopting SQL labels', async function () {
+    const options={}, f = fixture(options), lower = lowerModule(f);
+    await f.window.ready(); options.sqlPid=456; const release = lower.installOperationWindow(f.window);
+    try { await assert.rejects(lower({connectionString:'postgresql://synthetic/disposable_test'}), {code:'POSTGRES_COHORT_BACKEND_IDENTITY'}); }
+    finally { release(); await f.window.close(); }
+  });
+  it('requires successful lower pool drain before registry release and retains failed drains', async function () {
+    for (const endFailure of [false,true]) {
+      const f = fixture(), lower = lowerModule(f,{endFailure}); await f.window.ready();
+      const release = lower.installOperationWindow(f.window);
+      const store = await lower({connectionString:'postgresql://synthetic/disposable_test'});
+      assert.throws(release,/must drain/);
+      if (endFailure) {
+        await assert.rejects(store.end(),/synthetic drain failure/);
+        assert.throws(release,/must drain/);
+      } else { await store.end(); assert.doesNotThrow(release); }
+      await f.window.close();
+    }
+  });
+  it('reads the backend identity once per pooled client and again on a different backend', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready();
+    const release = lower.installOperationWindow(f.window); let store;
+    const reads = () => f.log.filter(row => typeof row[0] === 'string' && row[0].startsWith('SELECT pg_backend_pid() AS pid,current_user')).length;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      for (let i = 0; i < 3; i++) await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
+      assert.equal(reads(), 0, 'startup identity reused for three transactions on one backend');
+      f.client.processID = 789; options.sqlPid = 789; options.sqlBirth = '1700000000.000002';
+      await scope.withTenant(A, () => store.query('SELECT synthetic_body'));
+      assert.equal(reads(), 1, 'a different backend is read again');
+      assert.equal(f.log.filter(row => row[0] === 'SELECT synthetic_body').length, 4);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('applies the actual selected window when a helper omits it and refuses suspended body SQL', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi');
+    await f.window.ready();
+    const release = lower.installOperationWindow(f.window); let store;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      await scope.withTenant(A, () => store.query('SELECT synthetic_actual_body'));
+      assert.ok(f.log.some(row => row[0].includes('pg_try_advisory_xact_lock_shared')));
+      options.phase = 'suspended';
+      await assert.rejects(scope.withTenant(A, () => store.query('SELECT forbidden_after_suspension')), { code: 'LIFECYCLE_WINDOW_SUSPENDED' });
+      assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_after_suspension'), false);
+      await assert.rejects(lower({ connectionString: 'postgresql://synthetic/disposable_test', operationWindow: {} }), /cannot be replaced/);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('admits the reserved startup metadata binding only in a DB-confirmed read-only transaction', async function () {
+    const options = {}, f = fixture(options), lower = lowerModule(f), scope = require('../lib/storage/tenant-scope');
+    await f.window.ready();
+    const previous = scope.getTenancyMode(); scope.setTenancyMode('multi'); const zero = '00000000-0000-0000-0000-000000000000';
+    const release = lower.installOperationWindow(f.window); let store;
+    try {
+      store = await lower({ connectionString: 'postgresql://synthetic/disposable_test' });
+      await store.withTenant(zero, () => store.query('SELECT synthetic_metadata'));
+      assert.ok(f.log.some(row => row[0] === 'BEGIN READ ONLY'));
+      assert.equal(f.log.some(row => row[0].includes('pg_try_advisory_xact_lock_shared')), false);
+      options.metadataReadOnly = 'off';
+      await assert.rejects(scope.withTenant(zero, () => store.snapshotTransaction(() => store.query('SELECT forbidden_metadata_body'))), { code: 'LIFECYCLE_WINDOW_METADATA_READ_ONLY_REQUIRED' });
+      assert.ok(f.log.some(row => row[0] === 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'));
+      assert.equal(f.log.some(row => row[0] === 'SELECT forbidden_metadata_body'), false);
+      await assert.rejects(f.window.run(zero, () => {}), { code: 'LIFECYCLE_WINDOW_TENANT_UNKNOWN' });
+      assert.throws(() => create({namespace:'synthetic_window',locks:[{tenant:zero,key:'1'}],pool:{connect(){}}}), /Unique provisioned/);
+    } finally { if (store) await store.end(); release(); await f.window.close(); scope.setTenancyMode(previous); }
+  });
+  it('refuses fabricated/duplicate/closed installation and stale release cannot clear a newer owner', async function () {
+    const f = fixture(), other = fixture(), lower = lowerModule(f);
+    assert.throws(() => lower.installOperationWindow({ acquireClient () {}, assertClient () {} }), /actual live/);
+    const release = lower.installOperationWindow(f.window);
+    assert.throws(() => lower.installOperationWindow(other.window), /already selected/);
+    release(); const releaseOther = lower.installOperationWindow(other.window); release();
+    assert.throws(() => lower.installOperationWindow(f.window), /already selected/);
+    releaseOther(); await other.window.close();
+    assert.throws(() => lower.installOperationWindow(other.window), /actual live/);
+    await f.window.close();
+  });
+});

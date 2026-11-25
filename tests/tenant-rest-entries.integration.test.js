@@ -1,0 +1,218 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const crudHTTP = require('./fixtures/entries-crud-http');
+const { optInSuite } = require('./support/opt-in');
+
+const time = require('./fixtures/legacy-rest-time').capture();
+const BASE = time.base;
+const ID = '000000000000000000000101';
+const record = extra => ({ _id: ID, date: BASE, dateString: new Date(BASE).toISOString(),
+  sysTime: new Date(BASE).toISOString(), type: 'sgv', sgv: 123, device: 'synthetic', ...extra });
+function comparable (value) {
+  if (Array.isArray(value)) return value.map(comparable);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) =>
+    !['srvCreated', 'srvModified'].includes(key)).map(([key, item]) => [key, comparable(item)]));
+}
+
+optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
+  !!process.env.NS_TEST_POSTGRES_ADMIN_URI && !!process.env.CUSTOMCONNSTR_mongo,
+'NS_ENTRIES_CRUD_HTTP_TEST=1 with disposable PostgreSQL and MongoDB')(
+  'legacy entries actual shipping HTTP differential', function () {
+    this.timeout(30000);
+    const lab = crudHTTP({ legacy: true });
+    before(() => lab.open());
+    beforeEach(() => lab.seed([record()]));
+    after(() => lab.close());
+
+    async function same (method, path, body, status = 200, headers = {}) {
+      let reference = lab.legacyReference(method, path);
+      let candidate = lab.legacyHttp(method, path);
+      if (body !== undefined) { reference = reference.send(body); candidate = candidate.send(body); }
+      for (const [key, value] of Object.entries(headers)) {
+        reference = reference.set(key, value);
+        candidate = candidate.set(key, value);
+      }
+      const expected = await reference.expect(status);
+      const actual = await candidate.expect(status);
+      assert.deepEqual(comparable(actual.body), comparable(expected.body));
+      if (!Object.keys(actual.body).length) assert.equal(actual.text, expected.text);
+      assert.equal(actual.headers['content-type'], expected.headers['content-type']);
+      assert.equal(actual.headers['last-modified'], expected.headers['last-modified']);
+      return actual;
+    }
+
+    it('stores a date-only entry in UTC with single-site HTTP parity and no foreign-tenant change', async function () {
+      const previous = process.env.TZ;
+      process.env.TZ = 'UTC';
+      try {
+        const foreign = await lab.rows(lab.B);
+        const date = BASE + 12345;
+        const reply = await same('post', '/api/v1/entries', { _id: '000000000000000000000103', type: 'sgv', sgv: 141, date });
+        assert.equal(reply.body[0].date, date);
+        assert.equal(reply.body[0].utcOffset, 0);
+        const written = (await lab.rows()).find(row => row.date === date);
+        assert(written, 'actual PostgreSQL row must exist');
+        assert.equal(written.utcOffset, 0);
+        assert.equal(written.sgv, 141);
+        assert.deepEqual(await lab.rows(lab.B), foreign);
+      } finally {
+        if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous;
+      }
+    });
+
+    it('preserves stored UTC and offset spellings and independent server stamps in v1 and v3 reads', async function () {
+      const utc = '2024-02-29T17:00:00.000Z', offset = '2024-02-29T09:00:00.000-08:00';
+      const date = Date.parse(utc), receipt = date + 7200000;
+      const docs = [offset, utc].map((dateString, i) => record({ _id: 'time-' + i, identifier: 'time-' + i,
+        date, dateString, sysTime: utc, srvCreated: receipt, srvModified: receipt + i }));
+      await lab.seed(docs);
+      const v1 = await same('get', '/api/v1/entries.json?find[dateString]=' + encodeURIComponent(offset));
+      assert.deepEqual(v1.body.map(d => d.dateString), [offset]);
+      const path = '/entries/history/' + (receipt - 1);
+      const expected = await lab.reference('get', path).expect(200);
+      const actual = await lab.http('get', path).expect(200);
+      assert.deepEqual(actual.body, expected.body);
+      assert.deepEqual(actual.body.result.map(d => [d.dateString, d.date, d.srvCreated, d.srvModified]),
+        docs.map(d => [d.dateString, date, receipt, d.srvModified]));
+      assert.equal(actual.headers.etag, expected.headers.etag);
+      assert.equal(actual.headers['last-modified'], expected.headers['last-modified']);
+    });
+
+    it('calibrates the real default date window with independently stored recent and stale rows', async function () {
+      const stale = record({ _id: '000000000000000000000102', date: BASE - 5 * 86400000,
+        dateString: new Date(BASE - 5 * 86400000).toISOString(),
+        sysTime: new Date(BASE - 5 * 86400000).toISOString(), sgv: 88 });
+      await lab.seed([record(), stale]);
+      const foreign = await lab.rows(lab.B);
+      assert.equal((await lab.rows()).length, 2, 'physical PG rows precede HTTP');
+      assert.equal(await lab.mongoCollection.countDocuments({}), 2, 'physical Mongo rows precede HTTP');
+      assert.equal(foreign.length, 2, 'physical foreign rows precede HTTP');
+      for (const request of [lab.legacyReference, lab.legacyHttp]) {
+        const reply = await request('get', '/api/v1/entries').expect(200);
+        assert.equal((await lab.rows()).length, 2, 'HTTP leaves physical PG rows unchanged');
+        assert.equal(await lab.mongoCollection.countDocuments({}), 2, 'HTTP leaves physical Mongo rows unchanged');
+        assert.deepEqual(await lab.rows(lab.B), foreign, 'foreign physical rows unchanged');
+        console.log('TEMPORAL_ORACLE ' + JSON.stringify({ pg: 2, mongo: 2, foreign: 2, defaultCount: reply.body.length }));
+        assert.equal(reply.body.length, 1, 'temporal default excludes stale and retains recent');
+        assert.equal(reply.body[0].sgv, 123);
+        const all = await request('get', '/api/v1/entries?find[date][$gte]=' + (BASE - 6 * 86400000)).expect(200);
+        assert.equal(all.body.length, 2, 'explicit window retains stale row');
+        const byId = await request('get', '/api/v1/entries/' + stale._id).expect(200);
+        assert.equal(byId.body.length, 1, 'ID read bypasses default window');
+        assert.equal(byId.body[0].sgv, 88);
+      }
+    });
+
+    it('applies the entries count and date defaults independently on both storage backends', async function () {
+      const earlier = BASE - 6 * 86400000;
+      const readings = (start, n) => Array.from({ length: n }, (_, i) => {
+        const date = start - i * 60000;
+        const iso = new Date(date).toISOString();
+        return record({ _id: String(date), date, sysTime: iso, dateString: iso });
+      });
+      const recent = readings(BASE, 15), history = readings(earlier, 102);
+      await lab.seed([...recent, ...history]);
+      const window = 'find[date][$gte]=' + history.at(-1).date + '&find[date][$lte]=' + earlier;
+      for (const [query, rows] of [
+        ['', recent.slice(0, 10)], ['count=100', recent],
+        [window, history.slice(0, 10)], [window + '&count=100', history.slice(0, 100)]
+      ]) {
+        const reply = await same('get', '/api/v1/entries/sgv' + (query ? '?' + query : ''));
+        assert.deepEqual(reply.body.map(row => row.date), rows.map(row => row.date));
+      }
+    });
+
+    it('serves v1 and inherited v2 default/current/model/id/missing and exact query/count semantics', async function () {
+      for (const version of [1, 2]) {
+        for (const path of ['/entries', '/entries/current', '/entries/sgv', '/entries/' + ID,
+          '/entries/000000000000000000000999', '/entries?find[sgv][$gte]=120&count=1',
+          '/entries?find[sgv][$gte]=999',
+          '/entries?count=0', '/entries?count=1%3Fsynthetic', '/entries?count=invalid',
+          '/count/entries/where?find[sgv][$gte]=120', '/echo/entries/sgv?find[date][$gte]=' + BASE]) {
+          await same('get', '/api/v' + version + path, undefined, path.includes('invalid') ? 400 : 200);
+        }
+      }
+    });
+
+    it('keeps overlapping tenant IDs, runtime caches and events local across versions', async function () {
+      for (const version of [1, 2]) {
+        const first = await lab.legacyHttp('get', '/api/v' + version + '/entries').expect(200);
+        const second = await lab.legacyHttp('get', '/api/v' + version + '/entries',
+          { tenant: lab.B, credential: lab.credentials[1] }).expect(200);
+        assert.equal(first.body.length, 1, 'own tenant default entry count');
+        assert.equal(second.body.length, 1, 'foreign tenant default entry count');
+        assert.equal(first.body[0].sgv, 123);
+        assert.equal(second.body[0].sgv, 902);
+      }
+      await lab.legacyHttp('post', '/api/v1/entries').send(record({ sgv: 124 })).expect(200);
+      assert.equal((await lab.rows(lab.B))[0].sgv, 902);
+      assert.ok(lab.workers[0].events.every(event => event.tenant === lab.A));
+      const read = await lab.legacyHttp('get', '/api/v2/entries').expect(200);
+      assert.equal(read.body[0].sgv, 124);
+    });
+
+    it('preserves negotiated formats, explicit HEAD and automatic OPTIONS', async function () {
+      for (const version of [1, 2]) {
+        for (const suffix of ['json', 'csv', 'txt', 'tsv']) await same('get', '/api/v' + version + '/entries.' + suffix);
+        await same('head', '/api/v' + version + '/entries');
+        const result = await same('options', '/api/v' + version + '/entries');
+        assert.match(result.headers.allow, /GET/);
+        assert.match(result.headers.allow, /POST/);
+        assert.match(result.headers.allow, /DELETE/);
+      }
+    });
+
+    it('translates bounded literal time/slice patterns and brace expansions without broad regex admission', async function () {
+      await lab.seed([record(), record({ _id: '000000000000000000000102', date: BASE + 3600000,
+        dateString: new Date(BASE + 3600000).toISOString(), sysTime: new Date(BASE + 3600000).toISOString() })]);
+      for (const version of [1, 2]) {
+        await same('get', '/api/v' + version + '/times/' + time.day() + '/T00:00');
+        await same('get', '/api/v' + version + '/times/echo/' + time.day() + '/T00:00');
+        await same('get', '/api/v' + version + '/slice/entries/dateString/sgv/' + time.day() + '/T0%7B0..1%7D:00');
+      }
+    });
+
+    it('posts objects, arrays and resends with shipping per-item results and cross-version history visibility', async function () {
+      await lab.seed([]);
+      const first = record({ unknown: { nested: [1, null] } });
+      await same('post', '/api/v1/entries', first);
+      await same('post', '/api/v2/entries?results=items', [first, record({ _id: '000000000000000000000102',
+        date: BASE + 1000, dateString: new Date(BASE + 1000).toISOString(),
+        sysTime: new Date(BASE + 1000).toISOString(), sgv: 124 })]);
+      const read = await lab.http('get', '/entries?sort=date').expect(200);
+      assert.equal(read.body.result.length, 2);
+      assert.deepEqual(read.body.result.find(doc => doc.sgv === 123).unknown, { nested: [1, null] });
+      const history = await lab.http('get', '/entries/history/' + (BASE - 1)).expect(200);
+      assert.equal(history.body.result.length, 2);
+      assert.ok(history.body.result.every(doc => doc.srvModified > BASE));
+      assert.equal((await lab.rows(lab.B)).length, 0);
+    });
+
+    it('keeps preview dry, supports filtered DELETE and retains shipping missing-ID behavior', async function () {
+      const before = await lab.rows();
+      await same('post', '/api/v1/entries/preview', record({ _id: '000000000000000000000103' }));
+      assert.deepEqual(await lab.rows(), before);
+      assert.deepEqual(lab.workers[0].events, []);
+      await same('delete', '/api/v2/entries?find[sgv][$gte]=120');
+      assert.deepEqual(await lab.rows(), []);
+      await same('delete', '/api/v1/entries/' + ID);
+      assert.equal((await lab.rows(lab.B)).length, 1);
+    });
+
+    it('consumes body credentials before writes and rechecks revocation, exact name and foreign credentials', async function () {
+      const response = await lab.legacyHttp('post', '/api/v2/entries', { credential: null })
+        .send([{ ...record(), secret: lab.credentials[0] }]).expect(200);
+      assert.equal(response.body[0].secret, undefined);
+      assert.equal((await lab.rows())[0].secret, undefined);
+      await lab.legacyHttp('post', '/api/v1/entries', { credential: lab.credentials[1] }).send(record()).expect(401);
+      await lab.displayName(null);
+      await lab.legacyHttp('post', '/api/v1/entries').send(record()).expect(401);
+      await lab.displayName('Current Exact Name');
+      await lab.grants(['api:entries:read']);
+      await lab.legacyHttp('post', '/api/v1/entries').send(record()).expect(401);
+      await lab.legacyHttp('put', '/api/v1/entries').send(record()).expect(405);
+      await lab.legacyHttp('patch', '/api/v2/entries/' + ID).send({ sgv: 125 }).expect(405);
+    });
+  });

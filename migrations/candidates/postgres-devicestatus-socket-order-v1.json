@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "status": "Prototype only; optional successor catalogue; empty-table upgrade; old catalogue rejects upgraded ledger",
+  "evidence": [
+    "lib/server/devicestatus.js: created_at normalization, prediction cap and latest ordering",
+    "lib/api3/generic/setup.js: created_at/device fallback",
+    "lib/storage/write-intent.js: DEVICESTATUS_V1 and V3_DEVICESTATUS",
+    "lib/storage/postgres-identity.js: distinct ObjectId and string identities"
+  ],
+  "migrations": [
+    {
+      "name": "0001_devicestatus",
+      "up": [
+        "CREATE FUNCTION window_time_text(v jsonb) RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE SET search_path = pg_catalog AS $window_time$ SELECT max((e #>> '{}') COLLATE \"C\") FROM jsonb_array_elements(CASE jsonb_typeof(v) WHEN 'array' THEN v ELSE jsonb_build_array(v) END) AS e WHERE jsonb_typeof(e) = 'string' $window_time$",
+        "REVOKE ALL ON FUNCTION window_time_text(jsonb) FROM PUBLIC",
+        "CREATE TABLE devicestatus (tenant_id uuid NOT NULL, doc jsonb NOT NULL CHECK (jsonb_typeof(doc) = 'object'), id_kind text NOT NULL CHECK (id_kind IN ('objectid', 'string')), \"_id\" text NOT NULL GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> '_id') = 'string' THEN doc ->> '_id' END) STORED, created_at text COLLATE \"C\" GENERATED ALWAYS AS (CASE jsonb_typeof(doc -> 'created_at') WHEN 'string' THEN doc ->> 'created_at' WHEN 'array' THEN window_time_text(doc -> 'created_at') END) STORED, device text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'device') = 'string' THEN doc ->> 'device' END) STORED, \"date\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'date') = 'number' THEN (doc ->> 'date')::numeric END) STORED, identifier text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'identifier') = 'string' THEN doc ->> 'identifier' END) STORED, \"srvModified\" numeric GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'srvModified') = 'number' THEN (doc ->> 'srvModified')::numeric END) STORED, \"isValid\" boolean GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc -> 'isValid') = 'boolean' THEN (doc ->> 'isValid')::boolean END) STORED, CHECK (\"_id\" <> ''), CHECK (id_kind <> 'objectid' OR \"_id\" ~ '^[0-9a-f]{24}$'), PRIMARY KEY (tenant_id, id_kind, \"_id\"))",
+        "CREATE INDEX devicestatus_tenant_created_at ON devicestatus (tenant_id, created_at DESC)",
+        "CREATE INDEX devicestatus_tenant_created_identifier_date ON devicestatus (tenant_id, created_at DESC, identifier DESC, \"date\" DESC)",
+        "CREATE INDEX devicestatus_tenant_created_device ON devicestatus (tenant_id, created_at, device)",
+        "CREATE INDEX devicestatus_tenant_modified ON devicestatus (tenant_id, \"srvModified\" ASC)",
+        "CREATE UNIQUE INDEX devicestatus_identifier_unique ON devicestatus (tenant_id, identifier) WHERE identifier IS NOT NULL AND identifier <> ''",
+        "ALTER TABLE devicestatus ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE devicestatus FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY devicestatus_tenant_isolation ON devicestatus USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)"
+      ],
+      "checksum": "f00c62b2eb2030f51a8cddb1f1e9c64851532ffa27cc57f04d78538e72e589df"
+    },
+    {
+      "name": "0002_devicestatus_socket_order",
+      "up": [
+        "ALTER TABLE devicestatus ADD CONSTRAINT socket_order_requires_empty CHECK (false) NOT VALID",
+        "ALTER TABLE devicestatus VALIDATE CONSTRAINT socket_order_requires_empty",
+        "ALTER TABLE devicestatus DROP CONSTRAINT socket_order_requires_empty",
+        "ALTER TABLE devicestatus ADD COLUMN insertion_ordinal bigint GENERATED ALWAYS AS IDENTITY",
+        "CREATE INDEX devicestatus_tenant_insertion ON devicestatus (tenant_id, insertion_ordinal)"
+      ],
+      "checksum": "81e8a2acc18e1d4b3dc8e80062090fdcce788fdf6c328d9b12de99b799c9db87"
+    },
+    {
+      "name": "0003_devicestatus_tenant_local_insertion",
+      "operation": {
+        "kind": "tenant-insertion-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"devicestatus\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "DO $tenant_insertion_upgrade$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_class t JOIN pg_attribute a ON a.attrelid=t.oid\n      WHERE t.oid='\"nightscout_migration_namespace\".\"devicestatus\"'::regclass AND a.attname='insertion_ordinal'\n        AND a.attidentity='a' AND a.atttypid='pg_catalog.int8'::regtype\n        AND t.relkind='r' AND NOT t.relispartition AND t.relrowsecurity AND t.relforcerowsecurity)\n     OR EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid='\"nightscout_migration_namespace\".\"devicestatus\"'::regclass OR inhparent='\"nightscout_migration_namespace\".\"devicestatus\"'::regclass) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_UNSUPPORTED';\n  END IF;\n  IF EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"devicestatus\" WHERE insertion_ordinal IS NULL OR insertion_ordinal<=0)\n     OR EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"devicestatus\" GROUP BY tenant_id,insertion_ordinal HAVING count(*)>1) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_SOURCE_INVALID';\n  END IF;\nEND\n$tenant_insertion_upgrade$",
+        "CREATE TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id uuid PRIMARY KEY, last_ordinal bigint NOT NULL CHECK (last_ordinal>=0))",
+        "INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" (tenant_id,last_ordinal) SELECT tenant_id,max(insertion_ordinal) FROM \"nightscout_migration_namespace\".\"devicestatus\" GROUP BY tenant_id",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_insertion_isolation ON \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" USING (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" ALTER COLUMN insertion_ordinal DROP IDENTITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" ADD CONSTRAINT tenant_insertion_positive CHECK (insertion_ordinal>0)",
+        "CREATE UNIQUE INDEX \"devicestatus_tenant_ordinal_unique\" ON \"nightscout_migration_namespace\".\"devicestatus\" (tenant_id,insertion_ordinal)",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"devicestatus\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() FROM PUBLIC",
+        "CREATE TRIGGER tenant_insertion_allocate BEFORE INSERT OR UPDATE ON \"nightscout_migration_namespace\".\"devicestatus\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "2740790207f9d0118cbdeec3c73c908ce8bfd243a422cd64f2caf39c101ec73d"
+    },
+    {
+      "name": "0004_devicestatus_binding_sqlstate",
+      "operation": {
+        "kind": "tenant-insertion-binding-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "CREATE OR REPLACE FUNCTION \"nightscout_migration_namespace\".\"allocate_tenant_insertion_ordinal\"() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $tenant_insertion$\nBEGIN\n  IF NEW.tenant_id IS DISTINCT FROM NULLIF(current_setting('app.current_tenant_id',true),'')::uuid THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED' USING ERRCODE='42501';\n  END IF;\n  IF TG_OP='UPDATE' THEN\n    IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.insertion_ordinal IS DISTINCT FROM OLD.insertion_ordinal THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    RETURN NEW;\n  END IF;\n  IF NOT EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" WHERE tenant_id=NEW.tenant_id)\n     AND EXISTS (SELECT 1 FROM \"nightscout_migration_namespace\".\"devicestatus\" WHERE tenant_id=NEW.tenant_id) THEN\n    RAISE EXCEPTION 'TENANT_ORDINAL_COUNTER_MISSING';\n  END IF;\n  IF NEW.insertion_ordinal IS NULL THEN\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,1)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=counter.last_ordinal+1\n      WHERE counter.last_ordinal<9223372036854775807\n      RETURNING counter.last_ordinal INTO NEW.insertion_ordinal;\n    IF NOT FOUND THEN RAISE EXCEPTION 'TENANT_ORDINAL_EXHAUSTED' USING ERRCODE='22003'; END IF;\n  ELSE\n    IF NEW.insertion_ordinal<=0 THEN RAISE EXCEPTION 'TENANT_ORDINAL_INVALID'; END IF;\n    INSERT INTO \"nightscout_migration_namespace\".\"tenant_insertion_ordinal\" AS counter (tenant_id,last_ordinal) VALUES (NEW.tenant_id,NEW.insertion_ordinal)\n      ON CONFLICT (tenant_id) DO UPDATE SET last_ordinal=GREATEST(counter.last_ordinal,EXCLUDED.last_ordinal);\n  END IF;\n  RETURN NEW;\nEND\n$tenant_insertion$"
+      ],
+      "checksum": "054ea76d63ece5586f8a154f14ddc9109aca6bef8657d061c90e8bcebf56c27d"
+    },
+    {
+      "name": "0098_devicestatus_identifier_arrays",
+      "operation": {
+        "kind": "identifier-array-index-v1",
+        "domain": "devicestatus"
+      },
+      "up": ["CREATE INDEX \"devicestatus_tenant_identifier_array\" ON \"nightscout_migration_namespace\".\"devicestatus\" (tenant_id) WHERE jsonb_typeof(doc -> 'identifier') = 'array'"],
+      "checksum": "1d16270647bff5a50af1f82c45fd5768e02f5484287d492d17564486b1b48aef"
+    },
+    {
+      "name": "0099_devicestatus_storage_bytes",
+      "operation": {
+        "kind": "clinical-storage-size-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "LOCK TABLE \"nightscout_migration_namespace\".\"devicestatus\" IN ACCESS EXCLUSIVE MODE",
+        "SET LOCAL row_security = off",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" ADD COLUMN storage_bytes bigint CHECK (storage_bytes>=0)",
+        "DO $clinical_size_backfill$\nDECLARE original_binding text := current_setting('app.current_tenant_id',true); selected_tenant uuid;\nBEGIN\n  FOR selected_tenant IN SELECT DISTINCT tenant_id FROM \"nightscout_migration_namespace\".\"devicestatus\" LOOP\n    PERFORM set_config('app.current_tenant_id',selected_tenant::text,true);\n    UPDATE \"nightscout_migration_namespace\".\"devicestatus\" SET storage_bytes=pg_column_size(doc) WHERE tenant_id=selected_tenant;\n  END LOOP;\n  PERFORM set_config('app.current_tenant_id',COALESCE(original_binding,''),true);\nEND\n$clinical_size_backfill$",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" ALTER COLUMN storage_bytes SET NOT NULL",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" ALTER COLUMN storage_bytes SET DEFAULT 0",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $clinical_size$\nDECLARE measured bigint;\nBEGIN\n  SELECT pg_column_size(doc) INTO STRICT measured FROM \"nightscout_migration_namespace\".\"devicestatus\" WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\";\n  UPDATE \"nightscout_migration_namespace\".\"devicestatus\" SET storage_bytes=measured WHERE tenant_id=NEW.tenant_id AND id_kind=NEW.id_kind AND \"_id\"=NEW.\"_id\" AND storage_bytes IS DISTINCT FROM measured;\n  RETURN NULL;\nEND\n$clinical_size$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".clinical_storage_size() FROM PUBLIC",
+        "CREATE TRIGGER clinical_storage_size AFTER INSERT OR UPDATE OF doc ON \"nightscout_migration_namespace\".\"devicestatus\" FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "SET LOCAL row_security = on"
+      ],
+      "checksum": "3ce68b0f5d4c2da58450a3075ccb0bd7c86447c3f87cd2fa54f95fbf5d3c59c5"
+    },
+    {
+      "name": "0100_devicestatus_storage_bytes_removed",
+      "operation": {
+        "kind": "clinical-storage-size-removal-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "DROP TRIGGER clinical_storage_size ON \"nightscout_migration_namespace\".\"devicestatus\"",
+        "DROP FUNCTION \"nightscout_migration_namespace\".clinical_storage_size()",
+        "ALTER TABLE \"nightscout_migration_namespace\".\"devicestatus\" DROP COLUMN storage_bytes"
+      ],
+      "checksum": "439d282c3a7c2ac9accb0697905f8e289365cd2b7ec3c294be929a6ebdd8d7ac"
+    },
+    {
+      "name": "0101_devicestatus_redundant_indexes",
+      "up": [
+        "DROP INDEX devicestatus_tenant_created_at",
+        "DROP INDEX devicestatus_tenant_insertion"
+      ],
+      "checksum": "d0be93c610f43029665fc1d9194ba0c31a902ccef9f98e7d743440dd5fc392ea"
+    },
+    {
+      "name": "0102_devicestatus_created_at_arrays",
+      "up": [
+        "CREATE INDEX devicestatus_tenant_created_at_array ON devicestatus (tenant_id, created_at) WHERE jsonb_typeof(doc -> 'created_at') = 'array'"
+      ],
+      "checksum": "8ca9a2d66b2480f3924a722f96d89c5dc085869d57c763c0e510c053f36cbf81"
+    },
+    {
+      "name": "0103_devicestatus_sealed_days",
+      "operation": {
+        "kind": "devicestatus-sealed-days-v1",
+        "domain": "devicestatus"
+      },
+      "up": [
+        "CREATE FUNCTION clinical_instant_ms(v jsonb) RETURNS bigint\nLANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE SET search_path = pg_catalog AS $instant$\nDECLARE\n  n numeric;\n  s text;\n  parts text[];\n  epoch_days integer;\n  offset_minutes integer := 0;\nBEGIN\n  IF jsonb_typeof(v) = 'number' THEN\n    n := (v #>> '{}')::numeric;\n    IF n = trunc(n) AND abs(n) <= 8640000000000000 THEN RETURN n::bigint; END IF;\n    RETURN NULL;\n  END IF;\n  IF jsonb_typeof(v) <> 'string' THEN RETURN NULL; END IF;\n  s := v #>> '{}';\n  IF length(s) NOT BETWEEN 20 AND 29 THEN RETURN NULL; END IF;\n  parts := regexp_match(s COLLATE \"C\",\n    '^([0-9]{4})-([0-9]{2})-([0-9]{2})T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:[.]([0-9]{1,3}))?(?:Z|([+-])([01][0-9]|2[0-3]):([0-5][0-9]))$');\n  IF parts IS NULL OR parts[1] = '0000' THEN RETURN NULL; END IF;\n  BEGIN\n    epoch_days := make_date(parts[1]::int, parts[2]::int, parts[3]::int) - DATE '1970-01-01';\n  EXCEPTION WHEN datetime_field_overflow THEN RETURN NULL;\n  END;\n  IF parts[8] IS NOT NULL THEN\n    offset_minutes := (parts[9]::int * 60 + parts[10]::int)\n      * CASE parts[8] WHEN '-' THEN -1 ELSE 1 END;\n  END IF;\n  RETURN epoch_days::bigint * 86400000\n    + (parts[4]::int * 60 + parts[5]::int - offset_minutes) * 60000\n    + parts[6]::int * 1000 + rpad(coalesce(parts[7], ''), 3, '0')::int;\nEND\n$instant$",
+        "REVOKE ALL ON FUNCTION clinical_instant_ms(jsonb) FROM PUBLIC",
+        "ALTER TABLE \"nightscout_migration_namespace\".devicestatus RENAME TO devicestatus_rows",
+        "CREATE TABLE \"nightscout_migration_namespace\".devicestatus_day (tenant_id uuid NOT NULL, block_id bigint GENERATED ALWAYS AS IDENTITY, day_ms bigint NOT NULL CHECK(day_ms % 86400000 = 0), body jsonb COMPRESSION lz4 NOT NULL CHECK(jsonb_typeof(body)='object'), PRIMARY KEY (tenant_id,block_id))",
+        "ALTER TABLE \"nightscout_migration_namespace\".devicestatus_day ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE \"nightscout_migration_namespace\".devicestatus_day FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY devicestatus_day_tenant ON \"nightscout_migration_namespace\".devicestatus_day USING (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid) WITH CHECK (tenant_id=NULLIF(current_setting('app.current_tenant_id',true),'')::uuid)",
+        "ALTER TABLE \"nightscout_migration_namespace\".devicestatus_rows ADD COLUMN received_ms bigint, ADD COLUMN block_id bigint, ADD COLUMN sealed_bytes integer, ADD COLUMN event_ms bigint GENERATED ALWAYS AS (\"nightscout_migration_namespace\".clinical_instant_ms(doc->'created_at')) STORED, ADD FOREIGN KEY (tenant_id,block_id) REFERENCES \"nightscout_migration_namespace\".devicestatus_day(tenant_id,block_id)",
+        "ALTER TABLE \"nightscout_migration_namespace\".devicestatus_rows ALTER COLUMN received_ms SET DEFAULT floor(extract(epoch FROM statement_timestamp())*1000)::bigint",
+        "CREATE INDEX devicestatus_unsealed_event ON \"nightscout_migration_namespace\".devicestatus_rows(tenant_id,event_ms,insertion_ordinal) WHERE block_id IS NULL AND event_ms IS NOT NULL",
+        "CREATE VIEW \"nightscout_migration_namespace\".devicestatus WITH (security_invoker=true) AS SELECT r.tenant_id,\n      CASE WHEN r.block_id IS NULL THEN r.doc ELSE r.doc || (SELECT b.body -> r.insertion_ordinal::text\n        FROM \"nightscout_migration_namespace\".devicestatus_day b WHERE b.tenant_id=r.tenant_id AND b.block_id=r.block_id) END AS doc,\n      r.id_kind, r.\"_id\",r.created_at,r.device,r.\"date\",r.identifier,r.\"srvModified\",r.\"isValid\",r.insertion_ordinal,r.event_ms,r.received_ms, r.doc AS lookup_doc, COALESCE(r.sealed_bytes,pg_column_size(r.doc)) AS logical_bytes FROM \"nightscout_migration_namespace\".devicestatus_rows r",
+        "ALTER VIEW \"nightscout_migration_namespace\".devicestatus ALTER COLUMN received_ms SET DEFAULT floor(extract(epoch FROM statement_timestamp())*1000)::bigint",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".devicestatus_write() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $write$\nBEGIN\n  IF TG_OP='INSERT' THEN\n    IF NEW.insertion_ordinal IS NULL AND NOT has_column_privilege(current_user,TG_RELID,'received_ms','INSERT') THEN\n      INSERT INTO \"nightscout_migration_namespace\".devicestatus_rows(tenant_id,id_kind,doc) VALUES(NEW.tenant_id,NEW.id_kind,NEW.doc) RETURNING \"_id\",created_at,device,\"date\",identifier,\"srvModified\",\"isValid\",insertion_ordinal,event_ms,received_ms INTO NEW.\"_id\",NEW.created_at,NEW.device,NEW.\"date\",NEW.identifier,NEW.\"srvModified\",NEW.\"isValid\",NEW.insertion_ordinal,NEW.event_ms,NEW.received_ms;\n    ELSE\n      INSERT INTO \"nightscout_migration_namespace\".devicestatus_rows(tenant_id,id_kind,doc,insertion_ordinal,received_ms) VALUES(NEW.tenant_id,NEW.id_kind,NEW.doc,NEW.insertion_ordinal,NEW.received_ms) RETURNING \"_id\",created_at,device,\"date\",identifier,\"srvModified\",\"isValid\",insertion_ordinal,event_ms,received_ms INTO NEW.\"_id\",NEW.created_at,NEW.device,NEW.\"date\",NEW.identifier,NEW.\"srvModified\",NEW.\"isValid\",NEW.insertion_ordinal,NEW.event_ms,NEW.received_ms;\n    END IF;\n  ELSE\n    IF (NEW.tenant_id,NEW.insertion_ordinal) IS DISTINCT FROM (OLD.tenant_id,OLD.insertion_ordinal) THEN\n      RAISE EXCEPTION 'TENANT_ORDINAL_IMMUTABLE';\n    END IF;\n    UPDATE \"nightscout_migration_namespace\".devicestatus_rows SET id_kind=NEW.id_kind, doc=NEW.doc, block_id=NULL, sealed_bytes=NULL\n      WHERE tenant_id=OLD.tenant_id AND insertion_ordinal=OLD.insertion_ordinal RETURNING \"_id\",created_at,device,\"date\",identifier,\"srvModified\",\"isValid\",insertion_ordinal,event_ms,received_ms INTO NEW.\"_id\",NEW.created_at,NEW.device,NEW.\"date\",NEW.identifier,NEW.\"srvModified\",NEW.\"isValid\",NEW.insertion_ordinal,NEW.event_ms,NEW.received_ms;\n    IF NOT FOUND THEN RETURN NULL; END IF;\n  END IF;\n  NEW.lookup_doc := NEW.doc;\n  RETURN NEW;\nEND\n$write$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".devicestatus_write() FROM PUBLIC",
+        "CREATE TRIGGER devicestatus_write INSTEAD OF INSERT OR UPDATE ON \"nightscout_migration_namespace\".devicestatus FOR EACH ROW EXECUTE FUNCTION \"nightscout_migration_namespace\".devicestatus_write()",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".devicestatus_forget_member() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $forget$\nBEGIN\n  IF OLD.block_id IS NOT NULL AND (TG_OP='DELETE' OR NEW.block_id IS DISTINCT FROM OLD.block_id) THEN\n    UPDATE \"nightscout_migration_namespace\".devicestatus_day SET body=body-OLD.insertion_ordinal::text WHERE tenant_id=OLD.tenant_id AND block_id=OLD.block_id;\n    DELETE FROM \"nightscout_migration_namespace\".devicestatus_day WHERE tenant_id=OLD.tenant_id AND block_id=OLD.block_id AND body='{}'::jsonb;\n  END IF;\n  RETURN NULL;\nEND\n$forget$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".devicestatus_forget_member() FROM PUBLIC",
+        "CREATE TRIGGER devicestatus_forget_member AFTER UPDATE OF block_id OR DELETE ON \"nightscout_migration_namespace\".devicestatus_rows FOR EACH ROW WHEN (OLD.block_id IS NOT NULL) EXECUTE FUNCTION \"nightscout_migration_namespace\".devicestatus_forget_member()",
+        "CREATE FUNCTION \"nightscout_migration_namespace\".devicestatus_seal_day() RETURNS integer LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $seal$\nDECLARE\n  t uuid := NULLIF(current_setting('app.current_tenant_id',true),'')::uuid;\n  cutoff bigint := floor((extract(epoch FROM statement_timestamp()) - 172800) / 86400)::bigint * 86400000;\n  day_start bigint;\n  ordinals bigint[];\n  payload jsonb;\n  new_block bigint;\nBEGIN\n  IF t IS NULL THEN RAISE EXCEPTION 'TENANT_ORDINAL_BINDING_REQUIRED'; END IF;\n  -- A writer takes KEY SHARE before its locking read. Its next statement\n  -- then sees both the published row reference and the new day body.\n  PERFORM 1 FROM \"nightscout_migration_namespace\".tenant_insertion_ordinal WHERE tenant_id=t FOR UPDATE;\n  IF NOT FOUND THEN RETURN 0; END IF;\n  SELECT floor(event_ms::numeric/86400000)::bigint*86400000 INTO day_start FROM \"nightscout_migration_namespace\".devicestatus_rows\n    WHERE tenant_id=t AND block_id IS NULL AND event_ms<cutoff ORDER BY event_ms,insertion_ordinal LIMIT 1;\n  IF NOT FOUND THEN RETURN 0; END IF;\n  WITH locked AS MATERIALIZED (\n    SELECT insertion_ordinal,doc FROM \"nightscout_migration_namespace\".devicestatus_rows WHERE tenant_id=t AND block_id IS NULL\n      AND event_ms>=day_start AND event_ms<day_start+86400000 ORDER BY event_ms,insertion_ordinal LIMIT 512 FOR UPDATE\n  ), members AS (\n    SELECT *,sum(octet_length(doc::text)::bigint) OVER (ORDER BY insertion_ordinal) AS bytes FROM locked\n  )\n  SELECT array_agg(insertion_ordinal),jsonb_object_agg(insertion_ordinal::text,doc-ARRAY['_id','created_at','device','date','identifier','srvModified','isValid']) INTO ordinals,payload\n    FROM members WHERE bytes-octet_length(doc::text)<4194304;\n  IF ordinals IS NULL THEN RETURN 0; END IF;\n  INSERT INTO \"nightscout_migration_namespace\".devicestatus_day(tenant_id,day_ms,body) VALUES(t,day_start,payload) RETURNING block_id INTO new_block;\n  UPDATE \"nightscout_migration_namespace\".devicestatus_rows r SET block_id=new_block,sealed_bytes=pg_column_size(r.doc),doc=(SELECT jsonb_object_agg(k,r.doc->k) FROM unnest(ARRAY['_id','created_at','device','date','identifier','srvModified','isValid']) k WHERE r.doc ? k)\n    WHERE r.tenant_id=t AND r.insertion_ordinal=ANY(ordinals);\n  RETURN cardinality(ordinals);\nEND\n$seal$",
+        "REVOKE ALL ON FUNCTION \"nightscout_migration_namespace\".devicestatus_seal_day() FROM PUBLIC"
+      ],
+      "checksum": "4b2c2c1263396c407c032657089c9189e455eb9b607ed50b415285dba12adb50"
+    }
+  ]
+}

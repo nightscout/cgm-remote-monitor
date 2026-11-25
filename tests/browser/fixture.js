@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {getBrowser} = require('./hooks');
+const {getBrowser, getFixtureHosts, validateFixtureHosts} = require('./hooks');
 
 // The isolated chart fixtures use production main.css, including its local
 // font import. Serve only the font resources that stylesheet can request.
@@ -31,10 +31,15 @@ function permitted(url, origin) {
   return !parsed.username && !parsed.password && parsed.origin === origin;
 }
 
-exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch = false, timezoneId} = {}) {
+exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch = false, timezoneId, fixtureHosts} = {}) {
   const target = new URL(origin);
   assert.equal(target.protocol, 'http:');
-  assert.equal(target.hostname, '127.0.0.1');
+  if (fixtureHosts === undefined) assert.equal(target.hostname, '127.0.0.1');
+  else {
+    const selected = validateFixtureHosts(fixtureHosts);
+    assert.deepEqual(selected, getFixtureHosts(), 'Named origins must match the actual launched resolver rules');
+    assert(selected.includes(target.hostname), 'Origin outside named fixture hosts');
+  }
   assert.equal(target.origin, origin);
   const context = await getBrowser().newContext({serviceWorkers: 'block', acceptDownloads: false, hasTouch, timezoneId});
   const blocked = [], errors = [], routed = new Map();
@@ -42,7 +47,7 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
     // Fulfilled documents have no network address. Chromium's local-network
     // permission is needed for their native WebSocket connection to our
     // loopback fixture; request/WebSocket allow-lists still enforce its origin.
-    if (getBrowser().browserType().name() === 'chromium') {
+    if (getBrowser().browserType().name() === 'chromium' && fixtureHosts === undefined) {
       await context.grantPermissions(['local-network-access'], {origin});
     }
     await context.route('**/*', async route => {
@@ -51,6 +56,9 @@ exports.withPage = async function (origin, run, {expectBlocked = false, hasTouch
         blocked.push(url);
         return route.abort('blockedbyclient');
       }
+      // Named mode uses Chromium's actual resolver/Host and real ingress. The
+      // owned ingress refuses other-origin Location headers before delivery.
+      if (fixtureHosts !== undefined) return route.continue();
       // route.continue() can follow redirects without invoking this handler
       // again. Fixture HTTP responses are finite and redirects are forbidden;
       // fetch one response only, then fulfill it with its actual headers/body.

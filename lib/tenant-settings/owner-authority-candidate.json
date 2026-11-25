@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_owner_configuration_authority",
+      "checksum": "3d9f308cc0ac61995b417afcc812823113060299f9ea7a142f5c80a703e4d675",
+      "up": [
+        "CREATE TABLE tenant_owner_configuration_authority (tenant_id uuid NOT NULL, principal text NOT NULL CHECK (principal ~ '^[A-Za-z0-9_-]{1,128}$'), consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), active boolean NOT NULL DEFAULT false, can_configure boolean NOT NULL DEFAULT false, owner_fence boolean NOT NULL DEFAULT false, PRIMARY KEY (tenant_id,principal,consumer))",
+        "ALTER TABLE tenant_owner_configuration_authority ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_owner_configuration_authority FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_owner_configuration_authority_tenant ON tenant_owner_configuration_authority USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_owner_configuration_authority FROM PUBLIC"
+      ]
+    }
+  ]
+}

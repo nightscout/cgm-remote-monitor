@@ -27,7 +27,7 @@ const NOW = Date.now();
 const iso = t => new Date(t).toISOString();
 
 const RECORD_KEYS = ['_id', 'identifier', 'outcome', 'problems'];
-const EVENT_KEYS = ['collection', 'source', 'op', 'collapsed', 'records', 'counts'];
+const EVENT_KEYS = ['collection', 'source', 'op', 'tenant', 'stamp', 'collapsed', 'records', 'counts'];
 
 // A document of each collection, carrying a field whose value must never
 // reach the event.
@@ -255,6 +255,23 @@ const typedKey = id => (id instanceof ObjectId ? 'oid:' : typeof id + ':') + Str
     Object.keys(e).forEach(k => assert.ok(!fields.has(k), 'document field ' + k + ' in the event'));
   });
 
+  // Durable delivery contract rule 3: the direct (MongoDB) path has no tenant
+  // write clock and this suite runs under single tenancy, so both fields are
+  // null; a Symbol binding is never serialised.
+  it('carries tenant null and stamp null on the direct path under single tenancy, and still no document field', async function ( ) {
+    const s = await seed('treatments');
+    const out = await run('treatments', 'v3', { op: 'update', docs: [Object.assign(doc('treatments', 2), { identifier: s.identifier })]
+      , target: { identifier: s.identifier, stored: s.stored } }, s);
+    const e = check('tenant and stamp', out);
+    assert.strictEqual(e.tenant, null);
+    assert.strictEqual(e.stamp, null);
+    const parsed = JSON.parse(JSON.stringify(e));
+    assert.deepEqual(Object.keys(parsed), Object.keys(e));
+    assert.strictEqual(parsed.tenant, null);
+    assert.equal('document' in e, false);
+    e.records.forEach(r => assert.equal('document' in r, false));
+  });
+
   it('without a listener: no event is built or emitted, and no read is added', async function ( ) {
     async function writes (listen) {
       await raw.deleteMany({ });
@@ -282,7 +299,13 @@ const typedKey = id => (id instanceof ObjectId ? 'oid:' : typeof id + ':') + Str
   it('nothing in lib/ listens', function ( ) {
     const { execFileSync } = require('node:child_process');
     let found;
-    try { found = execFileSync('git', ['grep', '-n', 'INTENT_EVENT\\|storage-intent-committed', '--', 'lib'], { encoding: 'utf8' }); } catch { found = ''; }
+    try {
+      found = execFileSync('git', ['grep', '-n', 'INTENT_EVENT\\|storage-intent-committed', '--',
+        ':(glob)lib/**/*.js', ':(glob)lib/**/*.cjs', ':(glob)lib/**/*.mjs'], { encoding: 'utf8' });
+    } catch (error) {
+      if (error.status !== 1) throw error;
+      found = '';
+    }
     const listeners = found.split('\n').filter(l => l && !/lib\/storage\/write-intent\.js/.test(l));
     assert.deepEqual(listeners, [ ]);
   });

@@ -1,0 +1,12 @@
+# Multitenant deployment contract
+
+The Compose deployment and its UI, health, demonstration and restore helpers
+live in [nightscout/nightscout-deploy](https://github.com/nightscout/nightscout-deploy)
+under `bindings/compose/multitenant`. Deployment-specific tests live beside them.
+
+Core reads each role's configuration from [environment settings and mounted
+secret files](../../docs/multitenant-settings.md). Its own tests use the small
+[synthetic registry plan](../../tests/fixtures/multitenant-plan.js).
+
+The directory remains the overlay mount point so deployment modules can resolve
+the selected core libraries. It contains no runnable deployment or helper copy.

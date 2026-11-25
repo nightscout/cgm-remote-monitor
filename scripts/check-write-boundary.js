@@ -3,9 +3,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const babel = require('@babel/core');
-const ADAPTERS = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'websocket']
+const ADAPTERS = ['entries', 'treatments', 'devicestatus', 'profile', 'food', 'activity', 'socket-write-handlers']
   .map(name => 'lib/server/' + name + '.js')
   .concat('lib/api3/storage/mongoCollection/index.js', 'lib/authorization/storage.js');
+const socketIntent = require('./check-write-intent');
+const SOCKET_WRAPPER = 'lib/server/websocket.js';
 const WRITES = new Set(['insertOne', 'insertMany', 'replaceOne', 'updateOne',
   'updateMany', 'deleteOne', 'deleteMany', 'bulkWrite']);
 
@@ -93,14 +95,77 @@ function check(source) {
   return failures;
 }
 
+// The wrapper delegates acquisition to the canonical handlers. It must retain
+// that binding and contain no direct writes; absence of an acquisition is valid
+// only for this separately checked delegating module.
+function checkSocketWrapper(source) {
+  return socketIntent.checkSocketBinding(source).concat(socketIntent.check(source));
+}
+
+// Inventory mutating PostgreSQL storage modules. Public history dates and native
+// commit intake have separate controls; canonical mutations require no CDC seal.
+const CLOCK_WRITERS = ['lib/storage/postgres-entries-write.js'];
+const CLOCK_EXEMPT = {
+  'lib/storage/postgres-write-clock.js': 'the clock row itself',
+  'lib/storage/postgres-durable-replay.js': "a consumer's own checkpoint, not clinical input"
+};
+// No connection-local mutation bypasses the clinical write-clock inventory.
+const CLOCK_METADATA_WRITES = {};
+function staticText(node) {
+  if (!node) return '';
+  if (node.type === 'StringLiteral') return node.value;
+  if (node.type === 'TemplateLiteral') return node.quasis.map(q => q.value.cooked).join(' ');
+  if (node.type === 'BinaryExpression' && node.operator === '+') return staticText(node.left) + ' ' + staticText(node.right);
+  return '';
+}
+// A statement mutates when it starts with INSERT/UPDATE/DELETE, or a WITH
+// clause holds one (`x AS (DELETE FROM ...)`). Comments, quoted literals (such
+// as privilege names) and row-lock clauses are not statements.
+function mutation(text) {
+  const sql = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/'[^']*'/g, "''").replace(/FOR\s+(NO\s+KEY\s+)?UPDATE/gi, ' ');
+  const found = /^\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql) || /\bAS\s*\(\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql)
+    || /^\s*WITH\b[\s\S]*?\)\s*(INSERT|UPDATE|DELETE)\b/i.exec(sql);
+  return found ? found[1].toUpperCase() : null;
+}
+function checkClockInventory(root, sources = {}) {
+  const failures = [];
+  const dir = path.join(root, 'lib/storage');
+  for (const file of fs.readdirSync(dir).filter(name => /^postgres-.*\.js$/.test(name)).sort()) {
+    const relative = 'lib/storage/' + file;
+    if (CLOCK_WRITERS.includes(relative) || Object.hasOwn(CLOCK_EXEMPT, relative)) continue;
+    const source = Object.hasOwn(sources, relative) ? sources[relative] : fs.readFileSync(path.join(dir, file), 'utf8');
+    const ast = babel.parseSync(source, {babelrc: false, configFile: false, sourceType: 'script'});
+    const owners = new WeakMap();
+    walk(ast, null, (node, parent) => {
+      const owner = ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression', 'ObjectMethod'].includes(node.type)
+        ? node.id?.name || node.key?.name : owners.get(parent);
+      owners.set(node, owner);
+      const text = node.type === 'CallExpression' ? staticText(node.arguments[0]) : '';
+      const kind = mutation(text);
+      if (node.type === 'CallExpression' && member(node.callee).endsWith('.query') && kind) {
+        const metadata = CLOCK_METADATA_WRITES[relative]?.[owner];
+        if (kind === 'UPDATE' && metadata?.reason && metadata.sql.test(text) && !/;|\b(?:INSERT|DELETE)\b/i.test(text)) return;
+        failures.push(relative + ': mutating SQL at line ' + node.loc.start.line + ' in an unclassified PostgreSQL storage module: classify its canonical or metadata writes');
+      }
+    });
+  }
+  return failures;
+}
+
 function main() {
   let failed = false;
+  const root = path.resolve(__dirname, '..');
+  for (const issue of checkClockInventory(root)) { console.error(issue); failed = true; }
   for (const file of ADAPTERS) {
     const issues = check(fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'));
     for (const issue of issues) { console.error(file + ': ' + issue); failed = true; }
   }
+  for (const issue of checkSocketWrapper(fs.readFileSync(path.resolve(__dirname, '..', SOCKET_WRAPPER), 'utf8'))) {
+    console.error(SOCKET_WRAPPER + ': ' + issue); failed = true;
+  }
   if (failed) process.exitCode = 1;
-  else console.log('Write boundary: all ' + ADAPTERS.length + ' adapter entry points checked');
+  else console.log('Write boundary: all ' + ADAPTERS.length + ' adapter entry points and canonical socket delegation checked;'
+    + ' canonical PostgreSQL mutation inventory checked');
 }
 if (require.main === module) main();
-module.exports = {check, ADAPTERS};
+module.exports = {check, checkSocketWrapper, checkClockInventory, ADAPTERS, SOCKET_WRAPPER, CLOCK_WRITERS, CLOCK_EXEMPT, CLOCK_METADATA_WRITES};

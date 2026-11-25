@@ -1,0 +1,235 @@
+# The multitenant test corpus
+
+Contributor-facing. The multitenant preview's suites are opt-in: each stays
+registered as pending in the `integration` tier until an environment flag, a
+PostgreSQL admin URI, a MongoDB URI or a Vault address enables it, so the
+default tiers and the Mongo-only CI jobs never execute them. One command runs
+the corpus with disposable services:
+
+```bash
+npm run test:multitenant                       # every suite below
+npm run test:multitenant -- --list             # the inventory, as the script holds it
+npm run test:multitenant -- --only subject-admin --only vault   # paths containing either text
+npm run test:multitenant -- --record run.json  # also write the run record (ids, counts, status)
+```
+
+`scripts/test-multitenant.js` holds the inventory as data and refuses to run
+when a test file calls `optInSuite` with an `NS_` flag or reads
+`NS_TEST_POSTGRES_ADMIN_URI` without being listed, so a new opt-in suite is
+added there and in the table below.
+
+## What the command does
+
+- Starts, on random loopback ports with credentials generated per run and passed
+  only through the child's environment:
+  - one PostgreSQL 16 (`postgres:16`), creating and selecting
+    `nightscout_multitenant_test` through `POSTGRES_DB`, when a selected suite reads
+    `NS_TEST_POSTGRES_ADMIN_URI`, unless the caller has already set that
+    variable (the script then opens a session on it first and stops with exit 2 if
+    it cannot). The explicit test database satisfies the clock-port fixture's
+    disposable-database safety check; the guard and caller-provided URI are
+    unchanged;
+  - one MongoDB (`mongo:8.0`) when a selected suite opens `CUSTOMCONNSTR_mongo`,
+    unless the caller has set it. The variable is removed from the child
+    environment otherwise: `tests/ci.test.env` points it at
+    `127.0.0.1:27017`, and nothing in this run may reach a database the caller
+    did not name;
+  - one Vault dev server (the digest the suites pin) when a selected suite reads a
+    Vault address from the environment; it is always disposable.
+- Sets `TZ=UTC` in the child environment, as every CI job does, so a
+  zone-dependent suite fails the same way on a developer machine as in CI.
+- Sets the selected suites' flags, then runs their files through mocha the way
+  `scripts/test-tiers.js` runs the `integration` tier: `--fail-zero`, the
+  execution reporter, `tests/hooks.js`, `--exit`, the tier's 15 s default
+  timeout (every suite in the corpus sets its own, 30 s to 120 s, which overrides
+  it), with the values of `tests/ci.test.env` except as above. The tier's first
+  and last files (the shared-database safety gate and clean-up) are left out:
+  they guard a database the operator owns, and this run owns its databases.
+- Removes exactly the containers and anonymous volumes it created, by recorded
+  id (`docker rm --force --volumes`), then verifies each is absent. Containers
+  carry the label `ns.multitenant.run=<run id>` so a leak after a hard kill can be
+  found with `docker ps -a --filter label=ns.multitenant.run`.
+- Exits 0 only when mocha passed and at least one test passed; 1 on a failing
+  test, zero passing tests, or a container or volume still present after
+  teardown; 2 on a usage, inventory, Docker or provisioning error. `--only`
+  matching nothing is exit 2 before anything starts.
+
+Images can be overridden with `NS_MULTITENANT_POSTGRES_IMAGE`,
+`NS_MULTITENANT_MONGO_IMAGE` and `NS_MULTITENANT_VAULT_IMAGE`. MongoDB 8.0
+refuses to start on Linux 6.19 to 7.0.13 (SERVER-121912); the CI job runs on
+`ubuntu-22.04` for that reason, and three suites below start `mongo:8.0.34`
+themselves.
+
+## Inventory
+
+Use `npm run test:multitenant -- --list` for the current inventory, enabling flags
+and service ownership. The script validates every opt-in test file against that
+inventory before starting a resource.
+
+| Suite | Flag(s) the script sets | Script provides | Starts its own | Note |
+|---|---|---|---|---|
+| `tests/postgres-latest-treatments.integration.test.js` | | PostgreSQL | | Checks the ten-treatment page in both catalogues, including ties, tenant isolation, unsupported timestamps and indexed time reads. |
+| `tests/migrations-concurrent-index.integration.test.js` | | PostgreSQL | | Checks that a migration holding one index builds it concurrently on a populated table: a writer inserts during the build, an invalid leftover is replaced, the ledger row follows the valid index, and the build has its own time bound. |
+| `tests/postgres-latest-devicestatus.integration.test.js` | | PostgreSQL | | Checks the v1 latest device-status result under tenant isolation, including ties, unsupported timestamps and an indexed read of ordinary history. |
+| `tests/native-operation-control-readiness.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | source-selected native control reads, exact consumer-port operational re-admission, refreshed grants and held-backend controls |
+| `tests/pgstream-bootstrap-batch.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | native bounded typed bootstrap receipts preserve completed/output/due/pending state |
+| `tests/pgstream-checkpoint.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | observed/completed/output/due atomicity, owner loss, retained-overdue cold serve boot without another clinical write |
+| `tests/pgstream-single-receipt.integration.test.js` | `NS_PGSTREAM_ROLE_TEST=1` | PostgreSQL | | single typed receipt metadata patches, monotone control state, rollback and full-transfer RED |
+| `tests/platform-verification.test.js` | `NS_TEST_POSTGRES_ADMIN_URI` | PostgreSQL | | strict admin verification and serving contract binding, expiry, revocation and broken/restored controls |
+| `tests/tenant-floor-verification.integration.test.js` | `NS_TEST_POSTGRES_ADMIN_URI` | PostgreSQL | | tenant floor proofs during migration, provisioning, restore and resume |
+| `tests/api-tenant-lru.integration.test.js` | `NS_API_TENANT_LRU_TEST=1` | PostgreSQL | | two API processes check reads, writes, history and settings across tenant cache evictions |
+| `tests/tenant-native-recommission.integration.test.js` | `NS_TEST_POSTGRES_ADMIN_URI` | PostgreSQL | Vault | native source/generation, typed checkpoint and durable recommission link; ordinary restore and deletion/recommission semantics |
+| `tests/evaluator-recovery.integration.test.js` | `NS_EVALUATOR_RECOVERY_TEST=1` | PostgreSQL | | writer-driven recovery on the actual role: held-tenant isolation, pending mark across process-group death, recovered due work, unstamped activity mark, generation-advance refusal; `NS_EVALUATOR_LAB_CONTROL=no-mark` is the negative control |
+| `tests/evaluator-statements.integration.test.js` | `NS_EVALUATOR_STATEMENTS_TEST=1` | PostgreSQL | | statements per accepted write and per time-only cycle on the actual evaluator role, by pool and kind; `NS_EVALUATOR_STATEMENTS_BOUND` asserts a ceiling |
+| `tests/evaluator-consumer-statements.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | statements per quiet and per alarming accepted write on the actual evaluator role with its notification consumer; requires explicit pinned producer inputs |
+| `tests/preview-entries-acquisition.integration.test.js` | `NS_REST_ACQUISITION_NATIVE=1` | | PostgreSQL | actual preview entries read/write and current-authority/restore refusal; owned pinned image and verified container/volume cleanup, operation-window adapter is a refusal protocol |
+| `tests/postgres-connection.test.js` | admin URI only | PostgreSQL | | |
+| `tests/entries-importer-postgres.integration.test.js` | admin URI plus `NS_POPULATED_RECOVERY_DOCKER_TEST=1` | PostgreSQL | PostgreSQL source and fresh restore target | populated stopped-write snapshot/ledger/typed identity reference; no key recovery |
+| `tests/postgres-entries-read.test.js` | admin URI only | PostgreSQL, MongoDB | | |
+| `tests/postgres-entries-write.test.js` | admin URI only | PostgreSQL, MongoDB | | `describe.skip`, silent when disabled |
+| `tests/api3.entries-crud.http.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-entries.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-identifier-race.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-identity-differential.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-frame-concurrency.integration.test.js` | `NS_ENTRIES_CRUD_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-durable-replay.integration.test.js` | `NS_TENANT_DURABLE_REPLAY_TEST=1` | PostgreSQL | | dormant current-state consumer; producer SIGKILL/snapshot/RLS/rollback |
+| `tests/tenant-projection-evaluator.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL | | dormant recovered projection to actual clinical views; fresh-table/restart/tenant/failure checks |
+| `tests/tenant-current-state-recovery-proof.integration.test.js` | `NS_M5_CURRENT_STATE_PROOF_TEST=1` | PostgreSQL | | bounded current-state acquisition plus explicit evaluator preview lifecycle; backstop/time/config/close/readiness; notification/provider acceptance separate |
+| `tests/tenant-alarm-state.integration.test.js` | `NS_TENANT_ALARM_TEST=1` | PostgreSQL | | durable tenant-wide suppression, current transaction authority, original expiry/restart and restricted-role isolation; four disabled cases |
+| `tests/tenant-notifications.integration.test.js` | `NS_TENANT_NOTIFICATIONS_TEST=1` | PostgreSQL | | durable request/attempt identity, current consumer eligibility and unsafe-schema refusal; seven disabled cases; no provider/device guarantee |
+| `tests/evaluator-consumers.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | actual selected evaluator, atomic private state and intent, controlled UDS sink, restart/retry and committed ACK clears; real recipient delivery has separate joined fixtures |
+| `tests/tenant-activity.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | pause/suspend eligibility: evaluator work lists from eligible tenants, recompute on unpause, other tenants unaffected |
+| `tests/evaluator-consumer-timer-churn.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | stale producer selection under evaluator timer churn is reselected, not refused; `NS_CONSUMER_*` knobs are for measurement |
+| `tests/evaluator-consumer-load.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL | | consumer wakes and producer selections per window with content-change revisions; `NS_CONSUMER_LOAD_*` knobs are for measurement |
+| `tests/change-stamps.integration.test.js` | admin URI only | PostgreSQL |  | decision change-stamp-definer-function: catalogue, deployment grants, attribute check and refusals |
+| `tests/postgres-tenant-scan.integration.test.js` | admin URI only | PostgreSQL |  | scanTenants: one READ ONLY round trip under each tenant's forced-RLS binding |
+| `tests/pool-membership.integration.test.js` | admin URI only | PostgreSQL |  | pool membership: two kinds, member/inspector/operator identities, operator-set count, agreement, lease expiry |
+| `tests/incremental-view.integration.test.js` | `NS_TENANT_DURABLE_REPLAY_TEST=1` | PostgreSQL |  | decision incremental-refresh: edit, soft and hard delete, gap, mismatch |
+| `tests/tenant-write-clock-complete.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL |  | decision write-clock-complete: every supported write advances the clock, hard deletes also last_delete_stamp |
+| `tests/evaluator-wake.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | work on change: lost wake, duplicate delivery, restart, hard delete and unstamped update re-evaluated, idle, eviction |
+| `tests/evaluator-cost.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | evaluator cost lane C/D/E: copies stay independent of plugin mutation |
+| `tests/views-keep.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | evaluator cost lane B: a kept working set re-cut equals a fresh load |
+| `tests/projection-total-order.integration.test.js` | `NS_TENANT_PROJECTION_EVALUATOR_TEST=1` | PostgreSQL |  | decision view-reads-total-order: SQL and in-process paths agree, ties broken on the insertion ordinal |
+| `tests/evaluator-consumer-wake.integration.test.js` | `NS_EVALUATOR_CONSUMERS_TEST=1` | PostgreSQL |  | consumers on change: an idle tenant is not polled; a new alarm is delivered by the revision wake |
+| `tests/evaluator-effect-idempotency.integration.test.js` | `NS_EVALUATOR_EFFECT_DOCKER_TEST=1` | | PostgreSQL | fresh-owner warm barrier and retained durable repeat clock; no-gap/early-recovery/genuine-repeat controls; actual runtime/producer/window/outbox with bounded overlap and fixed synthetic clinical/suppression ports; owns a random-loopback digest-pinned PostgreSQL container and verifies its recorded container/anonymous-volume cleanup |
+| `tests/evaluator-job-context.integration.test.js` | `NS_EVALUATOR_JOB_DOCKER_TEST=1` | | PostgreSQL | fresh trusted evaluator jobs and one physical lifetime client; durable outbox intent/accepted handoff/repeat, nested admission, pause/suspend and late callback controls; synthetic clinical/suppression ports and controlled adapter; random-loopback digest-pinned PostgreSQL, owned container/anonymous volume removed in teardown |
+| `tests/postgres-cohort-snapshot.integration.test.js` | `NS_COHORT_SNAPSHOT_DOCKER_TEST=1` | | PostgreSQL | bounded constructor admission cuts and continuing constructor stream; native timeout, unsafe role and wrong-database refusal; owns a random-loopback, digest-pinned PostgreSQL container and removes only its container/anonymous volume in teardown |
+| `tests/datastore-recovery.integration.test.js` | `NS_DATASTORE_RECOVERY_DOCKER_TEST=1` | | PostgreSQL | decision datastore-loss-recover-in-place: refusal after a PostgreSQL restart, in-place recovery by the supervisor, lost lifetime session on the same postmaster, unfinished marker left in place, backoff while down, bounded exhaustion, pool-membership idle loss; owns a fixed-loopback-port, digest-pinned PostgreSQL container that it restarts, stops and starts, and removes it with its anonymous volume in teardown |
+| `tests/operation-window-epoch.integration.test.js` | `NS_OPERATION_WINDOW_DOCKER_TEST=1` |  | PostgreSQL | restore fence and catalogue admission epoch with the deployment plan's catalogue and grants |
+| `tests/operation-window-minimum-native.integration.test.js` | `NS_OPERATION_WINDOW_MINIMUM_DOCKER_TEST=1` | | PostgreSQL | physical backend admission, live permission, tenant, restore and COMMIT fences, and no global digest queries on warm operations; `NS_OPERATION_WINDOW_BASELINE_COUNTER` remains a separate baseline-only measurement |
+| `tests/tenant-operations.integration.test.js` | `NS_TENANT_OPERATIONS_PG_TEST=1` | | PostgreSQL | schema upgrade and original-tenant PostgreSQL COPY roundtrip with ciphertext and forced row-level security |
+| `tests/tenant-commit-clock-port.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_TEST=1` | PostgreSQL | | |
+| `tests/tenant-commit-clock-http.integration.test.js` | `NS_TENANT_COMMIT_CLOCK_HTTP_DOCKER_TEST=1` | | PostgreSQL, Vault | functional cases enabled; benchmark separately opt-in |
+| `tests/management-sessions.integration.test.js` | `NS_MANAGEMENT_SESSIONS_DOCKER_TEST=1` | | PostgreSQL, Vault | private operator issuance, current authority, Vault rotation, lifecycle fences and live issuer census |
+| `tests/m7-diagnostics.integration.test.js` | `NS_M7_DIAGNOSTICS_DOCKER_TEST=1` | | PostgreSQL, Vault | bounded opt-in diagnostics ON/OFF; held pool, SQL, actual response and restore oracles |
+| `tests/operation-lifetime-discriminator.integration.test.js` | `NS_OPERATION_LIFETIME_DOCKER_TEST=1` | | PostgreSQL, Vault | bounded explicit lifetime sessions; actual held responses, authority, uncertainty, owner death and orphan refusal; no capacity claim |
+| `tests/tenant-restore-resume.integration.test.js` | `NS_RESTORE_RESUME_DOCKER_TEST=1` | | PostgreSQL, Vault | restore pre-check, resume after four interruption kinds, operation clearance and their row policies; two actual API CLI processes; non-API peers synthetic lifecycle-only; replaced rows are a probe table |
+| `tests/api-fixed-roster-serving.integration.test.js` | `NS_API_ROSTER_SERVING_DOCKER_TEST=1` | | PostgreSQL, Vault | two actual API CLI processes; non-API peers synthetic lifecycle-only; authority, lifetime drain, census, uncertainty and replacement |
+| `tests/multitenant-preview-replicas.integration.test.js` | `NS_MULTITENANT_PREVIEW_REPLICAS_DOCKER_TEST=1` | | PostgreSQL, Vault | independent CLI processes on one host |
+| `tests/role-vault-token-scope.integration.test.js` | `NS_ROLE_VAULT_TOKEN_SCOPE_DOCKER_TEST=1` | | PostgreSQL, Vault | registry-mode api role Vault token: reaches its key purposes on its mount, refused for other purposes, operations, key management and another mount |
+| `tests/tenant-rest-derived.integration.test.js` | `NS_REST_DERIVED_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-treatments.integration.test.js` | `NS_REST_TREATMENTS_HTTP_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-context.integration.test.js` | `NS_REST_CONTEXT_HTTP_TEST=1` | PostgreSQL, MongoDB | Vault | |
+| `tests/tenant-rest-device-activity.integration.test.js` | `NS_REST_DEVICE_ACTIVITY_TEST=1` | PostgreSQL, MongoDB | | |
+| `tests/tenant-rest-profile-food.integration.test.js` | `NS_PROFILE_FOOD_HTTP_TEST=1` | PostgreSQL, MongoDB, Vault (`NS_PROFILE_FOOD_VAULT_ADDRESS`/`_TOKEN`) | | mounts transit at the fixed path `transit`: one run per Vault |
+| `tests/tenant-rest-settings-differential.integration.test.js` | `NS_SETTINGS_DIFFERENTIAL_TEST=1` | PostgreSQL, MongoDB, Vault (`NS_SETTINGS_VAULT_ADDRESS`/`_TOKEN`) | | |
+| `tests/postgres-migrations.integration.test.js` | `NS_MIGRATION_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/mongodb-migrations.integration.test.js` | `NS_MIGRATION_MONGO_DOCKER_TEST=1` | | MongoDB | `mongo:8.0.34` replica set |
+| `tests/postgres-secrets.integration.test.js` | `NS_SECRETS_POSTGRES_DOCKER_TEST=1`, `NS_VAULT_DOCKER_TEST=1` | | PostgreSQL, Vault | the second flag enables its one backup-restore case, which starts raft Vaults |
+| `tests/vault-secrets.integration.test.js` | `NS_VAULT_DOCKER_TEST=1` | | Vault | |
+| `tests/tenant-key-retention.integration.test.js` | `NS_KEY_RETENTION_DOCKER_TEST=1` | | PostgreSQL, Vault | post-deletion 30-day key retention: destroys Transit keys in its own Vault dev |
+| `tests/tenant-recommission.integration.test.js` | `NS_TENANT_RECOMMISSION_PG_VAULT_TEST=1` | | PostgreSQL, Vault | exact artifact recovery; runner binds clean source HEAD through `NS_TENANT_RECOMMISSION_SOURCE_COMMIT` before resources start |
+| `tests/tenant-entries-http.integration.test.js` | `NS_TENANT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/tenant-socket-data-forwarding.integration.test.js` | `NS_SOCKET_DATA_FORWARDING_TEST=1` | PostgreSQL, MongoDB | | real sockets and canonical forwarded PG DATA writes; pinned AAPS pattern replay, not binary |
+| `tests/tenant-insertion-upgrade.integration.test.js` | `NS_TENANT_INSERTION_UPGRADE_TEST=1` | PostgreSQL | Populated five-domain runner upgrade, original ordinal preservation, tenant floors, old catalogue refusal and rollback |
+| `tests/tenant-insertion-readiness.integration.test.js` | `NS_TENANT_INSERTION_READINESS_TEST=1` | PostgreSQL | | all five selected tenant-local allocator schemas; exact trigger/function/RLS/effective-ACL/floor admission and physical red/restored controls |
+| `tests/tenant-socket-order-capability.integration.test.js` | `NS_SOCKET_ORDER_CAPABILITY_TEST=1` | PostgreSQL | | prototype optional successor: old/new ledger matrix, populated refusal, fresh insertion order |
+| `tests/tenant-credential-http.integration.test.js` | `NS_TENANT_CREDENTIAL_HTTP_DOCKER_TEST=1` | MongoDB | PostgreSQL | its differential cases open `CUSTOMCONNSTR_mongo` |
+| `tests/tenant-authorization-postgres.integration.test.js` | `NS_TENANT_AUTHORITY_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/owner-configuration.integration.test.js` | `NS_OWNER_CONFIGURATION_DOCKER_TEST=1` | PostgreSQL | Vault | separate explicit configure authority, owner settings/version history and presentation-only DATA reads; default opt-out |
+| `tests/owner-preview.integration.test.js` | `NS_OWNER_PREVIEW_TEST=1` | PostgreSQL | PostgreSQL, Vault | explicit headless owner CLI and real combined data/owner listeners; provisioned machine tokens/current state, no human session promises |
+| `tests/subject-management-http.integration.test.js` | `NS_SUBJECT_MANAGEMENT_HTTP_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/subject-admin-postgres.integration.test.js` | `NS_SUBJECT_ADMIN_POSTGRES_DOCKER_TEST=1` | | PostgreSQL | |
+| `tests/tenant-ownership-postgres.integration.test.js` | `NS_TENANT_OWNERSHIP_DOCKER_TEST=1` | | PostgreSQL | operator-assisted add/transfer/recover with concurrent-transfer and foreign-authority controls over the private ownership service |
+| `tests/admin-role-ownership.integration.test.js` | `NS_ADMIN_ROLE_DOCKER_TEST=1` | | PostgreSQL, Vault | spawns `nightscout multitenant admin` in registry mode over a provisioned tenant; ownership operations on the admin listener with the deployment plan's `ownership_operator` grants |
+| `tests/admin-lifecycle-fit.integration.test.js` | `NS_ADMIN_LIFECYCLE_DOCKER_TEST=1` | | PostgreSQL | tenant A restore through the maintenance controller and remote cohort census with the admin role connected; ownership refusal while held; admin on the consumer address at another port |
+| `tests/owner-subject-policy.integration.test.js` | `NS_OWNER_SUBJECT_POLICY_DOCKER_TEST=1` | | PostgreSQL | verifies its own volume removal |
+| `tests/tenant-rest-authority-review.test.js` | `NS_REST_AUTHORITY_REVIEW_TEST=1` | | PostgreSQL | |
+| `tests/storage-port-contract.integration.test.js` | `NS_STORAGE_PORT_CONTRACT_DOCKER_TEST=1` | | PostgreSQL, MongoDB | `mongo:8.0` |
+| `tests/tenant-frame-acquisition.integration.test.js` | `NS_FRAME_ACQUISITION_TEST=1` | | PostgreSQL, MongoDB | `mongo:8.0.34` |
+| `tests/tenant-rest-client-replay.integration.test.js` | `NS_REST_CLIENT_REPLAY_TEST=1` | | PostgreSQL, Vault | spawns the shipping CLI as a child |
+| `tests/multitenant-preview-process.integration.test.js` | `NS_MULTITENANT_PREVIEW_PROCESS_DOCKER_TEST=1` | | PostgreSQL, Vault | spawns the shipping CLI as a child |
+
+Not opt-in suites, although their names suggest it: `NS_TEST_BACKEND` selects
+the storage backend for a whole run (`tests/support/backends.js`, tested by
+`tests/test-backends.test.js` in the `harness` tier), and
+`NS_TEST_MIGRATION_OPTIONS` carries options to a child process inside
+`postgres-migrations`.
+
+Every suite in the table runs under the one command; none is held out. The
+whole-corpus run is a batch-slot measurement, not a property of this page.
+
+The HTTP clock suite's performance benchmark stays pending unless the caller
+explicitly sets `NS_TENANT_COMMIT_CLOCK_BENCHMARK=1`. Its functional cases run by
+default with the corpus. One pending benchmark is therefore expected in a default
+whole-corpus run; it is not a skipped functional suite or performance acceptance.
+The runner reports pending counts and requires passing tests with no Mocha
+failure; it does not require zero pending tests. Do not reuse a pre-clock run's
+passing count or zero-pending prediction for this expanded inventory.
+
+## CI
+
+The `multitenant-postgres` job in `.github/workflows/main.yml` runs
+`npm run test:multitenant` on the newest Node line, on `ubuntu-22.04`, with no
+service containers: 29 suites start their own containers through Docker
+whatever the job provides, so the script starting the shared PostgreSQL, MongoDB
+and Vault the same way is the simpler arrangement. The job is one of the
+`Tests pass` aggregate's dependencies.
+
+
+## Populated PostgreSQL recovery reference
+
+The existing importer integration file also registers seven owned-container cases
+behind `NS_POPULATED_RECOVERY_DOCKER_TEST=1`. The default enabled corpus sets this
+flag; no extra benchmark or pending-as-pass is added. For a focused reference:
+
+```bash
+NODE_ENV=test TZ=UTC NS_POPULATED_RECOVERY_DOCKER_TEST=1 \
+  node node_modules/mocha/bin/mocha.js --fail-zero --exit --timeout 120000 \
+  tests/entries-importer-postgres.integration.test.js --grep 'populated PostgreSQL'
+```
+
+This source-prepared lab uses the actual operator migration runner and existing
+review-candidate entries catalogue, actual identity codec and string-only API
+importer. It stops writers before `pg_dump --format=custom` and restores into a
+fresh target using `pg_restore --single-transaction --exit-on-error`. Independent
+populated tenant/kind/document and ledger oracles, restricted read-only migration
+checking, truncated/schema-only snapshots, typed-kind corruption, paired RLS break,
+failed dump selection and importer interruption/rerun are exercised by the cases.
+The lab uses two specifically owned loopback-only PostgreSQL16 containers with
+tmpfs data directories, random credentials and private0700/0600 scratch files;
+teardown checks labels/mount identity and verifies owned resource absence.
+
+**Source prepared; database execution UNMEASURED.** The catalogue remains a review
+candidate; this is not deployment/schema certification or a production backup tool.
+Dump ownership/ACLs are deliberately excluded and separate restricted application
+privileges are recreated in the target; no production privilege fidelity claim.
+No Vault/provider key recovery, live-write snapshot, Mongo snapshot, operational
+activation/deletion, numeric budget or full M6 acceptance follows from this lab.
+
+D6 and joined capability inventory additions:
+
+| suite | enablement | resources | scope |
+|---|---|---|---|
+| `tests/api-fixed-roster.integration.test.js` | `NS_API_ROSTER_DOCKER_TEST=1` | owned PostgreSQL | exact-instance API restore census and omitted/service-aliased/stopped-replica controls |
+| `tests/registry-human-session.integration.test.js` | disposable `NS_TEST_POSTGRES_ADMIN_URI`, `NS_VAULT_DOCKER_TEST=1` | shared disposable PostgreSQL, fixture-owned Vault | registry human-only signing purposes, revocation and wrong-tenant refusal |
+
+Realtime placement focused native suite `realtime-placement-owner.integration.test.js`
+is registered in the enabled corpus; it uses disposable PostgreSQL. It checks the exact
+static ordinal census, duplicate and mixed-K refusal, owner loss and same-ordinal
+replacement. The retired native sharding suite (real API, evaluator and realtime
+participants fed by the retired stream) is deleted: `tenant-slice-ownership.test.js`
+checks that every tenant is owned exactly once at K = 1, 2, 4 and 8 in the evaluator
+and in realtime, and the placement, storage-hint, live-add and activity suites carry the
+rest (E6 verdict table in the lane's evidence).
+It does not claim a full restore campaign or horizontal capacity measurement.

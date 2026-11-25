@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_pool_membership",
+      "up": [
+        "CREATE TABLE pool_membership (pool_kind text NOT NULL CHECK (pool_kind ~ '^[a-z][a-z0-9]{0,31}$'), ordinal integer NOT NULL CHECK (ordinal >= 0), member_id uuid NOT NULL, expected_members integer NOT NULL CHECK (expected_members BETWEEN 1 AND 1024), slice_rule text NOT NULL CHECK (slice_rule IN ('sha256-modulo-v1')), registered_at timestamptz NOT NULL, heartbeat_at timestamptz NOT NULL, lease_expires_at timestamptz NOT NULL, CHECK (ordinal < expected_members), CHECK (heartbeat_at >= registered_at), CHECK (lease_expires_at > heartbeat_at), PRIMARY KEY (pool_kind, ordinal, member_id))",
+        "CREATE INDEX pool_membership_live ON pool_membership (pool_kind, lease_expires_at)",
+        "REVOKE ALL ON pool_membership FROM PUBLIC"
+      ],
+      "checksum": "a846013a285239732d9b944228c4f95f327e671f157975ab8a73690b9b27e26a"
+    },
+    {
+      "name": "0002_pool_desired_count",
+      "up": [
+        "ALTER TABLE pool_membership DROP COLUMN expected_members",
+        "ALTER TABLE pool_membership ADD COLUMN applied_members integer CHECK (applied_members BETWEEN 1 AND 1024)",
+        "ALTER TABLE pool_membership ADD CONSTRAINT pool_membership_ordinal_bound CHECK (ordinal < 1024)",
+        "CREATE TABLE pool_desired (pool_kind text PRIMARY KEY CHECK (pool_kind ~ '^[a-z][a-z0-9]{0,31}$'), members integer NOT NULL CHECK (members BETWEEN 1 AND 1024), previous_members integer CHECK (previous_members BETWEEN 1 AND 1024), slice_rule text NOT NULL CHECK (slice_rule IN ('sha256-modulo-v1')), revision bigint NOT NULL CHECK (revision >= 1), updated_at timestamptz NOT NULL)",
+        "REVOKE ALL ON pool_desired FROM PUBLIC"
+      ],
+      "checksum": "270e38ac8a6bc15b876ba63d0f150e44dc287a87b15e5d3e328e5bbdad4b59dc"
+    },
+    {
+      "name": "0003_pool_mutation_protocol",
+      "up": [
+        "CREATE FUNCTION pool_mutation_lock_required() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $pool_mutation$\nDECLARE\n  kind text;\n  bytes bytea;\n  high_key oid;\n  low_key oid;\nBEGIN\n  IF TG_OP='UPDATE' AND NEW.pool_kind IS DISTINCT FROM OLD.pool_kind THEN\n    RAISE EXCEPTION 'POOL_KIND_IMMUTABLE' USING ERRCODE='55000';\n  END IF;\n  IF TG_OP='DELETE' THEN kind:=OLD.pool_kind; ELSE kind:=NEW.pool_kind; END IF;\n  bytes:=sha256(convert_to('nightscout:pool-membership:xact:v1:'||TG_TABLE_SCHEMA||':'||kind,'UTF8'));\n  high_key:=((get_byte(bytes,0)::bigint<<24)+(get_byte(bytes,1)::bigint<<16)+(get_byte(bytes,2)::bigint<<8)+get_byte(bytes,3))::oid;\n  low_key:=((get_byte(bytes,4)::bigint<<24)+(get_byte(bytes,5)::bigint<<16)+(get_byte(bytes,6)::bigint<<8)+get_byte(bytes,7))::oid;\n  IF NOT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) AND pid=pg_backend_pid() AND classid=high_key AND objid=low_key AND objsubid=2 AND mode='ExclusiveLock' AND granted) THEN\n    RAISE EXCEPTION 'POOL_MUTATION_PROTOCOL_REQUIRED' USING ERRCODE='55000';\n  END IF;\n  IF TG_OP='DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$pool_mutation$",
+        "CREATE TRIGGER pool_mutation_protocol BEFORE INSERT OR UPDATE OR DELETE ON pool_membership FOR EACH ROW EXECUTE FUNCTION pool_mutation_lock_required()",
+        "ALTER TABLE pool_membership ENABLE ALWAYS TRIGGER pool_mutation_protocol",
+        "CREATE TRIGGER pool_mutation_protocol BEFORE INSERT OR UPDATE OR DELETE ON pool_desired FOR EACH ROW EXECUTE FUNCTION pool_mutation_lock_required()",
+        "ALTER TABLE pool_desired ENABLE ALWAYS TRIGGER pool_mutation_protocol"
+      ],
+      "checksum": "7c0b73cd5e3740a0dea65f23e79385cefc34f470edcfd0c2a796d2beeed10f36"
+    },
+    {
+      "name": "0004_pool_mutation_function_execution",
+      "up": [
+        "REVOKE EXECUTE ON FUNCTION pool_mutation_lock_required() FROM PUBLIC"
+      ],
+      "checksum": "fb9d714a8c9f9cf7d0e9847cff15a0159bfb24da0d3756d824713d7abf1ee7a4"
+    }
+  ]
+}

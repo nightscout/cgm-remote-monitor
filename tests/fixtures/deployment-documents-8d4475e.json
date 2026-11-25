@@ -1,0 +1,383 @@
+{
+ "source": "nightscout-deploy 8d4475e bindings/compose/multitenant/config.js documents(), prefix nsdemo, platformVerification and participants removed, pgstream generation removed (seeded as NS_PGSTREAM_GENERATION)",
+ "configs": {
+  "api": {
+   "version": 1,
+   "domains": [
+    "entries",
+    "treatments",
+    "devicestatus",
+    "profile",
+    "food",
+    "activity",
+    "settings"
+   ],
+   "legacy": true,
+   "context": true,
+   "writeClock": true,
+   "subjectAdmin": {
+    "writerConnectionEnv": "NS_API_ROOT_WRITER_PG",
+    "ownerPolicy": {
+     "catalogue": [
+      "*"
+     ]
+    }
+   },
+   "postgres": {
+    "connectionEnv": "NS_API_PG",
+    "readinessConnectionEnv": "NS_READINESS_PG",
+    "namespaces": {
+     "entries": "nsdemo_entries",
+     "treatments": "nsdemo_treatments",
+     "devicestatus": "nsdemo_devicestatus",
+     "profile": "nsdemo_profile",
+     "food": "nsdemo_food",
+     "activity": "nsdemo_activity",
+     "settings": "nsdemo_settings",
+     "authorization": "nsdemo_authorization",
+     "secrets": "nsdemo_secrets",
+     "legacy": "nsdemo_legacy",
+     "access": "nsdemo_access",
+     "clock": "nsdemo_clock"
+    }
+   },
+   "vault": {
+    "address": "https://vault.example.test:8200",
+    "mount": "nsdemo_transit",
+    "timeoutMs": 5000,
+    "tokenFile": "/run/ns-config/vault-token"
+   },
+   "resolution": {
+    "mode": "direct-alias"
+   },
+   "accessTokens": {
+    "issuer": "nightscout-compose-demo",
+    "audience": "nightscout-data"
+   },
+   "socketForwarding": {
+    "maxTenants": 10000,
+    "maxMessageBytes": 1048576,
+    "operationTimeoutMs": 5000,
+    "alarm": {
+     "connectionEnv": "NS_ALARM_PG",
+     "namespace": "nsdemo_alarm"
+    },
+    "consumerState": {
+     "evaluatorConfigEnv": "MULTITENANT_EVALUATOR_CONFIG"
+    }
+   },
+   "registry": {
+    "namespace": "nsdemo_registry",
+    "refreshMs": 2000
+   },
+   "tenantSettings": {
+    "connectionEnv": "NS_DISPLAY_PG",
+    "namespaces": {
+     "settings": "nsdemo_display_settings",
+     "operatorPolicy": "nsdemo_operator_policy"
+    }
+   },
+   "activity": {
+    "namespace": "nsdemo_control"
+   },
+   "localDataAuthentication": "node"
+  },
+  "realtime": {
+   "version": 1,
+   "postgres": {
+    "connectionEnv": "NS_REALTIME_PG",
+    "namespaces": {
+     "clock": "nsdemo_clock",
+     "checkpoint": "nsdemo_rt_checkpoint"
+    }
+   },
+   "consumer": "realtime-compose-demo",
+   "maxRows": 10000,
+   "maxBytes": 8388608,
+   "maxMessageBytes": 1048576,
+   "operationTimeoutMs": 5000,
+   "authorizationRecheckMs": 30000,
+   "registry": {
+    "namespace": "nsdemo_registry",
+    "refreshMs": 2000
+   },
+   "tenantSettings": {
+    "connectionEnv": "NS_DISPLAY_PG",
+    "namespaces": {
+     "settings": "nsdemo_display_settings",
+     "operatorPolicy": "nsdemo_operator_policy"
+    }
+   },
+   "activity": {
+    "namespace": "nsdemo_control"
+   },
+   "trustedWorker": {
+    "activity": "nsdemo_control",
+    "clock": "nsdemo_clock",
+    "settings": "nsdemo_display_settings",
+    "operatorPolicy": "nsdemo_operator_policy"
+   },
+   "completedOutput": {
+    "namespace": "nsdemo_eval_checkpoint",
+    "consumer": "evaluator-compose-demo"
+   }
+  },
+  "evaluator": {
+   "version": 1,
+   "datastore": {
+    "hostname": "postgres",
+    "port": 5432,
+    "database": "nightscout"
+   },
+   "postgres": {
+    "connectionEnv": "NS_EVALUATOR_PG",
+    "namespaces": {
+     "entries": "nsdemo_entries",
+     "treatments": "nsdemo_treatments",
+     "devicestatus": "nsdemo_devicestatus",
+     "profile": "nsdemo_profile",
+     "food": "nsdemo_food",
+     "activity": "nsdemo_activity",
+     "clock": "nsdemo_clock",
+     "checkpoint": "nsdemo_eval_checkpoint"
+    }
+   },
+   "consumer": "evaluator-compose-demo",
+   "pageSize": 100,
+   "maxRows": 10000,
+   "maxBytes": 8388608,
+   "timeIntervalMs": 60000,
+   "socketOrderDomains": [
+    "treatments",
+    "devicestatus",
+    "profile"
+   ],
+   "consumers": {
+    "realtime": {
+     "outbox": {
+      "connectionEnv": "NS_OUTBOX_PG",
+      "namespace": "nsdemo_outbox",
+      "maxRows": 10000,
+      "maxBytes": 8388608,
+      "maxConnections": 2
+     },
+     "suppression": {
+      "connectionEnv": "NS_SUPPRESSION_PG",
+      "namespace": "nsdemo_alarm",
+      "maxRows": 10000,
+      "maxBytes": 8388608,
+      "maxConnections": 2
+     },
+     "route": {
+      "id": "realtime-compose-demo",
+      "maxMessageBytes": 1048576,
+      "operationTimeoutMs": 5000
+     },
+     "maxPayloadBytes": 524288,
+     "maxInflight": 4,
+     "attemptTimeoutMs": 10000,
+     "retryDelayMs": 1000,
+     "pollIntervalMs": 1000,
+     "retryIntervalMs": 1000
+    }
+   },
+   "registry": {
+    "namespace": "nsdemo_registry",
+    "refreshMs": 2000
+   },
+   "tenantSettings": {
+    "connectionEnv": "NS_DISPLAY_PG",
+    "namespaces": {
+     "settings": "nsdemo_display_settings",
+     "operatorPolicy": "nsdemo_operator_policy"
+    }
+   },
+   "activity": {
+    "connectionEnv": "NS_ACTIVITY_PG",
+    "namespace": "nsdemo_control"
+   },
+   "trustedWorker": {
+    "activity": "nsdemo_control",
+    "clock": "nsdemo_clock",
+    "settings": "nsdemo_display_settings",
+    "operatorPolicy": "nsdemo_operator_policy"
+   },
+   "pgstream": {
+    "receiver": {
+     "url": "http://evaluator:19913/",
+     "trust": "network",
+     "bindHost": "0.0.0.0",
+     "maxBytes": 16777216,
+     "timeoutMs": 5000
+    },
+    "transactionRows": 10000,
+    "slot": "nsdemo_pgstream",
+    "streamRole": "nsdemo_pgstream",
+    "startupTransport": {
+     "timeoutMs": 300000,
+     "retryIntervalMs": 50
+    },
+    "recovery": {
+     "connectionEnv": "NS_STREAM_RECOVERY_PG",
+     "timeoutMs": 5000,
+     "maxQueued": 32
+    },
+    "bounds": {
+     "stepMs": 5000,
+     "recoveryMs": 30000,
+     "pendingMs": 30000
+    }
+   }
+  },
+  "tenant-admin": {
+   "version": 1,
+   "postgres": {
+    "writerConnectionEnv": "NS_OWNER_WRITER_PG",
+    "accessConnectionEnv": "NS_OWNER_READER_PG",
+    "namespaces": {
+     "authorization": "nsdemo_authorization",
+     "credentials": "nsdemo_legacy",
+     "access": "nsdemo_access"
+    }
+   },
+   "ownerPolicy": {
+    "catalogue": [
+     "*"
+    ]
+   },
+   "resolution": {
+    "mode": "direct-alias"
+   },
+   "management": {
+    "issuer": "nightscout-compose-management",
+    "audience": "nightscout-management",
+    "purpose": "management",
+    "consumer": "compose-owner",
+    "maxLifetimeSeconds": 600
+   },
+   "registry": {
+    "namespace": "nsdemo_registry",
+    "refreshMs": 2000
+   },
+   "ownerCredentials": {
+    "connectionEnv": "NS_OWNER_CREDENTIALS_PG",
+    "namespace": "nsdemo_secrets",
+    "vault": {
+     "address": "https://vault.example.test:8200",
+     "mount": "nsdemo_transit",
+     "timeoutMs": 5000,
+     "tokenFile": "/run/ns-config/vault-token"
+    }
+   }
+  }
+ },
+ "admin": {
+  "version": 1,
+  "maxBytes": 1048576,
+  "timeoutMs": 60000,
+  "managementSessions": {
+   "connectionEnv": "NS_MANAGEMENT_SESSIONS_PG",
+   "namespaces": {
+    "registry": "nsdemo_registry",
+    "authorization": "nsdemo_authorization",
+    "access": "nsdemo_access",
+    "control": "nsdemo_control"
+   },
+   "issuer": "nightscout-compose-management",
+   "audience": "nightscout-management",
+   "consumer": "compose-owner",
+   "maxLifetimeSeconds": 600,
+   "vault": {
+    "address": "https://vault.example.test:8200",
+    "mount": "nsdemo_transit",
+    "tokenFile": "/run/ns-config/management-vault-token",
+    "timeoutMs": 10000
+   },
+   "operator": {
+    "principal": "compose-operator",
+    "consumer": "compose-management"
+   }
+  },
+  "ownership": {
+   "connectionEnv": "NS_OWNERSHIP_PG",
+   "namespace": "nsdemo_authorization",
+   "lifecycleNamespace": "nsdemo_control",
+   "registry": {
+    "namespace": "nsdemo_registry",
+    "refreshMs": 2000
+   },
+   "operator": {
+    "principal": "compose-operator",
+    "consumer": "compose-ownership"
+   }
+  },
+  "connectorSources": {
+   "connectionEnv": "NS_CONNECTOR_SOURCES_PG",
+   "namespaces": {
+    "settings": "nsdemo_display_settings",
+    "registry": "nsdemo_registry",
+    "secrets": "nsdemo_secrets",
+    "control": "nsdemo_control"
+   },
+   "operator": {
+    "principal": "compose-operator",
+    "consumer": "compose-connectors"
+   }
+  },
+  "provisioning": {
+   "connectionEnv": "NS_PROVISIONER_PG",
+   "namespaces": {
+    "registry": "nsdemo_registry",
+    "legacy": "nsdemo_legacy",
+    "secrets": "nsdemo_secrets",
+    "authorization": "nsdemo_authorization",
+    "access": "nsdemo_access",
+    "clock": "nsdemo_clock",
+    "control": "nsdemo_control",
+    "settings": "nsdemo_display_settings",
+    "operatorPolicy": "nsdemo_operator_policy"
+   },
+   "checkpoints": [
+    {
+     "namespace": "nsdemo_rt_checkpoint",
+     "consumer": "realtime-compose-demo",
+     "digest": "5ccb4ca3b91eb409888abc47767e9ac42bc356f964097c09702a0748f64a3b42"
+    },
+    {
+     "namespace": "nsdemo_eval_checkpoint",
+     "consumer": "evaluator-compose-demo",
+     "digest": "ecfd959bbd8fad525dab9d27096fa889c16a928fcc19694564f507a75cce46b0"
+    },
+    {
+     "namespace": "nsdemo_eval_checkpoint",
+     "consumer": "evaluator-compose-demo-completed",
+     "digest": "bfeeefc290016c52a1a66cd06ce511b06015fa3f27e5ad34ea18a50c142de1e4"
+    }
+   ],
+   "vault": {
+    "address": "https://vault.example.test:8200",
+    "mount": "nsdemo_transit",
+    "tokenFile": "/run/ns-config/vault-token",
+    "timeoutMs": 10000
+   },
+   "ownerPolicy": {
+    "catalogue": [
+     "*"
+    ]
+   },
+   "operator": {
+    "principal": "compose-operator",
+    "consumer": "compose-provisioning"
+   }
+  }
+ },
+ "operation": {
+  "version": 2,
+  "namespace": "nsdemo_control",
+  "connectionEnv": "NS_LIFETIME_PG",
+  "leaseSessions": 4,
+  "registry": {
+   "namespace": "nsdemo_registry"
+  }
+ }
+}

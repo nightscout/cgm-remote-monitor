@@ -1,0 +1,1431 @@
+{
+  "id": "evaluator-inspection",
+  "version": 3,
+  "operations": {
+    "inspectEvaluator": {
+      "path": "/evaluator/inspect",
+      "request": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "tenants": {
+            "type": "array",
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "diagnostics": {
+            "enum": [
+              "clinical-result-v1",
+              "pending-witness-v1",
+              "source-access-v1"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "diagnostics": false
+            }
+          },
+          {
+            "properties": {
+              "diagnostics": {
+                "const": "clinical-result-v1"
+              },
+              "tenants": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "required": [
+              "diagnostics",
+              "tenants"
+            ]
+          },
+          {
+            "properties": {
+              "diagnostics": {
+                "const": "pending-witness-v1"
+              },
+              "tenants": {
+                "type": "array",
+                "minItems": 1
+              }
+            },
+            "required": [
+              "diagnostics",
+              "tenants"
+            ]
+          },
+          {
+            "properties": {
+              "diagnostics": {
+                "const": "source-access-v1"
+              }
+            },
+            "required": [
+              "diagnostics"
+            ]
+          }
+        ]
+      },
+      "response": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "evaluator"
+          },
+          "configured": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "standalone",
+                  "partitioned",
+                  "static"
+                ]
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1023
+              },
+              "rule": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "const": "sha256-modulo-v1"
+                  }
+                ]
+              },
+              "leaseMs": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 600000
+                  }
+                ]
+              },
+              "configuredTenants": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1024,
+                "description": "Immutable configured slice count in static mode; does not assert peer liveness."
+              }
+            },
+            "required": [
+              "mode",
+              "ordinal",
+              "rule",
+              "leaseMs",
+              "configuredTenants"
+            ],
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "properties": {
+                  "mode": {
+                    "const": "static"
+                  }
+                },
+                "required": [
+                  "count"
+                ]
+              },
+              {
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "standalone",
+                      "partitioned"
+                    ]
+                  },
+                  "count": false
+                }
+              }
+            ]
+          },
+          "observed": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "desiredMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "previousMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "revision": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    ]
+                  },
+                  "effectiveMembers": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1024
+                      }
+                    ]
+                  },
+                  "switching": {
+                    "type": "boolean"
+                  },
+                  "liveOrdinals": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 1024,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        }
+                      }
+                    ]
+                  },
+                  "missingOrdinals": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "array",
+                        "maxItems": 1024,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        }
+                      }
+                    ]
+                  },
+                  "conflicts": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    }
+                  },
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                      }
+                    ]
+                  },
+                  "rows": {
+                    "type": "array",
+                    "maxItems": 4096,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "ordinal": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1023
+                        },
+                        "self": {
+                          "type": "boolean"
+                        },
+                        "live": {
+                          "type": "boolean"
+                        },
+                        "appliedMembers": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 1024
+                            }
+                          ]
+                        },
+                        "heartbeatAgeMs": {
+                          "type": "integer"
+                        },
+                        "leaseRemainingMs": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "ordinal",
+                        "self",
+                        "live",
+                        "appliedMembers",
+                        "heartbeatAgeMs",
+                        "leaseRemainingMs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "desiredMembers",
+                  "previousMembers",
+                  "revision",
+                  "effectiveMembers",
+                  "switching",
+                  "liveOrdinals",
+                  "missingOrdinals",
+                  "conflicts",
+                  "reason",
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "gate": {
+            "type": "object",
+            "properties": {
+              "eligible": {
+                "type": "boolean"
+              },
+              "reason": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                  }
+                ]
+              },
+              "members": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1024
+                  }
+                ],
+                "description": "Configured slice count for static mode; observed peer liveness remains unknown."
+              },
+              "reads": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "refusals": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "changes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "checkedAgeMs": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                ]
+              },
+              "heartbeats": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "renewed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "failed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastReason": {
+                        "anyOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "renewed",
+                      "failed",
+                      "lastReason"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "eligible",
+              "reason",
+              "members",
+              "reads",
+              "refusals",
+              "changes",
+              "checkedAgeMs",
+              "heartbeats"
+            ],
+            "additionalProperties": false
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 100000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "assignedOrdinal": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1023
+                    }
+                  ]
+                },
+                "admitted": {
+                  "type": "boolean"
+                },
+                "code": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                    }
+                  ]
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "cycles": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "outputRevision": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  ]
+                },
+                "inputCheckpoint": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  ]
+                },
+                "delivery": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "starting",
+                            "pending",
+                            "handoff-accepted",
+                            "idle",
+                            "inactive",
+                            "refused"
+                          ]
+                        },
+                        "code": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+                            }
+                          ]
+                        },
+                        "passes": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "repeatAt": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "code",
+                        "passes",
+                        "repeatAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "evaluation": {
+                  "description": "Time since this tenant's evaluation was last confirmed current (an acquisition, a time-only cycle, or a backstop check that found nothing changed), since the runtime started if never; and the scheduler's alert when that exceeds its bound.",
+                  "type": "object",
+                  "properties": {
+                    "ageMs": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    },
+                    "alert": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "const": "EVALUATOR_NOT_EVALUATED_WITHIN_BOUND"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ageMs",
+                    "alert"
+                  ],
+                  "additionalProperties": false
+                },
+                "progress": {
+                  "type": "object",
+                  "properties": {
+                    "generation": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "completedAcquisitions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "completedTimeCycles": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "failedCompletions": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastCompletedAgeMs": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    },
+                    "failureReasons": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Count of failed completions by closed reason; the values sum to failedCompletions.",
+                      "type": "object",
+                      "properties": {
+                        "verification-pending": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "startup-warming": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "worker-unavailable": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "worker-generation": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "platform-unready": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "scope-mismatch": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "authority": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "unknown": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "verification-pending",
+                        "startup-warming",
+                        "worker-unavailable",
+                        "worker-generation",
+                        "platform-unready",
+                        "scope-mismatch",
+                        "authority",
+                        "unknown"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unresolvedFailure": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Null, or the oldest failed completion not yet followed by a credited completion.",
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "reason": {
+                              "enum": [
+                                "verification-pending",
+                                "startup-warming",
+                                "worker-unavailable",
+                                "worker-generation",
+                                "platform-unready",
+                                "scope-mismatch",
+                                "authority",
+                                "unknown"
+                              ]
+                            },
+                            "ageMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "reason",
+                            "ageMs"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "maxFailureResolutionMs": {
+                      "description": "Optional (contract evaluator-failure-reasons-v1). Null, or the longest failed-completion to next credited completion interval in this process.",
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "generation",
+                    "completedAcquisitions",
+                    "completedTimeCycles",
+                    "failedCompletions",
+                    "lastCompletedAgeMs"
+                  ],
+                  "additionalProperties": false
+                },
+                "dueAt": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  ]
+                },
+                "dueReason": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9:,_-]{0,127}$",
+                      "maxLength": 128
+                    }
+                  ]
+                },
+                "jobs": {
+                  "type": "object",
+                  "properties": {
+                    "running": {
+                      "type": "boolean"
+                    },
+                    "booting": {
+                      "type": "boolean"
+                    },
+                    "acquire": {
+                      "type": "boolean"
+                    },
+                    "time": {
+                      "type": "boolean"
+                    },
+                    "parentAcquire": {
+                      "type": "boolean"
+                    },
+                    "parentTime": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "running",
+                    "booting",
+                    "acquire",
+                    "time",
+                    "parentAcquire",
+                    "parentTime"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "tenant",
+                "assignedOrdinal",
+                "admitted",
+                "code",
+                "ready",
+                "cycles",
+                "outputRevision",
+                "inputCheckpoint",
+                "delivery",
+                "progress",
+                "dueAt",
+                "dueReason",
+                "jobs"
+              ],
+              "additionalProperties": false,
+              "anyOf": [
+                {
+                  "properties": {
+                    "dueAt": {
+                      "type": "null"
+                    },
+                    "dueReason": {
+                      "type": "null"
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "dueAt": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "startup": {
+            "description": "Tenant startup readiness (lib/server/serve/tenant-startup.js health(); decision readiness-serve-then-warm).",
+            "type": "object",
+            "properties": {
+              "readiness": {
+                "enum": [
+                  "all",
+                  "serve"
+                ]
+              },
+              "configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "warming": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "queued": {
+                "description": "Present only with opt-in bounded cold admission; initialization has not started.",
+                "type": "integer",
+                "minimum": 0
+              },
+              "cold": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deferred": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "alerts": {
+                "type": "array",
+                "maxItems": 100000,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tenant": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "cause": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tenant",
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "readiness",
+              "configured",
+              "ready",
+              "warming",
+              "cold",
+              "deferred",
+              "failed",
+              "alerts"
+            ],
+            "additionalProperties": false
+          },
+          "registry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "revision",
+              "configured",
+              "active",
+              "waiting"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9]{1,19}$"
+              },
+              "configured": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "active": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "waiting": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "runtimeId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "diagnostics": {
+            "type": "object",
+            "properties": {
+              "clinicalResults": {
+                "type": "object",
+                "properties": {
+                  "authority": {
+                    "const": "cached-result-only"
+                  },
+                  "tenants": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 128,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tenant": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "status": {
+                          "enum": [
+                            "no-model",
+                            "retained-ineligible",
+                            "eligible-model"
+                          ]
+                        },
+                        "generation": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "outputRevision": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          ]
+                        },
+                        "inputCheckpoint": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          ]
+                        },
+                        "lastCompletedAgeMs": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          ]
+                        },
+                        "retainedModelAt": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0
+                            }
+                          ]
+                        },
+                        "bgNow": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "meanPresent": {
+                                  "type": "boolean"
+                                },
+                                "meanFinite": {
+                                  "type": "boolean"
+                                },
+                                "mills": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "number",
+                                      "minimum": 0
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "meanPresent",
+                                "meanFinite",
+                                "mills"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "tenant",
+                        "status",
+                        "generation",
+                        "outputRevision",
+                        "inputCheckpoint",
+                        "lastCompletedAgeMs",
+                        "retainedModelAt",
+                        "bgNow"
+                      ],
+                      "additionalProperties": false,
+                      "oneOf": [
+                        {
+                          "properties": {
+                            "status": {
+                              "const": "no-model"
+                            },
+                            "outputRevision": {
+                              "type": "null"
+                            },
+                            "inputCheckpoint": {
+                              "type": "null"
+                            },
+                            "retainedModelAt": {
+                              "type": "null"
+                            },
+                            "bgNow": {
+                              "type": "null"
+                            }
+                          }
+                        },
+                        {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "retained-ineligible",
+                                "eligible-model"
+                              ]
+                            },
+                            "outputRevision": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "bgNow": {
+                              "type": "object"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "authority",
+                  "tenants"
+                ],
+                "additionalProperties": false
+              },
+              "pendingWitness": {
+                "type": "object",
+                "properties": {
+                  "tenants": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 128,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tenant": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                        },
+                        "memory": {
+                          "type": "object",
+                          "properties": {
+                            "pendingSince": {
+                              "anyOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              ]
+                            },
+                            "pendingEpoch": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "marksDuringCycle": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 64
+                            },
+                            "pendingAgeMs": {
+                              "anyOf": [
+                                {
+                                  "type": "null"
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": 0
+                                }
+                              ]
+                            },
+                            "expired": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "pendingSince",
+                            "pendingEpoch",
+                            "marksDuringCycle",
+                            "pendingAgeMs",
+                            "expired"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "durable": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "pendingAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  ]
+                                },
+                                "nextDueAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    }
+                                  ]
+                                },
+                                "observed": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "completed": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "observedAt": {
+                                  "type": "object",
+                                  "properties": {
+                                    "clock": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "settings": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "policy": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "activity": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "lifecycle": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    },
+                                    "bootstrap": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                "outputRevision": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9][0-9]{0,18})$"
+                                }
+                              },
+                              "required": [
+                                "pendingAt",
+                                "nextDueAt",
+                                "observed",
+                                "completed",
+                                "observedAt",
+                                "outputRevision"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "tenant",
+                        "memory",
+                        "durable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "tenants"
+                ],
+                "additionalProperties": false
+              },
+              "sourceAccess": {
+                "type": "object",
+                "properties": {
+                  "snapshotAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "snapshotCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "catalogueAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "catalogueCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dataAttempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "dataCompleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "residentTenants": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "residentEncodedBytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "evictions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "snapshotAttempts",
+                  "snapshotCompleted",
+                  "catalogueAttempts",
+                  "catalogueCompleted",
+                  "dataAttempts",
+                  "dataCompleted",
+                  "residentTenants",
+                  "residentEncodedBytes",
+                  "evictions"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "clinicalResults"
+                ]
+              },
+              {
+                "required": [
+                  "pendingWitness"
+                ]
+              },
+              {
+                "required": [
+                  "sourceAccess"
+                ]
+              }
+            ],
+            "minProperties": 1,
+            "maxProperties": 1
+          },
+          "failureReasonContract": {
+            "description": "Optional. Present when every progress row carries typed failure reasons under this vocabulary.",
+            "const": "evaluator-failure-reasons-v1"
+          }
+        },
+        "required": [
+          "kind",
+          "configured",
+          "observed",
+          "gate",
+          "tenants",
+          "runtimeId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

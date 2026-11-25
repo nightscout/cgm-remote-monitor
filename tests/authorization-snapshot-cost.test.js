@@ -1,0 +1,139 @@
+'use strict';
+
+// Operation-local reuse only: current SQL authority is read for every request.
+// Synthetic row protocol tests count work; native authorization tests prove RLS.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const Module = require('node:module');
+const vm = require('node:vm');
+const createSocketAuthority = require('../lib/server/realtime/authority').create;
+const createDataAccess = require('../lib/server/tenant-app/data-access');
+const A = '11111111-1111-4111-8111-111111111111';
+const B = '22222222-2222-4222-8222-222222222222';
+
+async function fixture (tries = { built: 0 }) {
+  const states = new Map([[A, ['readable']], [B, ['denied']]]), queries = [], subjects = new Map();
+  const file = require.resolve('../lib/tenant-authorization/postgres');
+  const realRequire = Module.createRequire(file), output = { exports: {} };
+  const connection = {
+    async withTenant (tenant, fn) { return fn(); }, async end () {},
+    async query (text, values) {
+      if (text.includes('FROM pg_class')) return { rows: Array.from({ length: 4 }, () =>
+        ({ secured: true, owns: false, reads: true, writes: false, column_reads: true })) };
+      queries.push({ tenant: values[0], subject: values[1] });
+      if (text.includes('s.subject_id, s.display_name')) return { rows: subjects.get(values[0]) || [] };
+      return { rows: states.has(values[0]) ? [{ anonymous_roles: states.get(values[0]), found_subject: null,
+        role_name: null, found_role: null, permissions: null }] : [] };
+    }
+  };
+  const requireMock = name => name === '../storage/postgres-connection' ? async () => connection
+    : name === '../storage/tenant-scope' ? { getTenancyMode: () => 'multi' }
+    : name === 'shiro-trie' ? { new: () => { tries.built++; return realRequire(name).new(); } } : realRequire(name);
+  vm.runInNewContext('(function(require,module,exports){' + fs.readFileSync(file, 'utf8') + '\n})', {}, { filename: file })(requireMock, output, output.exports);
+  const authority = await output.exports({ connectionString: 'synthetic', namespace: 'synthetic_auth' });
+  const socket = principal => createSocketAuthority({ authority,
+    secrets: { async verifyLegacyCredential () { return principal; } },
+    verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
+  return { states, queries, authority, socket, subjects };
+}
+
+describe('operation-local authorization snapshots', function () {
+  // Control: the compiled Shiro trie is shared per permission set; the
+  // authority rows are still read in every operation's own query, so a
+  // revocation is refused on the next operation.
+  it('compiles a permission set once across operations and still reads authority for every operation', async function () {
+    const tries = { built: 0 }, f = await fixture(tries), socket = f.socket({ kind: 'anonymous' });
+    const verify = tenant => socket.verify({ tenant, namespace: '/', credential: {} });
+    for (let i = 0; i < 20; i++) assert.equal((await verify(A)).permissions.read, true);
+    assert.equal(f.queries.length, 20, 'one authority query per operation');
+    assert.equal(tries.built, 1, 'AUTHZ_TRIE_PER_REQUEST ' + tries.built);
+    f.states.set(A, ['denied']);
+    assert.equal((await verify(A)).permissions.read, false, 'revocation refused on the next operation');
+  });
+
+  it('does one current SQL query for every root or anonymous socket decision, with no per-permission queries', async function () {
+    for (const principal of [{ kind: 'anonymous' }, { kind: 'root' }]) {
+      const f = await fixture();
+      const actor = await f.socket(principal).verify({ tenant: A, namespace: '/', credential: {} });
+      assert.equal(f.queries.length, 1, 'AUTHZ_SOCKET_ONE_QUERY');
+      assert.equal(actor.permissions.read, true);
+      assert.equal(actor.permissions.write, principal.kind === 'root');
+      assert.equal(actor.permissions.ack, principal.kind === 'root');
+      assert.equal(actor.collections.length, 6);
+    }
+  });
+
+  it('detects revocation on the next operation and separates simultaneous tenants', async function () {
+    const f = await fixture(), socket = f.socket({ kind: 'anonymous' });
+    const verify = tenant => socket.verify({ tenant, namespace: '/', credential: {} });
+    assert.equal((await verify(A)).permissions.read, true);
+    f.states.set(A, ['denied']);
+    const actors = await Promise.all([verify(A), verify(B)]);
+    assert.deepEqual(actors.map(actor => actor.permissions.read), [false, false]);
+    assert.equal(f.queries.length, 3, 'every independent operation reads authority again');
+    f.states.set(B, ['readable']);
+    const restored = await Promise.all([verify(A), verify(B)]);
+    assert.deepEqual(restored.map(actor => actor.permissions.read), [false, true]);
+  });
+
+  it('keeps anonymous write floors and validates permissions and unknown authority', async function () {
+    const f = await fixture();
+    const snapshot = await f.authority.permissionSnapshot({ tenant: A, principal: { kind: 'anonymous' } });
+    for (const permission of ['api:entries:create', '*:*:write', 'notifications:*:ack']) assert.equal(snapshot.allows(permission), false);
+    assert.throws(() => snapshot.allows('bad permission'), { code: 'TENANT_AUTHORITY_PERMISSION_INVALID' });
+    await assert.rejects(f.authority.permissionSnapshot({ tenant: '33333333-3333-4333-8333-333333333333', principal: { kind: 'root' } }),
+      { code: 'TENANT_AUTHORITY_UNKNOWN' });
+  });
+
+  it('uses one fresh authority snapshot for REST discovery instead of a query for every advertised permission', async function () {
+    const f = await fixture();
+    const access = createDataAccess({ authority: f.authority,
+      secrets: { async verifyLegacyCredential () { return { kind: 'anonymous' }; } },
+      verifierContext: async tenant => ({ tenant, consumer: 'api' }), collections: ['entries', 'treatments'], safeRoutes: { 3: ['/status'] } });
+    const request = () => ({ path: '/status', method: 'GET', query: {}, rawHeaders: [] });
+    assert(await access({ tenant: A, request: request(), version: 3 }));
+    assert.equal(f.queries.length, 1, 'AUTHZ_DISCOVERY_ONE_QUERY');
+    f.states.set(A, ['denied']);
+    assert(await access({ tenant: A, request: request(), version: 3 }));
+    assert.equal(f.queries.length, 2, 'not shared between requests');
+  });
+
+  it('keeps claims override and anonymous permission union distinct, with fresh named authority', async function () {
+    const f = await fixture(), principal = { kind: 'subject', subjectId: 'subject' };
+    const row = { anonymous_roles: ['readable'], subject_id: 'subject', display_name: 'first',
+      role_name: 'readable', found_role: 'readable', permissions: [] };
+    f.subjects.set(A, [row]);
+    const first = await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal });
+    assert.equal(f.queries.length, 1);
+    assert.equal(JSON.stringify(first.subject.permissionGroups), '[[]]', 'explicit same-name role overrides claims');
+    assert.equal(first.allows('api:entries:read'), true, 'permission decisions union anonymous defaults');
+    f.subjects.set(A, [{ ...row, anonymous_roles: ['denied'], display_name: 'renamed' }]);
+    const next = await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal });
+    assert.equal(next.subject.sub, 'renamed');
+    assert.equal(next.allows('api:entries:read'), false, 'next operation observes revocation');
+    f.subjects.set(A, [{ ...row, subject_id: null, display_name: null }]);
+    assert.equal(await f.authority.subjectAuthorizationSnapshot({ tenant: A, principal }), null);
+    assert.equal(f.queries.length, 3);
+    assert.throws(() => next.allows('invalid permission'), { code: 'TENANT_AUTHORITY_PERMISSION_INVALID' });
+  });
+
+  it('has no per-permission path: an adapter without one snapshot per operation is refused', async function () {
+    const f = await fixture();
+    const authority = { ...f.authority }; delete authority.permissionSnapshot;
+    assert.throws(() => createSocketAuthority({ authority, secrets: { async verifyLegacyCredential () { return { kind: 'anonymous' }; } },
+      verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } }), TypeError);
+    assert.equal(f.queries.length, 0);
+  });
+
+  it('control: retaining a snapshot across requests permits revoked access and makes the refusal assertion red', async function () {
+    const f = await fixture(), saved = await f.authority.permissionSnapshot({ tenant: A, principal: { kind: 'anonymous' } });
+    const authority = { ...f.authority, permissionSnapshot: async () => saved };
+    const socket = createSocketAuthority({ authority, secrets: { async verifyLegacyCredential () { return { kind: 'anonymous' }; } },
+      verifierContext: async tenant => ({ tenant }), admission: { allows: async () => true } });
+    f.states.set(A, ['denied']);
+    const result = await socket.verify({ tenant: A, namespace: '/', credential: {} });
+    assert.equal(result.permissions.read, true, 'stale snapshot mutation actually permits the revoked read');
+    assert.throws(() => assert.equal(result.permissions.read, false, 'AUTHZ_NEXT_OPERATION_REVOKED'), /AUTHZ_NEXT_OPERATION_REVOKED/);
+    assert.equal((await f.socket({ kind: 'anonymous' }).verify({ tenant: A, namespace: '/', credential: {} })).permissions.read, false);
+  });
+});

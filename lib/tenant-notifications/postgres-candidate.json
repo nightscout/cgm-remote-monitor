@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "migrations": [
+    {
+      "name": "0001_tenant_notification_outbox",
+      "checksum": "fb87dbc786bef689cb33c35e15c0927bdec2f0f81dda173b3c40af1a4fb5c59d",
+      "up": [
+        "CREATE TABLE tenant_notification_heads (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), dedup_key text NOT NULL CHECK (length(dedup_key) BETWEEN 1 AND 1024), request_id uuid, blocked_until bigint NOT NULL CHECK (blocked_until >= 0), PRIMARY KEY (tenant_id,consumer,dedup_key))",
+        "CREATE TABLE tenant_notification_requests (tenant_id uuid NOT NULL, request_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), dedup_key text NOT NULL CHECK (length(dedup_key) BETWEEN 1 AND 1024), origin text NOT NULL, config_identity text NOT NULL, payload jsonb NOT NULL CHECK (jsonb_typeof(payload)='object'), state text NOT NULL CHECK (state IN ('pending','attempting','uncertain','accepted','cancelled')), created_at bigint NOT NULL CHECK (created_at >= 0), next_at bigint NOT NULL CHECK (next_at >= 0), attempt integer NOT NULL CHECK (attempt >= 0), attempt_token uuid, attempt_until bigint, accepted_at bigint, receipt jsonb, cleared_at bigint, PRIMARY KEY (tenant_id,request_id))",
+        "CREATE INDEX tenant_notification_due ON tenant_notification_requests (tenant_id,consumer,state,next_at,created_at)",
+        "ALTER TABLE tenant_notification_heads ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_notification_heads FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_notification_heads_tenant ON tenant_notification_heads USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_notification_heads FROM PUBLIC",
+        "ALTER TABLE tenant_notification_requests ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_notification_requests FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_notification_requests_tenant ON tenant_notification_requests USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_notification_requests FROM PUBLIC"
+      ]
+    },
+    {
+      "name": "0002_tenant_notification_producer_state",
+      "checksum": "abd52ebd614047bb3f0b751fc1fa7fd0ce9518351560af144c14d7ced1c4cf6d",
+      "up": [
+        "ALTER TABLE tenant_notification_heads ADD CONSTRAINT notification_state_empty_upgrade CHECK (false) NOT VALID",
+        "ALTER TABLE tenant_notification_heads VALIDATE CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_heads DROP CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_requests ADD CONSTRAINT notification_state_empty_upgrade CHECK (false) NOT VALID",
+        "ALTER TABLE tenant_notification_requests VALIDATE CONSTRAINT notification_state_empty_upgrade",
+        "ALTER TABLE tenant_notification_requests DROP CONSTRAINT notification_state_empty_upgrade",
+        "CREATE TABLE tenant_notification_state (tenant_id uuid NOT NULL, consumer text NOT NULL CHECK (consumer ~ '^[A-Za-z0-9_-]{1,128}$'), revision bigint NOT NULL CHECK (revision > 0), config_identity text NOT NULL, producer jsonb NOT NULL CHECK (jsonb_typeof(producer)='object'), PRIMARY KEY (tenant_id,consumer))",
+        "ALTER TABLE tenant_notification_state ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenant_notification_state FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_notification_state_tenant ON tenant_notification_state USING (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid) WITH CHECK (tenant_id = nullif(current_setting('app.current_tenant_id', true), '')::uuid)",
+        "REVOKE ALL ON tenant_notification_state FROM PUBLIC"
+      ]
+    },
+    {
+      "name": "0006_notification_due_discovery",
+      "checksum": "b0e22a04903a0e48d951df73dc68c5d2c9295c72a35bcbaa8d2411d1618f9730",
+      "up": [
+        "CREATE INDEX tenant_notification_retry_schedule ON tenant_notification_requests (consumer,next_at,tenant_id) WHERE state IN ('pending','uncertain') AND dedup_key LIKE 'realtime-cycle:%'",
+        "CREATE INDEX tenant_notification_attempt_schedule ON tenant_notification_requests (consumer,attempt_until,tenant_id) WHERE state='attempting' AND attempt_until IS NOT NULL AND dedup_key LIKE 'realtime-cycle:%'",
+        "CREATE INDEX tenant_notification_producer_schedule ON tenant_notification_state (consumer,(CASE WHEN producer @> '{\"ackPending\":true}'::jsonb THEN 0 ELSE (producer->>'repeatAt')::bigint END),tenant_id) WHERE (producer @> '{\"ackPending\":true}'::jsonb OR jsonb_typeof(producer->'repeatAt')='number')",
+        "CREATE POLICY notification_schedule_owner ON tenant_notification_requests FOR SELECT TO CURRENT_USER USING (true)",
+        "CREATE POLICY notification_schedule_owner ON tenant_notification_state FOR SELECT TO CURRENT_USER USING (true)",
+        "CREATE FUNCTION tenant_notification_schedule(route text, excluded uuid[], members integer, ordinal integer, horizon bigint) RETURNS TABLE (tenant_id uuid,deadline bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path FROM CURRENT AS $schedule$\n  SELECT d.tenant_id, d.deadline FROM (\n    (SELECT r.tenant_id,r.next_at AS deadline FROM tenant_notification_requests r\n     WHERE r.consumer=route AND r.next_at<=horizon AND state IN ('pending','uncertain') AND dedup_key LIKE 'realtime-cycle:%' AND NOT (r.tenant_id=ANY(excluded)) AND (members=1 OR mod((('x'||substr(encode(sha256(convert_to(r.tenant_id::text,'UTF8')),'hex'),1,16))::bit(64) # x'8000000000000000')::bigint::numeric + 9223372036854775808, members) = ordinal)\n     ORDER BY r.next_at,r.tenant_id LIMIT 64)\n    UNION ALL\n    (SELECT r.tenant_id,r.attempt_until AS deadline FROM tenant_notification_requests r\n     WHERE r.consumer=route AND r.attempt_until<=horizon AND state='attempting' AND attempt_until IS NOT NULL AND dedup_key LIKE 'realtime-cycle:%' AND NOT (r.tenant_id=ANY(excluded)) AND (members=1 OR mod((('x'||substr(encode(sha256(convert_to(r.tenant_id::text,'UTF8')),'hex'),1,16))::bit(64) # x'8000000000000000')::bigint::numeric + 9223372036854775808, members) = ordinal)\n     ORDER BY r.attempt_until,r.tenant_id LIMIT 64)\n    UNION ALL\n    (SELECT p.tenant_id,(CASE WHEN producer @> '{\"ackPending\":true}'::jsonb THEN 0 ELSE (producer->>'repeatAt')::bigint END) AS deadline FROM tenant_notification_state p\n     WHERE p.consumer=route AND (CASE WHEN producer @> '{\"ackPending\":true}'::jsonb THEN 0 ELSE (producer->>'repeatAt')::bigint END)<=horizon AND (producer @> '{\"ackPending\":true}'::jsonb OR jsonb_typeof(producer->'repeatAt')='number') AND NOT (p.tenant_id=ANY(excluded)) AND (members=1 OR mod((('x'||substr(encode(sha256(convert_to(p.tenant_id::text,'UTF8')),'hex'),1,16))::bit(64) # x'8000000000000000')::bigint::numeric + 9223372036854775808, members) = ordinal)\n     ORDER BY (CASE WHEN producer @> '{\"ackPending\":true}'::jsonb THEN 0 ELSE (producer->>'repeatAt')::bigint END),p.tenant_id LIMIT 64)\n  ) d ORDER BY d.deadline,d.tenant_id LIMIT 64\n$schedule$",
+        "REVOKE EXECUTE ON FUNCTION tenant_notification_schedule(text,uuid[],integer,integer,bigint) FROM PUBLIC",
+        "CREATE FUNCTION tenant_notification_mark_ack(subject uuid, route text) RETURNS void LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path FROM CURRENT AS $mark$\n  UPDATE tenant_notification_state\n    SET producer=jsonb_set(producer,'{ackPending}','true'::jsonb)\n    WHERE subject=nullif(current_setting('app.current_tenant_id',true),'')::uuid\n      AND tenant_id=subject AND consumer=route AND NOT (producer @> '{\"ackPending\":true}'::jsonb)\n$mark$",
+        "REVOKE EXECUTE ON FUNCTION tenant_notification_mark_ack(uuid,text) FROM PUBLIC"
+      ]
+    }
+  ]
+}
