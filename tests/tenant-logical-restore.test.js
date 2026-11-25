@@ -22,6 +22,9 @@ describe('tenant logical restore forward history', function () {
     const f = fixture(), before = clone(f.durable), notifications = []; f.begin();
     const result = await withAdmission(f, () => logical.restore(f.connection, f.artifact, { ...args(f), onCommitted: value => notifications.push(value) }));
     assert.equal(notifications.length, 0, 'no notification before actual outer commit');
+    for (const row of f.working.tables.entries.filter(row => row.tenant_id === A)) {
+      assert.equal(row.received_ms, String(BASE - (row.doc._id === 'missing' ? 1000 : 500)), row.doc._id);
+    }
     assert.equal(f.durable.clock[A], before.clock[A], 'outer transaction remains uncommitted');
     await f.commit(); assert.equal(notifications.length, 1);
     const entries = f.durable.tables.entries.filter(row => row.tenant_id === A);

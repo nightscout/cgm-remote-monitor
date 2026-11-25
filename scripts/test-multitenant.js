@@ -80,6 +80,8 @@ const INVENTORY = [
     note: 'v1 ten-treatment page under RLS, both catalogue tie orders, off-page array refusal and indexed time reads' },
   { file: 'tests/migrations-concurrent-index.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'a single-index migration builds CONCURRENTLY on a populated table: writer insert during the build, INVALID leftover replaced, ledger row after the index is valid, own build bound' },
+  { file: 'tests/devicestatus-sealing.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
+    note: 'atomic day sealing, clinical boundaries, tenant identity and concurrent historical mutations' },
   { file: 'tests/postgres-latest-devicestatus.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,
     note: 'v1 latest status under RLS, whole-page array refusal, tie membership and index-bounded history reads' },
   { file: 'tests/postgres-identifier-array-migration.integration.test.js', flags: {}, shared: ['postgres'], own: [], gate: PENDING,

@@ -199,6 +199,87 @@ optInSuite(process.env.NS_ENTRIES_CRUD_HTTP_TEST === '1' &&
     await same('get', '/entries/history/not-a-date', undefined, 400);
   });
 
+  it('keeps history tie membership, legacy stamp types and off-page array refusals', async function () {
+    const other = lab.workers[1];
+    const storage = other.collections.get(lab.A).storage;
+    const original = storage.findMany;
+    const generic = require('../lib/storage/postgres-entries-read')({ connection: other.connection, table: lab.table });
+    const response = reply => ({ status: reply.status, body: reply.body, etag: reply.headers.etag,
+      modified: reply.headers['last-modified'], warnings: reply.headers['nightscout-data-warnings'] });
+    async function page (cursor, limit, status = 200) {
+      const path = '/entries/history/' + cursor + '?limit=' + limit;
+      const expected = await lab.http('get', path, { worker: 1 }).expect(status);
+      const actual = await lab.http('get', path).expect(status);
+      assert.deepEqual(response(actual), response(expected));
+      return actual.body.result;
+    }
+    storage.findMany = generic.findMany;
+    try {
+      const stamp = BASE + 1000;
+      const docs = [
+        { _id: 'old', date: stamp }, { _id: 'null', srvModified: null, date: stamp },
+        { _id: 'string', srvModified: String(stamp) }, { _id: 'object', srvModified: { date: stamp } },
+        { _id: 'old-array', srvModified: [BASE] },
+        { _id: 'deleted', srvModified: stamp, isValid: false },
+        { _id: 'tie-a', srvModified: stamp + 1 }, { _id: 'tie-b', srvModified: stamp + 1 },
+        { _id: 'later', srvModified: stamp + 2 }
+      ];
+      await lab.seed(docs);
+      const split = await page(BASE, 2);
+      assert.equal(split[0].isValid, false);
+      assert.equal(split[1].srvModified, stamp + 1);
+      assert.deepEqual((await page(split[1].srvModified, 2)).map(d => d.identifier), ['later']);
+      assert.equal((await page(BASE, 4)).length, 4);
+      await lab.seed([...docs, { _id: 'fraction', srvModified: stamp + 0.5 }]);
+      assert.equal((await page(stamp, 1))[0].identifier, 'fraction');
+      await lab.seed([...docs, { _id: 'off-page', srvModified: [stamp + 1000] }]);
+      await page(BASE, 1, 500);
+    } finally { storage.findMany = original; }
+  });
+
+  it('bounds the actual history page and its exception probe as retained history grows', async function () {
+    const { withTenant } = require('./fixtures/tenant-insertion-grants');
+    const connection = lab.workers[0].connection;
+    const query = connection.query;
+    const reads = [];
+    await lab.seed([]);
+    try {
+      connection.query = (input, values) => {
+        const sql = typeof input === 'string' ? input : input.text;
+        if (sql.includes('"' + lab.name + '"."entries"')) reads.push({ sql, values: values || input.values });
+        return query(input, values);
+      };
+      for (const [first, last] of [[1, 597], [-1151, 0]]) {
+        // The second batch precedes the same cursor and ten response documents.
+        for (const tenant of [lab.A, lab.B]) {
+          await withTenant(lab.admin, tenant, () => lab.admin.query(`INSERT INTO ${lab.table} (tenant_id, id_kind, doc)
+            SELECT $1, 'string', jsonb_build_object('_id', 'page-' || i, 'srvModified', $2::bigint+i,
+              'sgv', $3::int) FROM generate_series($4::int, $5::int) i`,
+          [tenant, BASE, tenant === lab.A ? 111 : 222, first, last]));
+        }
+        await lab.admin.query('ANALYZE ' + lab.table);
+        reads.length = 0;
+        const reply = await lab.http('get', '/entries/history/' + (BASE + 580) + '?limit=10&fields=identifier,sgv').expect(200);
+        assert.deepEqual(reply.body.result, Array.from({ length: 10 }, (_, i) => ({ identifier: 'page-' + (581 + i), sgv: 111 })));
+        assert.equal(reply.headers.etag, 'W/"' + (BASE + 590) + '"');
+        assert.equal(reply.headers['last-modified'], new Date(BASE + 590).toUTCString());
+        assert.equal(reads.length, 1);
+        const plan = await connection.withTenant(lab.A, async () =>
+          (await query('EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ' + reads[0].sql, reads[0].values)).rows[0]['QUERY PLAN'][0].Plan);
+        const walk = node => [node, ...(node.Plans || []).flatMap(walk)];
+        const scans = walk(plan).filter(node => node['Relation Name'] === 'entries');
+        assert(scans.length > 0);
+        const examined = scans.reduce((sum, node) => sum + node['Actual Loops'] * (node['Actual Rows'] +
+          (node['Rows Removed by Filter'] || 0) + (node['Rows Removed by Index Recheck'] || 0)), 0);
+        assert(examined <= 11, 'ten-item history page examined ' + examined + ' clinical rows');
+        const conditions = walk(plan).filter(node => node['Index Name'] === 'entries_tenant_history_page')
+          .map(node => node['Index Cond']);
+        assert(conditions.some(cond => cond.includes('history_ms >')));
+        assert(conditions.some(cond => cond.includes('history_ms IS NULL')));
+      }
+    } finally { connection.query = query; }
+  });
+
   it('refuses cross-tenant credentials, revoked current grants and anonymous mutations on both workers', async function () {
     const before = await lab.rows();
     const foreign = await lab.rows(lab.B);

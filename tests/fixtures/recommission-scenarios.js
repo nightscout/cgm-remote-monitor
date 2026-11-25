@@ -238,6 +238,7 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
           await client.query('CREATE SCHEMA ' + q(entry.namespace));
           await require('../../lib/migrations/postgres').run('up', { direct: true, connectionString: adminURI, namespace: entry.namespace, catalogue: entry.catalogue });
           for (const row of (await client.query('SELECT tablename FROM pg_tables WHERE schemaname=$1', [entry.namespace])).rows) await client.query('ALTER TABLE ' + q(entry.namespace) + '.' + q(row.tablename) + ' OWNER TO ' + q(owner));
+          if (require('../../lib/storage/devicestatus-sealing').selected(entry.catalogue)) await client.query('ALTER VIEW '+q(entry.namespace)+'.devicestatus OWNER TO '+q(owner));
           for (const row of (await client.query('SELECT p.oid::regprocedure::text AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=$1', [entry.namespace])).rows) await client.query('ALTER FUNCTION ' + row.signature + ' OWNER TO ' + q(owner));
           await client.query('ALTER SCHEMA ' + q(entry.namespace) + ' OWNER TO ' + q(owner));
         }
@@ -406,10 +407,15 @@ optInSuite(process.env.NS_TENANT_RECOMMISSION_PG_VAULT_TEST === '1',
       const queues=()=>admin(async client=>{const result={};for(const name of ['tenant_notification_heads','tenant_notification_requests','tenant_notification_state'])result[name]=artifacts.digestRows((await client.query('SELECT * FROM '+table('notification_outbox',name)+' WHERE tenant_id=$1',[A])).rows);return result;});
       try{
         const artifact=await life.exportTenant(port,{tenant:A,namespaces:ns,sourceCommit}),before=await queues();
+        const receipts = async () => (await admin(client => client.query(
+          'SELECT "_id", received_ms FROM '+table('entries','entries')+' WHERE tenant_id=$1 ORDER BY "_id"', [A]))).rows;
+        const firstReceipts = await receipts();
+        assert(firstReceipts.length && firstReceipts.every(row => row.received_ms !== null));
         const alarms=await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]));
         await admin(async client=>{await client.query('BEGIN');try{await client.query("SELECT set_config('app.current_tenant_id',$1,true)",[A]);await client.query('UPDATE '+table('entries','entries')+" SET doc=jsonb_set(doc,'{value}','555'::jsonb) WHERE tenant_id=$1",[A]);await client.query('COMMIT');}catch(error){await client.query('ROLLBACK');throw error;}});
         const result=await logicalController.withRestore(A,{artifactDigest:artifact.digest},({connection,maintenanceClaim})=>life.restoreLogical(connection,artifact,{tenant:A,namespaces:ns,ledgerNamespace:ns.lifecycle,maintenanceClaim}));
         assert.equal(result.result.tables,7);assert(result.result.replaced>0);
+        assert.deepEqual(await receipts(), firstReceipts);
         assert.deepEqual(await queues(),before,'pending, uncertain and accepted request/producer rows retain their exact IDs and payloads');
         assert.deepEqual((await admin(client=>client.query('SELECT * FROM '+table('alarm_suppression','tenant_alarm_suppression')+' WHERE tenant_id=$1',[A]))).rows,alarms.rows);
         const restored=await admin(client=>client.query('SELECT doc FROM '+table('entries','entries')+' WHERE tenant_id=$1 ORDER BY "_id"',[A]));

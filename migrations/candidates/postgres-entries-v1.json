@@ -140,6 +140,38 @@
         "CREATE INDEX entries_tenant_follower_exception ON entries (tenant_id, date) WHERE (CASE\n  WHEN jsonb_typeof(doc -> 'date') = 'array' THEN true\n  WHEN jsonb_typeof(doc -> 'date') IS DISTINCT FROM 'number' THEN false\n  WHEN date IS NULL OR (doc ->> 'date')::numeric <> date OR date NOT BETWEEN 0 AND 4102444799999 THEN true\n  WHEN (doc ? 'sgv' AND type IS DISTINCT FROM 'sgv') OR (doc ? 'mbg' AND type IS DISTINCT FROM 'mbg') THEN true\n  WHEN doc ? 'mills' THEN doc -> 'mills' IS DISTINCT FROM doc -> 'date'\n  WHEN NOT (doc ? 'created_at' OR doc ? 'sysTime') THEN false\n  ELSE (CASE WHEN doc ? 'created_at' THEN doc ->> 'created_at' ELSE doc ->> 'sysTime' END)\n       COLLATE \"C\" IS DISTINCT FROM ((jsonb_path_query_first(\n  ('\"' || (2440588 + date / 86400000)::text || ' ' || (date / 1000 % 86400)::text || '\"')::jsonb,\n  '$.datetime(\"J SSSSS\")') #>> '{}') || '.' || lpad((date % 1000)::text, 3, '0') || 'Z') COLLATE \"C\"\nEND)"
       ],
       "checksum": "40846ea0139f1251a46d67e0697c555ae04a3005397a2d9e31eeac896a1f239b"
+    },
+    {
+      "name": "0104_entries_clinical_time",
+      "up": [
+        "CREATE FUNCTION clinical_instant_ms(v jsonb) RETURNS bigint\nLANGUAGE plpgsql IMMUTABLE STRICT PARALLEL SAFE SET search_path = pg_catalog AS $instant$\nDECLARE\n  n numeric;\n  s text;\n  parts text[];\n  epoch_days integer;\n  offset_minutes integer := 0;\nBEGIN\n  IF jsonb_typeof(v) = 'number' THEN\n    n := (v #>> '{}')::numeric;\n    IF n = trunc(n) AND abs(n) <= 8640000000000000 THEN RETURN n::bigint; END IF;\n    RETURN NULL;\n  END IF;\n  IF jsonb_typeof(v) <> 'string' THEN RETURN NULL; END IF;\n  s := v #>> '{}';\n  IF length(s) NOT BETWEEN 20 AND 29 THEN RETURN NULL; END IF;\n  parts := regexp_match(s COLLATE \"C\",\n    '^([0-9]{4})-([0-9]{2})-([0-9]{2})T([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:[.]([0-9]{1,3}))?(?:Z|([+-])([01][0-9]|2[0-3]):([0-5][0-9]))$');\n  IF parts IS NULL OR parts[1] = '0000' THEN RETURN NULL; END IF;\n  BEGIN\n    epoch_days := make_date(parts[1]::int, parts[2]::int, parts[3]::int) - DATE '1970-01-01';\n  EXCEPTION WHEN datetime_field_overflow THEN RETURN NULL;\n  END;\n  IF parts[8] IS NOT NULL THEN\n    offset_minutes := (parts[9]::int * 60 + parts[10]::int)\n      * CASE parts[8] WHEN '-' THEN -1 ELSE 1 END;\n  END IF;\n  RETURN epoch_days::bigint * 86400000\n    + (parts[4]::int * 60 + parts[5]::int - offset_minutes) * 60000\n    + parts[6]::int * 1000 + rpad(coalesce(parts[7], ''), 3, '0')::int;\nEND\n$instant$",
+        "REVOKE ALL ON FUNCTION clinical_instant_ms(jsonb) FROM PUBLIC",
+        "ALTER TABLE entries ADD COLUMN event_ms bigint GENERATED ALWAYS AS (COALESCE(clinical_instant_ms(doc->'date'), clinical_instant_ms(doc->'dateString'), clinical_instant_ms(doc->'sysTime'))) STORED",
+        "CREATE INDEX entries_tenant_event_ms ON entries (tenant_id, event_ms) WHERE event_ms IS NOT NULL",
+        "ALTER TABLE entries DROP COLUMN \"dateString\", DROP COLUMN \"sysTime\"",
+        "ALTER TABLE entries ADD COLUMN \"dateString\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'dateString')='string' THEN CASE WHEN jsonb_typeof(doc->'date')='number' AND clinical_instant_ms(doc->'dateString')=clinical_instant_ms(doc->'date') THEN NULL ELSE doc->>'dateString' END END) STORED",
+        "CREATE INDEX entries_tenant_datestring_sparse ON entries (tenant_id, COALESCE(\"dateString\", '')) WHERE \"dateString\" IS NOT NULL OR jsonb_typeof(doc->'dateString')='array'",
+        "ALTER TABLE entries ADD COLUMN \"sysTime\" text GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'sysTime')='string' THEN CASE WHEN jsonb_typeof(doc->'date')='number' AND clinical_instant_ms(doc->'sysTime')=clinical_instant_ms(doc->'date') THEN NULL ELSE doc->>'sysTime' END END) STORED",
+        "CREATE INDEX entries_tenant_systime_sparse ON entries (tenant_id, COALESCE(\"sysTime\", '')) WHERE \"sysTime\" IS NOT NULL OR jsonb_typeof(doc->'sysTime')='array'",
+        "CREATE INDEX entries_tenant_type_date ON entries (tenant_id, type, date DESC)",
+        "ALTER TABLE entries ADD COLUMN received_ms bigint",
+        "ALTER TABLE entries ALTER COLUMN received_ms SET DEFAULT floor(extract(epoch FROM statement_timestamp()) * 1000)::bigint"
+      ],
+      "checksum": "7bae4040737cdb8ec12671619dbdfc3d23f526159de75be1ccfeadabcb6ed8f7"
+    },
+    {
+      "name": "0105_entries_history_ms",
+      "up": [
+        "ALTER TABLE entries ADD COLUMN history_ms bigint GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(doc->'srvModified') = 'number' THEN clinical_instant_ms(doc->'srvModified') END) STORED"
+      ],
+      "checksum": "617dc88776ceedde4fb3426649377a982470e5c54f539fed17bc8f908e7b281d"
+    },
+    {
+      "name": "0106_entries_history_page",
+      "up": [
+        "CREATE INDEX entries_tenant_history_page ON entries (tenant_id, history_ms) WHERE jsonb_typeof(doc->'srvModified') IN ('number', 'array')"
+      ],
+      "checksum": "bff9943c2f704198db42879f5a416d344c24bf795e1d9aa5bbfb9f19081716bb"
     }
   ]
 }

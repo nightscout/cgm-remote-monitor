@@ -38,9 +38,13 @@ function insertionGrants({namespace,domain,role,mode='serving'}) {
   const windowFunction={entries:'window_time_ms',devicestatus:'window_time_text',treatments:'window_time_text'}[domain];
   const base=['GRANT SELECT,INSERT,UPDATE,DELETE ON '+table+' TO '+who,
     ...(windowFunction?['GRANT EXECUTE ON FUNCTION '+quote(namespace)+'.'+windowFunction+'(jsonb) TO '+who]:[])];
+  if (domain==='entries' || domain==='treatments') {
+    base.push('GRANT EXECUTE ON FUNCTION '+quote(namespace)+'.clinical_instant_ms(jsonb) TO '+who);
+  }
   if (!isOrdered) return base;
   const built=require('../../lib/tenant-lifecycle/tenant-insertion-sql').build({namespace,domain});
   return [...base,...(mode==='restore'?built.restoreGrants(role):built.servingGrants(role)),
+    ...(mode==='restore' && (domain==='entries' || domain==='treatments') ? ['GRANT INSERT(received_ms) ON '+table+' TO '+who] : []),
     ...(mode==='restore'?['GRANT DELETE ON '+quote(namespace)+'.tenant_insertion_ordinal TO '+who]:[])];
 }
 const { ownerGrants, lifetimeGrants } = require('../../lib/server/ordinary-deployment-grants');

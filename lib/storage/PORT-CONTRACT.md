@@ -28,6 +28,18 @@ services. No external connection settings are consumed.
 | `postgres-entries-intent` | Shared v3 intent boundary with `storage`, `match`, `write`, `settle`, and shared intent helpers. It requires ownership of a fresh transaction. |
 | `postgres-collection-intent` | Trusted logical collection and source composition over the same reader/writer. Adds bounded translation of shipping Mongo-shaped predicates, top-level projections and optional natural-order reads. It requires ownership of a fresh transaction. |
 
+### Clinical time on PostgreSQL
+
+Entries and treatments keep the public document and three independent time values.
+
+| Storage field | Meaning |
+|---|---|
+| `event_ms` | Clinical instant in Unix milliseconds. Entries take the first convertible value in `date`, `dateString`, `sysTime` order. Treatments use `created_at`. |
+| `received_ms` | Database wall time at the start of the first successful INSERT statement. Corrections keep it. Rows predating this field have an unknown receipt. Logical restore preserves the live identity's receipt or uses the captured receipt when recreating an identity. |
+| `srvModified` | Public modification stamp from the tenant write clock. The public creation stamp `srvCreated` also follows the write clock. |
+
+The [shared conversion](clinical-instant.sql) accepts integral Unix milliseconds in the JavaScript Date range and Gregorian ISO strings with an explicit zone, seconds and at most three fraction digits. Unsupported values have a NULL instant. Public reads retain their field types, spellings, array comparisons, lexical ranges and history cursors. Positive string equality can use the instant to locate candidates before evaluating the original filter.
+
 The parameterized corpus covers MongoCollection, the lower PostgreSQL reader and
 writer, and the entries v3 `postgres-collection-intent.storage` object. Intent
 event tests cover MongoCollection plus both PostgreSQL intent wrappers, including

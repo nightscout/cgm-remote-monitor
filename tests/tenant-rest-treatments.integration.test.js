@@ -195,6 +195,7 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
       await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${name}".treatments TO "${role}"`);
       // created_at's generated column calls it; migration 0001 revokes it from PUBLIC.
       await admin.query(`GRANT EXECUTE ON FUNCTION "${name}".window_time_text(jsonb) TO "${role}"`);
+      await admin.query(`GRANT EXECUTE ON FUNCTION "${name}".clinical_instant_ms(jsonb) TO "${role}"`);
       await admin.query(`GRANT SELECT ON ALL TABLES IN SCHEMA "${auth}" TO "${role}"`);
       await writeClock.provision(admin, { connectionString: process.env.NS_TEST_POSTGRES_ADMIN_URI,
         namespace: name + '_clock', role, tenants: [A, B] });
@@ -402,6 +403,28 @@ optInSuite(process.env.NS_REST_TREATMENTS_HTTP_TEST === '1' &&
         if (optIn) assert.equal(reply.body.items[1].outcome, 'refused');
         await same('post', '/api/v2/treatments?results=items', [batch[1]], 400);
       }
+    });
+
+    it('keeps offset spelling, strict history continuation and inclusive header on tied server stamps', async function () {
+      const utc = '2024-02-29T17:00:00.000Z', offset = '2024-02-29T09:00:00.000-08:00';
+      const receipt = Date.parse(utc) + 7200000, stamp = receipt + 1000;
+      const docs = [offset, utc, utc].map((created_at, i) => treatment({
+        _id: 'time-' + i, identifier: 'time-' + i, date: Date.parse(utc), created_at,
+        srvCreated: receipt, srvModified: i === 2 ? stamp + 1000 : stamp
+      }));
+      await seed(docs);
+      const list = await same('get', '/api/v1/treatments.json?find[created_at][$gte]=1970-01-01&count=10', undefined, 200);
+      assert.deepEqual(list.body.map(d => d.created_at).sort(), [offset, utc, utc].sort());
+      const prefix = '/api/v3/treatments/history';
+      const page = await same('get', prefix + '/' + (stamp - 1) + '?limit=1', undefined, 200);
+      assert.equal(page.body.result.length, 1);
+      assert.equal(page.body.result[0].srvModified, stamp);
+      assert.equal(page.headers.etag, 'W/"' + stamp + '"');
+      const strict = await same('get', prefix + '/' + stamp, undefined, 200);
+      assert.deepEqual(strict.body.result.map(d => d.identifier), ['time-2']);
+      const inclusive = await same('get', prefix, undefined, 200, { 'Last-Modified': page.headers['last-modified'] });
+      assert.deepEqual(inclusive.body.result.map(d => [d.identifier, d.created_at, d.srvCreated, d.srvModified]).sort(),
+        docs.map(d => [d.identifier, d.created_at, receipt, d.srvModified]).sort());
     });
 
     it('legacy POST and PUT feed actual API3 addressed reads, search and incremental history losslessly', async function () {

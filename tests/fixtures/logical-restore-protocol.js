@@ -28,8 +28,10 @@ function fixture () {
       profile: desired.profile.map(r => ({ ...clone(r), insertion_ordinal: r.doc._id === 'z-first' ? '11' : '3' })),
       activity: [{ tenant_id: A, id_kind: 'string', doc: { _id: 'activity-old', created_at: '2023-11-14T00:00:00Z', value: 'newer' } }, { tenant_id: A, id_kind: 'string', doc: { _id: 'activity-post', created_at: '2023-11-15T00:00:00Z' } }] },
     authority: { active: true, generation: 9, secret: 'CURRENT_SYNTHETIC_SECRET', checkpoint: 9999 } };
+  for (const [i, r] of desired.entries.entries()) r.received_ms = i === 0 ? String(BASE - 1000) : null;
+  for (const r of durable.tables.entries) r.received_ms = String(BASE - 500);
   const described = catalogues.filter(entry => entry.kind !== 'access').map(entry => ({ ...entry, namespace: namespaces[entry.kind], ledger: entry.candidate.migrations,
-    tables: entry.tables.map(table => ({ table, columns: table === 'tenant_write_clock' ? [{ name: 'tenant_id', type: 'uuid' }, { name: 'last_stamp', type: 'bigint' }, { name: 'last_delete_stamp', type: 'bigint' }] : table === 'tenant_insertion_ordinal' ? [{ name: 'tenant_id', type: 'uuid' }, { name: 'last_ordinal', type: 'bigint' }] : [{ name: 'tenant_id', type: 'uuid' }, { name: 'id_kind', type: 'text' }, { name: 'doc', type: 'jsonb' }, ...(entry.kind !== 'activity' ? [{ name: 'insertion_ordinal', type: 'bigint' }] : [])],
+    tables: entry.tables.map(table => ({ table, columns: table === 'tenant_write_clock' ? [{ name: 'tenant_id', type: 'uuid' }, { name: 'last_stamp', type: 'bigint' }, { name: 'last_delete_stamp', type: 'bigint' }] : table === 'tenant_insertion_ordinal' ? [{ name: 'tenant_id', type: 'uuid' }, { name: 'last_ordinal', type: 'bigint' }] : [{ name: 'tenant_id', type: 'uuid' }, { name: 'id_kind', type: 'text' }, { name: 'doc', type: 'jsonb' }, ...(table === 'entries' ? [{name: 'received_ms', type: 'bigint'}] : []), ...(entry.kind !== 'activity' ? [{ name: 'insertion_ordinal', type: 'bigint' }] : [])],
       rows: table === 'tenant_write_clock' ? [{ tenant_id: A, last_stamp: '1000', last_delete_stamp: '0' }] : table === 'tenant_insertion_ordinal' ? [{ tenant_id: A, last_ordinal: '7' }] : desired[entry.kind] })) }));
   const artifact = artifacts.buildArtifact({ tenant: A, sourceCommit: 'f'.repeat(40), exportedAt: 1700000000000, catalogues: described });
   const f = { catalogues, namespaces, desired, artifact, durable, hooks: [], trace: [], token: Object.freeze({}), admissionCalls: 0 };
@@ -51,7 +53,7 @@ function fixture () {
     if (sql.startsWith('UPDATE') && sql.includes('tenant_write_clock')) { assert.equal(s.clock[values[1]], String(values[2])); s.clock[values[1]] = String(values[0]); return { rowCount: 1, rows: [] }; }
     const kind = domain(sql); if (!kind) throw new Error('Unmodelled SQL: ' + sql);
     if (sql.startsWith('DELETE')) { s.tables[kind] = s.tables[kind].filter(r => r.tenant_id !== values[0]); return { rows: [] }; }
-    if (sql.startsWith('INSERT')) { const next = { tenant_id: values[0], id_kind: values[1], doc: JSON.parse(values[2]) }; if (s.counter[kind]) { const n = String(BigInt(s.counter[kind][values[0]] || '0') + 1n); s.counter[kind][values[0]] = n; next.insertion_ordinal = n; } s.tables[kind].push(next); return { rowCount: 1, rows: [] }; }
+    if (sql.startsWith('INSERT')) { const next = { tenant_id: values[0], id_kind: values[1], doc: JSON.parse(values[2]) }; if (sql.includes(',received_ms)')) next.received_ms = values[3]; if (s.counter[kind]) { const n = String(BigInt(s.counter[kind][values[0]] || '0') + 1n); s.counter[kind][values[0]] = n; next.insertion_ordinal = n; } s.tables[kind].push(next); return { rowCount: 1, rows: [] }; }
     let rows = s.tables[kind].filter(r => r.tenant_id === (values[0] === A || values[0] === B ? values[0] : scope.currentTenant()));
     if (sql.includes('ORDER BY restored.insertion_ordinal') || sql.includes('ORDER BY insertion_ordinal ASC')) rows = rows.slice().sort((a, b) => BigInt(a.insertion_ordinal) < BigInt(b.insertion_ordinal) ? -1 : 1);
     if (sql.includes('LIMIT') && kind === 'profile') rows = rows.filter(r => r.doc.NSCLIENT_ID === 'synthetic').slice(0, 1);

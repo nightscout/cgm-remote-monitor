@@ -31,8 +31,9 @@ const constructors = {
   devicestatus: require('../lib/server/devicestatus'),
   activity: require('../lib/server/activity')
 };
+const sealed = process.env.NS_DEVICESTATUS_SEAL_TEST === '1';
 const catalogues = {
-  devicestatus: require('../migrations/candidates/postgres-devicestatus-v1.json'),
+  devicestatus: sealed ? require('../migrations/candidates/postgres-devicestatus-socket-order-v1.json') : require('../migrations/candidates/postgres-devicestatus-v1.json'),
   activity: require('../migrations/candidates/postgres-activity-v1.json')
 };
 const A = '11111111-1111-4111-8111-111111111111';
@@ -113,7 +114,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         ctx.deviceEnv = env;
         const ports = new Map();
         for (const logical of domains) {
-          ports.set(logical, factories[logical]({ connection: writeClock.clocked(connection, name + '_clock'), table: tables[logical], env, bus: ctx.bus, source: 'v1/internal' }));
+          ports.set(logical, factories[logical]({ connection: writeClock.clocked(connection, name + '_clock'), table: tables[logical], catalogue: catalogues[logical], env, bus: ctx.bus, source: 'v1/internal' }));
         }
         ctx.storagePorts = { resolve: ({ logical, source }) => source === 'v1/internal' ? ports.get(logical) : undefined };
         for (const domain of domains) ctx[domain] = constructors[domain](env, ctx);
@@ -128,7 +129,7 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         for (const key of ['API3_SECURITY_ENABLE', 'API3_DEDUP_FALLBACK_ENABLED', 'API3_CREATED_AT_FALLBACK_ENABLED', 'API3_MAX_LIMIT']) {
           v3.set(key, defaults[key]);
         }
-        const options = factories.devicestatus({ connection: writeClock.clocked(connection, name + '_clock'), table: tables.devicestatus, env, bus: ctx.bus });
+        const options = factories.devicestatus({ connection: writeClock.clocked(connection, name + '_clock'), table: tables.devicestatus, catalogue: catalogues.devicestatus, env, bus: ctx.bus });
         const col = new Collection({ ctx, env, app: v3, colName: 'devicestatus',
           fallbackGetDate: doc => new Date(doc.created_at), fallbackDateField: 'created_at',
           dedupFallbackFields: ['created_at', 'device'], ...options });
@@ -182,8 +183,10 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await mongoCollections[domain].deleteMany({});
       for (const tenant of [A, B]) for (const doc of docs) {
         const row = encodeDocument({ ...doc, ...(tenant === B ? { tenantMarker: 'two' } : {}) });
-        await admin.query(`INSERT INTO "${schemas[domain]}".${domain} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
+        const insert = () => admin.query(`INSERT INTO "${schemas[domain]}".${domain} (tenant_id,id_kind,doc) VALUES ($1,$2,$3)`,
           [tenant, row.id_kind, row.doc]);
+        if (sealed && domain === 'devicestatus') await require('./fixtures/tenant-insertion-grants').withTenant(admin, tenant, insert);
+        else await insert();
       }
       if (docs.length) await mongoCollections[domain].insertMany(docs.map(doc => ({ ...doc })));
     }
@@ -225,6 +228,9 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
         await admin.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${schemas[domain]}".${domain} TO "${role}"`);
         // A windowed created_at column calls it; migration 0001 revokes it from PUBLIC.
         if (domain === 'devicestatus') {
+          if (sealed) await require('./fixtures/tenant-insertion-grants').grant(admin, {
+            namespace: schemas.devicestatus, domain, role, catalogue: catalogues.devicestatus
+          });
           await admin.query(`GRANT EXECUTE ON FUNCTION "${schemas[domain]}".window_time_text(jsonb) TO "${role}"`);
         }
       }
@@ -507,6 +513,34 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       } finally { await stop(); await start(); }
     });
 
+    if (sealed) it('reads a sealed day through v1, v3 identity, search and history, then corrects and deletes it', async function () {
+      const day = '2020-01-02', at = Date.parse(day + 'T00:00:00Z');
+      const docs = Array.from({ length: 12 }, (_, i) => ({
+        _id: new ObjectId((i+1).toString(16).padStart(24,'0')), identifier: 'sealed-' + i,
+        created_at: new Date(at + i*3600000).toISOString(), date: at + i*3600000,
+        device: 'synthetic', srvCreated: at + 86400000 + i, srvModified: at + 86400000 + i,
+        arbitrary: { nullable: null, series: [i, false, 'synthetic'] }
+      }));
+      await seed('devicestatus', docs);
+      const routes = ['/api/v1/devicestatus.json?count=20&find[created_at][$gte]=' + docs[0].created_at,
+        '/api/v3/devicestatus/sealed-5', '/api/v3/devicestatus?device$eq=synthetic&sort=created_at',
+        '/api/v3/devicestatus/history/' + at];
+      const before = [];
+      for (const url of routes) before.push((await same('get', url)).body);
+      const seal = () => require('./fixtures/tenant-insertion-grants').withTenant(admin, A, () =>
+        admin.query('SELECT "'+schemas.devicestatus+'".devicestatus_seal_day() AS n').then(r=>r.rows[0].n));
+      assert.equal(await seal(),docs.length);
+      for (const [i,url] of routes.entries()) assert.deepEqual((await same('get',url)).body,before[i]);
+      assert.equal(before[0].length,docs.length);
+      assert.equal(before[3].result.length,docs.length);
+      await same('patch','/api/v3/devicestatus/sealed-5',{ arbitrary:{corrected:true} });
+      assert.equal(await seal(),1);
+      await same('delete','/api/v3/devicestatus/sealed-5');
+      await same('get','/api/v3/devicestatus/sealed-5',undefined,410);
+      await same('get','/api/v3/devicestatus/history/'+(at+86400000+11));
+      await same('delete','/api/v3/devicestatus/sealed-5?permanent=true');
+    });
+
     it('API3 device addressed writes, search, tombstone history and permanent delete retain their own responses', async function () {
       await seed('devicestatus', [{ _id: new ObjectId(ID), identifier: 'device-record', device: 'rig',
         created_at: CREATED, date: BASE, utcOffset: 0, app: 'synthetic', srvCreated: BASE, srvModified: BASE }]);
@@ -761,8 +795,11 @@ optInSuite(process.env.NS_REST_DEVICE_ACTIVITY_TEST === '1' &&
       await unbound.connect();
       try {
         for (const domain of domains) {
-          const state = await admin.query(`SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid=$1::regclass`, [tables[domain]]);
-          assert.deepEqual(state.rows[0], { relrowsecurity: true, relforcerowsecurity: true });
+          const physical = sealed && domain === 'devicestatus' ? [tables[domain]+'_rows', schemas[domain]+'.devicestatus_day'] : [tables[domain]];
+          for (const name of physical) {
+            const state = await admin.query('SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid=$1::regclass', [name]);
+            assert.deepEqual(state.rows[0], {relrowsecurity:true, relforcerowsecurity:true});
+          }
           assert.equal((await unbound.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 0);
           await connection.withTenant(A, async () => {
             assert.equal((await connection.query(`SELECT count(*)::int AS n FROM "${schemas[domain]}".${domain}`)).rows[0].n, 1);
