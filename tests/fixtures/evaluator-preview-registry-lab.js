@@ -133,7 +133,7 @@ module.exports = function evaluatorPreviewRegistryLab () {
   lab.reset = async () => {
     if (!registryReady) return reset(); // inherited open resets before this extension exists
     await lab.stopChildren();
-    for (const domain of lab.domains) await lab.admin.query('TRUNCATE "' + lab.namespaces[domain] + '"."' + domain + '"');
+    await lab.resetClinicalRows();
     lab.initial = Date.now() + 100000;
     const clock = await lab.admin.query('UPDATE "' + lab.namespaces.clock + '".tenant_write_clock SET last_stamp=$3,last_delete_stamp=0 WHERE tenant_id IN ($1,$2)', [lab.A, lab.B, lab.initial]);
     assert.equal(clock.rowCount, 2, 'registry fixture must retain both actually provisioned clocks');
