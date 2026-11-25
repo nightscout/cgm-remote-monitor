@@ -74,12 +74,16 @@ describe('trusted PostgreSQL collection translation', function () {
       assert.deepEqual(next.migrations.slice(0, old.migrations.length), old.migrations);
       // The socket-order successor alone drops the indexes its own 0002
       // and 0001 made redundant.
-      const redundant = next.migrations.at(-1 - latest.length);
+      const firstNew = old.migrations.length + 3;
+      const redundant = next.migrations[firstNew + tails.length];
       assert.equal(redundant.name, '0101_' + logical + '_redundant_indexes');
       assert.deepEqual(redundant.up, logical === 'devicestatus' ? ['DROP INDEX devicestatus_tenant_created_at', 'DROP INDEX devicestatus_tenant_insertion'] : ['DROP INDEX treatments_tenant_insertion']);
-      assert.deepEqual(next.migrations.slice(old.migrations.length + 3), [...tails, redundant, ...latest], 'shared index and size migrations are identical in both variants');
+      const sharedEnd = firstNew + tails.length + 1 + latest.length;
+      assert.deepEqual(next.migrations.slice(firstNew, sharedEnd), [...tails, redundant, ...latest], 'shared index and size migrations are identical in both variants');
+      const successorOnly = logical === 'devicestatus' ? ['0103_devicestatus_sealed_days'] : [];
+      assert.deepEqual(next.migrations.slice(sharedEnd).map(m => m.name), successorOnly);
       const validated = validateCatalogue(next);
-      assert.equal(validated.length, old.migrations.length + 3 + tails.length + 1 + latest.length);
+      assert.equal(validated.length, sharedEnd + successorOnly.length);
       // The original socket ordering DDL stays at its immutable prefix position.
       const sql = validated[old.migrations.length].up;
       assert.match(sql[0], /CHECK \(false\) NOT VALID/);
