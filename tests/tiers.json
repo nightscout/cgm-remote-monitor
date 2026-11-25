@@ -664,6 +664,7 @@
         "tests/tenant-insertion-upgrade.integration.test.js",
         "tests/postgres-identifier-array-migration.integration.test.js",
         "tests/migrations-concurrent-index.integration.test.js",
+        "tests/devicestatus-sealing.integration.test.js",
         "tests/postgres-latest-devicestatus.integration.test.js",
         "tests/postgres-latest-treatments.integration.test.js",
         "tests/tenant-live-add.integration.test.js",

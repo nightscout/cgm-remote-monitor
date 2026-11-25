@@ -109,7 +109,7 @@ optInSuite(process.env.NS_TENANT_INSERTION_UPGRADE_TEST === '1' && !!process.env
       {kind:'tenant-insertion-v1',domain},{kind:'tenant-insertion-binding-v1',domain},
       {kind:'identifier-array-index-v1',domain},{kind:'clinical-storage-size-v1',domain},{kind:'clinical-storage-size-removal-v1',domain},
       ...(['entries','treatments','devicestatus'].includes(domain)?['0101_'+domain+'_redundant_indexes']:[]),
-      ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays']:[]),
+      ...(domain==='devicestatus'?['0102_devicestatus_created_at_arrays',{kind:'devicestatus-sealed-days-v1',domain}]:[]),
       ...(domain==='treatments'?['0102_treatments_created_at_arrays']:[]),
       ...(domain==='entries'?['0102_entries_numeric_indexes_removed','0103_entries_follower_exceptions']:[]),
       ...(['entries','treatments'].includes(domain)?['0104_'+domain+'_clinical_time']:[])

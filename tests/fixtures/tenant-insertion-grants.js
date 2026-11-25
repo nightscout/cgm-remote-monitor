@@ -13,7 +13,9 @@ function statements ({ namespace, domain, role, catalogue, mode = 'serving' }) {
   const table = quote(namespace) + '.' + quote(domain), who = quote(role);
   if (!['serving', 'reader', 'restore'].includes(mode)) throw new TypeError('Explicit fixture role mode required');
   const ordered = admission.isOrderedCatalogue(catalogue);
-  if (mode === 'reader') return ['GRANT SELECT ON ' + table + ' TO ' + who,
+  const sealing = require('../../lib/storage/devicestatus-sealing');
+  const backing = catalogue.migrations.some(m => m.operation?.kind === sealing.KIND) ? sealing.grants({namespace, role, mode}) : [];
+  if (mode === 'reader') return [...backing, 'GRANT SELECT ON ' + table + ' TO ' + who,
     ...(ordered ? ['GRANT SELECT ON ' + quote(namespace) + '.tenant_insertion_ordinal TO ' + who] : [])];
   // The catalogue's windowed time column calls a function migration 0001 revokes
   // from PUBLIC; inserting and updating roles need EXECUTE on it (as production
@@ -28,7 +30,7 @@ function statements ({ namespace, domain, role, catalogue, mode = 'serving' }) {
   }
   if (ordered) {
     const built = proposal.build({ namespace, domain });
-    return [...base, ...(mode === 'restore' ? built.restoreGrants(role) : built.servingGrants(role)),
+    return [...base, ...(mode === 'restore' ? built.restoreGrants(role) : built.servingGrants(role)), ...backing,
       ...(timeKeys && mode === 'restore' ? ['GRANT INSERT(received_ms) ON ' + table + ' TO ' + who] : []),
       ...(mode === 'restore' ? ['GRANT DELETE ON ' + quote(namespace) + '.tenant_insertion_ordinal TO ' + who] : [])];
   }

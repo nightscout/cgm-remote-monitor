@@ -59,7 +59,11 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI (disposable PostgreSQL)')('identif
 
   for (const [domain, file] of FILES) {
     it(`${file}: a populated previous-catalogue namespace migrates with 0098 alone and becomes ready`, async () => {
-      const catalogue = load(file), previous = without0098(catalogue, domain);
+      // 0098 installs an index on the heap. Exercise the predecessor layout
+      // here; the later rename to the sealing view has its own upgrade test.
+      const source = load(file);
+      const catalogue = {...source, migrations: source.migrations.filter(m => m.operation?.kind !== 'devicestatus-sealed-days-v1')};
+      const previous = without0098(catalogue, domain);
       assert.equal(catalogue.migrations.length - previous.migrations.length, 1, 'ONE_NEW_MIGRATION');
       assert.deepEqual(catalogue.migrations.find(m => m.name === index.NAME(domain)).operation, { kind: 'identifier-array-index-v1', domain });
       const namespace = prefix + '_' + file.replace(/^postgres-|-v1\.json$/g, '').replace(/-/g, '_');

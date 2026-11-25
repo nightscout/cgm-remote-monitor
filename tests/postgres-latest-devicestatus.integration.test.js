@@ -33,7 +33,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
       readOnlyTransaction: fn => { transactions++; return reader.readOnlyTransaction(fn); },
       query (text, values) { seen.push({ text, values }); return reader.query(text, values); }
     };
-    const port = createPort({ connection, table, env, bus, source });
+    const port = createPort({ connection, table, catalogue, env, bus, source });
     return deviceStatus(env, { bus, storagePorts: { resolve: () => port } });
   }
 
@@ -57,7 +57,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
     const password = randomBytes(24).toString('hex');
     await admin.query(`CREATE ROLE ${role} LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${password}'`);
     await admin.query(`GRANT USAGE ON SCHEMA ${namespace} TO ${role}`);
-    await admin.query(`GRANT SELECT ON ${table} TO ${role}`);
+    await require('./fixtures/tenant-insertion-grants').grant(admin, { namespace, domain: 'devicestatus', role, catalogue, mode: 'reader' });
     const url = new URL(uri);
     url.username = role;
     url.password = password;
@@ -66,11 +66,11 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
     // The same wrapper and catalogue with the original generic reader.
     generic = route('v3');
     const proof = await scope.withTenant(A, () => reader.readOnlyTransaction(() =>
-      reader.query('SELECT current_user AS role, row_security_active($1::regclass) AS rls', [table])));
+      reader.query('SELECT current_user AS role, row_security_active($1::regclass) AS rls', [table + '_rows'])));
     assert.deepEqual(proof.rows, [{ role, rls: true }]);
   });
 
-  beforeEach(async function () { await admin.query('TRUNCATE ' + table); });
+  beforeEach(async function () { await admin.query('TRUNCATE ' + table + '_rows, ' + namespace + '.devicestatus_day'); });
 
   after(async function () {
     try {
@@ -139,7 +139,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
           'created_at', to_char((now() AT TIME ZONE 'UTC') - n * interval '5 minutes', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
         FROM generate_series(1, 576) AS n`, [tenant]));
     }
-    await admin.query('ANALYZE ' + table);
+    await admin.query('ANALYZE ' + table + '_rows');
     const explain = statement => scope.withTenant(A, () => reader.readOnlyTransaction(async () => {
       const { rows } = await reader.query('EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) ' + statement.text, statement.values);
       return rows[0]['QUERY PLAN'][0];
@@ -155,7 +155,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
       const indexed = await explain(seen[0]);
       assert(walk(old.Plan).some(n => n['Node Type'] === 'WindowAgg' && n['Actual Rows'] >= 576));
       assert(walk(indexed.Plan).some(n => n['Index Name'] === 'devicestatus_tenant_created_at_array'));
-      const scans = walk(indexed.Plan).filter(n => n['Relation Name'] === 'devicestatus');
+      const scans = walk(indexed.Plan).filter(n => n['Relation Name'] === 'devicestatus_rows');
       assert(scans.length >= 2);
       for (const node of scans) {
         assert(node['Actual Rows'] + (node['Rows Removed by Filter'] || 0) <= count + 1, JSON.stringify(node));
@@ -175,7 +175,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
     const historical = Array.from({ length: 120 }, (_, i) => ({ _id: 'historical-' + i,
       created_at: new Date(Date.UTC(2020, 0, 1, 0, i)).toISOString() }));
     await insert(A, ...historical);
-    await admin.query('ANALYZE ' + table);
+    await admin.query('ANALYZE ' + table + '_rows');
     const lo = historical[10].created_at, hi = historical[90].created_at;
     // Use the actual wrapper. Upper-only and reversed operator order keep their v1 edge semantics.
     for (const [range, matches] of [[{ $lte: hi, $gt: lo }, historical.slice(11, 91)],
@@ -199,7 +199,7 @@ optInSuite(!!uri, 'NS_TEST_POSTGRES_ADMIN_URI')('indexed v1 latest device status
   });
 
   it('checks arrays whose stored time key is NULL on a scalar-only predecessor schema', async function () {
-    await admin.query('ALTER TABLE ' + table + ' ALTER COLUMN created_at DROP EXPRESSION');
+    await admin.query('ALTER TABLE ' + table + '_rows ALTER COLUMN created_at DROP EXPRESSION');
     const timestamp = dated(-1000);
     await insert(A, { _id: 'legacy', created_at: [timestamp] });
     assert.equal((await admin.query('SELECT created_at FROM ' + table)).rows[0].created_at, null);
