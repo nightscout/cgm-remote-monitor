@@ -83,6 +83,19 @@ optInSuite(uri, 'NS_TEST_POSTGRES_ADMIN_URI')('role readiness: /healthz/isolatio
     assert.equal(answer.code, 0, answer.text);
   });
 
+  it('checks the API display role before it can log in and defers an absent role to the reader', async function () {
+    const display = 'v2_display_' + suffix;
+    const address = new URL(serving()); address.username = display;
+    const api = { connectionString: serving(), tenantSettings: { connectionString: address.toString() } };
+    assert.equal(await readiness.identity(api, 'api'), false);
+    await admin.query(`CREATE ROLE "${display}" NOLOGIN`);
+    try {
+      assert.equal(await readiness.identity(api, 'api'), true);
+      await admin.query(`GRANT "${login}" TO "${display}"`);
+      await assert.rejects(readiness.identity(api, 'api'), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
+    } finally { await admin.query(`DROP ROLE "${display}"`); }
+  });
+
   it('checks the selected API login on its private listener while boot is held', async function () {
     const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ns-probe-')), socketPath = path.join(dir, 'internal.sock');

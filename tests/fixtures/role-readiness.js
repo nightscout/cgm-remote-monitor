@@ -6,5 +6,9 @@
 const real = require('../../lib/server/serve/role-readiness');
 module.exports = function admitted (calls, check = async () => {}) {
   return Object.freeze({ ...real,
-    admit: async (_config, role) => { if (calls) calls.push('readiness-admit:' + role); await check(role); } });
+    admit: async (config, role) => {
+      if (calls) calls.push('readiness-admit:' + role);
+      await check(role);
+      return { displayRoleAdmitted: role === 'api' && !!config.tenantSettings };
+    } });
 };

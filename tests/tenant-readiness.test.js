@@ -31,13 +31,14 @@ async function withReadiness (value, fn) {
 }
 // Actual API boot with recorded dependencies. Every tenant builds inline on
 // demand, without a roster warm-up and without a per-tenant platform gate.
-function apiBoot ({ display, proof = true, transform } = {}) {
+function apiBoot ({ display, displayRoleAdmitted = !!display, proof = true, transform } = {}) {
   const admitted = [];
   const initialized = new Set(), calls = {}, resource = extra => ({ end: async () => {}, ...extra });
   const boot = load('lib/server/serve/preview-api.js', {
     './role-readiness': { ...require('../lib/server/serve/role-readiness'), admit: async (_config, role) => {
       admitted.push(role);
       if (!proof) throw Object.assign(new Error('PLATFORM_SERVING_IDENTITY_UNSAFE'), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
+      return { displayRoleAdmitted };
     } },
     ...(display ? { '../../tenant-settings/presentation-reader': (_config, options) => {
       assert.deepEqual(admitted, ['api'], 'display trust follows role admission');
@@ -96,9 +97,9 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
 
   it('control: removing the start check lets an unsafe API start (red); restored source refuses', async function () {
     const omitCheck = source => {
-      const needle = "await roleReadiness.admit(config, 'api');";
+      const needle = "await roleReadiness.admit(config, 'api')";
       assert.equal(source.split(needle).length, 2, 'START_CHECK_CONTROL_SEAM_REQUIRED');
-      return source.replace(needle, '');
+      return source.replace(needle, '{}');
     };
     const criterion = async transform => {
       const lab = apiBoot({ proof: false, transform });
@@ -241,6 +242,11 @@ describe('tenant readiness: serve, then warm (decision readiness-serve-then-warm
       await lab.calls.http(TENANTS[0]); assert(lab.initialized.has(TENANTS[0]), 'raw DATA still admits a tenant');
       assert.equal(reads, 0, 'no screen is driven through a tenant read');
     } finally { await role.close(); }
+    const deferred = apiBoot({ display, displayRoleAdmitted: false });
+    const deferredRole = await withReadiness(undefined, deferred.boot);
+    try {
+      assert.equal(deferred.calls.settingsOptions.roleAdmitted, false, 'a display login absent at boot must be screened on open');
+    } finally { await deferredRole.close(); }
     const refused = apiBoot({ display, proof: false });
     await assert.rejects(refused.boot(), { code: 'PLATFORM_SERVING_IDENTITY_UNSAFE' });
     assert.equal(refused.calls.settingsOptions, undefined, 'no display trust is constructed after a refused start check');
