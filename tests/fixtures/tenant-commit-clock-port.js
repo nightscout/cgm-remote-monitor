@@ -58,8 +58,15 @@ module.exports = function clockPortLab ({ replicas = 2 } = {}) {
       }
       await lab.reset();
     },
+    async resetClinicalRows () {
+      for (const domain of domains) {
+        // Device status is an updatable view on the sealing catalogue.
+        const clear = domain === 'devicestatus' ? 'DELETE FROM' : 'TRUNCATE';
+        await admin.query(`${clear} "${namespaces[domain]}"."${domain}"`);
+      }
+    },
     async reset () {
-      for (const domain of domains) await admin.query(`TRUNCATE "${namespaces[domain]}"."${domain}"`);
+      await lab.resetClinicalRows();
       await admin.query(`DELETE FROM "${namespaces.clock}".tenant_write_clock`);
       lab.initial = Date.now() + 100000;
       await admin.query(`INSERT INTO "${namespaces.clock}".tenant_write_clock VALUES ($1,$3),($2,$3)`, [A, B, lab.initial]);
