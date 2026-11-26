@@ -59,6 +59,7 @@
         "tests/legacy-bridge-boot-errors.test.js",
         "tests/levels.test.js",
         "tests/lint-cleanup-contracts.test.js",
+        "tests/log-colors.test.js",
         "tests/loop-apns-connections.test.js",
         "tests/loop.test.js",
         "tests/loopalyzer-sgv.test.js",

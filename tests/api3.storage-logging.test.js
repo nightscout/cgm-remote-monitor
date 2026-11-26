@@ -67,4 +67,23 @@ describe('API3 storage subscription logging', function () {
     assert.deepEqual(responses, [result]);
     assert.equal(logs.some(line => line.includes('storage-test-private-credential')), false);
   });
+
+  // #7275: a log line read in syslog or in a file keeps the text and loses
+  // the escape codes the terminal does not use.
+  for (const variable of ['NO_COLOR', 'NODE_DISABLE_COLORS']) {
+    it(`logs plain lines when ${variable} is set`, function () {
+      const saved = process.env[variable];
+      process.env[variable] = '1';
+      try {
+        const { socket, storage } = fixture(new Error('storage-test-private-credential'));
+        storage.subscribe(socket, { accessToken: 'storage-test-private-credential' }, () => {});
+        assert.ok(logs.length > 0, 'the refusal is logged');
+        assert.ok(logs.every(line => line.includes('STORAGE SOCKET: ')), 'the prefix is still there');
+        assert.equal(logs.some(line => line.includes('\x1B[')), false, 'no escape codes');
+      } finally {
+        if (saved === undefined) delete process.env[variable];
+        else process.env[variable] = saved;
+      }
+    });
+  }
 });
